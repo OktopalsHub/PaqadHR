@@ -127,6 +127,36 @@ export class AuditService extends AuditReportService {
     });
   }
 
+  async logPaymentSetupNotified(
+    context: AuditContext,
+    data: { memberId: string; employeeName: string },
+  ): Promise<void> {
+    await this.logEvent(context, {
+      eventType: AuditEventType.PAYROLL_PAYMENT_SETUP_NOTIFIED,
+      description: `Notified ${data.employeeName} to complete payment settings`,
+      afterData: data,
+      metadata: {
+        memberId: data.memberId,
+        notifiedAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  async logPayrollScheduled(
+    context: AuditContext,
+    data: { title: string; paymentDate: string },
+  ): Promise<void> {
+    await this.logEvent(context, {
+      eventType: AuditEventType.PAYROLL_SCHEDULED,
+      description: `Payroll scheduled: ${data.title} for ${data.paymentDate}`,
+      afterData: data,
+      metadata: {
+        paymentDate: data.paymentDate,
+        scheduledAt: new Date().toISOString(),
+      },
+    });
+  }
+
   async logPayrollProcessed(
     context: AuditContext,
     payrollRunData: Record<string, unknown>,

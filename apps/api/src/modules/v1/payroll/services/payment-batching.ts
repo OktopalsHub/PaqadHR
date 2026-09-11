@@ -17,6 +17,7 @@ import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { buildPayrollPaymentData, resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
+import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
 
 type PreparedPayout = {
@@ -30,11 +31,18 @@ type PreparedPayout = {
 
 export class PaymentBatching {
   private readonly logger = new Logger(PaymentBatching.name);
+  private runNotifyContext: {
+    periodStart?: string | Date | null;
+    periodEnd?: string | Date | null;
+    baseCurrency?: string | null;
+  } | null = null;
+
   constructor(
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly paymentMethodService: PaymentMethodService,
     private readonly paymentProviderFactory: PaymentProviderFactoryService,
     private readonly payrollPayoutService: PayrollPayoutService,
+    private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {}
 
   async categorizePayments(
@@ -106,7 +114,27 @@ export class PaymentBatching {
 
   async processPayouts(
     items: PayrollItem[],
-    _auditContext: AuditContext,
+    auditContext: AuditContext,
+    tenantId: string,
+    tenantName?: string,
+    payrollRunTitle?: string,
+    runContext?: {
+      periodStart?: string | Date | null;
+      periodEnd?: string | Date | null;
+      baseCurrency?: string | null;
+    },
+  ): Promise<PaymentResult[]> {
+    this.runNotifyContext = runContext ?? null;
+    try {
+      return await this.executePayouts(items, auditContext, tenantId, tenantName, payrollRunTitle);
+    } finally {
+      this.runNotifyContext = null;
+    }
+  }
+
+  private async executePayouts(
+    items: PayrollItem[],
+    auditContext: AuditContext,
     tenantId: string,
     tenantName?: string,
     payrollRunTitle?: string,
@@ -138,7 +166,14 @@ export class PaymentBatching {
         prepared.push(preparedItem);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const applied = await this.applyPreparationFailure(item, message, rail);
+        const applied = await this.applyPreparationFailure(
+          item,
+          message,
+          rail,
+          tenantId,
+          auditContext,
+          payrollRunTitle,
+        );
         results.push(applied);
       }
     }
@@ -158,7 +193,16 @@ export class PaymentBatching {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         for (const entry of group) {
-          results.push(await this.applyPreparationFailure(entry.item, message, entry.rail));
+          results.push(
+            await this.applyPreparationFailure(
+              entry.item,
+              message,
+              entry.rail,
+              tenantId,
+              auditContext,
+              payrollRunTitle,
+            ),
+          );
         }
         continue;
       }
@@ -182,7 +226,9 @@ export class PaymentBatching {
           rail: entry.rail,
           reference: ref,
         };
-        results.push(await this.applyPayoutResult(entry, result));
+        results.push(
+          await this.applyPayoutResult(entry, result, tenantId, auditContext, payrollRunTitle),
+        );
       }
     }
 
@@ -250,6 +296,9 @@ export class PaymentBatching {
   private async applyPayoutResult(
     entry: PreparedPayout,
     result: PaymentResult,
+    tenantId: string,
+    auditContext: AuditContext,
+    payrollRunTitle?: string,
   ): Promise<PaymentResult> {
     const { item, paymentMethod, providerName, rail } = entry;
     try {
@@ -276,6 +325,47 @@ export class PaymentBatching {
               ? result.error || `${providerName} transfer failed`
               : null,
         });
+        item.status = itemStatus;
+        item.transactionId = result.transactionId ?? null;
+        item.paymentProvider = providerName;
+        item.paidAt = itemStatus === PayrollItemStatus.PAID ? new Date() : null;
+        item.failureReason =
+          itemStatus === PayrollItemStatus.FAILED
+            ? result.error || `${providerName} transfer failed`
+            : null;
+
+        if (this.lifecycleNotify && itemStatus === PayrollItemStatus.PAID) {
+          await this.lifecycleNotify.onItemPaid({
+            tenantId,
+            item,
+            run: {
+              id: item.payrollRunId,
+              title: payrollRunTitle ?? 'Payroll',
+              tenantId,
+              periodStart: this.runNotifyContext?.periodStart,
+              periodEnd: this.runNotifyContext?.periodEnd,
+              baseCurrency: this.runNotifyContext?.baseCurrency,
+            },
+            auditContext,
+          });
+        }
+        if (this.lifecycleNotify && itemStatus === PayrollItemStatus.FAILED) {
+          await this.lifecycleNotify.onItemFailed({
+            tenantId,
+            item,
+            run: {
+              id: item.payrollRunId,
+              title: payrollRunTitle ?? 'Payroll',
+              tenantId,
+              periodStart: this.runNotifyContext?.periodStart,
+              periodEnd: this.runNotifyContext?.periodEnd,
+              baseCurrency: this.runNotifyContext?.baseCurrency,
+            },
+            reason: item.failureReason || 'Payment failed',
+            auditContext,
+          });
+        }
+
         const outcome =
           itemStatus === PayrollItemStatus.PAID
             ? ('paid' as const)
@@ -317,7 +407,14 @@ export class PaymentBatching {
       throw new BadRequestException(result.error || 'Payment failed');
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return this.applyPreparationFailure(item, message, rail);
+      return this.applyPreparationFailure(
+        item,
+        message,
+        rail,
+        tenantId,
+        auditContext,
+        payrollRunTitle,
+      );
     }
   }
 
@@ -325,6 +422,9 @@ export class PaymentBatching {
     item: PayrollItem,
     message: string,
     rail: 'bank' | 'crypto',
+    tenantId: string,
+    auditContext: AuditContext,
+    payrollRunTitle?: string,
   ): Promise<PaymentResult> {
     const lower = message.toLowerCase();
     const retryable =
@@ -341,6 +441,24 @@ export class PaymentBatching {
         status: PayrollItemStatus.FAILED,
         failureReason: message,
       });
+      item.status = PayrollItemStatus.FAILED;
+      item.failureReason = message;
+      if (this.lifecycleNotify) {
+        await this.lifecycleNotify.onItemFailed({
+          tenantId,
+          item,
+          run: {
+            id: item.payrollRunId,
+            title: payrollRunTitle ?? 'Payroll',
+            tenantId,
+            periodStart: this.runNotifyContext?.periodStart,
+            periodEnd: this.runNotifyContext?.periodEnd,
+            baseCurrency: this.runNotifyContext?.baseCurrency,
+          },
+          reason: message,
+          auditContext,
+        });
+      }
     }
     return {
       success: false,

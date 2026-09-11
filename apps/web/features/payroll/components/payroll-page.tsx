@@ -66,12 +66,32 @@ function statusVariant(status: string) {
   }
 }
 
+function payrollStatusLabel(status: string) {
+  switch (status) {
+    case 'completed':
+      return 'Paid';
+    case 'processing':
+      return 'Ready to approve';
+    case 'approved':
+      return 'Approved';
+    case 'failed':
+      return 'Failed';
+    case 'draft':
+      return 'Draft';
+    default:
+      return status;
+  }
+}
+
 function canDeletePayrollRun(run: Pick<PayrollRun, 'status'>) {
   return run.status !== 'completed';
 }
 
 const APPROVE_BUTTON_CLASS =
   'border-emerald-600 bg-emerald-600 text-white shadow-none hover:bg-emerald-700 hover:text-white dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500';
+
+const PAID_BADGE_CLASS =
+  'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300';
 
 function PayrollRunRow({
   run,
@@ -131,7 +151,6 @@ function PayrollRunRow({
       action: 'schedule',
       paymentDate: run.paymentDate ? String(run.paymentDate).slice(0, 10) : undefined,
     });
-    secondaryItems.push({ label: 'Mark paid', action: 'disburse' });
   }
   if (canDelete) {
     secondaryItems.push({ label: 'Delete', action: 'delete', destructive: true });
@@ -152,7 +171,11 @@ function PayrollRunRow({
       >
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium text-slate-950 dark:text-slate-100">{run.title}</p>
-          <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+          {run.status === 'completed' ? (
+            <Badge className={PAID_BADGE_CLASS}>{payrollStatusLabel(run.status)}</Badge>
+          ) : (
+            <Badge variant={statusVariant(run.status)}>{payrollStatusLabel(run.status)}</Badge>
+          )}
           {scheduledLabel ? <Badge variant="outline">{scheduledLabel}</Badge> : null}
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -665,7 +688,7 @@ export function PayrollPage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              Pays from your payout provider balance. Opens checkout only if that balance is short.
+              Opens checkout to fund this payroll, then pays employees automatically.
             </p>
             <Button
               variant="brandSolid"

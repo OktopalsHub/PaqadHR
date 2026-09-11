@@ -1,6 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
+import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
+import { TenantsService } from '../../tenants/tenants.service';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
 import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
@@ -8,6 +10,7 @@ import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { AuditService } from './audit.service';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { RunLifecycle } from './run-lifecycle';
 import { RunPayslips } from './run-payslips';
 
@@ -21,6 +24,9 @@ export class PayrollRunService {
     readonly payrollItemRepository: PayrollItemRepository,
     readonly auditService: AuditService,
     readonly managerAccessService: ManagerAccessService,
+    @Optional() tenantConfigService?: TenantConfigService,
+    @Optional() tenantsService?: TenantsService,
+    @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {
     this.lifecycle = new RunLifecycle(
       payrollRunRepository,
@@ -33,6 +39,9 @@ export class PayrollRunService {
       payrollItemRepository,
       auditService,
       managerAccessService,
+      tenantConfigService,
+      tenantsService,
+      lifecycleNotify,
     );
   }
 

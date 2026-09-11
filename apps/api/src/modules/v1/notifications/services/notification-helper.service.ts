@@ -68,6 +68,54 @@ export class NotificationHelperService {
     );
   }
 
+  async sendPayrollApprovedAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: { title: string; period: string },
+  ): Promise<void> {
+    return this.payrollNotifications.sendPayrollApprovedAdminNotification(
+      recipientIds,
+      tenantId,
+      variables,
+    );
+  }
+
+  async sendPayrollPayoutFailedAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: { employeeName: string; title: string; reason: string },
+  ): Promise<void> {
+    return this.payrollNotifications.sendPayrollPayoutFailedAdminNotification(
+      recipientIds,
+      tenantId,
+      variables,
+    );
+  }
+
+  async sendPayrollScheduledAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: { title: string; paymentDate: string },
+  ): Promise<void> {
+    return this.payrollNotifications.sendPayrollScheduledAdminNotification(
+      recipientIds,
+      tenantId,
+      variables,
+    );
+  }
+
+  async sendPayrollScheduledDueAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: { title: string; paymentDate: string },
+  ): Promise<void> {
+    return this.payrollNotifications.sendPayrollScheduledDueAdminNotification(
+      recipientIds,
+      tenantId,
+      variables,
+    );
+  }
+
   async sendBillingRenewalFailedNotification(
     recipientId: string,
     tenantId: string,

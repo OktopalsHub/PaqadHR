@@ -14,6 +14,7 @@ import {
   buildPayrollMerchantRef,
   parsePayrollMerchantRef,
 } from '../utils/payroll-merchant-ref.util';
+import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 const PAYROLL_AMOUNT_TOLERANCE = 1;
 
@@ -55,6 +56,7 @@ export class PayoutReconciliation {
     private readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem)
     private readonly payrollItemRepo: Repository<PayrollItem>,
+    private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {}
 
   async resolveTenantId(payrollRunId: string): Promise<string | undefined> {
@@ -217,7 +219,7 @@ export class PayoutReconciliation {
     }
     const item = await this.payrollItemRepository.findOne({
       where,
-      relations: ['payrollRun'],
+      relations: ['payrollRun', 'employee'],
     });
     if (!item) return false;
     if (tenantId) {
@@ -230,6 +232,8 @@ export class PayoutReconciliation {
 
     const status = rawStatus.toUpperCase();
     const providerName = paymentProviderLabel(provider);
+    const resolvedTenantId =
+      tenantId ?? item.payrollRun?.tenantId ?? (await this.resolveTenantId(item.payrollRunId));
 
     if (SUCCESS_STATUSES.has(status)) {
       if (item.status === PayrollItemStatus.PAID) return false;
@@ -256,6 +260,19 @@ export class PayoutReconciliation {
       item.paidAt = new Date();
       item.failureReason = null;
       await this.payrollItemRepository.save(item);
+      if (resolvedTenantId && this.lifecycleNotify) {
+        await this.lifecycleNotify.onItemPaid({
+          tenantId: resolvedTenantId,
+          item,
+          run: item.payrollRun,
+          auditContext: {
+            tenantId: resolvedTenantId,
+            payrollRunId: item.payrollRunId,
+            performedById: item.payrollRun?.createdById ?? item.memberId,
+            memberId: item.memberId,
+          },
+        });
+      }
       return true;
     }
 
@@ -267,6 +284,20 @@ export class PayoutReconciliation {
       item.failureReason = `${providerName} ${status.toLowerCase()}`;
       await this.payrollItemRepository.save(item);
       this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
+      if (resolvedTenantId && this.lifecycleNotify) {
+        await this.lifecycleNotify.onItemFailed({
+          tenantId: resolvedTenantId,
+          item,
+          run: item.payrollRun,
+          reason: item.failureReason,
+          auditContext: {
+            tenantId: resolvedTenantId,
+            payrollRunId: item.payrollRunId,
+            performedById: item.payrollRun?.createdById ?? item.memberId,
+            memberId: item.memberId,
+          },
+        });
+      }
       return true;
     }
 
@@ -303,10 +334,21 @@ export class PayoutReconciliation {
     const items = run.items;
     if (items.length === 0) return;
 
+    const approvedAt = run.metadata?.approvedAt;
+    const postApproval =
+      (typeof approvedAt === 'string' && approvedAt.length > 0) ||
+      run.status === PayrollStatus.APPROVED ||
+      run.status === PayrollStatus.COMPLETED ||
+      run.status === PayrollStatus.FAILED;
+    if (!postApproval) {
+      return;
+    }
+
     let pending = 0;
     let processing = 0;
     let paid = 0;
     let failed = 0;
+    let cancelled = 0;
 
     for (const item of items) {
       switch (item.status) {
@@ -322,29 +364,52 @@ export class PayoutReconciliation {
         case PayrollItemStatus.FAILED:
           failed += 1;
           break;
+        case PayrollItemStatus.CANCELLED:
+          cancelled += 1;
+          break;
         default:
           break;
       }
     }
 
-    const inFlight = pending + processing;
+    const active = items.length - cancelled;
+    if (active <= 0) {
+      run.status = PayrollStatus.CANCELLED;
+      await this.payrollRunRepository.save(run);
+      return;
+    }
 
-    if (inFlight > 0) {
-      run.status = PayrollStatus.PROCESSING;
-    } else if (paid === items.length) {
-      run.status = PayrollStatus.COMPLETED;
+    const _inFlight = pending + processing;
+
+    run.status = resolvePostApprovalPayrollStatus({
+      pending,
+      processing,
+      paid,
+      failed,
+      active,
+    });
+    if (run.status === PayrollStatus.COMPLETED) {
       run.processedAt = run.processedAt ?? new Date();
-    } else if (failed === items.length) {
-      run.status = PayrollStatus.FAILED;
-    } else if (paid > 0 && failed > 0) {
-      run.status = PayrollStatus.PROCESSING;
-    } else if (paid > 0) {
-      run.status = PayrollStatus.COMPLETED;
-      run.processedAt = run.processedAt ?? new Date();
-    } else {
-      run.status = PayrollStatus.FAILED;
     }
 
     await this.payrollRunRepository.save(run);
   }
+}
+
+/** Post-approval run status from item counts. Never returns `processing` (that means pre-approve). */
+export function resolvePostApprovalPayrollStatus(counts: {
+  pending: number;
+  processing: number;
+  paid: number;
+  failed: number;
+  active: number;
+}): PayrollStatus {
+  const inFlight = counts.pending + counts.processing;
+  if (counts.active <= 0) return PayrollStatus.CANCELLED;
+  if (inFlight > 0) return PayrollStatus.APPROVED;
+  if (counts.paid === counts.active) return PayrollStatus.COMPLETED;
+  if (counts.failed === counts.active) return PayrollStatus.FAILED;
+  if (counts.paid > 0 && counts.failed > 0) return PayrollStatus.APPROVED;
+  if (counts.paid > 0) return PayrollStatus.COMPLETED;
+  return PayrollStatus.FAILED;
 }

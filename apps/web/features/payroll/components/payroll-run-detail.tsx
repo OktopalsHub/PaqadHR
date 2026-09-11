@@ -74,6 +74,8 @@ function getPayrollStatusStyles(status: string) {
     case 'processing':
     case 'approved':
       return 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-400';
+    case 'failed':
+      return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-400';
     case 'draft':
     case 'unpublished':
       return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-400';
@@ -92,11 +94,30 @@ function getPayrollStatusDotClass(status: string) {
     case 'processing':
     case 'approved':
       return 'bg-blue-500';
+    case 'failed':
+      return 'bg-red-500';
     case 'draft':
     case 'unpublished':
       return 'bg-amber-500';
     default:
       return 'bg-gray-400 dark:bg-gray-500';
+  }
+}
+
+function payrollStatusLabel(status: string) {
+  switch (status.toLowerCase()) {
+    case 'completed':
+      return 'Paid';
+    case 'processing':
+      return 'Ready to approve';
+    case 'approved':
+      return 'Approved';
+    case 'failed':
+      return 'Failed';
+    case 'draft':
+      return 'Draft';
+    default:
+      return status;
   }
 }
 
@@ -542,7 +563,7 @@ export function PayrollRunDetail({
                 <span
                   className={`size-1.5 rounded-full ${getPayrollStatusDotClass(detail.status)}`}
                 />
-                {detail.status}
+                {payrollStatusLabel(detail.status)}
               </span>
               {detail.payoutMode === 'scheduled' && detail.paymentDate ? (
                 <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-400">
@@ -632,7 +653,24 @@ export function PayrollRunDetail({
                   >
                     Pay employees
                   </Button>
-                ) : null}
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                    disabled={busy}
+                    onClick={async () => {
+                      try {
+                        await actions.disburse.mutateAsync(runId);
+                        toast.success('Marked as paid');
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : 'Disburse failed');
+                      }
+                    }}
+                  >
+                    Mark paid
+                  </Button>
+                )}
                 {payrollGatewayEnabled ? (
                   <Button
                     size="sm"
@@ -645,22 +683,6 @@ export function PayrollRunDetail({
                     {detail.paymentDate ? ` for ${formatDate(detail.paymentDate)}` : ''}
                   </Button>
                 ) : null}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                  disabled={busy}
-                  onClick={async () => {
-                    try {
-                      await actions.disburse.mutateAsync(runId);
-                      toast.success('Marked as paid');
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : 'Disburse failed');
-                    }
-                  }}
-                >
-                  Mark paid
-                </Button>
               </>
             ) : null}
           </div>
@@ -673,8 +695,7 @@ export function PayrollRunDetail({
             </DialogHeader>
             <div className="space-y-4 pt-2">
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                Pays from your payout provider balance. Opens checkout only if that balance is
-                short.
+                Opens checkout to fund this payroll, then pays employees automatically.
               </p>
               <Button
                 variant="brandSolid"

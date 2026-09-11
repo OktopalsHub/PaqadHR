@@ -81,6 +81,74 @@ export class PayrollNotificationsService {
     });
   }
 
+  async sendPayrollApprovedAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: { title: string; period: string },
+  ): Promise<void> {
+    if (recipientIds.length === 0) return;
+    await this.notificationService.createBulkNotifications({
+      recipientIds,
+      tenantId,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Payroll approved',
+      message: `${variables.title} (${variables.period}) is approved and ready to pay.`,
+      metadata: { type: 'payroll_approved' },
+    });
+  }
+
+  async sendPayrollPayoutFailedAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: { employeeName: string; title: string; reason: string },
+  ): Promise<void> {
+    if (recipientIds.length === 0) return;
+    await this.notificationService.createBulkNotifications({
+      recipientIds,
+      tenantId,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.HIGH,
+      title: 'Payroll payment failed',
+      message: `Payment to ${variables.employeeName} for ${variables.title} failed: ${variables.reason}`,
+      metadata: { type: 'payroll_payment_failed' },
+    });
+  }
+
+  async sendPayrollScheduledAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: { title: string; paymentDate: string },
+  ): Promise<void> {
+    if (recipientIds.length === 0) return;
+    await this.notificationService.createBulkNotifications({
+      recipientIds,
+      tenantId,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Payroll scheduled',
+      message: `${variables.title} is scheduled for ${variables.paymentDate}.`,
+      metadata: { type: 'payroll_scheduled' },
+    });
+  }
+
+  async sendPayrollScheduledDueAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: { title: string; paymentDate: string },
+  ): Promise<void> {
+    if (recipientIds.length === 0) return;
+    await this.notificationService.createBulkNotifications({
+      recipientIds,
+      tenantId,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.HIGH,
+      title: 'Scheduled payroll is due',
+      message: `${variables.title} is due (${variables.paymentDate}) and payout is starting.`,
+      metadata: { type: 'payroll_scheduled_due' },
+    });
+  }
+
   async sendPaymentMethodSubmittedAdminNotification(
     recipientIds: string[],
     tenantId: string,

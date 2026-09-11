@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
@@ -15,6 +15,7 @@ import { AuditService } from './audit.service';
 import { ManualDisbursementService } from './manual-disbursement.service';
 import { MultiPaymentService } from './multi-payment.service';
 import { PayrollExportService } from './payroll-export.service';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 @Injectable()
 export class PayrollPaymentOrchestrator {
@@ -29,6 +30,7 @@ export class PayrollPaymentOrchestrator {
     private readonly manualDisbursementService: ManualDisbursementService,
     private readonly multiPaymentService: MultiPaymentService,
     private readonly payrollExportService: PayrollExportService,
+    @Optional() private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {}
 
   async getPayrollReadiness(payrollRunId: string, tenantId: string) {
@@ -119,6 +121,20 @@ export class PayrollPaymentOrchestrator {
       totalNetAmount: run.totalNetAmount,
       employeeCount: run.employeeCount,
     });
+    if (this.lifecycleNotify) {
+      await this.lifecycleNotify.onPayrollApproved({
+        tenantId,
+        run: {
+          id: run.id,
+          title: run.title,
+          tenantId,
+          periodStart: run.periodStart,
+          periodEnd: run.periodEnd,
+          baseCurrency: run.baseCurrency,
+        },
+        actorMemberId: auditContext.performedById,
+      });
+    }
     return run;
   }
 
@@ -185,6 +201,7 @@ export class PayrollPaymentOrchestrator {
     payrollRunId: string,
     tenantId: string,
     paymentDate?: Date,
+    auditContext?: AuditContext,
   ): Promise<PayrollRun> {
     const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId, tenantId } });
     if (!run) throw new BadRequestException('Payroll run not found');
@@ -194,12 +211,30 @@ export class PayrollPaymentOrchestrator {
     if (paymentDate) run.paymentDate = paymentDate;
     if (!run.paymentDate) throw new BadRequestException('Set a payment date before scheduling');
     run.payoutMode = 'scheduled';
+    const scheduledFor = this.toIsoDatePart(run.paymentDate);
     run.metadata = {
       ...run.metadata,
       scheduledAt: new Date().toISOString(),
-      scheduledFor: this.toIsoDatePart(run.paymentDate),
+      scheduledFor,
     };
-    return this.payrollRunRepository.save(run);
+    const saved = await this.payrollRunRepository.save(run);
+    if (this.lifecycleNotify && auditContext) {
+      await this.lifecycleNotify.onPayrollScheduled({
+        tenantId,
+        run: {
+          id: saved.id,
+          title: saved.title,
+          tenantId,
+          periodStart: saved.periodStart,
+          periodEnd: saved.periodEnd,
+          baseCurrency: saved.baseCurrency,
+          paymentDate: saved.paymentDate,
+        },
+        paymentDate: scheduledFor,
+        auditContext,
+      });
+    }
+    return saved;
   }
 
   async processDueScheduledPayouts(): Promise<{ processed: number; failed: number }> {
@@ -217,6 +252,19 @@ export class PayrollPaymentOrchestrator {
       failed = 0;
     for (const run of dueRuns) {
       try {
+        if (this.lifecycleNotify) {
+          await this.lifecycleNotify.onScheduledPayoutDue({
+            tenantId: run.tenantId,
+            run: {
+              id: run.id,
+              title: run.title,
+              tenantId: run.tenantId,
+              periodStart: run.periodStart,
+              periodEnd: run.periodEnd,
+              paymentDate: run.paymentDate,
+            },
+          });
+        }
         await this.multiPaymentService.processMultiPaymentPayroll(run.id, run.tenantId, {
           tenantId: run.tenantId,
           payrollRunId: run.id,

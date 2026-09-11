@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
@@ -11,6 +11,7 @@ import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { PaymentBatching } from './payment-batching';
 import { PaymentValidation } from './payment-validation';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
 
 @Injectable()
@@ -23,6 +24,7 @@ export class MultiPaymentService {
     readonly paymentMethodService: PaymentMethodService,
     readonly paymentProviderFactory: PaymentProviderFactoryService,
     private readonly payrollPayoutService: PayrollPayoutService,
+    @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {
     this.validation = new PaymentValidation(payrollItemRepository);
     this.batching = new PaymentBatching(
@@ -30,6 +32,7 @@ export class MultiPaymentService {
       paymentMethodService,
       paymentProviderFactory,
       payrollPayoutService,
+      lifecycleNotify,
     );
   }
   async processMultiPaymentPayroll(
@@ -79,6 +82,11 @@ export class MultiPaymentService {
       tenantId,
       payrollRun.tenant?.name,
       payrollRun.title,
+      {
+        periodStart: payrollRun.periodStart,
+        periodEnd: payrollRun.periodEnd,
+        baseCurrency: payrollRun.baseCurrency,
+      },
     );
     const summary = this.validation.calculatePaymentSummary(payoutResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
@@ -149,6 +157,11 @@ export class MultiPaymentService {
       tenantId,
       payrollRun.tenant?.name,
       payrollRun.title,
+      {
+        periodStart: payrollRun.periodStart,
+        periodEnd: payrollRun.periodEnd,
+        baseCurrency: payrollRun.baseCurrency,
+      },
     );
     const summary = this.validation.calculatePaymentSummary(payoutResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);

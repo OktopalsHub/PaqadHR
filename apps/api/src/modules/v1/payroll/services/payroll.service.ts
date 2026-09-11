@@ -23,6 +23,7 @@ import { PayrollAccessGuard } from './payroll-access-guard';
 import { PayrollCalculationService } from './payroll-calculation.service';
 import { PayrollExportService } from './payroll-export.service';
 import { PayrollFloatTopupService } from './payroll-float-topup.service';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 import { PayrollRunService } from './payroll-run.service';
 
@@ -42,6 +43,7 @@ export class PayrollService {
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly paymentMethodService: PaymentMethodService,
     private readonly tenantMembersService: TenantMembersService,
+    private readonly lifecycleNotify: PayrollLifecycleNotifyService,
     @Optional() readonly _paymentProviderFactory?: PaymentProviderFactoryService,
     @Optional() readonly _notificationHelper?: NotificationHelperService,
   ) {}
@@ -213,11 +215,17 @@ export class PayrollService {
     return this.payrollFloatTopupService.assertFundedOrThrow(payrollRunId, tenantId);
   }
 
-  async schedulePayrollPayout(payrollRunId: string, tenantId: string, paymentDate?: Date) {
+  async schedulePayrollPayout(
+    payrollRunId: string,
+    tenantId: string,
+    paymentDate?: Date,
+    auditContext?: AuditContext,
+  ) {
     return this.payrollPaymentOrchestrator.schedulePayrollPayout(
       payrollRunId,
       tenantId,
       paymentDate,
+      auditContext,
     );
   }
 
@@ -296,35 +304,47 @@ export class PayrollService {
     );
     const run = await this.payrollRunService.getPayrollRun(payrollRunId, tenantId);
     const item = run?.items?.find((entry) => entry.id === itemId);
-    const employee = item?.employee;
-    if (employee?.userId && this._notificationHelper) {
-      const employeeName =
-        `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || 'there';
-      await this._notificationHelper.sendPayrollPaymentSetupReminder(employee.userId, tenantId, {
-        employeeName,
-        payrollPeriod: `${run?.periodStart ?? ''} – ${run?.periodEnd ?? ''}`,
-        message: 'please add your payment details so you can be included in payroll.',
-      });
-    }
+    if (!item) return result;
+    const employee = item.employee;
+    const employeeName =
+      `${employee?.firstName ?? ''} ${employee?.lastName ?? ''}`.trim() || 'there';
+    await this.lifecycleNotify.notifyPaymentSetup({
+      tenantId,
+      memberId: item.memberId,
+      employeeName,
+      payrollPeriod: `${run?.periodStart ?? ''} – ${run?.periodEnd ?? ''}`,
+      auditContext: {
+        tenantId,
+        payrollRunId,
+        performedById: requesterMemberId ?? '',
+        memberId: item.memberId,
+      },
+    });
     return result;
   }
 
-  async notifyMemberPaymentSetup(tenantId: string, memberId: string, requesterRole: string) {
+  async notifyMemberPaymentSetup(
+    tenantId: string,
+    memberId: string,
+    requesterRole: string,
+    requesterMemberId?: string,
+  ) {
     if (!this.isPayrollAdmin(requesterRole)) {
       throw new ForbiddenException('Admin access required');
     }
     const member = await this.tenantMembersService.getTenantMember(memberId, tenantId);
-    if (!member.userId) {
-      throw new BadRequestException('Employee not found for notification');
-    }
     const employeeName = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() || 'there';
-    if (this._notificationHelper) {
-      await this._notificationHelper.sendPayrollPaymentSetupReminder(member.userId, tenantId, {
-        employeeName,
-        payrollPeriod: 'upcoming payroll',
-        message: 'please add your payment details so you can be included in payroll.',
-      });
-    }
+    await this.lifecycleNotify.notifyPaymentSetup({
+      tenantId,
+      memberId,
+      employeeName,
+      payrollPeriod: 'upcoming payroll',
+      auditContext: {
+        tenantId,
+        performedById: requesterMemberId ?? memberId,
+        memberId,
+      },
+    });
     return { notified: true, memberId };
   }
 

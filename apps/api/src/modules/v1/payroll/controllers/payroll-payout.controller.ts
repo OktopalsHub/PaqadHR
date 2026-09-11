@@ -123,8 +123,15 @@ export class PayrollPayoutController {
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: SchedulePayrollPayoutDto,
+    @Req() req: IAuthenticatedMemberRequest,
   ) {
-    const run = await this.payrollService.schedulePayrollPayout(id, tenantId, dto.paymentDate);
+    const run = await this.payrollService.schedulePayrollPayout(id, tenantId, dto.paymentDate, {
+      tenantId,
+      payrollRunId: id,
+      performedById: req.member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    });
     return {
       message: 'Payroll scheduled',
       run,

@@ -18,6 +18,7 @@ import {
   assertPayrollRunTitleEditable,
 } from '../utils/payroll-mutability.util';
 import { AuditService } from './audit.service';
+import { resolvePostApprovalPayrollStatus } from './payout-reconciliation';
 
 @Injectable()
 export class RunLifecycle {
@@ -95,11 +96,14 @@ export class RunLifecycle {
     return saved;
   }
   async getPayrollRun(id: string, tenantId: string): Promise<PayrollRun | null> {
-    return this.payrollRunRepository.findOne({
+    const run = await this.payrollRunRepository.findOne({
       where: { id, tenantId },
       relations: ['items', 'items.employee', 'createdBy', 'tenant'],
     });
+    if (!run) return null;
+    return this.healMisclassifiedApprovedRun(run);
   }
+
   async getPayrollRuns(tenantId: string, limit = 20, offset = 0) {
     const { data: runs, total } = await this.payrollRunRepository.paginate({
       where: { tenantId },
@@ -108,7 +112,8 @@ export class RunLifecycle {
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
-    return { runs, total };
+    const healed = await Promise.all(runs.map((run) => this.healMisclassifiedApprovedRun(run)));
+    return { runs: healed, total };
   }
   async getPayrollRunsForRequester(
     tenantId: string,
@@ -363,5 +368,67 @@ export class RunLifecycle {
       adjustmentCount: dto.adjustmentLines?.length ?? 0,
     });
     return (await this.getPayrollRun(payrollRunId, tenantId))!;
+  }
+
+  /**
+   * Older payout reconciliation set approved runs back to `processing`, which resurfaces Approve.
+   * Heal on read using approvedAt + item statuses.
+   */
+  private async healMisclassifiedApprovedRun(run: PayrollRun): Promise<PayrollRun> {
+    const approvedAt = run.metadata?.approvedAt;
+    if (
+      run.status !== PayrollStatus.PROCESSING ||
+      typeof approvedAt !== 'string' ||
+      approvedAt.length === 0
+    ) {
+      return run;
+    }
+
+    const items = run.items;
+    if (!items || items.length === 0) {
+      run.status = PayrollStatus.APPROVED;
+      return this.payrollRunRepository.save(run);
+    }
+
+    let pending = 0;
+    let processing = 0;
+    let paid = 0;
+    let failed = 0;
+    let cancelled = 0;
+    for (const item of items) {
+      switch (item.status) {
+        case PayrollItemStatus.PENDING:
+          pending += 1;
+          break;
+        case PayrollItemStatus.PROCESSING:
+          processing += 1;
+          break;
+        case PayrollItemStatus.PAID:
+          paid += 1;
+          break;
+        case PayrollItemStatus.FAILED:
+          failed += 1;
+          break;
+        case PayrollItemStatus.CANCELLED:
+          cancelled += 1;
+          break;
+        default:
+          break;
+      }
+    }
+
+    const next = resolvePostApprovalPayrollStatus({
+      pending,
+      processing,
+      paid,
+      failed,
+      active: items.length - cancelled,
+    });
+    if (next === run.status) return run;
+    run.status = next;
+    if (next === PayrollStatus.COMPLETED) {
+      run.processedAt = run.processedAt ?? new Date();
+    }
+    return this.payrollRunRepository.save(run);
   }
 }

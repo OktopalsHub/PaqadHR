@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
@@ -10,6 +10,7 @@ import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { PayoutReconciliation } from './payout-reconciliation';
 import { PayoutWebhooks } from './payout-webhooks';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 @Injectable()
 export class PayrollPayoutService {
@@ -24,6 +25,7 @@ export class PayrollPayoutService {
     readonly payrollItemRepository: PayrollItemRepository,
     readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem) readonly payrollItemRepo: Repository<PayrollItem>,
+    @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {
     this.reconciliation = new PayoutReconciliation(
       fincraApi,
@@ -31,6 +33,7 @@ export class PayrollPayoutService {
       payrollItemRepository,
       payrollRunRepository,
       payrollItemRepo,
+      lifecycleNotify,
     );
     this.webhooks = new PayoutWebhooks(
       nombaTransferApi,

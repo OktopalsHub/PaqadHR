@@ -565,7 +565,7 @@ describe('MultiPaymentService', () => {
 
     await service.retryFailedPayments('run-1', 'tenant-1', { userId: 'u1' } as never);
 
-    expect(failedItem.status).toBe(PayrollItemStatus.PENDING);
+    expect(failedItem.status).toBe(PayrollItemStatus.PROCESSING);
     expect(paymentProvider.createPayment).toHaveBeenCalledTimes(1);
   });
 

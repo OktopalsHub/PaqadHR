@@ -167,6 +167,7 @@ export class PayrollRunsController {
       tenantId,
       memberId,
       req.member.role,
+      req.member.id,
     );
     return {
       message: 'Employee notified to complete payment settings',

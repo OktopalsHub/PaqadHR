@@ -128,6 +128,11 @@ export class TenantConfigService {
     }
   }
 
+  async shouldEmailPayslipOnPublish(tenantId: string): Promise<boolean> {
+    const settings = await this.getSettingsRecord(tenantId);
+    return settings?.settings.general?.emailPayslipOnPublish === true;
+  }
+
   async requireIdentityForPayroll(tenantId: string): Promise<boolean> {
     const settings = await this.getSettingsRecord(tenantId);
     return settings?.settings.employee?.requireIdentityForPayroll === true;

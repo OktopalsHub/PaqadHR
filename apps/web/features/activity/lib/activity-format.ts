@@ -41,6 +41,8 @@ const PAYROLL_ACTIONS = new Set([
   'payroll_disbursed_manual',
   'payroll_exported',
   'payslips_published',
+  'payroll_payment_setup_notified',
+  'payroll_scheduled',
 ]);
 
 const EMAIL_RE = /@/;

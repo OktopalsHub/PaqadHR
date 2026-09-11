@@ -1,11 +1,14 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
 import { TenantMemberRole } from '../../../../common/enums';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
+import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
+import { TenantsService } from '../../tenants/tenants.service';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { AuditService } from './audit.service';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 @Injectable()
 export class RunPayslips {
@@ -14,6 +17,9 @@ export class RunPayslips {
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly auditService: AuditService,
     private readonly managerAccessService: ManagerAccessService,
+    @Optional() private readonly tenantConfigService?: TenantConfigService,
+    @Optional() private readonly tenantsService?: TenantsService,
+    @Optional() private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {}
 
   isPayrollAdmin(role: string): boolean {
@@ -116,6 +122,25 @@ export class RunPayslips {
         sendEmail: shouldSend,
         publishedCount: publishedIds.length,
       });
+      if (this.lifecycleNotify && shouldSend) {
+        const tenant = this.tenantsService
+          ? await this.tenantsService.getTenant(tenantId).catch(() => null)
+          : null;
+        await this.lifecycleNotify.onPayslipsPublished({
+          tenantId,
+          run: {
+            id: run.id,
+            title: run.title,
+            tenantId,
+            periodStart: run.periodStart,
+            periodEnd: run.periodEnd,
+            baseCurrency: run.baseCurrency,
+          },
+          items: items.filter((item) => publishedIds.includes(item.id)),
+          sendEmail: shouldSend,
+          tenantSlug: tenant?.slug,
+        });
+      }
     }
     return { publishedCount: publishedIds.length, itemIds: publishedIds };
   }
@@ -141,7 +166,8 @@ export class RunPayslips {
     return { notified: true };
   }
 
-  private async resolveEmailPayslipOnPublish(_tenantId: string): Promise<boolean> {
-    return false;
+  private async resolveEmailPayslipOnPublish(tenantId: string): Promise<boolean> {
+    if (!this.tenantConfigService) return false;
+    return this.tenantConfigService.shouldEmailPayslipOnPublish(tenantId);
   }
 }

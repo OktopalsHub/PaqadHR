@@ -31,6 +31,7 @@ import { PayrollExportService } from './services/payroll-export.service';
 import { PayrollFeeService } from './services/payroll-fee.service';
 import { PayrollFloatBalanceService } from './services/payroll-float-balance.service';
 import { PayrollFloatTopupService } from './services/payroll-float-topup.service';
+import { PayrollLifecycleNotifyService } from './services/payroll-lifecycle-notify.service';
 import { PayrollPaymentOrchestrator } from './services/payroll-payment-orchestrator';
 import { PayrollPayoutService } from './services/payroll-payout.service';
 import { PayrollPayoutCronService } from './services/payroll-payout-cron.service';
@@ -67,6 +68,7 @@ import { PayrollRunService } from './services/payroll-run.service';
     PayrollService,
     PayrollCalculationService,
     PayrollFeeService,
+    PayrollLifecycleNotifyService,
     MultiPaymentService,
     AuditService,
     ManualDisbursementService,
@@ -85,6 +87,7 @@ import { PayrollRunService } from './services/payroll-run.service';
     PayrollFeeService,
     MultiPaymentService,
     AuditService,
+    PayrollLifecycleNotifyService,
     PayrollPayoutService,
     PayrollFloatTopupService,
   ],
