@@ -59,6 +59,15 @@ interface NombaVerifyResponse {
   } | null;
 }
 
+export type NombaVerifiedTransaction = {
+  status?: string;
+  amount?: number;
+  currency?: string;
+  meta?: Record<string, unknown>;
+  success?: boolean;
+  message?: string;
+};
+
 export interface NombaCheckoutOrderInput {
   orderReference: string;
   customerEmail: string;
@@ -232,7 +241,7 @@ export class NombaApiService {
       : `/v1/transactions/accounts/single?${query}`;
   }
 
-  async verifyTransaction(reference: string): Promise<NombaVerifyResponse['data'] | null> {
+  async verifyTransaction(reference: string): Promise<NombaVerifiedTransaction | null> {
     const e2eAmountMatch = /^e2e_verify_(\d+)$/.exec(reference);
     if (process.env.NODE_ENV === 'test' && e2eAmountMatch) {
       return { status: 'success', amount: Number(e2eAmountMatch[1]) };
@@ -268,9 +277,12 @@ export class NombaApiService {
       const amount = resolveNombaVerifiedCheckoutAmount(data);
 
       return {
-        ...data,
         status: successful ? 'success' : rawStatus,
         amount,
+        currency: data.currency,
+        meta: data.meta,
+        success: data.success,
+        message: data.message,
       };
     } catch (error) {
       this.logger.warn(
