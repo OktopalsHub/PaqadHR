@@ -72,17 +72,35 @@ export function resolveNombaVerifiedCheckoutAmount(data: {
   );
 }
 
-/** Sandbox checkout create uses `/sandbox/checkout/*`; live uses `/v1/checkout/*`. */
-export function nombaCheckoutOrderPath(isLive: boolean): string {
-  return isLive ? '/v1/checkout/order' : '/sandbox/checkout/order';
+/** Checkout create path. Env is the host (sandbox.nomba.com vs api.nomba.com), not the path. */
+export function nombaCheckoutOrderPath(_isLive?: boolean): string {
+  return '/v1/checkout/order';
 }
 
+/**
+ * Create-order path candidates. Prefer `/v1/checkout/order` on both hosts (current Nomba guides).
+ * Fall back to legacy `/sandbox/checkout/order` when the sandbox host still exposes it.
+ */
+export function nombaCheckoutOrderPathCandidates(isLive: boolean): string[] {
+  if (isLive) return ['/v1/checkout/order'];
+  return ['/v1/checkout/order', '/sandbox/checkout/order'];
+}
+
+/** @deprecated Prefer transactions/accounts/single or `/v1/checkout/transaction` on the sandbox host. */
 export function nombaSandboxCheckoutTransactionPath(orderReference: string): string {
   const params = new URLSearchParams({
     idType: 'orderReference',
     id: orderReference,
   });
   return `/sandbox/checkout/transaction?${params.toString()}`;
+}
+
+export function nombaCheckoutTransactionPath(orderReference: string): string {
+  const params = new URLSearchParams({
+    idType: 'ORDER_REFERENCE',
+    id: orderReference,
+  });
+  return `/v1/checkout/transaction?${params.toString()}`;
 }
 
 export function isNombaOperationSuccessful(options: {

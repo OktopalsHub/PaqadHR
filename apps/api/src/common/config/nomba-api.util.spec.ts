@@ -3,6 +3,7 @@ import {
   isNombaCheckoutPaymentSuccessful,
   isNombaOperationSuccessful,
   nombaCheckoutOrderPath,
+  nombaCheckoutOrderPathCandidates,
   parseNombaAmount,
   resolveNombaTokenExpiresAtMs,
   resolveNombaVerifiedCheckoutAmount,
@@ -55,7 +56,12 @@ describe('nomba-api.util', () => {
     expect(isNombaCheckoutPaymentSuccessful({ status: 'PAYMENT_SUCCESSFUL' })).toBe(true);
     expect(isNombaCheckoutPaymentSuccessful({ successFlag: true })).toBe(true);
     expect(isNombaCheckoutPaymentSuccessful({ status: 'unsuccessful' })).toBe(false);
-    expect(nombaCheckoutOrderPath(false)).toBe('/sandbox/checkout/order');
+    expect(nombaCheckoutOrderPath(false)).toBe('/v1/checkout/order');
     expect(nombaCheckoutOrderPath(true)).toBe('/v1/checkout/order');
+    expect(nombaCheckoutOrderPathCandidates(false)).toEqual([
+      '/v1/checkout/order',
+      '/sandbox/checkout/order',
+    ]);
+    expect(nombaCheckoutOrderPathCandidates(true)).toEqual(['/v1/checkout/order']);
   });
 });

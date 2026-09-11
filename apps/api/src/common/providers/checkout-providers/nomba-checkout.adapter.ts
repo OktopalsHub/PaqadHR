@@ -4,12 +4,14 @@ import {
   getNombaBaseUrl,
   getNombaScopedAccountId,
   getNombaSubAccountId,
+  hasNombaSubAccount,
   isNombaLive,
 } from '../../config/nomba.config';
 import {
   isNombaAcceptedCode,
   isNombaCheckoutPaymentSuccessful,
-  nombaCheckoutOrderPath,
+  nombaCheckoutOrderPathCandidates,
+  nombaCheckoutTransactionPath,
   nombaSandboxCheckoutTransactionPath,
   resolveNombaVerifiedCheckoutAmount,
 } from '../../config/nomba-api.util';
@@ -74,46 +76,64 @@ export class NombaCheckoutAdapter implements CheckoutProvider {
       throw new BadRequestException('Order reference length cannot exceed 50');
     }
 
-    const path = nombaCheckoutOrderPath(isNombaLive());
     const token = await this.nombaAuth.getAccessToken();
-    const response = await fetch(`${getNombaBaseUrl()}${path}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        accountId: getNombaAccountId(),
-      },
-      body: JSON.stringify({
-        order: {
-          orderReference: input.orderReference,
-          customerEmail: input.customerEmail,
-          amount: input.amount.toFixed(2),
-          currency: input.currency.toUpperCase(),
-          callbackUrl: input.callbackUrl,
-          accountId: getNombaScopedAccountId(),
-          orderMetaData: stringifyOrderMeta(input.meta),
-        },
-        tokenizeCard: false,
-      }),
-    });
-
-    const payload = (await response.json()) as NombaCheckoutResponse;
-    if (!response.ok || (payload.code !== undefined && !isNombaAcceptedCode(payload.code))) {
-      const message =
-        payload.description || payload.message || `Nomba checkout failed (${response.status})`;
-      this.logger.error(`Nomba ${path} failed: ${message}`);
-      throw new BadRequestException(`Nomba Error: ${message}`);
-    }
-
-    const checkoutLink = payload.data?.checkoutLink;
-    if (!checkoutLink) {
-      throw new BadRequestException(payload.description || 'Failed to initialize Nomba checkout');
-    }
-
-    return {
-      checkoutLink,
-      orderReference: payload.data?.orderReference || input.orderReference,
+    const order: Record<string, unknown> = {
+      orderReference: input.orderReference,
+      customerEmail: input.customerEmail,
+      amount: input.amount.toFixed(2),
+      currency: input.currency.toUpperCase(),
+      callbackUrl: input.callbackUrl,
+      orderMetaData: stringifyOrderMeta(input.meta),
     };
+    if (hasNombaSubAccount()) {
+      order.accountId = getNombaScopedAccountId();
+    }
+
+    const paths = nombaCheckoutOrderPathCandidates(isNombaLive());
+    let lastMessage = 'Nomba checkout failed';
+
+    for (let i = 0; i < paths.length; i++) {
+      const path = paths[i];
+      const response = await fetch(`${getNombaBaseUrl()}${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          accountId: getNombaAccountId(),
+        },
+        body: JSON.stringify({
+          order,
+          tokenizeCard: false,
+        }),
+      });
+
+      const payload = (await response.json()) as NombaCheckoutResponse;
+      if (response.ok && (payload.code === undefined || isNombaAcceptedCode(payload.code))) {
+        const checkoutLink = payload.data?.checkoutLink;
+        if (!checkoutLink) {
+          throw new BadRequestException(
+            payload.description || 'Failed to initialize Nomba checkout',
+          );
+        }
+        return {
+          checkoutLink,
+          orderReference: payload.data?.orderReference || input.orderReference,
+        };
+      }
+
+      lastMessage =
+        payload.description || payload.message || `Nomba checkout failed (${response.status})`;
+      const isNotFound = response.status === 404 || /resource not found/i.test(lastMessage);
+      if (isNotFound && i < paths.length - 1) {
+        this.logger.warn(`Nomba ${path} unavailable (${lastMessage}); trying ${paths[i + 1]}`);
+        continue;
+      }
+
+      this.logger.error(`Nomba ${path} failed: ${lastMessage}`);
+      throw new BadRequestException(`Nomba Error: ${lastMessage}`);
+    }
+
+    throw new BadRequestException(`Nomba Error: ${lastMessage}`);
   }
 
   async verifyCheckout(
@@ -128,33 +148,45 @@ export class NombaCheckoutAdapter implements CheckoutProvider {
 
     try {
       const token = await this.nombaAuth.getAccessToken();
-      const path = isNombaLive()
-        ? this.singleTransactionPath(input.orderReference)
-        : nombaSandboxCheckoutTransactionPath(input.orderReference);
-      const response = await fetch(`${getNombaBaseUrl()}${path}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          accountId: getNombaAccountId(),
-        },
-      });
-      const payload = (await response.json()) as NombaVerifyResponse;
-      if (!response.ok || !payload.data) return null;
+      const paths = isNombaLive()
+        ? [
+            this.singleTransactionPath(input.orderReference),
+            nombaCheckoutTransactionPath(input.orderReference),
+          ]
+        : [
+            nombaCheckoutTransactionPath(input.orderReference),
+            this.singleTransactionPath(input.orderReference),
+            nombaSandboxCheckoutTransactionPath(input.orderReference),
+          ];
 
-      const data = payload.data;
-      const rawStatus =
-        data.status ?? data.transactionDetails?.statusCode ?? data.message ?? undefined;
-      const successful = isNombaCheckoutPaymentSuccessful({
-        status: rawStatus,
-        successFlag: data.success,
-        message: data.message,
-      });
-      const amount = resolveNombaVerifiedCheckoutAmount(data);
+      for (const path of paths) {
+        const response = await fetch(`${getNombaBaseUrl()}${path}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            accountId: getNombaAccountId(),
+          },
+        });
+        const payload = (await response.json()) as NombaVerifyResponse;
+        if (!response.ok || !payload.data) continue;
 
-      return {
-        status: successful ? 'success' : (rawStatus ?? 'unknown'),
-        amount,
-        metaData: data.meta,
-      };
+        const data = payload.data;
+        const rawStatus =
+          data.status ?? data.transactionDetails?.statusCode ?? data.message ?? undefined;
+        const successful = isNombaCheckoutPaymentSuccessful({
+          status: rawStatus,
+          successFlag: data.success,
+          message: data.message,
+        });
+        const amount = resolveNombaVerifiedCheckoutAmount(data);
+
+        return {
+          status: successful ? 'success' : (rawStatus ?? 'unknown'),
+          amount,
+          metaData: data.meta,
+        };
+      }
+
+      return null;
     } catch (error) {
       this.logger.warn(
         `Nomba verify failed for ${input.orderReference}: ${
