@@ -70,9 +70,9 @@ export function ProductDemoShell({ compact, className }: ProductDemoShellProps) 
         }
       }}
     >
-      <DemoWindowChrome>
+      <DemoWindowChrome className="dark border-[#2b5548] bg-[#0d1e19] shadow-[0_22px_54px_-34px_rgba(0,0,0,0.85)]">
         <div
-          className="flex min-h-[360px] md:min-h-[420px]"
+          className="flex min-h-[440px] md:min-h-[540px]"
           role="tablist"
           aria-label="Product demo sections"
         >
@@ -82,7 +82,7 @@ export function ProductDemoShell({ compact, className }: ProductDemoShellProps) 
             navIds={navIds}
             compact={compact}
           />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col font-montserrat">
             <DemoTopbar activeNav={activeNav} />
             <div className="relative min-h-0 flex-1 overflow-auto">
               <AnimatePresence mode="wait">
@@ -91,6 +91,7 @@ export function ProductDemoShell({ compact, className }: ProductDemoShellProps) 
                   id={`demo-panel-${activeNav}`}
                   role="tabpanel"
                   aria-labelledby={`${baseId}-nav-${activeNav}`}
+                  className="h-full"
                   initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}

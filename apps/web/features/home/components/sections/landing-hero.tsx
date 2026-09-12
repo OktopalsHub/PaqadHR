@@ -146,7 +146,7 @@ export const LandingHero = () => {
         </motion.div>
       </motion.div>
 
-      <div className="relative mx-auto mt-14 max-w-7xl px-6 lg:px-8">
+      <div className="relative mx-auto mt-20 max-w-7xl px-6 pb-8 lg:px-8 md:mt-24 md:pb-12">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
             A single desk for your people

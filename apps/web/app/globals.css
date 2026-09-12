@@ -307,10 +307,10 @@
 .landing-product-frame {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(21, 70, 56, 0.14);
+  border: 1px solid rgba(30, 88, 70, 0.45);
   border-radius: 1.5rem;
-  background: #fff;
-  box-shadow: 0 28px 80px -44px rgba(6, 46, 33, 0.52);
+  background: #0d1e19;
+  box-shadow: 0 28px 80px -44px rgba(6, 46, 33, 0.7);
 }
 
 .landing-showcase-section {
