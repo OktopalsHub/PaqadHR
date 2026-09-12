@@ -1,6 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -9,14 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useDailyReport, useMonthlyReport } from '@/hooks/queries/use-attendance';
 
 const MONTHS = [
@@ -115,62 +116,66 @@ export function AttendanceReportsTab() {
           dailyReport.length === 0 ? (
             <p className="text-muted-foreground py-4 text-center text-sm">No data for this date.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Clock In</TableHead>
-                  <TableHead>Clock Out</TableHead>
-                  <TableHead className="text-right">Hours</TableHead>
-                  <TableHead className="text-right">Sessions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dailyReport.map((r) => (
-                  <TableRow key={r.memberId}>
-                    <TableCell className="font-medium">{r.memberName}</TableCell>
-                    <TableCell>{r.status}</TableCell>
-                    <TableCell>
-                      {r.clockIn ? new Date(r.clockIn).toLocaleTimeString() : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {r.clockOut ? new Date(r.clockOut).toLocaleTimeString() : '—'}
-                    </TableCell>
-                    <TableCell className="text-right">{r.workHours ?? '—'}</TableCell>
-                    <TableCell className="text-right">{r.sessions}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <AppTable className="min-w-[760px]">
+                <AppTableHeaderSection>
+                  <AppTableHeaderRow>
+                    <AppTableHeadCell>Member</AppTableHeadCell>
+                    <AppTableHeadCell>Status</AppTableHeadCell>
+                    <AppTableHeadCell>Clock In</AppTableHeadCell>
+                    <AppTableHeadCell>Clock Out</AppTableHeadCell>
+                    <AppTableHeadCell className="text-right">Hours</AppTableHeadCell>
+                    <AppTableHeadCell className="text-right">Sessions</AppTableHeadCell>
+                  </AppTableHeaderRow>
+                </AppTableHeaderSection>
+                <AppTableBodySection>
+                  {dailyReport.map((r) => (
+                    <AppTableBodyRow key={r.memberId}>
+                      <AppTableCell className="font-medium">{r.memberName}</AppTableCell>
+                      <AppTableCell>{r.status}</AppTableCell>
+                      <AppTableCell>
+                        {r.clockIn ? new Date(r.clockIn).toLocaleTimeString() : '—'}
+                      </AppTableCell>
+                      <AppTableCell>
+                        {r.clockOut ? new Date(r.clockOut).toLocaleTimeString() : '—'}
+                      </AppTableCell>
+                      <AppTableCell className="text-right">{r.workHours ?? '—'}</AppTableCell>
+                      <AppTableCell className="text-right">{r.sessions}</AppTableCell>
+                    </AppTableBodyRow>
+                  ))}
+                </AppTableBodySection>
+              </AppTable>
+            </div>
           )
         ) : monthlyReport.length === 0 ? (
           <p className="text-muted-foreground py-4 text-center text-sm">No data for this period.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead className="text-right">Present</TableHead>
-                <TableHead className="text-right">Absent</TableHead>
-                <TableHead className="text-right">Late</TableHead>
-                <TableHead className="text-right">Hours</TableHead>
-                <TableHead className="text-right">Rate</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {monthlyReport.map((r) => (
-                <TableRow key={r.memberId}>
-                  <TableCell className="font-medium">{r.memberName}</TableCell>
-                  <TableCell className="text-right">{r.presentDays}</TableCell>
-                  <TableCell className="text-right">{r.absentDays}</TableCell>
-                  <TableCell className="text-right">{r.lateDays}</TableCell>
-                  <TableCell className="text-right">{r.workHours}</TableCell>
-                  <TableCell className="text-right">{r.attendanceRate}%</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="overflow-x-auto">
+            <AppTable className="min-w-[700px]">
+              <AppTableHeaderSection>
+                <AppTableHeaderRow>
+                  <AppTableHeadCell>Member</AppTableHeadCell>
+                  <AppTableHeadCell className="text-right">Present</AppTableHeadCell>
+                  <AppTableHeadCell className="text-right">Absent</AppTableHeadCell>
+                  <AppTableHeadCell className="text-right">Late</AppTableHeadCell>
+                  <AppTableHeadCell className="text-right">Hours</AppTableHeadCell>
+                  <AppTableHeadCell className="text-right">Rate</AppTableHeadCell>
+                </AppTableHeaderRow>
+              </AppTableHeaderSection>
+              <AppTableBodySection>
+                {monthlyReport.map((r) => (
+                  <AppTableBodyRow key={r.memberId}>
+                    <AppTableCell className="font-medium">{r.memberName}</AppTableCell>
+                    <AppTableCell className="text-right">{r.presentDays}</AppTableCell>
+                    <AppTableCell className="text-right">{r.absentDays}</AppTableCell>
+                    <AppTableCell className="text-right">{r.lateDays}</AppTableCell>
+                    <AppTableCell className="text-right">{r.workHours}</AppTableCell>
+                    <AppTableCell className="text-right">{r.attendanceRate}%</AppTableCell>
+                  </AppTableBodyRow>
+                ))}
+              </AppTableBodySection>
+            </AppTable>
+          </div>
         )}
       </CardContent>
     </Card>

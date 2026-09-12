@@ -3,6 +3,15 @@
 import { Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -15,14 +24,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   useDeleteLeaveBalanceAdmin,
   useLeaveBalancesAdmin,
@@ -93,51 +94,53 @@ export function LeaveBalancesAdminTab() {
               No leave balances found.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Leave Type</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead className="text-right">Used</TableHead>
-                  <TableHead className="text-right">Remaining</TableHead>
-                  <TableHead className="text-right">Year</TableHead>
-                  <TableHead className="w-20" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {balances.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell className="font-medium">
-                      {b.memberName?.trim() || 'Unknown member'}
-                    </TableCell>
-                    <TableCell>{b.leaveTypeName?.trim() || 'Unknown type'}</TableCell>
-                    <TableCell className="text-right">{b.totalDays}</TableCell>
-                    <TableCell className="text-right">{b.usedDays}</TableCell>
-                    <TableCell className="text-right">{b.remainingDays}</TableCell>
-                    <TableCell className="text-right">{b.year}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => startEdit(b)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive h-8 w-8"
-                        onClick={() => setDeleting(b)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <AppTable className="min-w-[760px]">
+                <AppTableHeaderSection>
+                  <AppTableHeaderRow>
+                    <AppTableHeadCell>Member</AppTableHeadCell>
+                    <AppTableHeadCell>Leave Type</AppTableHeadCell>
+                    <AppTableHeadCell className="text-right">Total</AppTableHeadCell>
+                    <AppTableHeadCell className="text-right">Used</AppTableHeadCell>
+                    <AppTableHeadCell className="text-right">Remaining</AppTableHeadCell>
+                    <AppTableHeadCell className="text-right">Year</AppTableHeadCell>
+                    <AppTableHeadCell className="w-20" />
+                  </AppTableHeaderRow>
+                </AppTableHeaderSection>
+                <AppTableBodySection>
+                  {balances.map((b) => (
+                    <AppTableBodyRow key={b.id}>
+                      <AppTableCell className="font-medium">
+                        {b.memberName?.trim() || 'Unknown member'}
+                      </AppTableCell>
+                      <AppTableCell>{b.leaveTypeName?.trim() || 'Unknown type'}</AppTableCell>
+                      <AppTableCell className="text-right">{b.totalDays}</AppTableCell>
+                      <AppTableCell className="text-right">{b.usedDays}</AppTableCell>
+                      <AppTableCell className="text-right">{b.remainingDays}</AppTableCell>
+                      <AppTableCell className="text-right">{b.year}</AppTableCell>
+                      <AppTableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => startEdit(b)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive h-8 w-8"
+                          onClick={() => setDeleting(b)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AppTableCell>
+                    </AppTableBodyRow>
+                  ))}
+                </AppTableBodySection>
+              </AppTable>
+            </div>
           )}
         </CardContent>
       </Card>

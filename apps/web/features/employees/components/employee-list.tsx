@@ -178,7 +178,7 @@ export const EmployeeList = () => {
             onViewModeChange={setViewMode}
           />
 
-          <AppTablePanel>
+          <AppTablePanel className="min-h-[calc(100dvh-22rem)]">
             {viewMode === 'list' ? (
               <EmployeeTable
                 employees={currentEmployees}

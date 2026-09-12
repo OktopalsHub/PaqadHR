@@ -278,7 +278,9 @@ export function PayrollRunDetail({
   const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);
   const { data: setupSummary } = usePayrollSetupSummary(isAdmin);
   const { data: tenantSettings } = useTenantSettings();
-  const { data: payslips = [] } = useRunPayslips(run?.status === 'completed' ? runId : undefined);
+  const { data: payslips = [] } = useRunPayslips(
+    isAdmin && run?.status === 'completed' ? runId : undefined,
+  );
   const actions = usePayrollActions();
   const [sendEmail, setSendEmail] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -651,7 +653,7 @@ export function PayrollRunDetail({
                     disabled={busy}
                     onClick={() => setPayNowConfirmOpen(true)}
                   >
-                    Pay employees
+                    {detail.payoutMode === 'scheduled' ? 'Pay now instead' : 'Pay employees'}
                   </Button>
                 ) : (
                   <Button
@@ -679,7 +681,7 @@ export function PayrollRunDetail({
                     disabled={busy}
                     onClick={() => setScheduleOpen(true)}
                   >
-                    Schedule
+                    {detail.payoutMode === 'scheduled' ? 'Reschedule' : 'Schedule'}
                     {detail.paymentDate ? ` for ${formatDate(detail.paymentDate)}` : ''}
                   </Button>
                 ) : null}

@@ -36,22 +36,30 @@ export const LandingCta = () => {
   }, [currency]);
 
   return (
-    <section id="pricing" ref={ref} className="py-24 md:py-32">
+    <section id="pricing" ref={ref} className="landing-pricing-section py-24 md:py-32">
       <motion.div
-        className="mx-auto max-w-6xl px-6"
+        className="mx-auto max-w-7xl px-6 lg:px-8"
         initial="hidden"
         animate={inView ? 'show' : 'hidden'}
         variants={stagger}
       >
-        <div className="rounded-3xl border border-border bg-muted/40 px-8 py-16 md:px-16 md:py-20">
-          <motion.div variants={fadeUp} className="text-center">
-            <p className="text-sm font-medium text-primary">Pricing</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
-              Simple per-seat pricing
-            </h2>
-            <p className="mt-3 max-w-xl mx-auto text-sm text-muted-foreground">
-              Payroll included on every plan. Pay per active employee — no payroll add-on required.
+        <div className="overflow-hidden rounded-[2rem] border border-border bg-[#f4f8f6] px-6 py-12 sm:px-8 md:px-12 md:py-16">
+          <motion.div
+            variants={fadeUp}
+            className="grid gap-5 md:grid-cols-[0.85fr_1.15fr] md:items-end"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Pricing that scales gently
             </p>
+            <div>
+              <h2 className="text-3xl font-semibold tracking-[-0.045em] md:text-5xl md:leading-[1.03]">
+                The whole desk, without the enterprise theatre.
+              </h2>
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                Payroll comes with every plan. Pay for active teammates, not a pile of disconnected
+                add-ons.
+              </p>
+            </div>
           </motion.div>
 
           <motion.div variants={stagger} className="mt-10 grid gap-4 md:grid-cols-3">

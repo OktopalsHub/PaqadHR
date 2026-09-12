@@ -66,6 +66,7 @@ export function CreatePayrollRunDialog({
   const [periodStart, setPeriodStart] = useState(defaultStart);
   const [periodEnd, setPeriodEnd] = useState(defaultEnd);
   const [paymentDate, setPaymentDate] = useState(defaultPayDate);
+  const [payoutMode, setPayoutMode] = useState<'immediate' | 'scheduled'>('immediate');
   const [frequency, setFrequency] = useState<PayrollFrequency>('monthly');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
 
@@ -96,6 +97,7 @@ export function CreatePayrollRunDialog({
     if (!open) {
       setStep(1);
       setTitle('');
+      setPayoutMode('immediate');
       setSelectedEmployeeIds([]);
     }
   }, [open]);
@@ -190,6 +192,7 @@ export function CreatePayrollRunDialog({
           periodStart: new Date(periodStart).toISOString(),
           periodEnd: new Date(periodEnd).toISOString(),
           paymentDate: new Date(paymentDate).toISOString(),
+          payoutMode,
           baseCurrency: currency,
           employeeIds,
         });
@@ -286,7 +289,29 @@ export function CreatePayrollRunDialog({
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Expected pay date</Label>
+              <Label>Payment timing</Label>
+              <Select
+                value={payoutMode}
+                onValueChange={(value) => setPayoutMode(value as 'immediate' | 'scheduled')}
+              >
+                <SelectTrigger className={`w-full ${fieldClassName}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="immediate">Pay after approval</SelectItem>
+                  <SelectItem value="scheduled">Schedule payment</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {payoutMode === 'scheduled'
+                  ? 'The payroll will be paid automatically on the selected date after approval.'
+                  : 'You will review and approve the run before opening checkout to pay employees.'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>
+                {payoutMode === 'scheduled' ? 'Scheduled payment date' : 'Expected pay date'}
+              </Label>
               <Input
                 type="date"
                 value={paymentDate}

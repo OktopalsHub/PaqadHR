@@ -166,7 +166,15 @@ export class AttendanceReportService {
       return {
         month,
         year,
-        pagination: { page, limit, total: totalMembers, pageCount: 0 },
+        pagination: {
+          page,
+          limit,
+          total: totalMembers,
+          pageCount: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
         summary: { totalMembers, daysInMonth, workingDays },
         members: [],
       };
@@ -204,14 +212,25 @@ export class AttendanceReportService {
       const memberLeaves = leavesByMember.get(member.id) ?? [];
       const dailyAttendance: Array<{
         date: string;
+        day: number;
         dayOfWeek: string;
         status: string;
+        isWeekend?: boolean;
+        isOnLeave?: boolean;
         clockIn?: string;
         clockOut?: string;
         workHours?: string;
         sessionNumber?: number;
         notes?: string;
         leaveType?: string;
+        attendance: Array<{
+          id: string;
+          clockIn: string | null;
+          clockOut: string | null;
+          workHours: string | null;
+          sessionNumber: number;
+          sessionStatus: string;
+        }>;
       }> = [];
       let presentDays = 0,
         absentDays = 0,
@@ -225,7 +244,14 @@ export class AttendanceReportService {
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
         if (weekends.includes(date.getDay())) {
           weekendDays++;
-          dailyAttendance.push({ date: dateStr, dayOfWeek, status: 'WEEKEND' });
+          dailyAttendance.push({
+            date: dateStr,
+            day: d,
+            dayOfWeek,
+            status: 'WEEKEND',
+            isWeekend: true,
+            attendance: [],
+          });
           continue;
         }
         workingDaysCount++;
@@ -236,9 +262,12 @@ export class AttendanceReportService {
           leaveDays++;
           dailyAttendance.push({
             date: dateStr,
+            day: d,
             dayOfWeek,
             status: 'ON_LEAVE',
+            isOnLeave: true,
             leaveType: leave.leaveType?.name,
+            attendance: [],
           });
           continue;
         }
@@ -253,6 +282,7 @@ export class AttendanceReportService {
           else absentDays++;
           dailyAttendance.push({
             date: dateStr,
+            day: d,
             dayOfWeek,
             status: s,
             clockIn: r.clockIn?.toISOString(),
@@ -260,16 +290,38 @@ export class AttendanceReportService {
             workHours: r.workHours,
             sessionNumber: r.sessionNumber,
             notes: r.notes,
+            attendance: dayRecords.map((record) => ({
+              id: record.id,
+              clockIn: record.clockIn?.toISOString() ?? null,
+              clockOut: record.clockOut?.toISOString() ?? null,
+              workHours: record.workHours ?? null,
+              sessionNumber: record.sessionNumber,
+              sessionStatus: record.sessionStatus,
+            })),
           });
         } else {
           absentDays++;
-          dailyAttendance.push({ date: dateStr, dayOfWeek, status: 'ABSENT' });
+          dailyAttendance.push({
+            date: dateStr,
+            day: d,
+            dayOfWeek,
+            status: 'ABSENT',
+            attendance: [],
+          });
         }
       }
 
       const attendanceRate = workingDaysCount > 0 ? (presentDays / workingDaysCount) * 100 : 0;
       const department = departmentMap.get(member.id) ?? null;
       return {
+        // Keep the original flat fields below for existing API consumers, while
+        // exposing the structured member data used by the web timesheet.
+        member: {
+          id: member.id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          employeeNumber: member.employeeNumber,
+        },
         memberId: member.id,
         firstName: member.firstName,
         lastName: member.lastName,
@@ -277,6 +329,7 @@ export class AttendanceReportService {
         department: this.departmentUtils.formatDepartmentResponse(department),
         dailyAttendance,
         statistics: {
+          totalDays: daysInMonth,
           presentDays,
           absentDays,
           weekendDays,
@@ -291,7 +344,15 @@ export class AttendanceReportService {
     return {
       month,
       year,
-      pagination: { page, limit, total: totalMembers, pageCount },
+      pagination: {
+        page,
+        limit,
+        total: totalMembers,
+        pageCount,
+        totalPages: pageCount,
+        hasNext: page < pageCount,
+        hasPrev: page > 1,
+      },
       summary: { totalMembers, daysInMonth, workingDays },
       members,
     };

@@ -10,9 +10,8 @@ import { tenantRoot } from '@/lib/navigation/tenant-routes';
 import { readTenantSlug } from '@/lib/session';
 
 const navLinks = [
-  { label: 'Home', href: '/' },
-  { label: 'Product', href: '#product' },
-  { label: 'Features', href: '#features' },
+  { label: 'The workspace', href: '#product' },
+  { label: 'What it handles', href: '#features' },
   { label: 'Pricing', href: '#pricing' },
 ];
 
@@ -93,8 +92,8 @@ export const LandingNav = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
-      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6">
+    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/85 backdrop-blur-xl">
+      <div className="mx-auto grid h-[4.5rem] max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6 lg:px-8">
         <Link href="/" aria-label="Paqad home" className="justify-self-start">
           <PaqadLogo />
         </Link>

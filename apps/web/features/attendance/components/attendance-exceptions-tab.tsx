@@ -3,6 +3,15 @@
 import { CheckCircle, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -14,14 +23,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import {
   useApproveAttendanceException,
@@ -103,55 +104,57 @@ export function AttendanceExceptionsTab() {
           {exceptions.length === 0 ? (
             <p className="text-muted-foreground py-4 text-center text-sm">No exceptions found.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-28" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {exceptions.map((ex) => (
-                  <TableRow key={ex.id}>
-                    <TableCell>{new Date(ex.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{EXCEPTION_TYPE_LABELS[ex.type] ?? ex.type}</TableCell>
-                    <TableCell className="max-w-[200px] truncate">{ex.reason}</TableCell>
-                    <TableCell>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGES[ex.status] ?? ''}`}
-                      >
-                        {ex.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {ex.status === 'PENDING' && (
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-green-600"
-                            onClick={() => setReviewing({ exception: ex, action: 'approve' })}
-                          >
-                            <CheckCircle className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-red-600"
-                            onClick={() => setReviewing({ exception: ex, action: 'reject' })}
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <AppTable className="min-w-[680px]">
+                <AppTableHeaderSection>
+                  <AppTableHeaderRow>
+                    <AppTableHeadCell>Date</AppTableHeadCell>
+                    <AppTableHeadCell>Type</AppTableHeadCell>
+                    <AppTableHeadCell>Reason</AppTableHeadCell>
+                    <AppTableHeadCell>Status</AppTableHeadCell>
+                    <AppTableHeadCell className="w-28" />
+                  </AppTableHeaderRow>
+                </AppTableHeaderSection>
+                <AppTableBodySection>
+                  {exceptions.map((ex) => (
+                    <AppTableBodyRow key={ex.id}>
+                      <AppTableCell>{new Date(ex.date).toLocaleDateString()}</AppTableCell>
+                      <AppTableCell>{EXCEPTION_TYPE_LABELS[ex.type] ?? ex.type}</AppTableCell>
+                      <AppTableCell className="max-w-[200px] truncate">{ex.reason}</AppTableCell>
+                      <AppTableCell>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGES[ex.status] ?? ''}`}
+                        >
+                          {ex.status}
+                        </span>
+                      </AppTableCell>
+                      <AppTableCell className="text-right">
+                        {ex.status === 'PENDING' && (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-green-600"
+                              onClick={() => setReviewing({ exception: ex, action: 'approve' })}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-red-600"
+                              onClick={() => setReviewing({ exception: ex, action: 'reject' })}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </AppTableCell>
+                    </AppTableBodyRow>
+                  ))}
+                </AppTableBodySection>
+              </AppTable>
+            </div>
           )}
         </CardContent>
       </Card>

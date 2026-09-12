@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
+import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -396,7 +397,12 @@ export function PositionsManager({
         </CardHeader>
         <CardContent>
           {positions.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">No positions yet.</p>
+            <EmptyState
+              icon={Edit}
+              title="No positions yet"
+              description="Create a position to organize your team and assign work clearly."
+              className="min-h-[280px]"
+            />
           ) : (
             <div className="space-y-6">
               {activePositions.length > 0 ? (

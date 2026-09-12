@@ -4,6 +4,15 @@ import { CheckCircle2, Loader2, RefreshCw, UserCheck, UserPlus } from 'lucide-re
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PersonAvatar } from '@/components/person-avatar';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -13,14 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import {
   useBulkInviteUsers,
@@ -191,21 +192,21 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
               <p className="font-medium text-foreground">All users matched</p>
             </div>
           ) : (
-            <div className="border rounded-md overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Slack member</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Link to employee</TableHead>
-                    <TableHead className="w-[100px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="overflow-x-auto">
+              <AppTable className="min-w-[900px]">
+                <AppTableHeaderSection>
+                  <AppTableHeaderRow>
+                    <AppTableHeadCell>Slack member</AppTableHeadCell>
+                    <AppTableHeadCell>Email</AppTableHeadCell>
+                    <AppTableHeadCell>Reason</AppTableHeadCell>
+                    <AppTableHeadCell>Link to employee</AppTableHeadCell>
+                    <AppTableHeadCell className="w-[100px]" />
+                  </AppTableHeaderRow>
+                </AppTableHeaderSection>
+                <AppTableBodySection>
                   {unmatchedUsers.map((user) => (
-                    <TableRow key={user.platformUserId}>
-                      <TableCell className="flex items-center gap-3">
+                    <AppTableBodyRow key={user.platformUserId}>
+                      <AppTableCell className="flex items-center gap-3">
                         <PersonAvatar
                           src={user.platformAvatarUrl}
                           name={user.platformDisplayName || user.platformUsername || 'Slack user'}
@@ -220,16 +221,16 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                             @{user.platformUsername}
                           </p>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
+                      </AppTableCell>
+                      <AppTableCell>
                         {user.platformEmail || (
                           <span className="text-muted-foreground italic">No email</span>
                         )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground max-w-[220px]">
+                      </AppTableCell>
+                      <AppTableCell className="max-w-[220px] text-muted-foreground">
                         {getUnmatchedReason(user, employees)}
-                      </TableCell>
-                      <TableCell>
+                      </AppTableCell>
+                      <AppTableCell>
                         <Select
                           value={selectedMembers[user.platformUserId] || ''}
                           onValueChange={(val) =>
@@ -250,8 +251,8 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                             ))}
                           </SelectContent>
                         </Select>
-                      </TableCell>
-                      <TableCell>
+                      </AppTableCell>
+                      <AppTableCell>
                         <Button
                           size="sm"
                           variant="outline"
@@ -268,11 +269,11 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                             </>
                           )}
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </AppTableCell>
+                    </AppTableBodyRow>
                   ))}
-                </TableBody>
-              </Table>
+                </AppTableBodySection>
+              </AppTable>
             </div>
           )}
         </CardContent>

@@ -168,7 +168,13 @@ export function AttendanceTeamSummary({ month, year }: { month: number; year: nu
   const { data, isLoading } = useMonthlyTimesheet(month, year, page);
   const { data: tenantSettings } = useTenantSettings();
 
-  const members = useMemo(() => data?.members ?? [], [data?.members]);
+  const members = useMemo(
+    () =>
+      (data?.members ?? []).filter((entry): entry is MonthlyTimesheetMember =>
+        Boolean(entry?.member?.id),
+      ),
+    [data?.members],
+  );
   const pagination = data?.pagination;
 
   return (

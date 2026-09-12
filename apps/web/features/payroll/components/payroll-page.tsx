@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   CalendarDays,
+  Download,
   FileText,
   MoreHorizontal,
   Pencil,
@@ -11,6 +12,7 @@ import {
   Trash2,
   Wallet,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
@@ -41,14 +43,17 @@ import { useBillingOverview } from '@/hooks/queries/use-billing';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useCurrentSalaries } from '@/hooks/queries/use-employment';
 import {
+  useMemberPublishedPayslips,
   usePayrollActions,
   usePayrollReadiness,
   usePayrollRuns,
   usePayrollSetupSummary,
 } from '@/hooks/queries/use-payroll';
+import { downloadPayslipPdf } from '@/lib/api/payroll';
 import { canViewTeamPayroll, isTenantAdmin } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
-import type { PayrollRun } from '@/lib/schemas/payroll';
+import { tenantPath } from '@/lib/navigation/tenant-routes';
+import type { PayrollRun, PublishedPayslip } from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
 
 function statusVariant(status: string) {
@@ -112,7 +117,9 @@ function PayrollRunRow({
 }) {
   const scheduledLabel =
     run.payoutMode === 'scheduled' && run.paymentDate
-      ? `Scheduled · ${formatDate(run.paymentDate)}`
+      ? run.status === 'approved'
+        ? `Scheduled · ${formatDate(run.paymentDate)}`
+        : `Scheduled after approval · ${formatDate(run.paymentDate)}`
       : null;
 
   const canDelete = isAdmin && canDeletePayrollRun(run);
@@ -129,7 +136,11 @@ function PayrollRunRow({
     primary = { label: 'Approve', action: 'approve', className: APPROVE_BUTTON_CLASS };
   } else if (isAdmin && run.status === 'approved') {
     primary = payrollGatewayEnabled
-      ? { label: 'Pay employees', action: 'fund-and-pay', variant: 'brandSolid' }
+      ? {
+          label: run.payoutMode === 'scheduled' ? 'Pay now instead' : 'Pay employees',
+          action: 'fund-and-pay',
+          variant: 'brandSolid',
+        }
       : { label: 'Mark paid', action: 'disburse' };
   } else if (isAdmin && run.status === 'failed' && payrollGatewayEnabled) {
     primary = { label: 'Retry payment', action: 'retry', variant: 'brandSolid' };
@@ -147,7 +158,7 @@ function PayrollRunRow({
   }
   if (isAdmin && run.status === 'approved' && payrollGatewayEnabled) {
     secondaryItems.push({
-      label: 'Schedule',
+      label: run.payoutMode === 'scheduled' ? 'Reschedule' : 'Schedule',
       action: 'schedule',
       paymentDate: run.paymentDate ? String(run.paymentDate).slice(0, 10) : undefined,
     });
@@ -236,6 +247,109 @@ function PayrollRunRow({
   );
 }
 
+function PersonalPayslips({
+  memberId,
+  paymentSettingsHref,
+}: {
+  memberId?: string;
+  paymentSettingsHref?: string;
+}) {
+  const { data: payslips = [], isLoading, isError, error } = useMemberPublishedPayslips(memberId);
+
+  const handleDownload = async (payslip: PublishedPayslip) => {
+    const period = payslip.periodEnd ? formatDate(payslip.periodEnd) : payslip.runTitle;
+    try {
+      await downloadPayslipPdf(
+        payslip.runId,
+        payslip.itemId,
+        `payslip-${period.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to download payslip');
+    }
+  };
+
+  if (!memberId) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Payroll is unavailable</AlertTitle>
+        <AlertDescription>We could not identify your workspace membership.</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (isLoading) {
+    return <LoadingBlock />;
+  }
+
+  if (isError) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Unable to load your payslips</AlertTitle>
+        <AlertDescription>
+          {error instanceof Error ? error.message : 'Please try again shortly.'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <ContentCard
+      title="My payslips"
+      description="Published payslips from completed payroll runs. Payment details are managed in your profile settings."
+      action={
+        paymentSettingsHref ? (
+          <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <Link href={paymentSettingsHref}>Payment details</Link>
+          </Button>
+        ) : undefined
+      }
+      className="dashboard-panel rounded-[8px]"
+      bodyClassName="space-y-3"
+    >
+      {payslips.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No payslips yet"
+          description="Your payslips will appear here after payroll is paid and published."
+          className="min-h-[260px] bg-white dark:bg-slate-950/60"
+        />
+      ) : (
+        payslips.map((payslip) => (
+          <div
+            key={payslip.itemId}
+            className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="space-y-1">
+              <p className="font-medium text-slate-950 dark:text-slate-100">{payslip.runTitle}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {payslip.periodStart && payslip.periodEnd
+                  ? `${formatDate(payslip.periodStart)} – ${formatDate(payslip.periodEnd)}`
+                  : 'Completed payroll'}
+                {payslip.paidAt ? ` · Paid ${formatDate(payslip.paidAt)}` : ''}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="font-medium text-slate-950 dark:text-slate-100">
+                {Number(payslip.netAmount ?? 0).toLocaleString()} {payslip.currency ?? ''}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                onClick={() => void handleDownload(payslip)}
+              >
+                <Download className="mr-1 size-4" />
+                Download
+              </Button>
+            </div>
+          </div>
+        ))
+      )}
+    </ContentCard>
+  );
+}
+
 export function PayrollPage() {
   const [activeTab, setActiveTab] = useState('runs');
   const [open, setOpen] = useState(false);
@@ -246,15 +360,19 @@ export function PayrollPage() {
     .toISOString()
     .slice(0, 10);
 
-  const { data: employees = [] } = useEmployees();
-  const { tenant } = useTenant();
+  const { data: employees = [], isLoading: employeesLoading } = useEmployees();
+  const { tenant, isLoading: tenantLoading } = useTenant();
   const role = tenant?.member?.role;
   const viewerMemberId = tenant?.member?.id;
   const isAdmin = isTenantAdmin(role);
+  const canManagePayroll =
+    isAdmin || (!employeesLoading && canViewTeamPayroll(viewerMemberId, employees, role));
   const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);
   const { data: billingOverview } = useBillingOverview();
-  const { data, isLoading, isError, error } = usePayrollRuns();
-  const { data: readiness } = usePayrollReadiness(selectedRunId ?? undefined);
+  const { data, isLoading, isError, error } = usePayrollRuns(canManagePayroll);
+  const { data: readiness } = usePayrollReadiness(
+    isAdmin ? (selectedRunId ?? undefined) : undefined,
+  );
   const { data: setupSummary } = usePayrollSetupSummary(isAdmin);
   const actions = usePayrollActions();
 
@@ -431,7 +549,7 @@ export function PayrollPage() {
     }
   };
 
-  if (isLoading) {
+  if (tenantLoading || employeesLoading || (canManagePayroll && isLoading)) {
     return (
       <AppPage>
         <LoadingBlock />
@@ -439,7 +557,7 @@ export function PayrollPage() {
     );
   }
 
-  if (isError) {
+  if (canManagePayroll && isError) {
     return (
       <AppPage>
         <Alert variant="destructive">
@@ -460,8 +578,9 @@ export function PayrollPage() {
   const notReadyItems =
     readiness?.items.filter((item) => !item.ready && item.status !== 'cancelled') ?? [];
   const payrollGatewayEnabled = billingOverview?.payrollGatewayEnabled ?? false;
-  const canManagePayroll = canViewTeamPayroll(viewerMemberId, employees, role);
-
+  const paymentSettingsHref = tenant?.slug
+    ? tenantPath(tenant.slug, 'settings?tab=profile')
+    : undefined;
   return (
     <AppPage className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
@@ -469,7 +588,7 @@ export function PayrollPage() {
           <div className="overflow-x-auto pb-1">
             <TabsList className="app-segmented-control">
               <TabsTrigger value="runs" className="app-segmented-trigger sm:px-6">
-                Runs
+                {canManagePayroll ? 'Runs' : 'My payslips'}
               </TabsTrigger>
               {isAdmin && (
                 <TabsTrigger value="salaries" className="app-segmented-trigger sm:px-6">
@@ -513,160 +632,171 @@ export function PayrollPage() {
         </div>
 
         <TabsContent value="runs" className="space-y-6 mt-0">
-          {isAdmin && setupSummary && setupSummary.totalEmployees > 0 ? (
-            <div className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
-                  Company payment setup
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {setupSummary.paymentReadyCount}/{setupSummary.totalEmployees} salary-eligible
-                  employees have payment details
-                </p>
-              </div>
-              {setupSummary.byCurrency.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Ready by currency
-                  </span>
-                  {setupSummary.byCurrency.map((row) => (
-                    <Badge key={row.currency} variant="outline">
-                      {row.currency} · {row.paymentReadyCount}/{row.employeeCount} ready
-                    </Badge>
-                  ))}
+          {!canManagePayroll ? (
+            <PersonalPayslips memberId={viewerMemberId} paymentSettingsHref={paymentSettingsHref} />
+          ) : (
+            <>
+              {isAdmin && setupSummary && setupSummary.totalEmployees > 0 ? (
+                <div className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
+                      Company payment setup
+                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {setupSummary.paymentReadyCount}/{setupSummary.totalEmployees} salary-eligible
+                      employees have payment details
+                    </p>
+                  </div>
+                  {setupSummary.byCurrency.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        Ready by currency
+                      </span>
+                      {setupSummary.byCurrency.map((row) => (
+                        <Badge key={row.currency} variant="outline">
+                          {row.currency} · {row.paymentReadyCount}/{row.employeeCount} ready
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
-            </div>
-          ) : null}
 
-          {!selectedRunId ? (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard
-                label="Active employees"
-                value={activeEmployees.length}
-                icon={Wallet}
-                iconClassName="bg-violet-500/12 text-violet-700 dark:bg-violet-500/18 dark:text-violet-200"
-              />
-              <StatCard
-                label="Total runs"
-                value={runs.length}
-                icon={FileText}
-                iconClassName="bg-blue-500/12 text-blue-700 dark:bg-blue-500/18 dark:text-blue-200"
-              />
-              <StatCard
-                label="Completed"
-                value={completedRuns}
-                icon={CalendarDays}
-                iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
-              />
-              <StatCard
-                label="In progress"
-                value={pendingRuns}
-                icon={Wallet}
-                iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
-              />
-            </div>
-          ) : null}
+              {!selectedRunId ? (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <StatCard
+                    label="Active employees"
+                    value={activeEmployees.length}
+                    icon={Wallet}
+                    iconClassName="bg-violet-500/12 text-violet-700 dark:bg-violet-500/18 dark:text-violet-200"
+                  />
+                  <StatCard
+                    label="Total runs"
+                    value={runs.length}
+                    icon={FileText}
+                    iconClassName="bg-blue-500/12 text-blue-700 dark:bg-blue-500/18 dark:text-blue-200"
+                  />
+                  <StatCard
+                    label="Completed"
+                    value={completedRuns}
+                    icon={CalendarDays}
+                    iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
+                  />
+                  <StatCard
+                    label="In progress"
+                    value={pendingRuns}
+                    icon={Wallet}
+                    iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
+                  />
+                </div>
+              ) : null}
 
-          {selectedRunId && notReadyItems.length > 0 ? (
-            <Alert variant="destructive">
-              <AlertTriangle className="size-4" />
-              <AlertTitle>People on this run need payment details</AlertTitle>
-              <AlertDescription className="space-y-3">
-                <p>
-                  {notReadyItems.length} employee
-                  {notReadyItems.length === 1 ? '' : 's'} on this run{' '}
-                  {notReadyItems.length === 1 ? 'is' : 'are'} missing payment details. Notify them
-                  or remove them before approving.
-                </p>
-                <ul className="space-y-2">
-                  {notReadyItems.map((item) => (
-                    <li
-                      key={item.itemId}
-                      className="flex flex-col gap-2 rounded-[6px] border border-red-200/80 bg-white/50 p-3 dark:border-red-900/50 dark:bg-slate-950/40 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
-                          {item.employeeName}
-                        </p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400">{item.message}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 border-slate-200 bg-white text-slate-700 shadow-none dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
-                          disabled={busy}
-                          onClick={() => handleNotify(selectedRunId, item.itemId)}
+              {selectedRunId && notReadyItems.length > 0 ? (
+                <Alert variant="destructive">
+                  <AlertTriangle className="size-4" />
+                  <AlertTitle>People on this run need payment details</AlertTitle>
+                  <AlertDescription className="space-y-3">
+                    <p>
+                      {notReadyItems.length} employee
+                      {notReadyItems.length === 1 ? '' : 's'} on this run{' '}
+                      {notReadyItems.length === 1 ? 'is' : 'are'} missing payment details. Notify
+                      them or remove them before approving.
+                    </p>
+                    <ul className="space-y-2">
+                      {notReadyItems.map((item) => (
+                        <li
+                          key={item.itemId}
+                          className="flex flex-col gap-2 rounded-[6px] border border-red-200/80 bg-white/50 p-3 dark:border-red-900/50 dark:bg-slate-950/40 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          Notify
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-8"
-                          disabled={busy}
-                          onClick={() => handleRemove(selectedRunId, item.itemId)}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
-          ) : null}
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
+                              {item.employeeName}
+                            </p>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                              {item.message}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 border-slate-200 bg-white text-slate-700 shadow-none dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
+                              disabled={busy}
+                              onClick={() => handleNotify(selectedRunId, item.itemId)}
+                            >
+                              Notify
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-8"
+                              disabled={busy}
+                              onClick={() => handleRemove(selectedRunId, item.itemId)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
 
-          <ContentCard
-            title="Payroll runs"
-            className="dashboard-panel rounded-[8px]"
-            bodyClassName="space-y-3"
-          >
-            {runs.length === 0 ? (
-              <EmptyState
-                icon={FileText}
-                title={canManagePayroll ? 'No payroll runs' : 'Payroll not available'}
-                description={
-                  canManagePayroll
-                    ? undefined
-                    : 'Only admins and managers with direct reports can access payroll runs.'
-                }
-                className="min-h-[260px] bg-white dark:bg-slate-950/60"
-              />
-            ) : (
-              runs.map((run) => (
-                <PayrollRunRow
-                  key={run.id}
-                  run={run}
-                  selected={selectedRunId === run.id}
-                  onSelect={setSelectedRunId}
-                  busy={busy}
-                  payrollGatewayEnabled={payrollGatewayEnabled}
-                  isAdmin={isAdmin}
-                  onAction={handleAction}
-                />
-              ))
-            )}
-          </ContentCard>
+              <ContentCard
+                title="Payroll runs"
+                className="dashboard-panel rounded-[8px]"
+                bodyClassName="space-y-3"
+              >
+                {runs.length === 0 ? (
+                  <EmptyState
+                    icon={FileText}
+                    title={canManagePayroll ? 'No payroll runs' : 'Payroll not available'}
+                    description={
+                      canManagePayroll
+                        ? undefined
+                        : 'Only admins and managers with direct reports can access payroll runs.'
+                    }
+                    className="min-h-[260px] bg-white dark:bg-slate-950/60"
+                  />
+                ) : (
+                  runs.map((run) => (
+                    <PayrollRunRow
+                      key={run.id}
+                      run={run}
+                      selected={selectedRunId === run.id}
+                      onSelect={setSelectedRunId}
+                      busy={busy}
+                      payrollGatewayEnabled={payrollGatewayEnabled}
+                      isAdmin={isAdmin}
+                      onAction={handleAction}
+                    />
+                  ))
+                )}
+              </ContentCard>
 
-          {selectedRunId ? (
-            <ContentCard title="Run detail" className="dashboard-panel rounded-[8px]">
-              <PayrollRunDetail
-                runId={selectedRunId}
-                payrollGatewayEnabled={payrollGatewayEnabled}
-                isAdmin={isAdmin}
-                onDelete={() => setDeleteRunId(selectedRunId)}
-                onReopen={() => setReopenRunId(selectedRunId)}
-              />
-            </ContentCard>
-          ) : null}
+              {selectedRunId ? (
+                <ContentCard title="Run detail" className="dashboard-panel rounded-[8px]">
+                  <PayrollRunDetail
+                    runId={selectedRunId}
+                    payrollGatewayEnabled={payrollGatewayEnabled}
+                    isAdmin={isAdmin}
+                    onDelete={() => setDeleteRunId(selectedRunId)}
+                    onReopen={() => setReopenRunId(selectedRunId)}
+                  />
+                </ContentCard>
+              ) : null}
 
-          {isAdmin ? (
-            <ContentCard title="Verify payment details" className="dashboard-panel rounded-[8px]">
-              <PaymentAdminSection />
-            </ContentCard>
-          ) : null}
+              {isAdmin ? (
+                <ContentCard
+                  title="Verify payment details"
+                  className="dashboard-panel rounded-[8px]"
+                >
+                  <PaymentAdminSection />
+                </ContentCard>
+              ) : null}
+            </>
+          )}
         </TabsContent>
 
         {isAdmin && (

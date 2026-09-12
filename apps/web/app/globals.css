@@ -264,6 +264,73 @@
   color-scheme: light;
 }
 
+/* Marketing landing page: a restrained editorial layer over the shared product system. */
+.landing-hero-shell {
+  background:
+    radial-gradient(circle at 77% 11%, rgba(0, 160, 112, 0.09), transparent 22rem),
+    linear-gradient(113deg, #fbfcfb 0%, #f5f9f7 52%, #f8fbf9 100%);
+}
+
+.landing-hero-grid {
+  opacity: 0.42;
+  background-image:
+    linear-gradient(rgba(18, 18, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 18, 18, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 88%);
+}
+
+.landing-hero-orb {
+  background: radial-gradient(
+    circle,
+    rgba(115, 203, 168, 0.2) 0%,
+    rgba(115, 203, 168, 0.03) 54%,
+    transparent 70%
+  );
+  filter: blur(4px);
+}
+
+.landing-note-card {
+  border: 1px solid rgba(21, 70, 56, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+}
+
+.landing-note-card-top {
+  transform: rotate(-3deg);
+}
+
+.landing-note-card-bottom {
+  transform: rotate(2deg);
+}
+
+.landing-product-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(21, 70, 56, 0.14);
+  border-radius: 1.5rem;
+  background: #fff;
+  box-shadow: 0 28px 80px -44px rgba(6, 46, 33, 0.52);
+}
+
+.landing-showcase-section {
+  background: linear-gradient(180deg, #fff 0%, #fbfdfc 100%);
+}
+
+.landing-features-section {
+  background: #fbfcfb;
+}
+
+.landing-pricing-section {
+  background: linear-gradient(180deg, #fff 0%, #fbfcfb 100%);
+}
+
+@media (max-width: 1023px) {
+  .landing-hero-grid {
+    mask-image: linear-gradient(to bottom, black 0%, transparent 68%);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

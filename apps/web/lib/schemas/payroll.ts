@@ -74,6 +74,7 @@ export const createPayrollRunInputSchema = z.object({
   periodStart: z.string(),
   periodEnd: z.string(),
   paymentDate: z.string(),
+  payoutMode: z.enum(['immediate', 'scheduled']).default('immediate'),
   baseCurrency: z.string(),
   employeeIds: z.array(z.string()).min(1),
 });
