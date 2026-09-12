@@ -5,9 +5,6 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/use-auth';
-import { tenantRoot } from '@/lib/navigation/tenant-routes';
-import { readTenantSlug } from '@/lib/session';
 
 const navLinks = [
   { label: 'The workspace', href: '#product' },
@@ -17,52 +14,8 @@ const navLinks = [
 
 export const LandingNav = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isAuthenticated, hasResolvedSession, isLoading } = useAuth();
-  const authCtaPending = isLoading || !hasResolvedSession;
-
-  const dashboardHref = (() => {
-    if (!isAuthenticated) return null;
-    const slug = typeof window !== 'undefined' ? readTenantSlug() : null;
-    if (slug) {
-      try {
-        return tenantRoot(slug);
-      } catch {
-        return `/${slug}`;
-      }
-    }
-    return '/onboarding';
-  })();
 
   const renderAuthCta = (mobile: boolean) => {
-    if (authCtaPending) {
-      return (
-        <div
-          className={
-            mobile
-              ? 'h-10 w-full animate-pulse rounded-full bg-muted'
-              : 'h-9 w-28 animate-pulse rounded-full bg-muted'
-          }
-          aria-hidden
-        />
-      );
-    }
-
-    if (isAuthenticated && dashboardHref) {
-      return (
-        <Button
-          asChild
-          size="sm"
-          className={
-            mobile
-              ? 'w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90'
-              : 'h-9 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90'
-          }
-        >
-          <a href={dashboardHref}>Dashboard</a>
-        </Button>
-      );
-    }
-
     return (
       <>
         <Link
@@ -85,7 +38,9 @@ export const LandingNav = () => {
               : 'h-9 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90'
           }
         >
-          <Link href="/signup">Sign up</Link>
+          <Link href="/signup" onClick={mobile ? () => setMobileOpen(false) : undefined}>
+            Sign up
+          </Link>
         </Button>
       </>
     );
