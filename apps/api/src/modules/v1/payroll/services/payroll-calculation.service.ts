@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
+import { FiatExchangeService } from '../../../../common/services/fiat-exchange.service';
 import { EmploymentService } from '../../employment/employment.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
@@ -14,6 +15,7 @@ import {
   collectAdjustmentsForEmployee,
   computePayrollItemAmounts,
 } from '../utils/payroll-adjustment.util';
+import { resolvePayrollPayoutConversion } from '../utils/payroll-payout-conversion.util';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 
 export interface PayrollPreviewResult {
@@ -37,6 +39,7 @@ export class PayrollCalculationService {
     private readonly tenantMembersService: TenantMembersService,
     private readonly paymentMethodService: PaymentMethodService,
     private readonly payrollPaymentOrchestrator: PayrollPaymentOrchestrator,
+    private readonly fiatExchange: FiatExchangeService,
   ) {}
 
   async calculatePayroll(
@@ -60,26 +63,45 @@ export class PayrollCalculationService {
           item.memberId,
           tenantId,
         );
+        const payoutMethod = await this.paymentMethodService.findPrimaryPayoutMethod(
+          tenantId,
+          item.memberId,
+        );
+        if (!payoutMethod?.currency) {
+          throw new BadRequestException('Verified primary payout method is required');
+        }
+
         const lines = collectAdjustmentsForEmployee(
           item.memberId,
           adjustments,
           item.metadata ?? undefined,
         );
         const amounts = computePayrollItemAmounts(salaryInfo.baseSalary, lines);
+        const salaryCurrency = salaryInfo.currency.toUpperCase();
+        const payoutCurrency = payoutMethod.currency.toUpperCase();
+        const conversion = await resolvePayrollPayoutConversion(
+          amounts.netAmount,
+          salaryCurrency,
+          payoutCurrency,
+          this.fiatExchange,
+        );
+
         item.baseSalary = amounts.baseSalary;
-        item.baseSalaryCurrency = salaryInfo.currency;
+        item.baseSalaryCurrency = salaryCurrency;
         item.grossAmount = amounts.grossAmount;
         item.adjustments = amounts.adjustments;
         item.deductions = amounts.deductions;
         item.netAmount = amounts.netAmount;
-        item.paymentCurrency = run.baseCurrency || salaryInfo.currency;
-        item.paymentAmount = amounts.paymentAmount;
-        item.exchangeRate = 1;
+        item.paymentCurrency = payoutCurrency;
+        item.paymentAmount = conversion.paymentAmount;
+        item.exchangeRate = conversion.exchangeRate;
         item.metadata = {
           ...item.metadata,
           payType: salaryInfo.payType,
           paySchedule: salaryInfo.paySchedule,
           adjustmentLines: lines,
+          fxAtPayout: conversion.fxAtPayout,
+          payoutMethodId: payoutMethod.id,
         };
         await this.payrollItemRepository.save(item);
       } catch (error) {
@@ -156,38 +178,47 @@ export class PayrollCalculationService {
     ]);
     const activeIds = new Set(members.filter((m) => m.isActive).map((m) => m.id));
     const eligible = salaries.filter((s) => activeIds.has(s.memberId) && Number(s.payRate) > 0);
+    const eligibleMemberIds = eligible.map((s) => s.memberId);
+
+    const readinessResults = await this.paymentMethodService.assessBulkPayrollReadiness(
+      tenantId,
+      eligibleMemberIds,
+    );
+    const readySet = new Set(
+      readinessResults.filter((result) => result.ready).map((result) => result.memberId),
+    );
+
     const byCurrencyMap = new Map<string, string[]>();
-    for (const s of eligible) {
-      const c = s.currency.toUpperCase();
-      const ids = byCurrencyMap.get(c) ?? [];
-      ids.push(s.memberId);
-      byCurrencyMap.set(c, ids);
+    for (const salary of eligible) {
+      const salaryCurrency = salary.currency.toUpperCase();
+      const ids = byCurrencyMap.get(salaryCurrency) ?? [];
+      ids.push(salary.memberId);
+      byCurrencyMap.set(salaryCurrency, ids);
     }
-    let paymentReadyCount = 0;
-    const readyMemberIds: string[] = [];
+
     const byCurrency: Array<{
       currency: string;
       employeeCount: number;
       paymentReadyCount: number;
       readyMemberIds: string[];
     }> = [];
+
     for (const [currency, memberIds] of byCurrencyMap.entries()) {
-      const results = await this.paymentMethodService.assessBulkPayrollReadiness(
-        tenantId,
-        memberIds,
-        currency,
-      );
-      const readyIds = results.filter((r) => r.ready).map((r) => r.memberId);
-      paymentReadyCount += readyIds.length;
-      readyMemberIds.push(...readyIds);
+      const readyMemberIds = memberIds.filter((memberId) => readySet.has(memberId));
       byCurrency.push({
         currency,
         employeeCount: memberIds.length,
-        paymentReadyCount: readyIds.length,
-        readyMemberIds: readyIds,
+        paymentReadyCount: readyMemberIds.length,
+        readyMemberIds,
       });
     }
     byCurrency.sort((a, b) => a.currency.localeCompare(b.currency));
-    return { totalEmployees: eligible.length, paymentReadyCount, readyMemberIds, byCurrency };
+
+    return {
+      totalEmployees: eligible.length,
+      paymentReadyCount: readySet.size,
+      readyMemberIds: [...readySet],
+      byCurrency,
+    };
   }
 }

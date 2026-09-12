@@ -58,8 +58,7 @@ export class PayrollPaymentOrchestrator {
       const readiness = await this.paymentMethodService.assessPayrollReadiness(
         tenantId,
         item.memberId,
-        run.baseCurrency,
-        false,
+        Boolean(item.metadata?.excludedFromRun),
       );
       items.push({
         ...readiness,

@@ -9,7 +9,7 @@ import type {
   PayrollPaymentReadiness,
 } from 'src/common/interfaces/payroll-payment-readiness.interface';
 import { EncryptionService } from 'src/common/services/encryption.service';
-import { In, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { PaymentMethod } from '../entities/payment-method.entity';
@@ -40,16 +40,30 @@ export class PayrollReadinessService {
     return decrypted;
   }
 
+  async findPrimaryPayoutMethod(tenantId: string, memberId: string): Promise<PaymentMethod | null> {
+    const methods = await this.paymentMethodRepo.find({
+      where: {
+        tenantId,
+        memberId,
+        status: Not(PaymentMethodStatus.SUSPENDED),
+      },
+      order: { isPrimary: 'DESC', updatedAt: 'DESC', createdAt: 'DESC' },
+    });
+    const verified = methods.filter((method) => method.status === PaymentMethodStatus.VERIFIED);
+    const primaryVerified = verified.find((method) => method.isPrimary);
+    if (primaryVerified) return this.withDecrypted(primaryVerified);
+    if (verified.length === 1) return this.withDecrypted(verified[0]);
+    return null;
+  }
+
   async assessPayrollReadiness(
     tenantId: string,
     memberId: string,
-    currency: string,
     excludedFromRun = false,
   ): Promise<PayrollPaymentReadiness> {
     const results = await this.assessBulkPayrollReadiness(
       tenantId,
       [memberId],
-      currency,
       excludedFromRun ? [memberId] : [],
     );
     return results[0];
@@ -58,26 +72,10 @@ export class PayrollReadinessService {
   async assessBulkPayrollReadiness(
     tenantId: string,
     memberIds: string[],
-    currency: string,
     excludedMemberIds: string[] = [],
   ): Promise<PayrollPaymentReadiness[]> {
-    const normalizedCurrency = currency.toUpperCase();
-    const runIsCrypto = isCryptoCurrency(normalizedCurrency);
     const excludedSet = new Set(excludedMemberIds);
-
-    const paymentMethods = await this.paymentMethodRepo.find({
-      where: { tenantId, memberId: In(memberIds), currency: normalizedCurrency },
-      order: { status: 'DESC', isPrimary: 'DESC', updatedAt: 'DESC' },
-    });
     const lockedMembers = await this.paymentSecurityService.getLockedMemberIds(tenantId, memberIds);
-
-    const methodMap = new Map<string, PaymentMethod>();
-    for (const method of paymentMethods) {
-      if (!methodMap.has(method.memberId)) {
-        const decrypted = this.withDecrypted(method);
-        if (decrypted) methodMap.set(method.memberId, decrypted);
-      }
-    }
 
     const employeeSettings = await this.tenantConfigService.requireIdentityForPayroll(tenantId);
     let members: { id: string; identityBvn?: string; identityNin?: string }[] = [];
@@ -105,30 +103,27 @@ export class PayrollReadinessService {
         });
         continue;
       }
-      const method = methodMap.get(memberId);
+
+      const method = await this.findPrimaryPayoutMethod(tenantId, memberId);
       if (!method) {
         results.push({
           memberId,
           ready: false,
           issues: ['MISSING_PAYMENT_METHOD' as PayrollPaymentIssue],
-          message: runIsCrypto
-            ? `Add a verified ${normalizedCurrency} crypto wallet in payment settings.`
-            : `Add a verified ${normalizedCurrency} bank account in payment settings.`,
-          currency: normalizedCurrency,
+          message:
+            'Add and verify a primary payout method in payment settings (any supported currency).',
         });
         continue;
       }
 
+      const payoutCurrency = (method.currency ?? 'USD').toUpperCase();
+      const payoutIsCrypto = isCryptoCurrency(payoutCurrency);
       const issues: PayrollPaymentIssue[] = [];
-      if (method.currency?.toUpperCase() !== normalizedCurrency)
-        issues.push('CURRENCY_MISMATCH' as PayrollPaymentIssue);
-      const methodIsCrypto = method.type === PaymentMethodType.CRYPTO;
-      if (runIsCrypto !== methodIsCrypto)
-        issues.push('PAYMENT_RAIL_MISMATCH' as PayrollPaymentIssue);
+
       if (!method.isVerified) issues.push('UNVERIFIED_PAYMENT_METHOD' as PayrollPaymentIssue);
       if (lockedMembers.has(memberId)) issues.push('LOCKED_PAYMENT_METHOD' as PayrollPaymentIssue);
 
-      if (runIsCrypto || methodIsCrypto) {
+      if (method.type === PaymentMethodType.CRYPTO || payoutIsCrypto) {
         const wallet =
           (method.metadata?.walletAddress as string | undefined) ?? method.accountNumber;
         if (!wallet?.trim()) issues.push('INCOMPLETE_WALLET_DETAILS' as PayrollPaymentIssue);
@@ -139,15 +134,17 @@ export class PayrollReadinessService {
           !method.bankName?.trim()
         )
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
-        if (normalizedCurrency === 'NGN' && !method.bankCode?.trim())
+        if (payoutCurrency === 'NGN' && !method.bankCode?.trim())
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
-        if (requiresGlobalInstitutionCode(normalizedCurrency) && !method.bankCode?.trim())
+        if (requiresGlobalInstitutionCode(payoutCurrency) && !method.bankCode?.trim())
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
-        if (normalizedCurrency !== 'NGN' && !method.country?.trim())
+        if (payoutCurrency !== 'NGN' && !method.country?.trim())
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
       }
-      if (!getSupportedPaymentCurrencies().includes(normalizedCurrency))
+
+      if (!getSupportedPaymentCurrencies().includes(payoutCurrency) && !payoutIsCrypto)
         issues.push('UNSUPPORTED_CURRENCY' as PayrollPaymentIssue);
+
       if (employeeSettings) {
         const member = memberMap.get(memberId);
         if (!member?.identityBvn?.trim() && !member?.identityNin?.trim())
@@ -160,10 +157,10 @@ export class PayrollReadinessService {
         ready,
         issues,
         message: ready
-          ? 'Ready for payroll disbursement.'
-          : this.buildReadinessMessage(issues, runIsCrypto, method.status),
+          ? `Ready to pay out to ${payoutCurrency} primary account.`
+          : this.buildReadinessMessage(issues, payoutIsCrypto, method.status),
         paymentMethodId: method.id,
-        currency: method.currency ?? normalizedCurrency,
+        currency: payoutCurrency,
       });
     }
     return results;
@@ -172,49 +169,18 @@ export class PayrollReadinessService {
   async resolvePayrollPaymentMethod(
     tenantId: string,
     memberId: string,
-    currency: string,
+    _currency?: string,
   ): Promise<PaymentMethod | null> {
-    const normalizedCurrency = currency.toUpperCase();
-    const primary = await this.paymentMethodRepo.findOne({
-      where: {
-        tenantId,
-        memberId,
-        currency: normalizedCurrency,
-        isPrimary: true,
-        status: PaymentMethodStatus.VERIFIED,
-      },
-    });
-    if (primary) return this.withDecrypted(primary);
-    const verified = await this.paymentMethodRepo.findOne({
-      where: {
-        tenantId,
-        memberId,
-        currency: normalizedCurrency,
-        status: PaymentMethodStatus.VERIFIED,
-      },
-      order: { isPrimary: 'DESC', updatedAt: 'DESC' },
-    });
-    if (verified) return this.withDecrypted(verified);
-    const fallback = await this.paymentMethodRepo.findOne({
-      where: { tenantId, memberId, currency: normalizedCurrency },
-      order: { isPrimary: 'DESC', updatedAt: 'DESC' },
-    });
-    return this.withDecrypted(fallback);
+    return this.findPrimaryPayoutMethod(tenantId, memberId);
   }
 
   private buildReadinessMessage(
     issues: PayrollPaymentIssue[],
-    runIsCrypto = false,
+    payoutIsCrypto = false,
     methodStatus?: PaymentMethodStatus,
   ): string {
     if (issues.includes('MISSING_PAYMENT_METHOD' as PayrollPaymentIssue))
-      return runIsCrypto
-        ? 'Payment settings are not set up yet. Add a crypto wallet.'
-        : 'Payment settings are not set up yet. Add a bank account.';
-    if (issues.includes('PAYMENT_RAIL_MISMATCH' as PayrollPaymentIssue))
-      return runIsCrypto
-        ? 'This run pays in crypto. Add a matching crypto wallet.'
-        : 'This run pays to bank accounts. Add a matching bank account.';
+      return 'Set a verified primary payout method in payment settings.';
     if (issues.includes('UNVERIFIED_PAYMENT_METHOD' as PayrollPaymentIssue)) {
       if (methodStatus === PaymentMethodStatus.DRAFT) return 'Payment account is in draft.';
       if (methodStatus === PaymentMethodStatus.REJECTED)
@@ -227,12 +193,11 @@ export class PayrollReadinessService {
       return 'Crypto wallet address is missing.';
     if (issues.includes('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue))
       return 'Bank account details are incomplete.';
-    if (issues.includes('CURRENCY_MISMATCH' as PayrollPaymentIssue))
-      return 'No verified payment method matches this payroll currency.';
     if (issues.includes('UNSUPPORTED_CURRENCY' as PayrollPaymentIssue))
-      return 'This payroll currency is not supported for automated payouts.';
+      return 'Primary payout currency is not supported for automated payouts.';
     if (issues.includes('MISSING_IDENTITY' as PayrollPaymentIssue))
       return 'BVN or NIN is required on this employee profile before payroll.';
+    if (payoutIsCrypto) return 'Complete crypto wallet details for the primary payout method.';
     return 'Employee is not ready to receive payroll.';
   }
 }

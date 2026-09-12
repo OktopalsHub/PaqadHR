@@ -518,8 +518,8 @@ export function EmploymentTab({
                               </SelectContent>
                             </Select>
                             <p className="text-xs text-muted-foreground">
-                              Must match the employee&apos;s payout method currency for payroll
-                              readiness.
+                              Contract / payroll currency. Payout goes to the employee&apos;s
+                              primary payment method; FX applies when they differ.
                             </p>
                           </div>
                           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

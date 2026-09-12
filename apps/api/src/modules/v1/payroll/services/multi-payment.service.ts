@@ -64,11 +64,7 @@ export class MultiPaymentService {
       payrollRun.payoutMode = 'immediate';
       await this.payrollRunRepository.save(payrollRun);
     }
-    const paymentBatch = await this.batching.categorizePayments(
-      payrollRun.items,
-      tenantId,
-      payrollRun.baseCurrency,
-    );
+    const paymentBatch = await this.batching.categorizePayments(payrollRun.items, tenantId);
     const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
     if (payable.length === 0) {
       await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
@@ -139,11 +135,7 @@ export class MultiPaymentService {
       throw new BadRequestException('No failed payments found to retry');
     }
     await this.validation.resetItemsForRetry(retriableItems);
-    const paymentBatch = await this.batching.categorizePayments(
-      retriableItems,
-      tenantId,
-      payrollRun.baseCurrency,
-    );
+    const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
     const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
     if (payable.length === 0) {
       await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);

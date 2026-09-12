@@ -47,7 +47,6 @@ export class PayrollExportService {
       const paymentMethod = await this.paymentMethodService.resolvePayrollPaymentMethod(
         payrollRun.tenantId,
         item.memberId,
-        payrollRun.baseCurrency,
       );
       const employee = item.employee;
       const name = employee
@@ -62,7 +61,7 @@ export class PayrollExportService {
         bankName: paymentMethod?.bankName ?? '',
         bankCode: paymentMethod?.bankCode ?? '',
         amount: Number(item.paymentAmount ?? item.netAmount ?? 0),
-        currency: item.paymentCurrency ?? payrollRun.baseCurrency,
+        currency: item.paymentCurrency ?? item.baseSalaryCurrency ?? payrollRun.baseCurrency,
         reference: `PAYROLL-${payrollRun.id.slice(0, 8)}-${item.memberId.slice(0, 8)}`,
       });
     }

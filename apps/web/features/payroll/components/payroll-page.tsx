@@ -615,13 +615,8 @@ export function PayrollPage() {
                 activeEmployees={activeEmployees}
                 currentSalaries={currentSalaries}
                 fallbackCurrency={tenant?.preferredCurrency?.toUpperCase() ?? 'USD'}
-                paymentReadyByCurrency={
-                  new Map(
-                    (setupSummary?.byCurrency ?? []).map((row) => [
-                      row.currency.toUpperCase(),
-                      new Set(row.readyMemberIds ?? []),
-                    ]),
-                  )
+                paymentReadyMemberIds={
+                  new Set((setupSummary?.readyMemberIds ?? []).map((id) => id))
                 }
                 onCreated={(runId) => {
                   if (runId) setSelectedRunId(runId);
@@ -644,13 +639,13 @@ export function PayrollPage() {
                     </p>
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                       {setupSummary.paymentReadyCount}/{setupSummary.totalEmployees} salary-eligible
-                      employees have payment details
+                      employees have a verified primary payout method
                     </p>
                   </div>
                   {setupSummary.byCurrency.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                        Ready by currency
+                        Salary by currency
                       </span>
                       {setupSummary.byCurrency.map((row) => (
                         <Badge key={row.currency} variant="outline">

@@ -249,33 +249,24 @@ export class PaymentMethodService {
   async lookupNigerianBankAccount(accountNumber: string, bankCode: string, bankName?: string) {
     return this.nigerianBankService.lookupBankAccount(accountNumber, bankCode, bankName);
   }
-  async assessPayrollReadiness(
-    tenantId: string,
-    memberId: string,
-    currency: string,
-    excludedFromRun?: boolean,
-  ) {
-    return this.payrollReadinessService.assessPayrollReadiness(
-      tenantId,
-      memberId,
-      currency,
-      excludedFromRun,
-    );
+  async assessPayrollReadiness(tenantId: string, memberId: string, excludedFromRun = false) {
+    return this.payrollReadinessService.assessPayrollReadiness(tenantId, memberId, excludedFromRun);
   }
   async assessBulkPayrollReadiness(
     tenantId: string,
     memberIds: string[],
-    currency: string,
-    excludedMemberIds?: string[],
+    excludedMemberIds: string[] = [],
   ) {
     return this.payrollReadinessService.assessBulkPayrollReadiness(
       tenantId,
       memberIds,
-      currency,
       excludedMemberIds,
     );
   }
-  async resolvePayrollPaymentMethod(tenantId: string, memberId: string, currency: string) {
+  async findPrimaryPayoutMethod(tenantId: string, memberId: string) {
+    return this.payrollReadinessService.findPrimaryPayoutMethod(tenantId, memberId);
+  }
+  async resolvePayrollPaymentMethod(tenantId: string, memberId: string, currency?: string) {
     return this.payrollReadinessService.resolvePayrollPaymentMethod(tenantId, memberId, currency);
   }
 

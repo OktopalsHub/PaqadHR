@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ManagerAccessModule } from '../../../common/modules/manager-access.module';
 import { PaymentsModule } from '../../../common/providers/payments.module';
+import { FiatExchangeService } from '../../../common/services/fiat-exchange.service';
 import { ActivitiesModule } from '../activities/activities.module';
 import { EmploymentModule } from '../employment/employment.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -60,6 +61,7 @@ import { PayrollRunService } from './services/payroll-run.service';
     PayrollWebhooksController,
   ],
   providers: [
+    FiatExchangeService,
     PayrollRunRepository,
     PayrollItemRepository,
     PayrollAccessGuard,
