@@ -70,11 +70,11 @@ export class RunLifecycle {
       createdById,
       tenantId,
       idempotencyKey: key,
-      payoutMode: null,
+      payoutMode: dto.payoutMode ?? 'immediate',
     });
     const saved = await this.payrollRunRepository.save(run);
-    for (const memberId of dto.employeeIds) {
-      const item = this.payrollItemRepository.create({
+    const items = dto.employeeIds.map((memberId) =>
+      this.payrollItemRepository.create({
         payrollRunId: saved.id,
         memberId,
         status: PayrollItemStatus.PENDING,
@@ -85,9 +85,9 @@ export class RunLifecycle {
         paymentCurrency: currency,
         paymentAmount: 0,
         exchangeRate: 1,
-      });
-      await this.payrollItemRepository.save(item);
-    }
+      }),
+    );
+    await this.payrollItemRepository.save(items);
     await this.auditService.logPayrollCreated(
       { tenantId, payrollRunId: saved.id, performedById: createdById },
       {
@@ -95,6 +95,7 @@ export class RunLifecycle {
         frequency: dto.frequency,
         employeeCount: dto.employeeIds.length,
         baseCurrency: currency,
+        payoutMode: saved.payoutMode,
       },
     );
     return saved;

@@ -3,16 +3,17 @@
 import { RefreshCw, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { getLeaveAssignmentPanelState } from '@/features/leaves/lib/leave-assignment-panel-state';
 import {
   useAssignExistingLeaveTypes,
@@ -112,35 +113,37 @@ export function LeaveAssignmentPanel() {
               </div>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Missing leave types</TableHead>
-                  <TableHead className="text-right">Count</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {panelState.rows.map((entry) => (
-                  <TableRow key={entry.memberId}>
-                    <TableCell className="font-medium">{entry.memberLabel}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-2">
-                        {entry.missingTypes.map((leaveType) => (
-                          <span
-                            key={leaveType.leaveTypeId}
-                            className="inline-flex items-center rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300"
-                          >
-                            {leaveType.leaveTypeName}
-                          </span>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">{entry.missingCount}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <AppTable className="min-w-[640px]">
+                <AppTableHeaderSection>
+                  <AppTableHeaderRow>
+                    <AppTableHeadCell>Member</AppTableHeadCell>
+                    <AppTableHeadCell>Missing leave types</AppTableHeadCell>
+                    <AppTableHeadCell className="text-right">Count</AppTableHeadCell>
+                  </AppTableHeaderRow>
+                </AppTableHeaderSection>
+                <AppTableBodySection>
+                  {panelState.rows.map((entry) => (
+                    <AppTableBodyRow key={entry.memberId}>
+                      <AppTableCell className="font-medium">{entry.memberLabel}</AppTableCell>
+                      <AppTableCell>
+                        <div className="flex flex-wrap gap-2">
+                          {entry.missingTypes.map((leaveType) => (
+                            <span
+                              key={leaveType.leaveTypeId}
+                              className="inline-flex items-center rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300"
+                            >
+                              {leaveType.leaveTypeName}
+                            </span>
+                          ))}
+                        </div>
+                      </AppTableCell>
+                      <AppTableCell className="text-right">{entry.missingCount}</AppTableCell>
+                    </AppTableBodyRow>
+                  ))}
+                </AppTableBodySection>
+              </AppTable>
+            </div>
           </div>
         )}
       </CardContent>

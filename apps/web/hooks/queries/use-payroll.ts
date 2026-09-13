@@ -8,6 +8,7 @@ import {
   deletePayrollRun,
   disbursePayrollRun,
   downloadPayrollBankFile,
+  fetchMemberPublishedPayslips,
   fetchPayrollReadiness,
   fetchPayrollRun,
   fetchPayrollRuns,
@@ -35,13 +36,23 @@ import type {
 } from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function usePayrollRuns() {
+export function usePayrollRuns(enabled = true) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.payroll.all, tenantId],
     queryFn: fetchPayrollRuns,
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: enabled && !tenantLoading && Boolean(tenantId),
+  });
+}
+
+export function useMemberPublishedPayslips(memberId?: string, enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.payroll.all, tenantId, 'published-payslips', memberId],
+    queryFn: () => fetchMemberPublishedPayslips(memberId!),
+    enabled: enabled && !tenantLoading && Boolean(tenantId && memberId),
   });
 }
 

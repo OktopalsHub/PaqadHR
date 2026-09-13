@@ -109,6 +109,10 @@ export class PayrollPaymentOrchestrator {
       approvedAt: new Date().toISOString(),
       approvedBy: auditContext.performedById,
     };
+    if (run.payoutMode === 'scheduled') {
+      run.metadata.scheduledAt = new Date().toISOString();
+      run.metadata.scheduledFor = this.toIsoDatePart(run.paymentDate);
+    }
     for (const item of run.items ?? []) {
       if (item.status === PayrollItemStatus.CANCELLED) continue;
       item.metadata = { ...item.metadata, lockedAt: new Date().toISOString() };
@@ -133,6 +137,22 @@ export class PayrollPaymentOrchestrator {
         },
         actorMemberId: auditContext.performedById,
       });
+      if (run.payoutMode === 'scheduled') {
+        await this.lifecycleNotify.onPayrollScheduled({
+          tenantId,
+          run: {
+            id: run.id,
+            title: run.title,
+            tenantId,
+            periodStart: run.periodStart,
+            periodEnd: run.periodEnd,
+            baseCurrency: run.baseCurrency,
+            paymentDate: run.paymentDate,
+          },
+          paymentDate: this.toIsoDatePart(run.paymentDate),
+          auditContext,
+        });
+      }
     }
     return run;
   }

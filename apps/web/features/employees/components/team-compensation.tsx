@@ -8,6 +8,16 @@ import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { PersonAvatar } from '@/components/person-avatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableEmptyState,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -26,14 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useAddCompensation, useCurrentSalaries } from '@/hooks/queries/use-employment';
@@ -144,67 +146,81 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
 
   return wrap(
     <>
-      <Card>
-        <CardHeader className="!flex flex-col gap-4 border-b border-[#d7e3f6] md:flex-row md:items-end md:justify-between dark:border-slate-800">
+      <Card className="min-h-[360px] w-full gap-0 overflow-hidden bg-white py-0 dark:bg-card">
+        <CardHeader className="!flex flex-col gap-3 border-b border-border/60 bg-muted/15 px-5 py-4 md:flex-row md:items-center md:justify-between sm:px-6">
           <div className="min-w-0 space-y-1">
-            <CardTitle>Team Salary</CardTitle>
+            <CardTitle className="text-base">Team Salary</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {employees.length} {employees.length === 1 ? 'employee' : 'employees'}
+            </p>
           </div>
-          <div className="relative w-full md:w-[420px] md:max-w-[420px] md:flex-none">
+          <div className="relative w-full md:w-[360px] md:max-w-[360px] md:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               id="compensation-search"
               placeholder="Search by name, email, or department…"
-              className="pl-9"
+              className="app-input-surface h-10 pl-9"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          {filteredEmployees.length === 0 ? (
-            <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-              {employees.length === 0
-                ? 'No employees in your workspace yet.'
-                : 'No employees match your search.'}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>Current salary</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEmployees.map((employee) => {
+        <CardContent className="flex min-h-0 flex-1 flex-col p-0">
+          <div className="min-h-[280px] flex-1 overflow-x-auto">
+            <AppTable className="min-w-[880px]">
+              <AppTableHeaderSection>
+                <AppTableHeaderRow>
+                  <AppTableHeadCell className="w-[31%]">Employee</AppTableHeadCell>
+                  <AppTableHeadCell>Department</AppTableHeadCell>
+                  <AppTableHeadCell>Current salary</AppTableHeadCell>
+                  <AppTableHeadCell>Status</AppTableHeadCell>
+                  <AppTableHeadCell className="text-right">Actions</AppTableHeadCell>
+                </AppTableHeaderRow>
+              </AppTableHeaderSection>
+              <AppTableBodySection>
+                {filteredEmployees.length > 0 ? (
+                  filteredEmployees.map((employee) => {
                     const currentSalary = currentSalaryByMemberId.get(employee.id);
                     return (
-                      <TableRow key={employee.id}>
-                        <TableCell>
+                      <AppTableBodyRow key={employee.id}>
+                        <AppTableCell>
                           <Link
                             href={tenantHref(`employees/${employee.id}`)}
-                            className="flex items-center gap-2 hover:underline"
+                            className="flex min-w-0 items-center gap-3"
                           >
                             <PersonAvatar
                               src={employee.avatar}
                               name={employee.name}
-                              className="h-8 w-8"
+                              className="size-8 border border-border/70 bg-muted"
+                              fallbackClassName="bg-muted text-[10px] font-semibold text-foreground"
                             />
-                            <div>
-                              <p className="font-medium text-sm">{employee.name}</p>
-                              <p className="text-xs text-muted-foreground">{employee.email}</p>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold hover:underline">
+                                {employee.name}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {employee.email}
+                              </p>
                             </div>
                           </Link>
-                        </TableCell>
-                        <TableCell>{employee.department || '—'}</TableCell>
-                        <TableCell>
+                        </AppTableCell>
+                        <AppTableCell>
+                          {employee.department ? (
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="size-2 shrink-0 rounded-full border border-black/10"
+                                style={{ backgroundColor: employee.departmentColor || '#c0cadc' }}
+                              />
+                              <span>{employee.department}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </AppTableCell>
+                        <AppTableCell>
                           {currentSalary ? (
                             <div className="space-y-0.5">
-                              <p className="font-medium text-sm">
+                              <p className="text-sm font-semibold tabular-nums">
                                 {formatMoney(
                                   Number(currentSalary.payRate),
                                   currentSalary.currency || defaultCurrency,
@@ -217,17 +233,19 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                               </p>
                             </div>
                           ) : (
-                            <span className="text-sm text-muted-foreground">No salary added</span>
+                            <span className="inline-flex rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                              No salary set
+                            </span>
                           )}
-                        </TableCell>
-                        <TableCell>
+                        </AppTableCell>
+                        <AppTableCell>
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusStyles(employee.status)}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyles(employee.status)}`}
                           >
                             <span
                               className={`size-1.5 rounded-full ${
                                 employee.status === 'Active'
-                                  ? 'bg-green-500 animate-pulse'
+                                  ? 'bg-green-500'
                                   : employee.status === 'On Leave'
                                     ? 'bg-amber-500'
                                     : 'bg-gray-450 dark:bg-gray-500'
@@ -235,45 +253,57 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                             />
                             {employee.status}
                           </span>
-                        </TableCell>
-                        <TableCell className="text-right">
+                        </AppTableCell>
+                        <AppTableCell className="text-right">
                           <div className="flex justify-end gap-1">
                             {currentSalary ? (
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                title={`Add new salary for ${employee.name}`}
-                                aria-label={`Add new salary for ${employee.name}`}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-3 text-xs font-semibold"
+                                aria-label={`Update salary for ${employee.name}`}
                                 onClick={() => {
                                   const existing = currentSalaryByMemberId.get(employee.id);
                                   setSalaryCurrency(existing?.currency || defaultCurrency);
                                   setSalaryMember(employee);
                                 }}
                               >
-                                <Plus className="size-4" />
+                                <Plus className="mr-1.5 size-3.5" />
+                                Update
                               </Button>
                             ) : (
                               <Button
-                                variant="outline"
+                                variant="brandSolid"
                                 size="sm"
+                                className="h-8 px-3 text-xs font-semibold"
                                 onClick={() => {
                                   setSalaryCurrency(defaultCurrency);
                                   setSalaryMember(employee);
                                 }}
                               >
                                 <Plus className="mr-1.5 size-3.5" />
-                                Salary
+                                Set salary
                               </Button>
                             )}
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </AppTableCell>
+                      </AppTableBodyRow>
                     );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  })
+                ) : (
+                  <AppTableEmptyState
+                    colSpan={5}
+                    title={employees.length === 0 ? 'No employees yet' : 'No matching employees'}
+                    description={
+                      employees.length === 0
+                        ? 'Add employees to your workspace before setting salaries.'
+                        : 'Try adjusting your search to find an employee.'
+                    }
+                  />
+                )}
+              </AppTableBodySection>
+            </AppTable>
+          </div>
         </CardContent>
       </Card>
 

@@ -8,6 +8,7 @@ import {
   AppTableBodyRow,
   AppTableBodySection,
   AppTableCell,
+  AppTableEmptyState,
   AppTableHeadCell,
   AppTableHeaderRow,
   AppTableHeaderSection,
@@ -126,11 +127,11 @@ export const EmployeeTable = memo(
               </AppTableBodyRow>
             ))
           ) : (
-            <AppTableBodyRow className="hover:bg-transparent">
-              <AppTableCell colSpan={7} className="py-12 text-center text-sm text-slate-500">
-                No employees found
-              </AppTableCell>
-            </AppTableBodyRow>
+            <AppTableEmptyState
+              colSpan={7}
+              title="No employees found"
+              description="Invite a teammate to start building your workspace."
+            />
           )}
         </AppTableBodySection>
       </AppTable>

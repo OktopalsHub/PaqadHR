@@ -32,7 +32,10 @@ export const EmployeePagination = ({
           value={itemsPerPage.toString()}
           onValueChange={(val) => onItemsPerPageChange(Number.parseInt(val, 10))}
         >
-          <SelectTrigger className="h-8 w-[72px] rounded-[8px] border-slate-200 bg-white py-1 pl-3 pr-8 text-sm text-slate-800 shadow-none focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-[#fbbf24]">
+          <SelectTrigger
+            size="sm"
+            className="w-14 rounded-[8px] border-slate-200 bg-white px-2 pr-7 text-sm text-slate-800 shadow-none focus-visible:border-transparent focus-visible:ring-1 focus-visible:ring-[#fbbf24]"
+          >
             <span className="font-medium tabular-nums text-slate-900">{itemsPerPage}</span>
           </SelectTrigger>
           <SelectContent>

@@ -117,6 +117,17 @@ export class CreatePayrollRunDto {
   @Type(() => Date)
   @IsDate({ message: 'Expected pay date must be a valid date' })
   paymentDate: Date;
+  @ApiPropertyOptional({
+    description: 'Whether the approved run should be paid immediately or on its payment date',
+    enum: ['immediate', 'scheduled'],
+    default: 'immediate',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
+  @IsIn(['immediate', 'scheduled'], {
+    message: 'Payout mode must be either immediate or scheduled',
+  })
+  payoutMode?: 'immediate' | 'scheduled';
   @ApiProperty({
     description:
       'Payout currency for this run (one currency per run). NGN bank via Nomba; other fiat and crypto via Noah.',
