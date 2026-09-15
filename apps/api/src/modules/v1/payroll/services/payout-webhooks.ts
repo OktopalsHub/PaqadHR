@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { parseBachsPayoutWebhook } from 'src/common/config/bachs-payout.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
@@ -182,6 +183,42 @@ export class PayoutWebhooks {
       PaymentProvider.MONNIFY,
       context.tenantId,
       payload.amount,
+    );
+    if (changed) {
+      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
+    }
+    return { received: true, matched: changed };
+  }
+
+  async processBachsPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
+    const event = parseBachsPayoutWebhook(payload);
+    if (!event) return { received: true, matched: false };
+
+    // data.reference is the reference Paqad set at payout creation (the payroll merchant ref).
+    let merchantRef = event.reference;
+    if (!merchantRef || !isPayrollMerchantRef(merchantRef)) {
+      if (!event.withdrawalId) return { received: true, matched: false };
+      const item = await this.payrollItemRepository.findOne({
+        where: { transactionId: event.withdrawalId },
+        relations: ['payrollRun'],
+      });
+      if (!item) return { received: true, matched: false };
+      merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id);
+    }
+
+    const context = await this.resolvePayrollContext(merchantRef);
+    if (!context) return { received: true, matched: false };
+
+    // Prefer the delivered amount in the destination currency — that is the same
+    // basis as PayrollItem.paymentAmount (data.amount is in the source balance currency).
+    const amount = event.toAmount ?? event.amount;
+    const changed = await this.reconciliation.applyTransferStatus(
+      merchantRef,
+      event.status,
+      event.withdrawalId,
+      PaymentProvider.BACHS,
+      context.tenantId,
+      amount,
     );
     if (changed) {
       await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);

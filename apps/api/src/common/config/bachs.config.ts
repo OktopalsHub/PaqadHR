@@ -22,6 +22,26 @@ export function isBachsConfigured(): boolean {
   return Boolean(getBachsSecretKey());
 }
 
+/**
+ * Balance currency Bachs payroll payouts debit. Unset → same-currency payouts only
+ * (NGN balance for NGN payouts, USDT balance for USDT payouts). Set to e.g. 'USD'
+ * to fund NGN payouts from a USD balance via a cross-currency payout quote.
+ */
+export function getBachsPayoutSourceCurrency(): string | null {
+  const value = (process.env.BACHS_PAYOUT_SOURCE_CURRENCY || '').trim().toUpperCase();
+  return value || null;
+}
+
+/**
+ * Bachs USDT (TRC20/BEP20) payroll rail. Requires credentials plus an explicit
+ * opt-in via INTL_PAYROLL_PROVIDER=bachs — Bachs cannot deliver USD/EUR/GBP bank
+ * payouts, so those stay on Noah/Fincra.
+ */
+export function isBachsUsdtPayoutRailEnabled(): boolean {
+  if (!isBachsConfigured()) return false;
+  return (process.env.INTL_PAYROLL_PROVIDER || '').trim().toLowerCase() === 'bachs';
+}
+
 export function resolveBachsEnvironment(): 'sandbox' | 'live' | null {
   const key = getBachsSecretKey();
   if (!key) return null;

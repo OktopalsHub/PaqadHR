@@ -19,6 +19,7 @@ import { NombaAuthService } from '../services/nomba-auth.service';
 import { NombaTransferApiService } from '../services/nomba-transfer-api.service';
 import { NombaTransfersService } from '../services/nomba-transfers.service';
 import { PaymentProviderFactoryService } from '../services/payment-provider-factory.service';
+import { BachsProvider } from './bachs.provider';
 import { BachsCheckoutAdapter } from './checkout-providers/bachs-checkout.adapter';
 import { FincraCheckoutAdapter } from './checkout-providers/fincra-checkout.adapter';
 import { MonnifyCheckoutAdapter } from './checkout-providers/monnify-checkout.adapter';
@@ -28,6 +29,7 @@ import { FincraProvider } from './fincra.provider';
 import { MonnifyProvider } from './monnify.provider';
 import { NoahProvider } from './noah.provider';
 import { NombaProvider } from './nomba.provider';
+import { BachsPayoutQuerierAdapter } from './payout-queriers/bachs-payout-querier.adapter';
 import { FincraPayoutQuerierAdapter } from './payout-queriers/fincra-payout-querier.adapter';
 import { MonnifyPayoutQuerierAdapter } from './payout-queriers/monnify-payout-querier.adapter';
 import { NoahPayoutQuerierAdapter } from './payout-queriers/noah-payout-querier.adapter';
@@ -46,6 +48,7 @@ const payoutQueriers = [
   MonnifyPayoutQuerierAdapter,
   NoahPayoutQuerierAdapter,
   FincraPayoutQuerierAdapter,
+  BachsPayoutQuerierAdapter,
 ];
 
 @Module({
@@ -61,6 +64,7 @@ const payoutQueriers = [
     FincraRequestsService,
     FincraProvider,
     BachsApiService,
+    BachsProvider,
     MonnifyApiService,
     MonnifyAuthService,
     MonnifyCheckoutService,
@@ -89,6 +93,7 @@ const payoutQueriers = [
     FincraRequestsService,
     FincraProvider,
     BachsApiService,
+    BachsProvider,
     MonnifyApiService,
     MonnifyAuthService,
     MonnifyCheckoutService,

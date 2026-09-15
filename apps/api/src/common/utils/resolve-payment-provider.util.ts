@@ -1,3 +1,4 @@
+import { normalizeBachsUsdtNetwork } from '../config/bachs-payout.util';
 import { isNoahConfigured } from '../config/noah.config';
 import {
   isCryptoCurrency,
@@ -11,6 +12,7 @@ import { resolveNgPaymentProvider } from './ng-money-provider.util';
 export function resolvePaymentProvider(
   currency: string,
   paymentMethodType?: PaymentMethodType,
+  cryptoNetwork?: string,
 ): PaymentProvider {
   const code = currency.toUpperCase();
 
@@ -20,6 +22,12 @@ export function resolvePaymentProvider(
   }
 
   if (isCryptoCurrency(code) || paymentMethodType === PaymentMethodType.CRYPTO) {
+    // Bachs is the only rail that delivers USDT on TRC20/BEP20 — route those there
+    // unconditionally so a payout can never settle on a different chain. If Bachs is
+    // not configured the item fails loudly instead of moving funds.
+    if (code === 'USDT' && normalizeBachsUsdtNetwork(cryptoNetwork)) {
+      return PaymentProvider.BACHS;
+    }
     return resolveIntlPaymentProvider();
   }
 
@@ -37,6 +45,8 @@ export function paymentProviderLabel(provider: PaymentProvider): string {
       return 'Local bank transfer';
     case PaymentProvider.FINCRA:
       return 'Fincra transfer';
+    case PaymentProvider.BACHS:
+      return 'Bachs transfer';
     default:
       return 'International transfer';
   }

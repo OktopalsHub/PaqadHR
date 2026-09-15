@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { parseBachsPayoutWebhook } from 'src/common/config/bachs-payout.util';
 import { verifyBachsWebhookSignature } from 'src/common/config/bachs-webhook.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import { extractBachsWalletTopupCheckout } from '../webhook-request.util';
@@ -10,6 +12,7 @@ export class BachsWebhookService {
   constructor(
     private readonly subscriptionBillingService: SubscriptionBillingService,
     private readonly walletTopupService: TenantWalletTopupService,
+    private readonly payrollPayoutService: PayrollPayoutService,
   ) {}
 
   async dispatch(
@@ -30,6 +33,13 @@ export class BachsWebhookService {
       payload = JSON.parse(rawBody);
     } catch {
       throw new BadRequestException('Invalid webhook JSON');
+    }
+
+    // Payroll payout events (payout.paid / payout.failed) first — they carry
+    // withdrawal payloads that must not fall through to billing handling.
+    if (parseBachsPayoutWebhook(payload)) {
+      await this.payrollPayoutService.processBachsPayload(payload);
+      return { received: true };
     }
 
     const walletTopup = extractBachsWalletTopupCheckout(payload);

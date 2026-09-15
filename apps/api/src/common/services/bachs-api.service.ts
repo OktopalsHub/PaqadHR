@@ -38,6 +38,66 @@ export interface BachsWalletTopupCheckoutInput {
   metadata?: Record<string, string | number | boolean | undefined>;
 }
 
+/** Bachs API errors carry a machine-readable error_code alongside the human detail. */
+export class BachsApiError extends Error {
+  constructor(
+    message: string,
+    readonly errorCode?: string,
+    readonly httpStatus?: number,
+  ) {
+    super(message);
+    this.name = 'BachsApiError';
+  }
+}
+
+export interface BachsPayoutDestinationInput {
+  /** Destination currency: 'NGN' for bank accounts, 'USDT_TRC20'/'USDT_BEP20' for wallets. */
+  currency: string;
+  accountNumber?: string;
+  bankCode?: string;
+  walletAddress?: string;
+  network?: string;
+}
+
+export interface BachsPayoutDestination {
+  id: string;
+  status?: 'pending_review' | 'approved' | 'rejected';
+  is_usable?: boolean;
+  account_name?: string | null;
+  bank_name?: string | null;
+}
+
+export interface BachsPayoutQuote {
+  quote_id: string;
+  from_amount?: string;
+  to_amount?: string;
+  exchange_rate?: string;
+}
+
+export interface BachsCreatePayoutInput {
+  destination: string;
+  /** Decimal string in the destination currency. Required unless quoteId is set. */
+  amount?: string;
+  /** From Create Payout Quote — required instead of amount for cross-currency payouts. */
+  quoteId?: string;
+  /** Paqad payroll merchant ref; returned verbatim on payout webhooks. */
+  reference: string;
+  /** Sent as the Idempotency-Key header — a retry without it can pay twice. */
+  idempotencyKey: string;
+}
+
+export interface BachsPayoutResult {
+  id: string;
+  status?: 'pending' | 'processing' | 'completed' | 'failed';
+  /** Net amount delivered, in the destination currency. */
+  amount?: string;
+  currency?: string;
+  source_currency?: string | null;
+  total_debited?: string | null;
+  reference?: string | null;
+  failure_reason?: string | null;
+}
+
 @Injectable()
 export class BachsApiService {
   private readonly logger = new Logger(BachsApiService.name);
@@ -248,21 +308,93 @@ export class BachsApiService {
     });
   }
 
+  /** Register a payout destination. Bachs resolves the account with the bank in this call. */
+  async createPayoutDestination(
+    input: BachsPayoutDestinationInput,
+  ): Promise<BachsPayoutDestination> {
+    const body: Record<string, unknown> = { currency: input.currency };
+    if (input.accountNumber) body.account_number = input.accountNumber;
+    if (input.bankCode) body.bank_code = input.bankCode;
+    if (input.walletAddress) body.wallet_address = input.walletAddress;
+    if (input.network) body.network = input.network;
+    return this.request<BachsPayoutDestination>('/v1/payouts/destinations', {
+      method: 'POST',
+      body,
+    });
+  }
+
+  /**
+   * Quote a cross-currency payout. `amount` is in `fromCurrency` (the balance being
+   * debited). Same-currency payouts must NOT be quoted — Bachs rejects that.
+   */
+  async createPayoutQuote(input: {
+    fromCurrency: string;
+    toCurrency: string;
+    amount: string;
+  }): Promise<BachsPayoutQuote> {
+    return this.request<BachsPayoutQuote>('/v1/payouts/quotes', {
+      method: 'POST',
+      body: {
+        from_currency: input.fromCurrency,
+        to_currency: input.toCurrency,
+        amount: input.amount,
+      },
+    });
+  }
+
+  /**
+   * Create a payout. Always sends the Idempotency-Key header — Bachs double-pays on
+   * a retry without one, and a 5xx response is not proof the payout was not created.
+   */
+  async createPayout(input: BachsCreatePayoutInput): Promise<BachsPayoutResult> {
+    const body: Record<string, unknown> = {
+      destination: input.destination,
+      reference: input.reference,
+    };
+    if (input.quoteId) {
+      body.quote_id = input.quoteId;
+    } else {
+      body.amount = input.amount;
+    }
+    return this.request<BachsPayoutResult>('/v1/payouts', {
+      method: 'POST',
+      body,
+      idempotencyKey: input.idempotencyKey,
+    });
+  }
+
+  /** Get a payout by id (`pay_...`). Returns null when the payout does not exist. */
+  async getPayout(payoutId: string): Promise<BachsPayoutResult | null> {
+    try {
+      return await this.request<BachsPayoutResult>(`/v1/payouts/${encodeURIComponent(payoutId)}`);
+    } catch (error) {
+      if (error instanceof BachsApiError && error.httpStatus === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   private async request<T>(
     path: string,
-    options?: { method?: string; body?: unknown },
+    options?: { method?: string; body?: unknown; idempotencyKey?: string },
   ): Promise<T> {
     const secretKey = getBachsSecretKey();
     if (!secretKey) {
       throw new Error('bachs_not_configured');
     }
 
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${secretKey}`,
+      'Content-Type': 'application/json',
+    };
+    if (options?.idempotencyKey) {
+      headers['Idempotency-Key'] = options.idempotencyKey;
+    }
+
     const response = await fetch(`${getBachsBaseUrl()}${path}`, {
       method: options?.method ?? 'GET',
-      headers: {
-        Authorization: `Bearer ${secretKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: options?.body ? JSON.stringify(options.body) : undefined,
     });
 
@@ -274,7 +406,7 @@ export class BachsApiService {
     if (!response.ok) {
       const detail = payload.detail ?? response.statusText;
       this.logger.warn(`Bachs API ${options?.method ?? 'GET'} ${path} failed: ${detail}`);
-      throw new Error(detail || 'bachs_api_error');
+      throw new BachsApiError(detail || 'bachs_api_error', payload.error_code, response.status);
     }
 
     return payload;

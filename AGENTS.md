@@ -52,10 +52,12 @@ Environment variables select payroll and rewards-wallet rails. Peer fallback app
 
 | Env | Values | Scope |
 |-----|--------|--------|
-| `NG_PAYROLL_PROVIDER` | `nomba` \| `monnify` \| `fincra` | NGN payroll bank payouts |
-| `INTL_PAYROLL_PROVIDER` | `noah` \| `fincra` | USD/EUR/GBP bank + USDT/USDC crypto payroll |
+| `NG_PAYROLL_PROVIDER` | `nomba` \| `monnify` \| `fincra` \| `bachs` | NGN payroll bank payouts |
+| `INTL_PAYROLL_PROVIDER` | `noah` \| `fincra` \| `bachs` | USD/EUR/GBP bank + USDT/USDC crypto payroll. `bachs` enables the Bachs USDT rail (TRC20/BEP20 wallets); it cannot deliver USD/EUR/GBP to bank accounts, so those stay on Noah/Fincra |
 | `NG_REWARDS_DEPOSIT_PROVIDER` | `nomba` \| `monnify` \| `fincra` \| `bachs` | NG wallet checkout deposits |
 | `INTL_REWARDS_DEPOSIT_PROVIDER` | `noah` \| `fincra` | Non-NG wallet checkout deposits |
 | `NG_REWARDS_AIRTIME_PROVIDER` | `nomba` \| `monnify` | Airtime/utilities only (not Fincra) |
 
 Fincra credentials from the dashboard (**Profile → API keys and webhook Configuration**; toggle Sandbox/Live to match `FINCRA_LIVE`): **Secret Key** → `FINCRA_API_KEY` (server `api-key` header), **Public Key** → `FINCRA_PUBLIC_KEY` (checkout `x-pub-key`), **Webhook Encryption Key** → `FINCRA_WEBHOOK_SECRET`. Business ID is resolved automatically via Fincra’s profile API when unset (`FINCRA_BUSINESS_ID` optional override). `FINCRA_PAYOUT_SOURCE_CURRENCY` is optional (defaults from business country). Bachs and Fincra wallet deposits are **checkout-only** — no saved-card manual top-up or automatic top-up. Webhook signatures are always required.
+
+Bachs payroll notes: Bachs bank payouts deliver **NGN only**. USDT payouts are **TRC20 / BEP20 only** and are routed to Bachs automatically by wallet network — Ethereum USDT and all USD/EUR/GBP bank payouts stay on Noah/Fincra, and a Tron/BSC wallet is never sent to another rail. USDT wallets can only be saved when `INTL_PAYROLL_PROVIDER=bachs` and `BACHS_SECRET_KEY` are set. A USD balance can fund NGN payouts via a cross-currency payout quote (set `BACHS_PAYOUT_SOURCE_CURRENCY`, e.g. `USD` — quote amounts are denominated in the source currency, so FX-at-payout salary amounts are quoted). Every payout sends an `Idempotency-Key` (the payroll merchant ref) — a retry without it can pay twice — and payouts are async: only `payout.paid` / `payout.failed` webhooks mark items terminal. Do not use Bachs payout schedules for payroll (they move settled customer collections only, never top-ups or transfers).

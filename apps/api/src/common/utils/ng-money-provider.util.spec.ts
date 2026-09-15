@@ -83,7 +83,15 @@ describe('ng-money-provider.util', () => {
     expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.NOMBA);
   });
 
-  it('never routes NGN payroll to Bachs even if NG_PAYROLL_PROVIDER=bachs', () => {
+  it('routes NGN payroll to Bachs when preferred and configured', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'bachs';
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+
+    expect(getNgPayrollProviderPreference()).toBe('bachs');
+    expect(resolveNgPaymentProvider()).toBe(PaymentProvider.BACHS);
+  });
+
+  it('falls back to nomba when bachs is preferred but not configured', () => {
     process.env.NG_PAYROLL_PROVIDER = 'bachs';
     process.env.NOMBA_CLIENT_ID = 'id';
     process.env.NOMBA_CLIENT_SECRET = 'secret';

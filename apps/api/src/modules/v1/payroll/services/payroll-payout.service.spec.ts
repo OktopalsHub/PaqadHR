@@ -413,6 +413,164 @@ describe('PayrollPayoutService', () => {
       expect(item.status).toBe(PayrollItemStatus.PROCESSING);
       expect(payrollItemRepository.save).not.toHaveBeenCalled();
     });
+
+    it('marks paid for FX-at-payout items, which have no pre-converted destination amount', async () => {
+      const { service, payrollItemRepository, payrollRunRepository } = createService();
+      const item = {
+        ...baseItem(),
+        paymentAmount: 0,
+        metadata: { fxAtPayout: true },
+      } as unknown as PayrollItem;
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+      (payrollItemRepository.save as jest.Mock).mockImplementation(async (saved) => saved);
+
+      const changed = await service.applyTransferStatus(
+        MERCHANT_REF,
+        'COMPLETED',
+        'pay_bachs_1',
+        PaymentProvider.BACHS,
+        'tenant-1',
+        1000,
+      );
+
+      expect(changed).toBe(true);
+      expect(item.status).toBe(PayrollItemStatus.PAID);
+      expect(item.paymentProvider).toBe('Bachs transfer');
+      expect(item.transactionId).toBe('pay_bachs_1');
+    });
+  });
+
+  describe('processBachsPayload', () => {
+    const wiredService = () => {
+      const nombaTransferApi = {
+        verifyWebhookSignature: jest.fn(),
+        parseTransferWebhook: jest.fn(),
+        getTransactionStatus: jest.fn(),
+      } as unknown as NombaTransferApiService;
+
+      const noahApi = {
+        verifyWebhookSignature: jest.fn(),
+        parseTransferWebhook: jest.fn(),
+        verifyTransaction: jest.fn(),
+      } as unknown as NoahApiService;
+
+      const fincraApi = {
+        parsePayoutWebhook: jest.fn(),
+        getPayoutStatus: jest.fn(),
+      };
+
+      const factory = {
+        resolvePayoutQuerier: jest.fn().mockReturnValue(undefined),
+      } as never;
+
+      const payrollItemRepository = {
+        findOne: jest.fn(),
+        find: jest.fn().mockResolvedValue([]),
+        save: jest.fn().mockImplementation(async (saved) => saved),
+      } as unknown as PayrollItemRepository;
+
+      const payrollRunRepository = {
+        findOne: jest.fn().mockResolvedValue({ tenantId: 'tenant-1' }),
+        save: jest.fn(),
+        findByIdWithItems: jest.fn().mockResolvedValue({
+          id: RUN_ID,
+          tenantId: 'tenant-1',
+          items: [],
+        }),
+      };
+
+      const service = new PayrollPayoutService(
+        nombaTransferApi,
+        noahApi,
+        fincraApi as never,
+        factory,
+        payrollItemRepository,
+        payrollRunRepository as never,
+        { find: jest.fn() } as unknown as Repository<PayrollItem>,
+      );
+
+      return { service, payrollItemRepository, payrollRunRepository };
+    };
+
+    const bachsPaidEvent = (reference: string | null, withdrawalId = 'pay_bachs_1') => ({
+      id: 'evt_1',
+      type: 'payout.paid',
+      data: {
+        withdrawal_id: withdrawalId,
+        reference,
+        status: 'completed',
+        amount: '1000.00',
+        to_amount: '1000.00',
+      },
+    });
+
+    it('marks the payroll item paid from a payout.paid event', async () => {
+      const { service, payrollItemRepository } = wiredService();
+      const item = {
+        ...baseItem(),
+        status: PayrollItemStatus.PENDING,
+        paymentAmount: 1000,
+        payrollRun: { tenantId: 'tenant-1' },
+      } as unknown as PayrollItem;
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+
+      const result = await service.processBachsPayload(bachsPaidEvent(MERCHANT_REF));
+
+      expect(result).toEqual({ received: true, matched: true });
+      expect(item.status).toBe(PayrollItemStatus.PAID);
+      expect(payrollItemRepository.save).toHaveBeenCalled();
+    });
+
+    it('marks the payroll item failed from a payout.failed event', async () => {
+      const { service, payrollItemRepository } = wiredService();
+      const item = {
+        ...baseItem(),
+        paymentAmount: 1000,
+        payrollRun: { tenantId: 'tenant-1' },
+      } as unknown as PayrollItem;
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+
+      const result = await service.processBachsPayload({
+        type: 'payout.failed',
+        data: { withdrawal_id: 'pay_bachs_2', reference: MERCHANT_REF, status: 'failed' },
+      });
+
+      expect(result).toEqual({ received: true, matched: true });
+      expect(item.status).toBe(PayrollItemStatus.FAILED);
+      expect(item.failureReason).toContain('Bachs transfer');
+    });
+
+    it('matches a payout by withdrawal id when the reference is missing', async () => {
+      const { service, payrollItemRepository } = wiredService();
+      const item = {
+        ...baseItem(),
+        status: PayrollItemStatus.PENDING,
+        paymentAmount: 1000,
+        payrollRun: { tenantId: 'tenant-1' },
+      } as unknown as PayrollItem;
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+
+      const result = await service.processBachsPayload(bachsPaidEvent(null, 'pay_bachs_3'));
+
+      expect(result).toEqual({ received: true, matched: true });
+      expect(item.status).toBe(PayrollItemStatus.PAID);
+    });
+
+    it('ignores non-payout events and unknown references', async () => {
+      const { service, payrollItemRepository } = wiredService();
+
+      expect(await service.processBachsPayload({ type: 'invoice.paid', data: {} })).toEqual({
+        received: true,
+        matched: false,
+      });
+
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(null);
+      expect(await service.processBachsPayload(bachsPaidEvent(MERCHANT_REF))).toEqual({
+        received: true,
+        matched: false,
+      });
+    });
   });
 
   describe('unknown provider status', () => {

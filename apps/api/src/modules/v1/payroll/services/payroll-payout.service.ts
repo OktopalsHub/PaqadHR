@@ -74,6 +74,10 @@ export class PayrollPayoutService {
     return this.webhooks.processMonnifyPayload(payload);
   }
 
+  async processBachsPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
+    return this.webhooks.processBachsPayload(payload);
+  }
+
   async requeryStuckPayouts(): Promise<{ checked: number; updated: number }> {
     return this.reconciliation.requeryStuckPayouts();
   }

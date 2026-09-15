@@ -268,12 +268,17 @@ export class PaymentBatching {
       throw new BadRequestException('Payment method not found');
     }
 
+    const cryptoNetwork =
+      typeof paymentMethod.metadata?.cryptoNetwork === 'string'
+        ? paymentMethod.metadata.cryptoNetwork
+        : undefined;
     const provider = this.paymentProviderFactory.getFiatProvider(
       item.paymentCurrency,
       paymentMethod.type,
+      cryptoNetwork,
     );
     const providerName = paymentProviderLabel(
-      resolvePaymentProvider(item.paymentCurrency, paymentMethod.type),
+      resolvePaymentProvider(item.paymentCurrency, paymentMethod.type, cryptoNetwork),
     );
     const employeeName = item.employee
       ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()

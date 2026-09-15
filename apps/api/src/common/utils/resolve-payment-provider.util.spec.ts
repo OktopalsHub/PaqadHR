@@ -39,9 +39,38 @@ describe('resolvePaymentProvider', () => {
     expect(resolvePaymentProvider('NGN', PaymentMethodType.CRYPTO)).toBe(PaymentProvider.NOAH);
   });
 
+  it('routes USDT on Bachs networks to Bachs regardless of intl preference', () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.NOAH_API_KEY = 'test-key';
+    process.env.INTL_PAYROLL_PROVIDER = 'noah';
+
+    expect(resolvePaymentProvider('USDT', undefined, 'TRC20')).toBe(PaymentProvider.BACHS);
+    expect(resolvePaymentProvider('USDT', undefined, 'bep20')).toBe(PaymentProvider.BACHS);
+  });
+
+  it('routes USDT on Bachs networks to Bachs even when Bachs is not configured', () => {
+    // Fails loudly in the provider rather than falling back to a rail that would
+    // settle USDT on a different chain.
+    delete process.env.BACHS_SECRET_KEY;
+
+    expect(resolvePaymentProvider('USDT', undefined, 'TRC20')).toBe(PaymentProvider.BACHS);
+  });
+
+  it('keeps Ethereum USDT and USD bank payouts on the intl provider', () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.NOAH_API_KEY = 'test-key';
+    process.env.INTL_PAYROLL_PROVIDER = 'bachs';
+
+    expect(resolvePaymentProvider('USDT', undefined, 'Ethereum')).toBe(PaymentProvider.NOAH);
+    expect(resolvePaymentProvider('USDT')).toBe(PaymentProvider.NOAH);
+    expect(resolvePaymentProvider('USD')).toBe(PaymentProvider.NOAH);
+    expect(resolvePaymentProvider('EUR')).toBe(PaymentProvider.NOAH);
+  });
+
   it('labels providers', () => {
     expect(paymentProviderLabel(PaymentProvider.NOMBA)).toBe('Local bank transfer');
     expect(paymentProviderLabel(PaymentProvider.NOAH)).toBe('International transfer');
     expect(paymentProviderLabel(PaymentProvider.FINCRA)).toBe('Fincra transfer');
+    expect(paymentProviderLabel(PaymentProvider.BACHS)).toBe('Bachs transfer');
   });
 });

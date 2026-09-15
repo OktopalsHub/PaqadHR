@@ -1,10 +1,10 @@
-import { isBachsWalletTopupConfigured } from '../config/bachs.config';
+import { isBachsConfigured, isBachsWalletTopupConfigured } from '../config/bachs.config';
 import { isFincraConfigured } from '../config/fincra.config';
 import { isMonnifyConfigured } from '../config/monnify.config';
 import { isNombaConfigured } from '../config/nomba.config';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 
-export type NgMoneyProvider = 'nomba' | 'monnify' | 'fincra';
+export type NgMoneyProvider = 'nomba' | 'monnify' | 'fincra' | 'bachs';
 
 function readEnvFirst(...keys: string[]): string | undefined {
   for (const key of keys) {
@@ -15,13 +15,14 @@ function readEnvFirst(...keys: string[]): string | undefined {
 }
 
 /**
- * Nomba ↔ Monnify ↔ Fincra peer switch for NGN payroll / bank payouts.
+ * Nomba ↔ Monnify ↔ Fincra ↔ Bachs peer switch for NGN payroll / bank payouts.
  * Canonical: NG_PAYROLL_PROVIDER. Legacy fallback: NG_PAYMENTS_PROVIDER.
  */
 export function getNgPayrollProviderPreference(): NgMoneyProvider {
   const normalized = readEnvFirst('NG_PAYROLL_PROVIDER', 'NG_PAYMENTS_PROVIDER');
   if (normalized === 'monnify') return 'monnify';
   if (normalized === 'fincra') return 'fincra';
+  if (normalized === 'bachs') return 'bachs';
   return 'nomba';
 }
 
@@ -29,6 +30,15 @@ export function getNgPayrollProviderPreference(): NgMoneyProvider {
 export const getNgPaymentsProviderPreference = getNgPayrollProviderPreference;
 
 function resolveNgMoneyProvider(preferred: NgMoneyProvider): PaymentProvider {
+  if (preferred === 'bachs') {
+    if (isBachsConfigured()) return PaymentProvider.BACHS;
+    // Bachs not configured — fall through to the NG peer chain.
+    if (isNombaConfigured()) return PaymentProvider.NOMBA;
+    if (isMonnifyConfigured()) return PaymentProvider.MONNIFY;
+    if (isFincraConfigured()) return PaymentProvider.FINCRA;
+    return PaymentProvider.NOMBA;
+  }
+
   if (preferred === 'fincra') {
     if (isFincraConfigured()) return PaymentProvider.FINCRA;
     if (isNombaConfigured()) return PaymentProvider.NOMBA;
@@ -49,7 +59,7 @@ function resolveNgMoneyProvider(preferred: NgMoneyProvider): PaymentProvider {
   return PaymentProvider.NOMBA;
 }
 
-/** NGN payroll / bank payouts — Nomba, Monnify, or Fincra. */
+/** NGN payroll / bank payouts — Nomba, Monnify, Fincra, or Bachs. */
 export function resolveNgPaymentProvider(): PaymentProvider {
   return resolveNgMoneyProvider(getNgPayrollProviderPreference());
 }

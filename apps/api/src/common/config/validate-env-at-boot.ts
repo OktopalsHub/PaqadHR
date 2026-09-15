@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { getBachsSecretKey } from './bachs.config';
 import {
   collectAccessExpiresInErrors,
   collectConfigErrors,
@@ -129,10 +130,8 @@ export function validateEnvAtBoot(): void {
   if (ngPayrollProvider === 'fincra' && !isFincraConfigured()) {
     warnings.push('NG_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY is not set');
   }
-  if (ngPayrollProvider === 'bachs') {
-    warnings.push(
-      'NG_PAYROLL_PROVIDER must be nomba, monnify, or fincra — use NG_REWARDS_DEPOSIT_PROVIDER=bachs for Bachs wallet deposits only',
-    );
+  if (ngPayrollProvider === 'bachs' && !isBachsConfigured()) {
+    warnings.push('NG_PAYROLL_PROVIDER=bachs but BACHS_SECRET_KEY is empty');
   }
   if (ngRewardsDepositProvider === 'bachs' && !process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN?.trim()) {
     warnings.push(
@@ -170,6 +169,10 @@ export function validateEnvAtBoot(): void {
   }
 
   logger.log('Environment validation passed');
+}
+
+function isBachsConfigured(): boolean {
+  return Boolean(getBachsSecretKey());
 }
 
 function isFincraConfigured(): boolean {

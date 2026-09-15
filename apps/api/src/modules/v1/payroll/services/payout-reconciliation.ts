@@ -70,6 +70,7 @@ export class PayoutReconciliation {
   resolveStoredProvider(stored: string | null | undefined): PaymentProvider {
     const value = (stored ?? '').toLowerCase();
     if (value.includes('fincra')) return PaymentProvider.FINCRA;
+    if (value.includes('bachs')) return PaymentProvider.BACHS;
     if (value.includes('noah') || value.includes('international') || value.includes('crypto'))
       return PaymentProvider.NOAH;
     if (value.includes('monnify')) return PaymentProvider.MONNIFY;
@@ -237,7 +238,11 @@ export class PayoutReconciliation {
 
     if (SUCCESS_STATUSES.has(status)) {
       if (item.status === PayrollItemStatus.PAID) return false;
+      // FX-at-payout items are quoted at disbursement (paymentAmount is 0 — the salary
+      // amount is what the provider converts), so there is no stored expected destination
+      // amount to compare the delivered amount against.
       if (
+        item.metadata?.fxAtPayout !== true &&
         amount != null &&
         Number.isFinite(amount) &&
         Math.abs(Number(amount) - Number(item.paymentAmount)) > PAYROLL_AMOUNT_TOLERANCE

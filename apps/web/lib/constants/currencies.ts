@@ -8,10 +8,11 @@ export const SUPPORTED_PAYROLL_CURRENCIES = [
 export type SupportedFiatCurrency = (typeof SUPPORTED_FIAT_CURRENCIES)[number];
 export type SupportedCryptoCurrency = (typeof SUPPORTED_CRYPTO_CURRENCIES)[number];
 
-/** Noah production network names allowed per currency. */
+/** Noah production network names allowed per currency, plus the Bachs USDT rails. */
 export const CRYPTO_NETWORKS_BY_CURRENCY: Record<SupportedCryptoCurrency, readonly string[]> = {
   USDC: ['Ethereum', 'Base', 'PolygonPos', 'Solana', 'Celo', 'Gnosis', 'FlowEvm'],
-  USDT: ['Ethereum'],
+  // TRC20/BEP20 are delivered by Bachs and only accepted when the Bachs USDT rail is enabled.
+  USDT: ['Ethereum', 'TRC20', 'BEP20'],
   BTC: ['Bitcoin'],
   ETH: ['Ethereum'],
   SOL: ['Solana'],

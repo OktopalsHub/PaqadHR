@@ -1,4 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
+import { isBachsUsdtPayoutRailEnabled } from 'src/common/config/bachs.config';
+import { normalizeBachsUsdtNetwork } from 'src/common/config/bachs-payout.util';
 import {
   isCryptoCurrency,
   normalizeCryptoNetwork,
@@ -55,11 +57,24 @@ export function assertAndCanonicalizeCryptoNetwork(currency: string, network: un
   if (typeof network !== 'string' || !network.trim())
     throw new BadRequestException('Crypto requires a network');
   const canonical = normalizeCryptoNetwork(currency, network);
-  if (!canonical)
-    throw new BadRequestException(
-      `Unsupported network for ${currency.toUpperCase()}: ${network.trim()}`,
-    );
-  return canonical;
+  if (canonical) return canonical;
+
+  // USDT on TRC20/BEP20 is delivered by Bachs, so it is only storable where that
+  // rail is enabled — otherwise the wallet could never be paid.
+  const bachsNetwork =
+    currency.toUpperCase() === 'USDT' ? normalizeBachsUsdtNetwork(network) : null;
+  if (bachsNetwork) {
+    if (!isBachsUsdtPayoutRailEnabled())
+      throw new BadRequestException(
+        `Network ${bachsNetwork} for USDT requires the Bachs payout rail ` +
+          '(set INTL_PAYROLL_PROVIDER=bachs and BACHS_SECRET_KEY)',
+      );
+    return bachsNetwork;
+  }
+
+  throw new BadRequestException(
+    `Unsupported network for ${currency.toUpperCase()}: ${network.trim()}`,
+  );
 }
 
 export function resolveUpdatedMetadata(
