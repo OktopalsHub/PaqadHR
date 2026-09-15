@@ -54,11 +54,15 @@ describe('PayrollPayoutService', () => {
       }),
     };
 
+    const factory = {
+      resolvePayoutQuerier: jest.fn().mockReturnValue(undefined),
+    } as unknown as PaymentProviderFactoryService;
+
     const service = new PayrollPayoutService(
       nombaTransferApi,
       noahApi,
-      monnifyApi as never,
       fincraApi as never,
+      factory,
       payrollItemRepository,
       payrollRunRepository as never,
       payrollItemRepo,
