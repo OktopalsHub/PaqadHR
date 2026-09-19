@@ -42,7 +42,9 @@ export class MemberReadService {
   }
 
   /** Return lightweight employee and department metrics for a tenant. */
-  async getTenantMemberSummary(tenantId: string): Promise<{ activeEmployees: number; departments: number }> {
+  async getTenantMemberSummary(
+    tenantId: string,
+  ): Promise<{ activeEmployees: number; departments: number }> {
     return this.tenantMemberRepository.getTenantMemberSummary(tenantId);
   }
 
