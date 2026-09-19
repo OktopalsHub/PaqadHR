@@ -18,6 +18,7 @@ import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
 import {
   IsAfterStartDate,
   IsNotFuture,
+  IsNotPast,
   IsValidPayrollPeriod,
 } from 'src/common/validators/payroll-date.validator';
 
@@ -61,6 +62,7 @@ export class PatchPayrollRunDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate({ message: 'Expected pay date must be a valid date' })
+  @IsNotPast({ message: 'Payment date cannot be in the past' })
   paymentDate?: Date;
 
   @ApiPropertyOptional({
