@@ -249,10 +249,17 @@ export class PayrollFloatTopupService {
       throw new BadRequestException(preflight.message);
     }
 
+    const existingFloatTopup = run.metadata?.floatTopup;
+    const existingOrderReference =
+      existingFloatTopup && typeof existingFloatTopup === 'object' && 'orderReference' in existingFloatTopup
+        ? typeof existingFloatTopup.orderReference === 'string'
+          ? existingFloatTopup.orderReference
+          : undefined
+        : undefined;
     run.metadata = {
       ...run.metadata,
       floatTopup: {
-        orderReference: run.metadata?.floatTopup?.orderReference,
+        orderReference: existingOrderReference,
         status: 'completed',
         completedAt: new Date().toISOString(),
         shortfall: 0,
