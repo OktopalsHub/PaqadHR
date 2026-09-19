@@ -12,6 +12,7 @@ import type { PaymentResult } from '../interfaces/payment-result.interface';
 import type { WebhookResult } from '../interfaces/webhook-result.interface';
 import { BachsApiError, BachsApiService } from '../services/bachs-api.service';
 import { BasePaymentProvider } from './base-payment.provider';
+import { runConcurrentCreatePayments } from './run-concurrent-create-payments';
 import { PaymentProviderError } from './payment-provider.interface';
 
 /** Error codes that will never succeed on retry — do not requeue these payroll items. */
@@ -28,6 +29,7 @@ const NON_RETRYABLE_ERROR_CODES = new Set([
 ]);
 
 const DESTINATION_CACHE_TTL_MS = 10 * 60 * 1000;
+const BACHS_PAYOUT_CONCURRENCY = 5;
 
 type BachsDestinationInput = {
   currency: string;
@@ -167,6 +169,16 @@ export class BachsProvider extends BasePaymentProvider {
         retryable,
       };
     }
+  }
+
+  /** Bachs exposes individual payouts rather than a payroll batch endpoint. Keep concurrency below the
+   * generic provider limit because each payout can perform destination resolution + payout calls. */
+  createBulkTransfer(transfers: CreatePaymentData[]): Promise<PaymentResult[]> {
+    return runConcurrentCreatePayments(
+      (data) => this.createPayment(data),
+      transfers,
+      BACHS_PAYOUT_CONCURRENCY,
+    );
   }
 
   async processWebhook(_payload: unknown, _signature: string): Promise<WebhookResult> {
