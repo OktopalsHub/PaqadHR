@@ -133,23 +133,22 @@ export class PayrollPayoutController {
       userAgent: req.get('User-Agent'),
     };
     await this.payrollService.schedulePayrollPayout(id, tenantId, dto.paymentDate, auditContext);
-    let outcome;
     try {
-      outcome = await this.payrollService.fundScheduledPayroll(id, tenantId, auditContext);
+      const outcome = await this.payrollService.fundScheduledPayroll(id, tenantId, auditContext);
+      if (outcome.action === 'checkout') {
+        return {
+          message: 'Complete checkout to fund this scheduled payroll',
+          ...outcome,
+        };
+      }
+      return {
+        message: 'Payroll funded and scheduled',
+        ...outcome,
+      };
     } catch (error) {
       await this.payrollService.rollbackScheduledPayroll(id, tenantId);
       throw error;
     }
-    if (outcome.action === 'checkout') {
-      return {
-        message: 'Complete checkout to fund this scheduled payroll',
-        ...outcome,
-      };
-    }
-    return {
-      message: 'Payroll funded and scheduled',
-      ...outcome,
-    };
   }
 
   @Post('runs/:id/process-multi-payment')
