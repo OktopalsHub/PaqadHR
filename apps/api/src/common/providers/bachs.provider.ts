@@ -129,7 +129,8 @@ export class BachsProvider extends BasePaymentProvider {
         typeof data.metadata?.bachsDestinationId === 'string'
           ? data.metadata.bachsDestinationId.trim()
           : '';
-      const destinationId = cachedDestinationId || (await this.resolveDestinationId(destinationInput));
+      const destinationId =
+        cachedDestinationId || (await this.resolveDestinationId(destinationInput));
       const payout = await this.bachsApi.createPayout({
         destination: destinationId,
         amount,
