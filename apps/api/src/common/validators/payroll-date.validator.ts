@@ -55,6 +55,21 @@ export class IsNotFutureConstraint implements ValidatorConstraintInterface {
   }
 }
 
+@ValidatorConstraint({ name: 'isNotPast', async: false })
+export class IsNotPastConstraint implements ValidatorConstraintInterface {
+  validate(date: unknown) {
+    if (!date) return false;
+    const inputDate = new Date(date as string);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return inputDate >= today;
+  }
+
+  defaultMessage() {
+    return 'Payment date cannot be in the past';
+  }
+}
+
 @ValidatorConstraint({ name: 'isAfterStartDate', async: false })
 export class IsAfterStartDateConstraint implements ValidatorConstraintInterface {
   validate(endDate: unknown, args: ValidationArguments) {
@@ -105,6 +120,18 @@ export function IsNotFuture(validationOptions?: ValidationOptions) {
       options: validationOptions,
       constraints: [],
       validator: IsNotFutureConstraint,
+    });
+  };
+}
+
+export function IsNotPast(validationOptions?: ValidationOptions) {
+  return (object: object, propertyName: string) => {
+    registerDecorator({
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      constraints: [],
+      validator: IsNotPastConstraint,
     });
   };
 }
