@@ -251,7 +251,9 @@ export class PayrollFloatTopupService {
 
     const existingFloatTopup = run.metadata?.floatTopup;
     const existingOrderReference =
-      existingFloatTopup && typeof existingFloatTopup === 'object' && 'orderReference' in existingFloatTopup
+      existingFloatTopup &&
+      typeof existingFloatTopup === 'object' &&
+      'orderReference' in existingFloatTopup
         ? typeof existingFloatTopup.orderReference === 'string'
           ? existingFloatTopup.orderReference
           : undefined
