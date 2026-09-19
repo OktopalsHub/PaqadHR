@@ -214,11 +214,7 @@ export class PayrollService {
   }
 
   async fundScheduledPayroll(payrollRunId: string, tenantId: string, auditContext: AuditContext) {
-    return this.payrollFloatTopupService.fundScheduledPayroll(
-      payrollRunId,
-      tenantId,
-      auditContext,
-    );
+    return this.payrollFloatTopupService.fundScheduledPayroll(payrollRunId, tenantId, auditContext);
   }
 
   async schedulePayrollPayout(
