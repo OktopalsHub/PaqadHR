@@ -11,7 +11,7 @@ import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { isActivePayrollReadinessItem } from '../utils/payroll-readiness-items.util';
-import { payrollCalendarDatePart, payrollTodayCalendarDatePart } from '../../../common/validators/payroll-date.validator';
+import { payrollCalendarDatePart, payrollTodayCalendarDatePart } from '../../../../common/validators/payroll-date.validator';
 import { AuditService } from './audit.service';
 import { ManualDisbursementService } from './manual-disbursement.service';
 import { MultiPaymentService } from './multi-payment.service';
