@@ -67,6 +67,7 @@ export class PaymentBatching {
         tenantId,
         item.memberId,
         Boolean(item.metadata?.excludedFromRun),
+        payoutCurrency,
       );
       if (!readiness.ready) {
         skipped.push(item);
@@ -255,6 +256,7 @@ export class PaymentBatching {
       tenantId,
       item.memberId,
       Boolean(item.metadata?.excludedFromRun),
+      item.paymentCurrency,
     );
     if (!readiness.ready || !readiness.paymentMethodId) {
       throw new BadRequestException(readiness.message);

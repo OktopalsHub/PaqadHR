@@ -23,6 +23,8 @@ export function getNgPayrollProviderPreference(): NgMoneyProvider {
   if (normalized === 'monnify') return 'monnify';
   if (normalized === 'fincra') return 'fincra';
   if (normalized === 'bachs') return 'bachs';
+  // Bachs is the default NGN payroll rail when configured. Explicit provider env still wins.
+  if (isBachsConfigured()) return 'bachs';
   return 'nomba';
 }
 
