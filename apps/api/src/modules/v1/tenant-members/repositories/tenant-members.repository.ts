@@ -37,6 +37,7 @@ const MEMBER_LIST_RELATIONS = [
   'positionHistory.position',
   'departmentMemberships',
   'departmentMemberships.department',
+  'employments',
 ] as const;
 
 @Injectable()
@@ -76,7 +77,10 @@ export class TenantMemberRepository extends Repository<TenantMember> {
     });
   }
 
-  async getTenantMemberSummary(tenantId: string): Promise<{ activeEmployees: number; departments: number }> {
+  /** Return active employee and distinct active department counts for a tenant. */
+  async getTenantMemberSummary(
+    tenantId: string,
+  ): Promise<{ activeEmployees: number; departments: number }> {
     const activeEmployees = await this.tenantMemberRepository.count({
       where: { tenantId, isActive: true },
     });
