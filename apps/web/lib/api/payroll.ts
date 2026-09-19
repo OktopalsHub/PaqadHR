@@ -237,16 +237,24 @@ export async function retryFailedPayrollPayments(id: string): Promise<{
   });
 }
 
-export async function schedulePayrollPayout(id: string, paymentDate?: string): Promise<PayrollRun> {
+export async function schedulePayrollPayout(
+  id: string,
+  paymentDate?: string,
+): Promise<
+  | { action: 'scheduled'; message: string; run: PayrollRun }
+  | {
+      action: 'checkout';
+      message: string;
+      checkoutUrl: string;
+      orderReference: string;
+      preflight?: { currency: string; message: string; shortfall: number };
+    }
+> {
   const tenantId = await resolveTenantId();
-  const result = await apiClient<{ run: PayrollRun }>(
-    tenantPath(tenantId, `payroll/runs/${id}/schedule`),
-    {
-      method: 'POST',
-      body: JSON.stringify(paymentDate ? { paymentDate } : {}),
-    },
-  );
-  return result.run;
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/schedule`), {
+    method: 'POST',
+    body: JSON.stringify(paymentDate ? { paymentDate } : {}),
+  });
 }
 
 export async function approvePayrollRun(id: string): Promise<void> {

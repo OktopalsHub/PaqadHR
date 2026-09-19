@@ -5,6 +5,10 @@ import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
+import {
+  payrollCalendarDatePart,
+  payrollTodayCalendarDatePart,
+} from '../../../../common/validators/payroll-date.validator';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PayrollRun } from '../entities/payroll-run.entity';
@@ -229,6 +233,9 @@ export class PayrollPaymentOrchestrator {
     }
     if (paymentDate) run.paymentDate = paymentDate;
     if (!run.paymentDate) throw new BadRequestException('Set a payment date before scheduling');
+    if (payrollCalendarDatePart(run.paymentDate) < payrollTodayCalendarDatePart()) {
+      throw new BadRequestException('Payment date cannot be in the past');
+    }
     run.payoutMode = 'scheduled';
     const scheduledFor = this.toIsoDatePart(run.paymentDate);
     run.metadata = {
@@ -256,6 +263,18 @@ export class PayrollPaymentOrchestrator {
     return saved;
   }
 
+  async rollbackScheduledPayroll(payrollRunId: string, tenantId: string): Promise<void> {
+    const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId, tenantId } });
+    if (run?.payoutMode !== 'scheduled') return;
+
+    const metadata = { ...run.metadata };
+    delete metadata.scheduledAt;
+    delete metadata.scheduledFor;
+    run.metadata = metadata;
+    run.payoutMode = 'immediate';
+    await this.payrollRunRepository.save(run);
+  }
+
   async processDueScheduledPayouts(): Promise<{ processed: number; failed: number }> {
     if (!isPayrollGatewayEnabled()) return { processed: 0, failed: 0 };
     const today = new Date();
@@ -271,6 +290,15 @@ export class PayrollPaymentOrchestrator {
       failed = 0;
     for (const run of dueRuns) {
       try {
+        const floatTopup = run.metadata?.floatTopup;
+        const floatTopupStatus =
+          floatTopup && typeof floatTopup === 'object' && 'status' in floatTopup
+            ? floatTopup.status
+            : undefined;
+        if (floatTopupStatus !== 'completed') {
+          this.logger.warn(`Scheduled payroll ${run.id} is due but has not been funded`);
+          continue;
+        }
         if (this.lifecycleNotify) {
           await this.lifecycleNotify.onScheduledPayoutDue({
             tenantId: run.tenantId,
@@ -335,6 +363,6 @@ export class PayrollPaymentOrchestrator {
   }
 
   private toIsoDatePart(value: Date | string): string {
-    return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+    return payrollCalendarDatePart(value);
   }
 }

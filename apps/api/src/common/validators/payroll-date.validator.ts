@@ -16,6 +16,15 @@ export const PAYROLL_PERIOD_DAY_RANGES = {
 
 export type PayrollFrequency = keyof typeof PAYROLL_PERIOD_DAY_RANGES;
 
+export function payrollCalendarDatePart(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toISOString().slice(0, 10);
+}
+
+export function payrollTodayCalendarDatePart(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function payrollPeriodDiffDays(
   periodStart: Date | string,
   periodEnd: Date | string,
@@ -52,6 +61,18 @@ export class IsNotFutureConstraint implements ValidatorConstraintInterface {
 
   defaultMessage() {
     return 'Date cannot be in the future';
+  }
+}
+
+@ValidatorConstraint({ name: 'isNotPast', async: false })
+export class IsNotPastConstraint implements ValidatorConstraintInterface {
+  validate(date: unknown) {
+    if (!date) return false;
+    return payrollCalendarDatePart(date as string) >= payrollTodayCalendarDatePart();
+  }
+
+  defaultMessage() {
+    return 'Payment date cannot be in the past';
   }
 }
 
@@ -105,6 +126,18 @@ export function IsNotFuture(validationOptions?: ValidationOptions) {
       options: validationOptions,
       constraints: [],
       validator: IsNotFutureConstraint,
+    });
+  };
+}
+
+export function IsNotPast(validationOptions?: ValidationOptions) {
+  return (object: object, propertyName: string) => {
+    registerDecorator({
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      constraints: [],
+      validator: IsNotPastConstraint,
     });
   };
 }

@@ -460,14 +460,35 @@ export function PayrollPage() {
       toast.error('Pick a payment date');
       return;
     }
+    const checkoutTab = window.open('about:blank', '_blank');
     try {
-      await actions.schedule.mutateAsync({
+      const response = await actions.schedule.mutateAsync({
         id: scheduleRunId,
         paymentDate: new Date(scheduleDate).toISOString(),
       });
+      if (response.action === 'checkout') {
+        if (response.checkoutUrl) {
+          toast.message(
+            `Complete checkout now. Employees will be paid on ${formatDate(scheduleDate)}.`,
+          );
+          if (checkoutTab) {
+            checkoutTab.opener = null;
+            checkoutTab.location.href = response.checkoutUrl;
+          } else {
+            window.location.assign(response.checkoutUrl);
+          }
+        } else {
+          checkoutTab?.close();
+          toast.error(response.message);
+        }
+        setScheduleRunId(null);
+        return;
+      }
+      checkoutTab?.close();
       setScheduleRunId(null);
-      toast.success(`Scheduled for ${formatDate(scheduleDate)}`);
+      toast.success(`Funded and scheduled for ${formatDate(scheduleDate)}`);
     } catch (err) {
+      checkoutTab?.close();
       toast.error(err instanceof Error ? err.message : 'Schedule failed');
     }
   };

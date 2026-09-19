@@ -125,17 +125,30 @@ export class PayrollPayoutController {
     @Body() dto: SchedulePayrollPayoutDto,
     @Req() req: IAuthenticatedMemberRequest,
   ) {
-    const run = await this.payrollService.schedulePayrollPayout(id, tenantId, dto.paymentDate, {
+    const auditContext = {
       tenantId,
       payrollRunId: id,
       performedById: req.member.id,
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
-    });
-    return {
-      message: 'Payroll scheduled',
-      run,
     };
+    await this.payrollService.schedulePayrollPayout(id, tenantId, dto.paymentDate, auditContext);
+    try {
+      const outcome = await this.payrollService.fundScheduledPayroll(id, tenantId, auditContext);
+      if (outcome.action === 'checkout') {
+        return {
+          message: 'Complete checkout to fund this scheduled payroll',
+          ...outcome,
+        };
+      }
+      return {
+        message: 'Payroll funded and scheduled',
+        ...outcome,
+      };
+    } catch (error) {
+      await this.payrollService.rollbackScheduledPayroll(id, tenantId);
+      throw error;
+    }
   }
 
   @Post('runs/:id/process-multi-payment')

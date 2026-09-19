@@ -192,6 +192,86 @@ export class PayrollFloatTopupService {
     throw new BadRequestException(preflight.message);
   }
 
+  async fundScheduledPayroll(
+    payrollRunId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+  ): Promise<
+    | { action: 'scheduled'; run: PayrollRun }
+    | {
+        action: 'checkout';
+        checkoutUrl: string;
+        orderReference: string;
+        preflight: PayrollFundPreflight;
+      }
+  > {
+    const run = await this.requireApprovedRun(payrollRunId, tenantId);
+    if (run.payoutMode !== 'scheduled') {
+      throw new BadRequestException('Payroll run is not configured for scheduled payout');
+    }
+    if (!run.paymentDate) {
+      throw new BadRequestException('Set a payment date before scheduling');
+    }
+
+    const existingTopup = this.readFloatTopupMeta(run);
+    if (existingTopup.status === 'completed') {
+      return { action: 'scheduled', run };
+    }
+    if (existingTopup.status === 'pending' && existingTopup.orderReference) {
+      throw new BadRequestException(
+        'Payroll funding checkout is already pending. Complete the existing checkout before scheduling again.',
+      );
+    }
+
+    const preflight = await this.preflight(payrollRunId, tenantId);
+    if (preflight.canCheckout && preflight.requiredAmount > 0) {
+      const checkoutPreflight: PayrollFundPreflight = {
+        ...preflight,
+        ok: false,
+        shortfall: preflight.requiredAmount,
+        message: `Checkout will charge ${preflight.requiredAmount} ${preflight.currency} now. Employees will be paid on ${this.toIsoDatePart(run.paymentDate)}.`,
+      };
+      const checkout = await this.createFloatTopupCheckout(
+        payrollRunId,
+        tenantId,
+        auditContext.performedById,
+        checkoutPreflight,
+      );
+      return {
+        action: 'checkout',
+        checkoutUrl: checkout.checkoutUrl,
+        orderReference: checkout.orderReference,
+        preflight: checkoutPreflight,
+      };
+    }
+
+    if (!preflight.ok) {
+      throw new BadRequestException(preflight.message);
+    }
+
+    const existingFloatTopup = run.metadata?.floatTopup;
+    const existingOrderReference =
+      existingFloatTopup &&
+      typeof existingFloatTopup === 'object' &&
+      'orderReference' in existingFloatTopup
+        ? typeof existingFloatTopup.orderReference === 'string'
+          ? existingFloatTopup.orderReference
+          : undefined
+        : undefined;
+    run.metadata = {
+      ...run.metadata,
+      floatTopup: {
+        orderReference: existingOrderReference,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        shortfall: 0,
+        provider: preflight.provider,
+      } satisfies FloatTopupMeta,
+    };
+    const saved = await this.payrollRunRepository.save(run);
+    return { action: 'scheduled', run: saved };
+  }
+
   async assertFundedOrThrow(payrollRunId: string, tenantId: string): Promise<void> {
     const preflight = await this.preflight(payrollRunId, tenantId);
     if (!preflight.ok) {
@@ -213,8 +293,14 @@ export class PayrollFloatTopupService {
     }
 
     const meta = this.readFloatTopupMeta(run);
-    if (meta.status === 'completed' && meta.orderReference === input.orderReference) {
-      return { received: true, paid: true };
+    if (!meta.orderReference || meta.orderReference !== input.orderReference) {
+      this.logger.warn(
+        `Payroll float top-up rejected: checkout reference mismatch for ${input.orderReference}`,
+      );
+      return { received: true, paid: false };
+    }
+    if (meta.status === 'completed') {
+      return { received: true, paid: run.payoutMode !== 'scheduled' };
     }
 
     const provider = resolvePaymentProvider(run.baseCurrency) as PayrollFloatOrderRefProvider;
@@ -275,6 +361,10 @@ export class PayrollFloatTopupService {
     });
     if (!claimed) {
       return { received: true, paid: true };
+    }
+
+    if (claimed.payoutMode === 'scheduled') {
+      return { received: true, paid: false };
     }
 
     if (claimed.status !== PayrollStatus.APPROVED) {
@@ -370,6 +460,10 @@ export class PayrollFloatTopupService {
     };
   }
 
+  private toIsoDatePart(value: Date | string): string {
+    return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+  }
+
   private async requireApprovedRun(payrollRunId: string, tenantId: string): Promise<PayrollRun> {
     const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
@@ -444,7 +538,10 @@ export class PayrollFloatTopupService {
       if (!locked) return null;
 
       const meta = this.readFloatTopupMeta(locked);
-      if (meta.status === 'completed' && meta.orderReference === input.orderReference) {
+      if (!meta.orderReference || meta.orderReference !== input.orderReference) {
+        return null;
+      }
+      if (meta.status === 'completed') {
         return null;
       }
 

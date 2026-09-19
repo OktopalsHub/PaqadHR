@@ -37,6 +37,12 @@ export class PayrollFloatBalanceService {
           return await this.getMonnifyBalance(code);
         case PaymentProvider.FINCRA:
           return await this.getFincraBalance(code);
+        case PaymentProvider.BACHS:
+        case PaymentProvider.NOAH:
+          return {
+            supported: false,
+            reason: `${provider} balance lookup is not available. Use payroll checkout to fund the payout float.`,
+          };
         default:
           return {
             supported: false,
@@ -67,6 +73,8 @@ export class PayrollFloatBalanceService {
         return 'https://dashboard.fincra.com';
       case PaymentProvider.NOAH:
         return 'https://dashboard.noah.com';
+      case PaymentProvider.BACHS:
+        return '';
       default:
         return '';
     }
@@ -74,7 +82,13 @@ export class PayrollFloatBalanceService {
 
   /** Hosted checkout that credits the same merchant float used for payouts. */
   supportsHostedFloatTopup(provider: PaymentProvider): boolean {
-    return provider === PaymentProvider.NOMBA || provider === PaymentProvider.FINCRA;
+    return [
+      PaymentProvider.NOMBA,
+      PaymentProvider.MONNIFY,
+      PaymentProvider.NOAH,
+      PaymentProvider.FINCRA,
+      PaymentProvider.BACHS,
+    ].includes(provider);
   }
 
   private async getNombaBalance(currency: string): Promise<PayrollFloatBalanceResult> {

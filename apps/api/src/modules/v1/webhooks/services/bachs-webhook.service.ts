@@ -2,16 +2,21 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { parseBachsPayoutWebhook } from 'src/common/config/bachs-payout.util';
 import { verifyBachsWebhookSignature } from 'src/common/config/bachs-webhook.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
-import { extractBachsWalletTopupCheckout } from '../webhook-request.util';
+import {
+  extractBachsPayrollFloatTopupCheckout,
+  extractBachsWalletTopupCheckout,
+} from '../webhook-request.util';
 
 @Injectable()
 export class BachsWebhookService {
   constructor(
     private readonly subscriptionBillingService: SubscriptionBillingService,
     private readonly walletTopupService: TenantWalletTopupService,
+    private readonly payrollFloatTopupService: PayrollFloatTopupService,
     private readonly payrollPayoutService: PayrollPayoutService,
   ) {}
 
@@ -40,6 +45,12 @@ export class BachsWebhookService {
     if (parseBachsPayoutWebhook(payload)) {
       await this.payrollPayoutService.processBachsPayload(payload);
       return { received: true };
+    }
+
+    const payrollFloatTopup = extractBachsPayrollFloatTopupCheckout(payload);
+    if (payrollFloatTopup) {
+      const result = await this.payrollFloatTopupService.completeFloatTopup(payrollFloatTopup);
+      return { received: result.received };
     }
 
     const walletTopup = extractBachsWalletTopupCheckout(payload);
