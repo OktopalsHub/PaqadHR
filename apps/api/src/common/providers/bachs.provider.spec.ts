@@ -66,7 +66,9 @@ describe('BachsProvider', () => {
     expect(createPayment).toHaveBeenCalledTimes(5);
     expect(maxConcurrency).toBe(5);
 
-    resolvers.splice(0, 5).forEach((resolve) => resolve());
+    resolvers.splice(0, 5).forEach((resolve) => {
+      resolve();
+    });
 
     expect(resolvers).toHaveLength(6);
     resolvers[5]();
