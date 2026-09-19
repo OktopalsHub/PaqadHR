@@ -40,12 +40,18 @@ export class PayrollReadinessService {
     return decrypted;
   }
 
-  async findPrimaryPayoutMethod(tenantId: string, memberId: string): Promise<PaymentMethod | null> {
+  async findPrimaryPayoutMethod(
+    tenantId: string,
+    memberId: string,
+    currency?: string,
+  ): Promise<PaymentMethod | null> {
+    const normalizedCurrency = currency?.trim().toUpperCase();
     const methods = await this.paymentMethodRepo.find({
       where: {
         tenantId,
         memberId,
         status: Not(PaymentMethodStatus.SUSPENDED),
+        ...(normalizedCurrency ? { currency: normalizedCurrency } : {}),
       },
       order: { isPrimary: 'DESC', updatedAt: 'DESC', createdAt: 'DESC' },
     });
@@ -60,11 +66,13 @@ export class PayrollReadinessService {
     tenantId: string,
     memberId: string,
     excludedFromRun = false,
+    payoutCurrency?: string,
   ): Promise<PayrollPaymentReadiness> {
     const results = await this.assessBulkPayrollReadiness(
       tenantId,
       [memberId],
       excludedFromRun ? [memberId] : [],
+      payoutCurrency,
     );
     return results[0];
   }
@@ -73,9 +81,11 @@ export class PayrollReadinessService {
     tenantId: string,
     memberIds: string[],
     excludedMemberIds: string[] = [],
+    payoutCurrency?: string,
   ): Promise<PayrollPaymentReadiness[]> {
     const excludedSet = new Set(excludedMemberIds);
     const lockedMembers = await this.paymentSecurityService.getLockedMemberIds(tenantId, memberIds);
+    const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
 
     const employeeSettings = await this.tenantConfigService.requireIdentityForPayroll(tenantId);
     let members: { id: string; identityBvn?: string; identityNin?: string }[] = [];
@@ -104,20 +114,21 @@ export class PayrollReadinessService {
         continue;
       }
 
-      const method = await this.findPrimaryPayoutMethod(tenantId, memberId);
+      const method = await this.findPrimaryPayoutMethod(tenantId, memberId, normalizedCurrency);
       if (!method) {
         results.push({
           memberId,
           ready: false,
           issues: ['MISSING_PAYMENT_METHOD' as PayrollPaymentIssue],
-          message:
-            'Add and verify a primary payout method in payment settings (any supported currency).',
+          message: normalizedCurrency
+            ? `Set and verify a primary payout method for ${normalizedCurrency} in payment settings.`
+            : 'Add and verify a primary payout method in payment settings (any supported currency).',
         });
         continue;
       }
 
-      const payoutCurrency = (method.currency ?? 'USD').toUpperCase();
-      const payoutIsCrypto = isCryptoCurrency(payoutCurrency);
+      const methodCurrency = (method.currency ?? 'USD').toUpperCase();
+      const payoutIsCrypto = isCryptoCurrency(methodCurrency);
       const issues: PayrollPaymentIssue[] = [];
 
       if (!method.isVerified) issues.push('UNVERIFIED_PAYMENT_METHOD' as PayrollPaymentIssue);
@@ -134,15 +145,15 @@ export class PayrollReadinessService {
           !method.bankName?.trim()
         )
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
-        if (payoutCurrency === 'NGN' && !method.bankCode?.trim())
+        if (methodCurrency === 'NGN' && !method.bankCode?.trim())
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
-        if (requiresGlobalInstitutionCode(payoutCurrency) && !method.bankCode?.trim())
+        if (requiresGlobalInstitutionCode(methodCurrency) && !method.bankCode?.trim())
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
-        if (payoutCurrency !== 'NGN' && !method.country?.trim())
+        if (methodCurrency !== 'NGN' && !method.country?.trim())
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
       }
 
-      if (!getSupportedPaymentCurrencies().includes(payoutCurrency) && !payoutIsCrypto)
+      if (!getSupportedPaymentCurrencies().includes(methodCurrency) && !payoutIsCrypto)
         issues.push('UNSUPPORTED_CURRENCY' as PayrollPaymentIssue);
 
       if (employeeSettings) {
@@ -157,10 +168,10 @@ export class PayrollReadinessService {
         ready,
         issues,
         message: ready
-          ? `Ready to pay out to ${payoutCurrency} primary account.`
+          ? `Ready to pay out to ${methodCurrency} primary account.`
           : this.buildReadinessMessage(issues, payoutIsCrypto, method.status),
         paymentMethodId: method.id,
-        currency: payoutCurrency,
+        currency: methodCurrency,
       });
     }
     return results;
@@ -169,9 +180,9 @@ export class PayrollReadinessService {
   async resolvePayrollPaymentMethod(
     tenantId: string,
     memberId: string,
-    _currency?: string,
+    currency?: string,
   ): Promise<PaymentMethod | null> {
-    return this.findPrimaryPayoutMethod(tenantId, memberId);
+    return this.findPrimaryPayoutMethod(tenantId, memberId, currency);
   }
 
   private buildReadinessMessage(
