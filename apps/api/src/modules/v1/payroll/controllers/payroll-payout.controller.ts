@@ -133,7 +133,13 @@ export class PayrollPayoutController {
       userAgent: req.get('User-Agent'),
     };
     await this.payrollService.schedulePayrollPayout(id, tenantId, dto.paymentDate, auditContext);
-    const outcome = await this.payrollService.fundScheduledPayroll(id, tenantId, auditContext);
+    let outcome;
+    try {
+      outcome = await this.payrollService.fundScheduledPayroll(id, tenantId, auditContext);
+    } catch (error) {
+      await this.payrollService.rollbackScheduledPayroll(id, tenantId);
+      throw error;
+    }
     if (outcome.action === 'checkout') {
       return {
         message: 'Complete checkout to fund this scheduled payroll',
