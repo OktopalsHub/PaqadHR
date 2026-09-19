@@ -6,10 +6,12 @@ import {
 } from '@nestjs/common';
 import { verifyMonnifyWebhookSignature } from 'src/common/config/monnify-webhook.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import {
+  extractMonnifyPayrollFloatTopupCheckout,
   extractMonnifyPayrollTransfer,
   extractMonnifySubscriptionPayment,
   extractMonnifyWalletTopupCheckout,
@@ -20,6 +22,7 @@ export class MonnifyWebhookService {
   constructor(
     private readonly walletTopupService: TenantWalletTopupService,
     private readonly subscriptionBillingService: SubscriptionBillingService,
+    private readonly payrollFloatTopupService: PayrollFloatTopupService,
     private readonly payrollPayoutService: PayrollPayoutService,
   ) {}
 
@@ -37,6 +40,12 @@ export class MonnifyWebhookService {
       payload = JSON.parse(rawBody);
     } catch {
       throw new BadRequestException('Invalid webhook JSON');
+    }
+
+    const payrollFloatTopup = extractMonnifyPayrollFloatTopupCheckout(payload);
+    if (payrollFloatTopup) {
+      const result = await this.payrollFloatTopupService.completeFloatTopup(payrollFloatTopup);
+      return { received: result.received };
     }
 
     const walletTopup = extractMonnifyWalletTopupCheckout(payload);
