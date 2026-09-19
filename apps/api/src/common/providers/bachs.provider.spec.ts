@@ -42,16 +42,36 @@ describe('BachsProvider', () => {
   });
 
   it('uses a lower concurrency for bulk payouts', async () => {
-    const createPayment = jest.spyOn(provider, 'createPayment').mockImplementation(
-      async (data) => ({ success: true, reference: data.merchantTxRef, outcome: 'processing' }),
-    );
+    let activePayouts = 0;
+    let maxConcurrency = 0;
+    const resolvers: Array<() => void> = [];
+
+    const createPayment = jest.spyOn(provider, 'createPayment').mockImplementation(async (data) => {
+      activePayouts += 1;
+      maxConcurrency = Math.max(maxConcurrency, activePayouts);
+
+      await new Promise<void>((resolve) => resolvers.push(resolve));
+      activePayouts -= 1;
+
+      return { success: true, reference: data.merchantTxRef, outcome: 'processing' };
+    });
 
     const transfers = Array.from({ length: 6 }, (_, index) => ({
       ...ngnData,
       merchantTxRef: `bulk-${index}`,
     }));
 
-    const result = await provider.createBulkTransfer(transfers as never);
+    const resultPromise = provider.createBulkTransfer(transfers as never);
+
+    expect(createPayment).toHaveBeenCalledTimes(5);
+    expect(maxConcurrency).toBe(5);
+
+    resolvers.splice(0, 5).forEach((resolve) => resolve());
+
+    expect(resolvers).toHaveLength(6);
+    resolvers[5]();
+
+    const result = await resultPromise;
 
     expect(result).toHaveLength(6);
     expect(createPayment).toHaveBeenCalledTimes(6);
