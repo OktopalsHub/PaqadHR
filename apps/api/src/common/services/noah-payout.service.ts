@@ -46,6 +46,7 @@ interface NoahChannelItem {
   PaymentMethodCategory?: string;
   PaymentMethodType?: string;
   FiatCurrency?: string;
+  FormSchema?: Record<string, unknown>;
 }
 
 interface NoahChannelsResponse {
@@ -133,13 +134,20 @@ export class NoahPayoutService {
     );
 
     const items = channels.Items ?? channels.channels ?? [];
-    const preferredTypes = ['BankAch', 'BankSepa', 'BankLocal', 'BankFasterPayments'];
+    const preferredTypes =
+      input.fiatCurrency.toUpperCase() === 'EUR'
+        ? ['BankSepa', 'BankSwift', 'BankLocal']
+        : input.fiatCurrency.toUpperCase() === 'USD'
+          ? ['BankAch', 'BankFedwire', 'BankSwift']
+          : ['BankLocal', 'BankSwift'];
+
+    const bankChannels = items.filter(
+      (item) => (item.PaymentMethodCategory || '').toLowerCase() === 'bank',
+    );
     const bankChannel =
       preferredTypes
-        .map((type) => items.find((item) => item.PaymentMethodType === type))
-        .find(Boolean) ??
-      items.find((item) => (item.PaymentMethodCategory || '').toLowerCase() === 'bank') ??
-      items[0];
+        .map((type) => bankChannels.find((item) => item.PaymentMethodType === type))
+        .find(Boolean) ?? bankChannels[0];
     const channelId = input.channelId ?? bankChannel?.ID ?? bankChannel?.id;
     if (!channelId) {
       throw new BadRequestException(
@@ -154,9 +162,11 @@ export class NoahPayoutService {
       AccountType: input.bankAccountType === 'SAVINGS' ? 'Savings' : 'Checking',
     };
     if (input.fiatCurrency.toUpperCase() === 'USD') {
-      bankDetails.RoutingNumber = input.bankCode;
+      bankDetails.BankCode = input.bankCode;
     } else if (input.fiatCurrency.toUpperCase() === 'EUR') {
-      if (input.bankCode) bankDetails.Bic = input.bankCode;
+      // Noah's EUR SEPA form uses the beneficiary IBAN as AccountNumber.
+      // BIC is only included when the selected channel accepts it.
+      if (input.bankCode) bankDetails.BankCode = input.bankCode;
     } else if (input.bankCode) {
       bankDetails.BankCode = input.bankCode;
     }
@@ -169,15 +179,15 @@ export class NoahPayoutService {
       },
       BankDetails: bankDetails,
       Reference: input.merchantTxRef.slice(0, 36),
+      PaymentPurpose: input.purposeOfPayment ?? 'PAYROLL',
     };
 
-    if (input.fiatCurrency.toUpperCase() === 'USD') {
-      form.AccountHolderAddress = input.holderAddress ?? {
-        line1: '1 Business Street',
-        city: 'New York',
-        postalCode: '10001',
-        state: 'NY',
-        countryCode: 'US',
+    if (input.holderAddress) {
+      form.AccountHolderAddress = {
+        Address: input.holderAddress.line1,
+        City: input.holderAddress.city,
+        PostalCode: input.holderAddress.postalCode,
+        State: input.holderAddress.state,
       };
     }
 
