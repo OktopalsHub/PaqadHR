@@ -291,7 +291,11 @@ export class PayrollPaymentOrchestrator {
     for (const run of dueRuns) {
       try {
         const floatTopup = run.metadata?.floatTopup;
-        if (!floatTopup || typeof floatTopup !== 'object' || floatTopup.status !== 'completed') {
+        const floatTopupStatus =
+          floatTopup && typeof floatTopup === 'object' && 'status' in floatTopup
+            ? floatTopup.status
+            : undefined;
+        if (floatTopupStatus !== 'completed') {
           this.logger.warn(`Scheduled payroll ${run.id} is due but has not been funded`);
           continue;
         }
