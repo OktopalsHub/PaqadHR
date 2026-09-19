@@ -179,7 +179,7 @@ export class AuditService extends AuditReportService {
   async logPaymentSent(context: AuditContext, paymentData: Record<string, unknown>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYMENT_SENT,
-      description: `Payment sent to employee ${context.memberId}`,
+      description: `Payment sent to ${paymentActivityEmployeeNameFromPaymentData(paymentData)}`,
       afterData: paymentData,
       metadata: {
         amount: paymentData.paymentAmount,
@@ -197,7 +197,7 @@ export class AuditService extends AuditReportService {
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYMENT_FAILED,
-      description: `Payment failed for employee ${context.memberId}: ${failureReason}`,
+      description: `Payment failed for ${paymentActivityEmployeeNameFromPaymentData(paymentData)}: ${failureReason}`,
       afterData: paymentData,
       metadata: {
         amount: paymentData.paymentAmount,

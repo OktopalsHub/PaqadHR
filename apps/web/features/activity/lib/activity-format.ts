@@ -31,6 +31,20 @@ export type ActivityPresentation = {
   title: string;
 };
 
+/** Payment activities (payment_sent / payment_failed) should render as a value list, not a Before/After diff. */
+const PAYMENT_ACTIONS = new Set(['payment_sent', 'payment_failed', 'payroll_disbursed_manual']);
+
+/** Derive the employee name for a payroll activity. Prefer the logged name, fall back to memberId. */
+export function paymentActivityEmployeeName(activity: TenantActivity): string {
+  const metadata = activity.metadata ?? {};
+  const name =
+    (typeof metadata.employeeName === 'string' ? metadata.employeeName : undefined) ??
+    ((metadata.afterData as Record<string, unknown>)?.employeeName as string | undefined);
+  if (typeof name === 'string' && name.trim()) return name.trim();
+  const memberId = metadata.memberId ?? (activity.resourceId ? activity.resourceId : null);
+  return typeof memberId === 'string' && memberId.trim() ? memberId : 'an employee';
+}
+
 const PAYROLL_ACTIONS = new Set([
   'payroll_created',
   'payroll_processed',
@@ -143,7 +157,9 @@ export function getActivityCategory(activity: TenantActivity): ActivityCategory 
 
 export function getActivityPresentation(activity: TenantActivity): ActivityPresentation {
   const category = resolveCategory(activity);
-  const title = formatActivityTitle(activity);
+  const title = PAYMENT_ACTIONS.has(activity.action)
+    ? `${activity.action === 'payment_sent' ? 'Payment sent to' : 'Payment failed for'} ${paymentActivityEmployeeName(activity)}`
+    : formatActivityTitle(activity);
 
   if (activity.action === 'member.deactivated' || activity.action === 'member.removed') {
     return { icon: UserRoundX, iconClassName: 'bg-destructive/10 text-destructive', title };
@@ -159,12 +175,18 @@ export function getActivityPresentation(activity: TenantActivity): ActivityPrese
         iconClassName: 'bg-sky-500/10 text-sky-700',
         title,
       };
-    case 'payroll':
+    case 'payroll': {
+      const paymentTitle = PAYMENT_ACTIONS.has(activity.action)
+        ? activity.action === 'payment_sent'
+          ? `Payment sent to ${paymentActivityEmployeeName(activity)}`
+          : `Payment failed for ${paymentActivityEmployeeName(activity)}`
+        : title;
       return {
         icon: FileText,
         iconClassName: 'bg-violet-500/10 text-violet-700',
-        title,
+        title: paymentTitle,
       };
+    }
     case 'rewards':
       return {
         icon: activity.action.startsWith('wallet.') ? Wallet : Gift,
@@ -255,6 +277,7 @@ export function humanizeActivityFieldKey(key: string): string {
 export function getActivityChangeEntries(
   activity: TenantActivity,
 ): Array<{ field: string; from: string; to: string }> {
+  if (PAYMENT_ACTIONS.has(activity.action)) return [];
   const metadata = activity.metadata ?? {};
   const before = isPlainRecord(metadata.beforeData) ? metadata.beforeData : null;
   const after = isPlainRecord(metadata.afterData) ? metadata.afterData : null;
