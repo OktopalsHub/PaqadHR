@@ -39,6 +39,9 @@ export function buildPayrollFloatOrderRef(
 ): string {
   const prefix = PAYROLL_FLOAT_ORDER_REF_PREFIX[provider];
   const maxLength = PAYROLL_FLOAT_ORDER_REF_MAX_LENGTH[provider];
+  if (!prefix || !maxLength) {
+    throw new Error(`Payroll float order references are not supported for provider: ${provider}`);
+  }
   const tenantKey = tenantKeyFromId(tenantId);
   const base = `${prefix}_${tenantKey}_`;
   const timestamp = Date.now().toString(36);
