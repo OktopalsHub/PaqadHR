@@ -193,6 +193,17 @@ export class PaymentMethodService {
     await this.repo.update({ id: paymentMethodId }, { lastUsedAt: new Date() });
   }
 
+  async updateProviderMetadata(
+    paymentMethodId: string,
+    tenantId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    const method = await this.repo.findOne({ where: { id: paymentMethodId, tenantId } });
+    if (!method) return;
+    method.metadata = { ...(method.metadata ?? {}), ...metadata };
+    await this.repo.save(method);
+  }
+
   async findByMemberId(memberId: string, tenantId: string): Promise<PaymentMethod | null> {
     try {
       return await this.repo.findOne({
