@@ -35,10 +35,9 @@ describe('TenantMemberRepository', () => {
     expect(queryBuilder.where).toHaveBeenCalledWith('member.tenantId = :tenantId', {
       tenantId: 'tenant-1',
     });
-    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-      'member.isActive = :memberActive',
-      { memberActive: true },
-    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('member.isActive = :memberActive', {
+      memberActive: true,
+    });
     expect(queryBuilder.select).toHaveBeenCalledWith(
       'COUNT(DISTINCT departmentMembership.departmentId)',
       'count',

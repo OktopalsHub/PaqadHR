@@ -12,8 +12,8 @@ import type { PaymentResult } from '../interfaces/payment-result.interface';
 import type { WebhookResult } from '../interfaces/webhook-result.interface';
 import { BachsApiError, BachsApiService } from '../services/bachs-api.service';
 import { BasePaymentProvider } from './base-payment.provider';
-import { runConcurrentCreatePayments } from './run-concurrent-create-payments';
 import { PaymentProviderError } from './payment-provider.interface';
+import { runConcurrentCreatePayments } from './run-concurrent-create-payments';
 
 /** Error codes that will never succeed on retry — do not requeue these payroll items. */
 const NON_RETRYABLE_ERROR_CODES = new Set([
