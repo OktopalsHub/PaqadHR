@@ -50,6 +50,7 @@ export class TenantMembersService {
     return this.readService.getTenantMembersCount(tenantId);
   }
 
+  /** Return lightweight employee and department metrics for a tenant. */
   async getTenantMemberSummary(tenantId: string) {
     return this.readService.getTenantMemberSummary(tenantId);
   }
