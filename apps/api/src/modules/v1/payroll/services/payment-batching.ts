@@ -309,7 +309,10 @@ export class PaymentBatching {
           typeof result.metadata?.bachsDestinationId === 'string'
             ? result.metadata.bachsDestinationId
             : undefined;
-        if (bachsDestinationId && paymentMethod.metadata?.bachsDestinationId !== bachsDestinationId) {
+        if (
+          bachsDestinationId &&
+          paymentMethod.metadata?.bachsDestinationId !== bachsDestinationId
+        ) {
           await this.paymentMethodService.updateProviderMetadata(paymentMethod.id, tenantId, {
             bachsDestinationId,
           });
