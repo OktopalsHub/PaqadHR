@@ -125,7 +125,11 @@ export class BachsProvider extends BasePaymentProvider {
         quoteId = quote.quote_id;
       }
 
-      const destinationId = await this.resolveDestinationId(destinationInput);
+      const cachedDestinationId =
+        typeof data.metadata?.bachsDestinationId === 'string'
+          ? data.metadata.bachsDestinationId.trim()
+          : '';
+      const destinationId = cachedDestinationId || (await this.resolveDestinationId(destinationInput));
       const payout = await this.bachsApi.createPayout({
         destination: destinationId,
         amount,
@@ -154,6 +158,7 @@ export class BachsProvider extends BasePaymentProvider {
         reference: merchantTxRef,
         providerStatus: status,
         rail: destinationCurrency.startsWith('USDT') ? 'crypto' : 'bank',
+        metadata: { bachsDestinationId: destinationId },
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
