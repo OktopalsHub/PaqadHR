@@ -79,6 +79,23 @@ describe('BachsProvider', () => {
     expect(result.rail).toBe('bank');
   });
 
+  it('reuses a persisted destination id without resolving the bank account again', async () => {
+    const result = await provider.createPayment({
+      ...ngnData,
+      metadata: { payrollItemId: 'item-1', bachsDestinationId: 'pd_persisted' },
+    } as never);
+
+    expect(bachsApi.createPayoutDestination).not.toHaveBeenCalled();
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_persisted',
+      amount: '300000.00',
+      quoteId: undefined,
+      reference: 'pi_abc',
+      idempotencyKey: 'pi_abc',
+    });
+    expect(result.metadata).toEqual({ bachsDestinationId: 'pd_persisted' });
+  });
+
   it('reuses a cached destination for repeat payouts', async () => {
     await provider.createPayment(ngnData as never);
     await provider.createPayment(ngnData as never);
