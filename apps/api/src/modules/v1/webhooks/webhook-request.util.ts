@@ -223,6 +223,76 @@ export function extractBachsWalletTopupCheckout(payload: unknown): {
   };
 }
 
+export function extractBachsPayrollFloatTopupCheckout(payload: unknown): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+  initiatedByMemberId?: string;
+  payrollRunId?: string;
+} | null {
+  const body = payload as {
+    type?: string;
+    data?: {
+      reference?: string;
+      amount_paid?: string | number;
+      amount?: string | number;
+      metadata?: Record<string, string>;
+    };
+  };
+  if (String(body.type ?? '').toLowerCase() !== 'collection.succeeded') return null;
+  const data = body.data ?? {};
+  const meta = data.metadata ?? {};
+  if (meta.billingType !== 'payroll_float_topup') return null;
+  const tenantId = String(meta.tenantId ?? '').trim();
+  const orderReference = String(data.reference ?? '').trim();
+  if (!tenantId || !orderReference) return null;
+  const amount = Number(meta.expectedAmount ?? data.amount ?? data.amount_paid ?? 0);
+  const initiatedByMemberId = String(meta.initiatedByMemberId ?? '').trim();
+  const payrollRunId = String(meta.payrollRunId ?? '').trim();
+  return {
+    tenantId,
+    orderReference,
+    amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+    initiatedByMemberId: initiatedByMemberId || undefined,
+    payrollRunId: payrollRunId || undefined,
+  };
+}
+
+export function extractMonnifyPayrollFloatTopupCheckout(payload: unknown): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+  initiatedByMemberId?: string;
+  payrollRunId?: string;
+} | null {
+  const body = payload as {
+    eventType?: string;
+    eventData?: {
+      paymentReference?: string;
+      amountPaid?: number | string;
+      metaData?: unknown;
+    };
+  };
+  const eventType = String(body.eventType ?? '').toUpperCase();
+  if (eventType !== 'SUCCESSFUL_TRANSACTION' && eventType !== 'OVERPAID_TRANSACTION') {
+    return null;
+  }
+  const data = body.eventData ?? {};
+  const meta = parseMonnifyMeta(data.metaData);
+  if (meta.billingType !== 'payroll_float_topup') return null;
+  const tenantId = String(meta.tenantId ?? '').trim();
+  const orderReference = String(data.paymentReference ?? '').trim();
+  if (!tenantId || !orderReference) return null;
+  const amount = Number(data.amountPaid ?? meta.expectedAmount ?? 0);
+  return {
+    tenantId,
+    orderReference,
+    amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+    initiatedByMemberId: meta.initiatedByMemberId || undefined,
+    payrollRunId: meta.payrollRunId || undefined,
+  };
+}
+
 export function extractMonnifyWalletTopupCheckout(payload: unknown): {
   tenantId: string;
   orderReference: string;
