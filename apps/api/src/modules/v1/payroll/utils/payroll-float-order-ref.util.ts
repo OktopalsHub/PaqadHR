@@ -5,6 +5,7 @@ export type PayrollFloatOrderRefProvider =
   | PaymentProvider.MONNIFY
   | PaymentProvider.NOMBA
   | PaymentProvider.NOAH
+  | PaymentProvider.BACHS
   | PaymentProvider.FINCRA;
 
 /** Distinct from rewards wallet prefixes (wt_/wm_/nw_/wf_/wb_). */
@@ -12,6 +13,7 @@ const PAYROLL_FLOAT_ORDER_REF_PREFIX: Record<PayrollFloatOrderRefProvider, strin
   [PaymentProvider.NOMBA]: 'pn',
   [PaymentProvider.MONNIFY]: 'py',
   [PaymentProvider.FINCRA]: 'pf',
+  [PaymentProvider.BACHS]: 'pb',
   [PaymentProvider.NOAH]: 'po',
 };
 
@@ -19,6 +21,7 @@ const PAYROLL_FLOAT_ORDER_REF_MAX_LENGTH: Record<PayrollFloatOrderRefProvider, n
   [PaymentProvider.NOMBA]: 50,
   [PaymentProvider.MONNIFY]: 80,
   [PaymentProvider.FINCRA]: 80,
+  [PaymentProvider.BACHS]: 80,
   [PaymentProvider.NOAH]: 80,
 };
 
@@ -56,11 +59,11 @@ export function buildPayrollFloatOrderRef(
 }
 
 export function parseTenantIdFromPayrollFloatOrderRef(orderReference: string): string | null {
-  const match = /^(pn|py|pf|po)_([0-9a-f]{32})_/i.exec(orderReference.trim());
+  const match = /^(pn|py|pf|pb|po)_([0-9a-f]{32})_/i.exec(orderReference.trim());
   if (!match) return null;
   return uuidFromHex32(match[2]);
 }
 
 export function isPayrollFloatOrderRef(orderReference: string): boolean {
-  return /^(pn|py|pf|po)_[0-9a-f]{32}_/i.test(orderReference.trim());
+  return /^(pn|py|pf|pb|po)_[0-9a-f]{32}_/i.test(orderReference.trim());
 }

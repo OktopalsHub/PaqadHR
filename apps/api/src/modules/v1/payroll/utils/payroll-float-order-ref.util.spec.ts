@@ -15,6 +15,14 @@ describe('payroll-float-order-ref.util', () => {
     expect(parseTenantIdFromPayrollFloatOrderRef(ref)).toBe(tenantId);
   });
 
+  it('builds a Bachs ref that parses back to the tenant and does not collide with wallet prefix', () => {
+    const ref = buildPayrollFloatOrderRef(PaymentProvider.BACHS, tenantId);
+    expect(ref.startsWith('pb_')).toBe(true);
+    expect(ref.startsWith('wb_')).toBe(false);
+    expect(isPayrollFloatOrderRef(ref)).toBe(true);
+    expect(parseTenantIdFromPayrollFloatOrderRef(ref)).toBe(tenantId);
+  });
+
   it('does not collide with wallet top-up prefixes', () => {
     const ref = buildPayrollFloatOrderRef(PaymentProvider.FINCRA, tenantId);
     expect(ref.startsWith('wf_')).toBe(false);
