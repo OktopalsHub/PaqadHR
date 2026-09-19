@@ -13,4 +13,5 @@ export interface PaymentResult {
   errorCode?: string;
   retryable?: boolean;
   rail?: 'bank' | 'crypto';
+  metadata?: Record<string, unknown>;
 }
