@@ -11,6 +11,7 @@ import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { isActivePayrollReadinessItem } from '../utils/payroll-readiness-items.util';
+import { payrollCalendarDatePart, payrollTodayCalendarDatePart } from '../../../common/validators/payroll-date.validator';
 import { AuditService } from './audit.service';
 import { ManualDisbursementService } from './manual-disbursement.service';
 import { MultiPaymentService } from './multi-payment.service';
@@ -229,10 +230,7 @@ export class PayrollPaymentOrchestrator {
     }
     if (paymentDate) run.paymentDate = paymentDate;
     if (!run.paymentDate) throw new BadRequestException('Set a payment date before scheduling');
-    const paymentDate = new Date(run.paymentDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (paymentDate < today) {
+    if (payrollCalendarDatePart(run.paymentDate) < payrollTodayCalendarDatePart()) {
       throw new BadRequestException('Payment date cannot be in the past');
     }
     run.payoutMode = 'scheduled';
@@ -346,6 +344,6 @@ export class PayrollPaymentOrchestrator {
   }
 
   private toIsoDatePart(value: Date | string): string {
-    return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+    return payrollCalendarDatePart(value);
   }
 }
