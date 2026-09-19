@@ -63,6 +63,7 @@ export class PayrollPaymentOrchestrator {
         tenantId,
         item.memberId,
         Boolean(item.metadata?.excludedFromRun),
+        item.paymentCurrency,
       );
       items.push({
         ...readiness,
