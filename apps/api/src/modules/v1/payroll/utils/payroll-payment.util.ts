@@ -78,6 +78,7 @@ export function buildPayrollPaymentData(
       walletAddress: meta.walletAddress,
       cryptoNetwork: meta.cryptoNetwork,
       noahChannelId: meta.noahChannelId,
+      noahHolderAddress: meta.noahHolderAddress,
       bachsDestinationId:
         typeof meta.bachsDestinationId === 'string' ? meta.bachsDestinationId : undefined,
       tenantName,
