@@ -100,8 +100,7 @@ export class NoahProvider extends BasePaymentProvider {
         data.countryCode?.toUpperCase() || DEFAULT_PAYOUT_COUNTRIES[currency] || 'US';
 
       const holderAddress =
-        data.metadata?.noahHolderAddress &&
-        typeof data.metadata.noahHolderAddress === 'object'
+        data.metadata?.noahHolderAddress && typeof data.metadata.noahHolderAddress === 'object'
           ? (data.metadata.noahHolderAddress as {
               line1?: string;
               city?: string;
