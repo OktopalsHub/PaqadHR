@@ -50,6 +50,10 @@ export class TenantMembersService {
     return this.readService.getTenantMembersCount(tenantId);
   }
 
+  async getTenantMemberSummary(tenantId: string) {
+    return this.readService.getTenantMemberSummary(tenantId);
+  }
+
   async getTenantMemberProfile(userId: string, tenantId: string): Promise<TenantMember> {
     return this.readService.getTenantMemberProfile(userId, tenantId);
   }
