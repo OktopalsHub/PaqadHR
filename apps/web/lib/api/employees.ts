@@ -34,6 +34,16 @@ export async function fetchTenantMembers(): Promise<ApiTenantMember[]> {
   return Array.isArray(members) ? members.map(formatApiTenantMember) : [];
 }
 
+export type EmployeeSummary = {
+  activeEmployees: number;
+  departments: number;
+};
+
+export async function fetchEmployeeSummary(): Promise<EmployeeSummary> {
+  const tenantId = await resolveTenantId();
+  return apiClient<EmployeeSummary>(tenantPath(tenantId, 'members/summary'));
+}
+
 export async function fetchEmployees(): Promise<Employee[]> {
   const members = await fetchTenantMembers();
   return employeeListSchema.parse(mapTenantMembersToEmployees(members));
