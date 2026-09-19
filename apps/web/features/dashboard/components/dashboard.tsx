@@ -96,10 +96,7 @@ export const Dashboard = () => {
         .slice(0, 6),
     [leaves],
   );
-  const departmentCount = useMemo(
-    () => employeeSummary?.departments ?? 0,
-    [employeeSummary],
-  );
+  const departmentCount = useMemo(() => employeeSummary?.departments ?? 0, [employeeSummary]);
   const pipelineStages = useMemo(
     () => [
       { label: 'Active', count: jobs.filter((job) => job.status === 'ACTIVE').length },
