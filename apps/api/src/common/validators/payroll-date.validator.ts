@@ -16,6 +16,15 @@ export const PAYROLL_PERIOD_DAY_RANGES = {
 
 export type PayrollFrequency = keyof typeof PAYROLL_PERIOD_DAY_RANGES;
 
+export function payrollCalendarDatePart(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toISOString().slice(0, 10);
+}
+
+export function payrollTodayCalendarDatePart(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function payrollPeriodDiffDays(
   periodStart: Date | string,
   periodEnd: Date | string,
@@ -59,10 +68,7 @@ export class IsNotFutureConstraint implements ValidatorConstraintInterface {
 export class IsNotPastConstraint implements ValidatorConstraintInterface {
   validate(date: unknown) {
     if (!date) return false;
-    const inputDate = new Date(date as string);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return inputDate >= today;
+    return payrollCalendarDatePart(date as string) >= payrollTodayCalendarDatePart();
   }
 
   defaultMessage() {
