@@ -41,6 +41,11 @@ export class MemberReadService {
     return this.tenantMemberRepository.countByTenantId(tenantId);
   }
 
+  /** Return lightweight employee and department metrics for a tenant. */
+  async getTenantMemberSummary(tenantId: string): Promise<{ activeEmployees: number; departments: number }> {
+    return this.tenantMemberRepository.getTenantMemberSummary(tenantId);
+  }
+
   async checkUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember> {
     return this.tenantMemberRepository.findByUserAndTenantId(userId, tenantId);
   }
