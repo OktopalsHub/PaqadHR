@@ -99,6 +99,18 @@ export class NoahProvider extends BasePaymentProvider {
       const countryCode =
         data.countryCode?.toUpperCase() || DEFAULT_PAYOUT_COUNTRIES[currency] || 'US';
 
+      const holderAddress =
+        data.metadata?.noahHolderAddress &&
+        typeof data.metadata.noahHolderAddress === 'object'
+          ? (data.metadata.noahHolderAddress as {
+              line1?: string;
+              city?: string;
+              postalCode?: string;
+              state?: string;
+              countryCode?: string;
+            })
+          : undefined;
+
       const response = await this.noahApi.createFiatPayout({
         amount: data.amount,
         fiatCurrency: currency,
@@ -116,6 +128,19 @@ export class NoahProvider extends BasePaymentProvider {
         channelId:
           typeof data.metadata?.noahChannelId === 'string'
             ? data.metadata.noahChannelId
+            : undefined,
+        holderAddress:
+          holderAddress?.line1 &&
+          holderAddress.city &&
+          holderAddress.postalCode &&
+          holderAddress.state
+            ? {
+                line1: holderAddress.line1,
+                city: holderAddress.city,
+                postalCode: holderAddress.postalCode,
+                state: holderAddress.state,
+                countryCode: holderAddress.countryCode ?? countryCode,
+              }
             : undefined,
       });
 
