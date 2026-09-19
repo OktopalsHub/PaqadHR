@@ -213,6 +213,14 @@ export class PayrollService {
     return this.payrollFloatTopupService.assertFundedOrThrow(payrollRunId, tenantId);
   }
 
+  async fundScheduledPayroll(payrollRunId: string, tenantId: string, auditContext: AuditContext) {
+    return this.payrollFloatTopupService.fundScheduledPayroll(
+      payrollRunId,
+      tenantId,
+      auditContext,
+    );
+  }
+
   async schedulePayrollPayout(
     payrollRunId: string,
     tenantId: string,
