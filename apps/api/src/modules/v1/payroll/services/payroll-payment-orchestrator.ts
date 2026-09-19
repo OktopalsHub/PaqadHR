@@ -260,6 +260,18 @@ export class PayrollPaymentOrchestrator {
     return saved;
   }
 
+  async rollbackScheduledPayroll(payrollRunId: string, tenantId: string): Promise<void> {
+    const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId, tenantId } });
+    if (!run || run.payoutMode !== 'scheduled') return;
+
+    const metadata = { ...run.metadata };
+    delete metadata.scheduledAt;
+    delete metadata.scheduledFor;
+    run.metadata = metadata;
+    run.payoutMode = 'immediate';
+    await this.payrollRunRepository.save(run);
+  }
+
   async processDueScheduledPayouts(): Promise<{ processed: number; failed: number }> {
     if (!isPayrollGatewayEnabled()) return { processed: 0, failed: 0 };
     const today = new Date();
