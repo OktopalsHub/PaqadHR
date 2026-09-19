@@ -213,6 +213,16 @@ export class PayrollFloatTopupService {
       throw new BadRequestException('Set a payment date before scheduling');
     }
 
+    const existingTopup = this.readFloatTopupMeta(run);
+    if (existingTopup.status === 'completed') {
+      return { action: 'scheduled', run };
+    }
+    if (existingTopup.status === 'pending' && existingTopup.orderReference) {
+      throw new BadRequestException(
+        'Payroll funding checkout is already pending. Complete the existing checkout before scheduling again.',
+      );
+    }
+
     const preflight = await this.preflight(payrollRunId, tenantId);
     if (preflight.canCheckout && preflight.requiredAmount > 0) {
       const checkoutPreflight: PayrollFundPreflight = {
@@ -274,7 +284,13 @@ export class PayrollFloatTopupService {
     }
 
     const meta = this.readFloatTopupMeta(run);
-    if (meta.status === 'completed' && meta.orderReference === input.orderReference) {
+    if (!meta.orderReference || meta.orderReference !== input.orderReference) {
+      this.logger.warn(
+        `Payroll float top-up rejected: checkout reference mismatch for ${input.orderReference}`,
+      );
+      return { received: true, paid: false };
+    }
+    if (meta.status === 'completed') {
       return { received: true, paid: run.payoutMode !== 'scheduled' };
     }
 
@@ -513,7 +529,10 @@ export class PayrollFloatTopupService {
       if (!locked) return null;
 
       const meta = this.readFloatTopupMeta(locked);
-      if (meta.status === 'completed' && meta.orderReference === input.orderReference) {
+      if (!meta.orderReference || meta.orderReference !== input.orderReference) {
+        return null;
+      }
+      if (meta.status === 'completed') {
         return null;
       }
 
