@@ -44,8 +44,10 @@ export class TenantMembersController {
   @Get('members/summary')
   @ApiOperation({
     summary: 'Get lightweight employee summary',
-    description: 'Returns active employee and department counts without loading the employee directory',
+    description:
+      'Returns active employee and department counts without loading the employee directory',
   })
+  /** Return lightweight employee and department metrics for the dashboard. */
   async getTenantMemberSummary(@Param('tenantId') tenantId: string) {
     return this.tenantMembersService.getTenantMemberSummary(tenantId);
   }
