@@ -37,7 +37,6 @@ const MEMBER_LIST_RELATIONS = [
   'positionHistory.position',
   'departmentMemberships',
   'departmentMemberships.department',
-  'employments',
 ] as const;
 
 @Injectable()
@@ -75,6 +74,30 @@ export class TenantMemberRepository extends Repository<TenantMember> {
       relations: [...MEMBER_LIST_RELATIONS],
       select: { ...MEMBER_LIST_SELECT },
     });
+  }
+
+  async getTenantMemberSummary(tenantId: string): Promise<{ activeEmployees: number; departments: number }> {
+    const activeEmployees = await this.tenantMemberRepository.count({
+      where: { tenantId, isActive: true },
+    });
+
+    const result = await this.tenantMemberRepository
+      .createQueryBuilder('member')
+      .innerJoin(
+        'member.departmentMemberships',
+        'departmentMembership',
+        'departmentMembership.isActive = :departmentActive',
+        { departmentActive: true },
+      )
+      .where('member.tenantId = :tenantId', { tenantId })
+      .andWhere('member.isActive = :memberActive', { memberActive: true })
+      .select('COUNT(DISTINCT departmentMembership.departmentId)', 'count')
+      .getRawOne<{ count: string }>();
+
+    return {
+      activeEmployees,
+      departments: Number(result?.count ?? 0),
+    };
   }
 
   async findByIdsAndTenantId(tenantId: string, memberIds: string[]): Promise<TenantMember[]> {
