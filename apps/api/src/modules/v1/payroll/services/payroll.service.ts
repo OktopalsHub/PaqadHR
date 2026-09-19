@@ -235,6 +235,10 @@ export class PayrollService {
     );
   }
 
+  async rollbackScheduledPayroll(payrollRunId: string, tenantId: string) {
+    return this.payrollPaymentOrchestrator.rollbackScheduledPayroll(payrollRunId, tenantId);
+  }
+
   async processDueScheduledPayouts() {
     return this.payrollPaymentOrchestrator.processDueScheduledPayouts();
   }
