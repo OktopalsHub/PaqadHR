@@ -41,6 +41,44 @@ describe('BachsProvider', () => {
     jest.restoreAllMocks();
   });
 
+  it('uses a lower concurrency for bulk payouts', async () => {
+    let activePayouts = 0;
+    let maxConcurrency = 0;
+    const resolvers: Array<() => void> = [];
+
+    const createPayment = jest.spyOn(provider, 'createPayment').mockImplementation(async (data) => {
+      activePayouts += 1;
+      maxConcurrency = Math.max(maxConcurrency, activePayouts);
+
+      await new Promise<void>((resolve) => resolvers.push(resolve));
+      activePayouts -= 1;
+
+      return { success: true, reference: data.merchantTxRef, outcome: 'processing' };
+    });
+
+    const transfers = Array.from({ length: 6 }, (_, index) => ({
+      ...ngnData,
+      merchantTxRef: `bulk-${index}`,
+    }));
+
+    const resultPromise = provider.createBulkTransfer(transfers as never);
+
+    expect(createPayment).toHaveBeenCalledTimes(5);
+    expect(maxConcurrency).toBe(5);
+
+    resolvers.splice(0, 5).forEach((resolve) => {
+      resolve();
+    });
+
+    expect(resolvers).toHaveLength(6);
+    resolvers[5]();
+
+    const result = await resultPromise;
+
+    expect(result).toHaveLength(6);
+    expect(createPayment).toHaveBeenCalledTimes(6);
+  });
+
   it('pays an NGN payroll item through a bank destination with idempotency and reference', async () => {
     const result = await provider.createPayment(ngnData as never);
 
@@ -61,6 +99,23 @@ describe('BachsProvider', () => {
     expect(result.transactionId).toBe('pay_1');
     expect(result.providerStatus).toBe('pending');
     expect(result.rail).toBe('bank');
+  });
+
+  it('reuses a persisted destination id without resolving the bank account again', async () => {
+    const result = await provider.createPayment({
+      ...ngnData,
+      metadata: { payrollItemId: 'item-1', bachsDestinationId: 'pd_persisted' },
+    } as never);
+
+    expect(bachsApi.createPayoutDestination).not.toHaveBeenCalled();
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_persisted',
+      amount: '300000.00',
+      quoteId: undefined,
+      reference: 'pi_abc',
+      idempotencyKey: 'pi_abc',
+    });
+    expect(result.metadata).toEqual({ bachsDestinationId: 'pd_persisted' });
   });
 
   it('reuses a cached destination for repeat payouts', async () => {

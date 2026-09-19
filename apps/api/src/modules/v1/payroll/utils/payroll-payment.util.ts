@@ -25,6 +25,7 @@ export function resolvePayrollPayoutAmount(item: PayrollItem): number {
   return 0;
 }
 
+/** Build provider-neutral payout data from a payroll item and its payment method. */
 export function buildPayrollPaymentData(
   item: PayrollItem,
   paymentMethod: PaymentMethod,
@@ -77,6 +78,8 @@ export function buildPayrollPaymentData(
       walletAddress: meta.walletAddress,
       cryptoNetwork: meta.cryptoNetwork,
       noahChannelId: meta.noahChannelId,
+      bachsDestinationId:
+        typeof meta.bachsDestinationId === 'string' ? meta.bachsDestinationId : undefined,
       tenantName,
       fxAtPayout,
       salaryCurrency,

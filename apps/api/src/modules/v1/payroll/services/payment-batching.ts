@@ -305,6 +305,18 @@ export class PaymentBatching {
     try {
       if (result.success) {
         await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
+        const bachsDestinationId =
+          typeof result.metadata?.bachsDestinationId === 'string'
+            ? result.metadata.bachsDestinationId
+            : undefined;
+        if (
+          bachsDestinationId &&
+          paymentMethod.metadata?.bachsDestinationId !== bachsDestinationId
+        ) {
+          await this.paymentMethodService.updateProviderMetadata(paymentMethod.id, tenantId, {
+            bachsDestinationId,
+          });
+        }
         const classification = this.payrollPayoutService.classifyPaymentResultStatus(
           result.providerStatus,
         );

@@ -8,6 +8,7 @@ export const queryKeys = {
   },
   employees: {
     all: ['employees'] as const,
+    summary: ['employees', 'summary'] as const,
     detail: (id: string) => ['employees', id] as const,
   },
   invitations: {

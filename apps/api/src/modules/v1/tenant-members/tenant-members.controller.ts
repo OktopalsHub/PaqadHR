@@ -41,6 +41,16 @@ export class TenantMembersController {
     const tenantMembers = await this.tenantMembersService.getTenantMembers(tenantId);
     return TenantMemberMapper.toResponseList(tenantMembers, this.fileUrlService);
   }
+  @Get('members/summary')
+  @ApiOperation({
+    summary: 'Get lightweight employee summary',
+    description:
+      'Returns active employee and department counts without loading the employee directory',
+  })
+  /** Return lightweight employee and department metrics for the dashboard. */
+  async getTenantMemberSummary(@Param('tenantId') tenantId: string) {
+    return this.tenantMembersService.getTenantMemberSummary(tenantId);
+  }
   @Get('profile')
   async getTenantMemberProfile(
     @Param('tenantId') tenantId: string,

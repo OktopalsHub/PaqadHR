@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchEmployeeById,
+  fetchEmployeeSummary,
   fetchEmployees,
   updateEmployee,
   updateEmployeeMemberStatus,
@@ -10,6 +11,17 @@ import {
 import { queryKeys } from '@/lib/query/keys';
 import type { Employee } from '@/lib/schemas/employee';
 import { useTenant } from '@/providers/tenant-provider';
+
+export function useEmployeeSummary(options?: { enabled?: boolean }) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.employees.summary, tenantId],
+    queryFn: fetchEmployeeSummary,
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
+    staleTime: 60_000,
+  });
+}
 
 export function useEmployees<T = Employee[]>(options?: {
   enabled?: boolean;

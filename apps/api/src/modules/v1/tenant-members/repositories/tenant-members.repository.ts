@@ -77,6 +77,33 @@ export class TenantMemberRepository extends Repository<TenantMember> {
     });
   }
 
+  /** Return active employee and distinct active department counts for a tenant. */
+  async getTenantMemberSummary(
+    tenantId: string,
+  ): Promise<{ activeEmployees: number; departments: number }> {
+    const activeEmployees = await this.tenantMemberRepository.count({
+      where: { tenantId, isActive: true },
+    });
+
+    const result = await this.tenantMemberRepository
+      .createQueryBuilder('member')
+      .innerJoin(
+        'member.departmentMemberships',
+        'departmentMembership',
+        'departmentMembership.isActive = :departmentActive',
+        { departmentActive: true },
+      )
+      .where('member.tenantId = :tenantId', { tenantId })
+      .andWhere('member.isActive = :memberActive', { memberActive: true })
+      .select('COUNT(DISTINCT departmentMembership.departmentId)', 'count')
+      .getRawOne<{ count: string }>();
+
+    return {
+      activeEmployees,
+      departments: Number(result?.count ?? 0),
+    };
+  }
+
   async findByIdsAndTenantId(tenantId: string, memberIds: string[]): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
       where: { tenantId, id: In(memberIds) },

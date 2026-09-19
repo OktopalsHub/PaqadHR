@@ -17,7 +17,7 @@ import { RecruitmentScheduleWidget } from '@/features/recruitment/components/das
 import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashboard/recruitment-vacancy-grid';
 import { JobDetailSheet } from '@/features/recruitment/components/job-detail-sheet';
 import { useRecruitmentOverview } from '@/features/recruitment/hooks/use-recruitment-overview';
-import { useEmployees } from '@/hooks/queries/use-employees';
+import { useEmployeeSummary } from '@/hooks/queries/use-employees';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useLeaves } from '@/hooks/queries/use-leaves';
 import { useJobOpenings } from '@/hooks/queries/use-recruitment';
@@ -53,11 +53,11 @@ export const Dashboard = () => {
   });
   const { canAccessRecruitment, recruitmentQueriesEnabled } = recruitmentAccess;
   const {
-    data: employees = [],
+    data: employeeSummary,
     isLoading: employeesLoading,
     isError: employeesError,
-    refetch: refetchEmployees,
-  } = useEmployees();
+    refetch: refetchEmployeeSummary,
+  } = useEmployeeSummary();
   const {
     data: leaves = [],
     isLoading: leavesLoading,
@@ -96,10 +96,7 @@ export const Dashboard = () => {
         .slice(0, 6),
     [leaves],
   );
-  const departmentCount = useMemo(
-    () => new Set(employees.map((employee) => employee.department).filter(Boolean)).size,
-    [employees],
-  );
+  const departmentCount = useMemo(() => employeeSummary?.departments ?? 0, [employeeSummary]);
   const pipelineStages = useMemo(
     () => [
       { label: 'Active', count: jobs.filter((job) => job.status === 'ACTIVE').length },
@@ -118,7 +115,7 @@ export const Dashboard = () => {
   const statCards = [
     {
       label: 'Headcount',
-      value: employeesLoading ? '—' : employees.length,
+      value: employeesLoading ? '—' : (employeeSummary?.activeEmployees ?? 0),
       hint: 'Active employees',
       icon: Users,
       iconClassName: 'bg-warning/15 text-warning',
@@ -166,7 +163,7 @@ export const Dashboard = () => {
   }, []);
 
   const retryDashboard = () => {
-    void refetchEmployees();
+    void refetchEmployeeSummary();
     void refetchLeaves();
     if (recruitmentQueriesEnabled) {
       void refetchOverview();

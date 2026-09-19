@@ -193,6 +193,26 @@ export class PaymentMethodService {
     await this.repo.update({ id: paymentMethodId }, { lastUsedAt: new Date() });
   }
 
+  /** Persist provider metadata while serializing concurrent read-modify-write updates. */
+  async updateProviderMetadata(
+    paymentMethodId: string,
+    tenantId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    await this.repo.manager.transaction(async (manager) => {
+      const paymentMethodRepository = manager.getRepository(PaymentMethod);
+      const method = await paymentMethodRepository.findOne({
+        where: { id: paymentMethodId, tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!method) return;
+
+      method.metadata = { ...(method.metadata ?? {}), ...metadata };
+      await paymentMethodRepository.save(method);
+    });
+  }
+
   async findByMemberId(memberId: string, tenantId: string): Promise<PaymentMethod | null> {
     try {
       return await this.repo.findOne({
