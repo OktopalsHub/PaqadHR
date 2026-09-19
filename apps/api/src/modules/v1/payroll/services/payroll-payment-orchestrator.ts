@@ -229,6 +229,12 @@ export class PayrollPaymentOrchestrator {
     }
     if (paymentDate) run.paymentDate = paymentDate;
     if (!run.paymentDate) throw new BadRequestException('Set a payment date before scheduling');
+    const paymentDate = new Date(run.paymentDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (paymentDate < today) {
+      throw new BadRequestException('Payment date cannot be in the past');
+    }
     run.payoutMode = 'scheduled';
     const scheduledFor = this.toIsoDatePart(run.paymentDate);
     run.metadata = {
@@ -271,6 +277,11 @@ export class PayrollPaymentOrchestrator {
       failed = 0;
     for (const run of dueRuns) {
       try {
+        const floatTopup = run.metadata?.floatTopup;
+        if (!floatTopup || typeof floatTopup !== 'object' || floatTopup.status !== 'completed') {
+          this.logger.warn(`Scheduled payroll ${run.id} is due but has not been funded`);
+          continue;
+        }
         if (this.lifecycleNotify) {
           await this.lifecycleNotify.onScheduledPayoutDue({
             tenantId: run.tenantId,
