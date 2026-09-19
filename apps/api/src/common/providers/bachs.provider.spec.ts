@@ -41,6 +41,22 @@ describe('BachsProvider', () => {
     jest.restoreAllMocks();
   });
 
+  it('uses a lower concurrency for bulk payouts', async () => {
+    const createPayment = jest.spyOn(provider, 'createPayment').mockImplementation(
+      async (data) => ({ success: true, reference: data.merchantTxRef, outcome: 'processing' }),
+    );
+
+    const transfers = Array.from({ length: 6 }, (_, index) => ({
+      ...ngnData,
+      merchantTxRef: `bulk-${index}`,
+    }));
+
+    const result = await provider.createBulkTransfer(transfers as never);
+
+    expect(result).toHaveLength(6);
+    expect(createPayment).toHaveBeenCalledTimes(6);
+  });
+
   it('pays an NGN payroll item through a bank destination with idempotency and reference', async () => {
     const result = await provider.createPayment(ngnData as never);
 
