@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, CurrentUser } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
@@ -92,7 +101,7 @@ export class TenantMembersController {
   @Get('/members/:memberId')
   async getTenantMember(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<ITenantMemberResponseDto> {
     await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, memberId, tenantId);
@@ -106,7 +115,7 @@ export class TenantMembersController {
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async removeTenantMember(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentTenantMember() actor: MemberContext,
   ): Promise<void> {
     await this.tenantMembersService.removeTenantMember(memberId, tenantId, actor.id);
@@ -116,7 +125,7 @@ export class TenantMembersController {
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateTenantMemberStatus(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() updateDto: UpdateTenantMemberStatusDto,
     @CurrentTenantMember() actor: MemberContext,
   ) {
@@ -132,7 +141,7 @@ export class TenantMembersController {
   @ApiOperation({ summary: 'Update tenant member profile (admin or self)' })
   async updateTenantMemberProfileById(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() updateDto: UpdateMemberProfileDto,
     @CurrentTenantMember() actor: MemberContext,
   ): Promise<ITenantMemberResponseDto> {
@@ -162,7 +171,7 @@ export class TenantMembersController {
   })
   async updateTenantMember(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() updateDto: UpdateTenantMemberDto,
     @CurrentTenantMember() actor: MemberContext,
   ): Promise<ITenantMemberResponseDto> {
