@@ -5,13 +5,16 @@ import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
+import {
+  payrollCalendarDatePart,
+  payrollTodayCalendarDatePart,
+} from '../../../../common/validators/payroll-date.validator';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { isActivePayrollReadinessItem } from '../utils/payroll-readiness-items.util';
-import { payrollCalendarDatePart, payrollTodayCalendarDatePart } from '../../../../common/validators/payroll-date.validator';
 import { AuditService } from './audit.service';
 import { ManualDisbursementService } from './manual-disbursement.service';
 import { MultiPaymentService } from './multi-payment.service';
@@ -262,7 +265,7 @@ export class PayrollPaymentOrchestrator {
 
   async rollbackScheduledPayroll(payrollRunId: string, tenantId: string): Promise<void> {
     const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId, tenantId } });
-    if (!run || run.payoutMode !== 'scheduled') return;
+    if (run?.payoutMode !== 'scheduled') return;
 
     const metadata = { ...run.metadata };
     delete metadata.scheduledAt;
