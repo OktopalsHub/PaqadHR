@@ -219,7 +219,6 @@ export class NoahPayoutService {
     }
 
     validateNoahFormAgainstSchema(bankChannel, form);
-    }
 
     const prepared = await this.auth.request<NoahPrepareResponse>(
       'POST',
