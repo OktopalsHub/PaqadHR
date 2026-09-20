@@ -5,6 +5,7 @@ import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { Repository } from 'typeorm';
+import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
@@ -25,6 +26,8 @@ export class PayrollPayoutService {
     readonly payrollItemRepository: PayrollItemRepository,
     readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem) readonly payrollItemRepo: Repository<PayrollItem>,
+    @InjectRepository(PayrollWebhookEvent)
+    readonly webhookEventRepository: Repository<PayrollWebhookEvent>,
     @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {
     this.reconciliation = new PayoutReconciliation(
@@ -41,6 +44,7 @@ export class PayrollPayoutService {
       payrollItemRepository,
       payrollRunRepository,
       this.reconciliation,
+      webhookEventRepository,
     );
   }
 
