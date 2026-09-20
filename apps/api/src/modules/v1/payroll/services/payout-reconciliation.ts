@@ -6,6 +6,7 @@ import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
+import { normalizePayoutStatus } from 'src/common/utils/normalize-payout-status.util';
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
@@ -210,7 +211,16 @@ export class PayoutReconciliation {
 
     const { payrollRunId, payrollItemId: itemId } = parsed;
     const status = rawStatus.toUpperCase();
+    const normalizedStatus = normalizePayoutStatus(provider, rawStatus);
     const providerName = paymentProviderLabel(provider);
+    if (!normalizedStatus) {
+      this.logger.warn(`Unknown ${providerName} payout status: ${rawStatus}`);
+      return false;
+    }
+    if (!normalizedStatus) {
+      this.logger.warn(`Unknown ${providerName} payout status: ${rawStatus}`);
+      return false;
+    }
     const resolvedTenantId = tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
     const outcome: { item: PayrollItem | null; kind: 'paid' | 'failed' | null } = {
       item: null,
@@ -232,7 +242,7 @@ export class PayoutReconciliation {
       const itemTenantId = item.payrollRun?.tenantId;
       if (tenantId && itemTenantId && itemTenantId !== tenantId) return false;
 
-      if (SUCCESS_STATUSES.has(status)) {
+      if (normalizedStatus === 'completed') {
         if (item.status === PayrollItemStatus.PAID) return false;
         if (
           item.metadata?.fxAtPayout !== true &&
@@ -268,7 +278,7 @@ export class PayoutReconciliation {
         return true;
       }
 
-      if (FAILED_STATUSES.has(status)) {
+      if (normalizedStatus === 'failed') {
         if (item.status === PayrollItemStatus.FAILED || item.status === PayrollItemStatus.PAID) {
           return false;
         }
@@ -289,7 +299,7 @@ export class PayoutReconciliation {
         return true;
       }
 
-      if (PENDING_STATUSES.has(status)) {
+      if (normalizedStatus === 'processing') {
         if (item.status !== PayrollItemStatus.PENDING && item.status !== PayrollItemStatus.FAILED) {
           return false;
         }
