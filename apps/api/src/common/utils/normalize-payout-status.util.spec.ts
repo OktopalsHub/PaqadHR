@@ -16,9 +16,7 @@ describe('normalizePayoutStatus', () => {
     expect(normalizePayoutStatus(PaymentProvider.BACHS, 'reversed')).toBe(TransactionStatus.FAILED);
   });
 
-  it('defaults unknown provider states to processing', () => {
-    expect(normalizePayoutStatus(PaymentProvider.NOMBA, 'unknown')).toBe(
-      TransactionStatus.PROCESSING,
-    );
+  it('returns null for unknown provider states', () => {
+    expect(normalizePayoutStatus(PaymentProvider.NOMBA, 'unknown')).toBeNull();
   });
 });
