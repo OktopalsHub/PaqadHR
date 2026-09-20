@@ -212,8 +212,10 @@ export class PayoutReconciliation {
     const status = rawStatus.toUpperCase();
     const providerName = paymentProviderLabel(provider);
     const resolvedTenantId = tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
-    let changedItem: PayrollItem | null = null;
-    let changedKind: 'paid' | 'failed' | null = null;
+    const outcome: { item: PayrollItem | null; kind: 'paid' | 'failed' | null } = {
+      item: null,
+      kind: null,
+    };
 
     const changed = await this.payrollItemRepo.manager.transaction(async (manager) => {
       const repository = manager.getRepository(PayrollItem);
@@ -261,8 +263,8 @@ export class PayoutReconciliation {
         item.paidAt = new Date();
         item.failureReason = null;
         await repository.save(item);
-        changedItem = item;
-        changedKind = 'paid';
+        outcome.item = item;
+        outcome.kind = 'paid';
         return true;
       }
 
@@ -281,8 +283,8 @@ export class PayoutReconciliation {
         item.paymentProvider = providerName;
         item.failureReason = `${providerName} ${status.toLowerCase()}`;
         await repository.save(item);
-        changedItem = item;
-        changedKind = 'failed';
+        outcome.item = item;
+        outcome.kind = 'failed';
         this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
         return true;
       }
@@ -302,6 +304,8 @@ export class PayoutReconciliation {
       return false;
     });
 
+    const changedItem = outcome.item;
+    const changedKind = outcome.kind;
     if (changed && changedItem && resolvedTenantId && this.lifecycleNotify) {
       if (changedKind === 'paid') {
         await this.lifecycleNotify.onItemPaid({
