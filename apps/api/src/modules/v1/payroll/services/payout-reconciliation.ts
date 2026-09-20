@@ -217,6 +217,10 @@ export class PayoutReconciliation {
       this.logger.warn(`Unknown ${providerName} payout status: ${rawStatus}`);
       return false;
     }
+    if (!normalizedStatus) {
+      this.logger.warn(`Unknown ${providerName} payout status: ${rawStatus}`);
+      return false;
+    }
     const resolvedTenantId = tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
     const outcome: { item: PayrollItem | null; kind: 'paid' | 'failed' | null } = {
       item: null,
