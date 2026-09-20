@@ -1,6 +1,5 @@
 import { createHmac } from 'node:crypto';
 import {
-  getTremendousWebhookSecret,
   isAllowedTremendousUrl,
   verifyTremendousWebhookSignature,
 } from './tremendous-webhook.util';
