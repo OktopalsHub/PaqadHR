@@ -1,9 +1,9 @@
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import type { PayrollItem } from '../entities/payroll-item.entity';
-import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { PayoutReconciliation } from './payout-reconciliation';
+import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 describe('PayoutReconciliation', () => {
   const createService = () => {
@@ -37,7 +37,6 @@ describe('PayoutReconciliation', () => {
       },
     } as unknown as import('typeorm').Repository<PayrollItem>;
 
-    const payrollItemRepository = {} as PayrollItemRepository;
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue({ tenantId: 'tenant-1' }),
     } as unknown as PayrollRunRepository;
@@ -46,12 +45,11 @@ describe('PayoutReconciliation', () => {
     const lifecycleNotify = {
       onItemPaid: jest.fn().mockResolvedValue(undefined),
       onItemFailed: jest.fn().mockResolvedValue(undefined),
-    };
+    } as unknown as PayrollLifecycleNotifyService;
 
     const service = new PayoutReconciliation(
       fincraApi,
       factory,
-      payrollItemRepository,
       payrollRunRepository,
       payrollItemRepo,
       lifecycleNotify,

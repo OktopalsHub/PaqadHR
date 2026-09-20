@@ -30,7 +30,6 @@ export class PayrollPayoutService {
     this.reconciliation = new PayoutReconciliation(
       fincraApi,
       factory,
-      payrollItemRepository,
       payrollRunRepository,
       payrollItemRepo,
       lifecycleNotify,
