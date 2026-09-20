@@ -3,10 +3,11 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 import type { User } from '../../users/entities/user.entity';
 import { UserRepository } from '../../users/repositories/users.repository';
 import { Session } from '../entities/session.entity';
+import { hashSessionToken } from '../utils/session-token.util';
 
 @Injectable()
 export class AuthSessionService {
@@ -46,7 +47,7 @@ export class AuthSessionService {
     const expiresAt = new Date(Date.now() + durationMs);
     const session = this.sessionRepository.create({
       userId,
-      token: sessionToken,
+      token: hashSessionToken(sessionToken),
       expiresAt,
       ipAddress: ipAddress ?? null,
       userAgent: userAgent ?? null,
@@ -66,25 +67,37 @@ export class AuthSessionService {
     const user = await this.userRepository.findUser(payload.sub);
     if (!user) throw new UnauthorizedException('User not found');
     if (!user.emailVerified) {
-      await this.sessionRepository.delete({ userId: user.id });
       throw new UnauthorizedException('Verify your email address before signing in');
     }
-    if (!payload.sid) return { ...this.generateTokens(user, payload.sid), rememberMe: true };
-    const session = await this.sessionRepository.findOne({
-      where: { token: payload.sid, userId: user.id },
-    });
-    if (!session) {
-      await this.sessionRepository.delete({ userId: user.id });
+    if (!payload.sid) {
       throw new UnauthorizedException('Invalid or expired session');
     }
-    if (session.expiresAt < new Date()) {
-      await this.sessionRepository.delete({ token: payload.sid });
-      throw new UnauthorizedException('Invalid or expired session');
-    }
+
+    const currentToken = hashSessionToken(payload.sid);
     const newSessionToken = randomUUID();
-    session.token = newSessionToken;
-    session.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-    await this.sessionRepository.save(session);
+    const rotated = await this.sessionRepository.manager.transaction(async (manager) => {
+      const session = await manager.findOne(Session, {
+        where: [
+          { token: currentToken, userId: user.id },
+          { token: payload.sid, userId: user.id },
+        ],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!session || session.expiresAt <= new Date()) {
+        return false;
+      }
+
+      session.token = hashSessionToken(newSessionToken);
+      session.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await manager.save(Session, session);
+      return true;
+    });
+
+    if (!rotated) {
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
     return {
       ...this.generateTokens(user, newSessionToken, true),
       rememberMe: true,
@@ -100,15 +113,22 @@ export class AuthSessionService {
       const payload = this.jwtService.verify(refreshToken, {
         secret: ENVIRONMENT.JWT.REFRESH_SECRET,
       }) as { sub: string; sid?: string };
-      if (payload.sid)
+      if (payload.sid) {
+        const hashedToken = hashSessionToken(payload.sid);
+        await this.sessionRepository.delete({ userId: payload.sub, token: hashedToken });
         await this.sessionRepository.delete({ userId: payload.sub, token: payload.sid });
-      else await this.sessionRepository.delete({ userId: payload.sub });
+      } else {
+        await this.sessionRepository.delete({ userId: payload.sub });
+      }
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
   async getActiveSessionsForUser(userId: string) {
-    return this.sessionRepository.find({ where: { userId }, order: { createdAt: 'DESC' } });
+    return this.sessionRepository.find({
+      where: { userId, expiresAt: MoreThan(new Date()) },
+      order: { createdAt: 'DESC' },
+    });
   }
 }
