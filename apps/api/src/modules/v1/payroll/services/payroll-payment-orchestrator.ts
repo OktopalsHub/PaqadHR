@@ -175,9 +175,10 @@ export class PayrollPaymentOrchestrator {
     if (run.status === PayrollStatus.COMPLETED) throw new BadRequestException('Already completed');
     if (run.status === PayrollStatus.FAILED)
       throw new BadRequestException('Cannot process a failed run');
-    if (run.status === PayrollStatus.APPROVED) {
-      run.payoutMode = 'immediate';
-      await this.payrollRunRepository.save(run);
+    if (run.status === PayrollStatus.APPROVED && run.payoutMode === 'scheduled') {
+      throw new BadRequestException(
+        'Scheduled payroll must be processed by its payment date or paid explicitly now.',
+      );
     }
     const start = Date.now();
     await this.multiPaymentService.processMultiPaymentPayroll(
