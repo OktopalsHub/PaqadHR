@@ -31,7 +31,7 @@ const FAILED = new Set([
 export function normalizePayoutStatus(
   provider: PaymentProvider,
   rawStatus: string,
-): TransactionStatus {
+): TransactionStatus | null {
   const status = rawStatus.trim().toUpperCase();
   switch (provider) {
     case PaymentProvider.NOAH:
@@ -41,7 +41,7 @@ export function normalizePayoutStatus(
       if (['FAILED', 'REJECTED', 'CANCELLED', 'CANCELED'].includes(status)) {
         return TransactionStatus.FAILED;
       }
-      return TransactionStatus.PROCESSING;
+      return PROCESSING.has(status) ? TransactionStatus.PROCESSING : null;
     case PaymentProvider.BACHS:
       if (['COMPLETED', 'SUCCESS', 'SUCCESSFUL', 'SETTLED'].includes(status)) {
         return TransactionStatus.COMPLETED;
@@ -49,11 +49,11 @@ export function normalizePayoutStatus(
       if (['FAILED', 'REVERSED', 'REJECTED', 'CANCELLED', 'CANCELED'].includes(status)) {
         return TransactionStatus.FAILED;
       }
-      return TransactionStatus.PROCESSING;
+      return PROCESSING.has(status) ? TransactionStatus.PROCESSING : null;
     default:
       if (SUCCESS.has(status)) return TransactionStatus.COMPLETED;
       if (FAILED.has(status)) return TransactionStatus.FAILED;
       if (PROCESSING.has(status)) return TransactionStatus.PROCESSING;
-      return TransactionStatus.PROCESSING;
+      return null;
   }
 }
