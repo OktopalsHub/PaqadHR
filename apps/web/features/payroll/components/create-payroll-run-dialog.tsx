@@ -130,9 +130,16 @@ export function CreatePayrollRunDialog({
       toast.error('Set the pay period dates');
       return false;
     }
-    if (payoutMode === 'scheduled' && !paymentDate) {
-      toast.error('Set a scheduled payment date');
-      return false;
+    if (payoutMode === 'scheduled') {
+      if (!paymentDate) {
+        toast.error('Set a scheduled payment date');
+        return false;
+      }
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (paymentDate < tomorrow) {
+        toast.error('Scheduled payment date must be in the future');
+        return false;
+      }
     }
     if (new Date(periodEnd) <= new Date(periodStart)) {
       toast.error('Period end must be after period start');
