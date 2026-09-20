@@ -24,9 +24,7 @@ describe('AuthSessionCleanupService', () => {
     expect(repository.createQueryBuilder).toHaveBeenCalledTimes(2);
     expect(queryBuilder.delete).toHaveBeenCalledTimes(2);
     expect(queryBuilder.from).toHaveBeenCalledWith(expect.anything());
-    expect(queryBuilder.where).toHaveBeenCalledWith(
-      expect.stringContaining('expires_at <= :now'),
-    );
+    expect(queryBuilder.where).toHaveBeenCalledWith(expect.stringContaining('expires_at <= :now'));
     expect(execute).toHaveBeenCalledTimes(2);
   });
 });
