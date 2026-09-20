@@ -41,6 +41,17 @@ export function buildPayrollPaymentData(
   const isCrypto = paymentMethod.type === PaymentMethodType.CRYPTO || isCryptoCurrency(currency);
   const fxAtPayout = item.metadata?.fxAtPayout === true;
   const salaryCurrency = item.baseSalaryCurrency?.toUpperCase();
+  const address = paymentMethod.member?.address;
+  const canonicalHolderAddress =
+    address?.street && address.city && address.state && address.postalCode && address.country
+      ? {
+          line1: address.street,
+          city: address.city,
+          state: address.state,
+          postalCode: address.postalCode,
+          countryCode: address.country.toUpperCase(),
+        }
+      : undefined;
   const retryAttempt =
     typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
 
@@ -78,7 +89,7 @@ export function buildPayrollPaymentData(
       walletAddress: meta.walletAddress,
       cryptoNetwork: meta.cryptoNetwork,
       noahChannelId: meta.noahChannelId,
-      noahHolderAddress: meta.noahHolderAddress,
+      noahHolderAddress: canonicalHolderAddress,
       bachsDestinationId:
         typeof meta.bachsDestinationId === 'string' ? meta.bachsDestinationId : undefined,
       tenantName,
