@@ -168,6 +168,9 @@ export class NoahPayoutService {
     const requestedChannel = input.channelId
       ? bankChannels.find((item) => getChannelId(item) === input.channelId)
       : undefined;
+    if (input.channelId && !requestedChannel) {
+      throw new BadRequestException(`Unknown Noah payout channel: ${input.channelId}`);
+    }
     const bankChannel =
       requestedChannel ??
       preferredTypes
