@@ -175,9 +175,10 @@ export class PayrollPaymentOrchestrator {
     if (run.status === PayrollStatus.COMPLETED) throw new BadRequestException('Already completed');
     if (run.status === PayrollStatus.FAILED)
       throw new BadRequestException('Cannot process a failed run');
-    if (run.status === PayrollStatus.APPROVED) {
-      run.payoutMode = 'immediate';
-      await this.payrollRunRepository.save(run);
+    if (run.status === PayrollStatus.APPROVED && run.payoutMode === 'scheduled') {
+      throw new BadRequestException(
+        'Scheduled payroll must be processed by its payment date or paid explicitly now.',
+      );
     }
     const start = Date.now();
     await this.multiPaymentService.processMultiPaymentPayroll(
@@ -234,8 +235,8 @@ export class PayrollPaymentOrchestrator {
     }
     if (paymentDate) run.paymentDate = paymentDate;
     if (!run.paymentDate) throw new BadRequestException('Set a payment date before scheduling');
-    if (payrollCalendarDatePart(run.paymentDate) < payrollTodayCalendarDatePart()) {
-      throw new BadRequestException('Payment date cannot be in the past');
+    if (payrollCalendarDatePart(run.paymentDate) <= payrollTodayCalendarDatePart()) {
+      throw new BadRequestException('Payment date must be in the future');
     }
     run.payoutMode = 'scheduled';
     const scheduledFor = this.toIsoDatePart(run.paymentDate);
