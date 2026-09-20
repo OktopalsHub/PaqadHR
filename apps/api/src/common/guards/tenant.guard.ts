@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { tenantContext } from '../context/tenant.context';
+import { TenantMemberRepository } from '../../modules/v1/tenant-members/repositories/tenant-members.repository';
 import {
   AUTH_ONLY_KEY,
   IS_MEMBER_OPTIONAL_KEY,
@@ -14,8 +15,11 @@ import {
 } from '../decorators';
 @Injectable()
 export class TenantGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
-  canActivate(context: ExecutionContext): boolean {
+  constructor(
+    private reflector: Reflector,
+    private readonly tenantMemberRepository: TenantMemberRepository,
+  ) {}
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -40,33 +44,36 @@ export class TenantGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    // Defense-in-depth: auto-require tenant for any tenant-scoped route (BOLA prevention H-1)
-    // If route contains :tenantId or x-tenant-id header or tenant context, enforce isolation even without @RequireTenant
-    const requestEarly = context.switchToHttp().getRequest();
-    const hasTenantScope =
-      Boolean(requestEarly?.params?.tenantId) ||
-      Boolean(requestEarly?.headers?.['x-tenant-id']) ||
-      Boolean(tenantContext.getCurrentTenant()?.id);
-    const requireTenant = explicitRequireTenant ?? hasTenantScope;
-    if (!requireTenant) {
-      return true;
-    }
-    const tenant = tenantContext.getCurrentTenant();
-    if (tenant?.isActive) {
-      return true;
-    }
     const request = context.switchToHttp().getRequest();
-    const requestTenant = request.tenant;
-    if (requestTenant) {
-      if (!requestTenant.isActive) {
-        throw new ForbiddenException('Tenant is not active');
-      }
-      return true;
+    const requestedTenantId =
+      request?.params?.tenantId ?? request?.headers?.['x-tenant-id'] ?? tenantContext.getCurrentTenantId();
+    const requireTenant = explicitRequireTenant ?? Boolean(requestedTenantId);
+    if (!requireTenant) return true;
+
+    if (!request.user) {
+      throw new ForbiddenException('Authentication required');
     }
-    // Defer to controller-level TenantMemberGuard when scope comes from route/header only
-    if (hasTenantScope && !explicitRequireTenant) {
-      return true;
+    if (!requestedTenantId || typeof requestedTenantId !== 'string') {
+      throw new ForbiddenException('Tenant context is required');
     }
-    throw new ForbiddenException('Tenant context is required');
+
+    const contextTenantId = tenantContext.getCurrentTenantId();
+    if (contextTenantId && contextTenantId !== requestedTenantId) {
+      throw new ForbiddenException('Tenant access denied');
+    }
+
+    const membership = await this.tenantMemberRepository.findMembershipByUserAndTenant(
+      request.user.principalId,
+      requestedTenantId,
+    );
+    if (!membership || !membership.isActive) {
+      throw new ForbiddenException('Tenant access denied');
+    }
+
+    if (request.tenant && !request.tenant.isActive) {
+      throw new ForbiddenException('Tenant is not active');
+    }
+
+    return true;
   }
 }
