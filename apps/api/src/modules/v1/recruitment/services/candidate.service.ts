@@ -158,11 +158,34 @@ export class CandidateService {
   ): Promise<Candidate> {
     const candidate = await this.getCandidate(candidateId, tenantId);
     const allowedTransitions: Record<CandidateStatus, CandidateStatus[]> = {
-      [CandidateStatus.APPLIED]: [CandidateStatus.SCREENING, CandidateStatus.UNDER_REVIEW, CandidateStatus.REJECTED, CandidateStatus.WITHDRAWN],
-      [CandidateStatus.SCREENING]: [CandidateStatus.UNDER_REVIEW, CandidateStatus.INTERVIEW, CandidateStatus.REJECTED, CandidateStatus.WITHDRAWN],
-      [CandidateStatus.UNDER_REVIEW]: [CandidateStatus.SCREENING, CandidateStatus.INTERVIEW, CandidateStatus.REJECTED, CandidateStatus.WITHDRAWN],
-      [CandidateStatus.INTERVIEW]: [CandidateStatus.OFFER, CandidateStatus.REJECTED, CandidateStatus.WITHDRAWN],
-      [CandidateStatus.OFFER]: [CandidateStatus.HIRED, CandidateStatus.REJECTED, CandidateStatus.WITHDRAWN],
+      [CandidateStatus.APPLIED]: [
+        CandidateStatus.SCREENING,
+        CandidateStatus.UNDER_REVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.SCREENING]: [
+        CandidateStatus.UNDER_REVIEW,
+        CandidateStatus.INTERVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.UNDER_REVIEW]: [
+        CandidateStatus.SCREENING,
+        CandidateStatus.INTERVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.INTERVIEW]: [
+        CandidateStatus.OFFER,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.OFFER]: [
+        CandidateStatus.HIRED,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
       [CandidateStatus.HIRED]: [],
       [CandidateStatus.REJECTED]: [],
       [CandidateStatus.WITHDRAWN]: [],
