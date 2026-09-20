@@ -15,12 +15,14 @@ import {
   IsUUID,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { TransactionType } from 'src/common/enums';
 import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
 import {
   IsAfterStartDate,
+  IsAfterToday,
   IsNotFuture,
   IsNotPast,
   IsValidPayrollPeriod,
@@ -112,13 +114,15 @@ export class CreatePayrollRunDto {
     message: 'Pay period length is invalid for the selected frequency',
   })
   periodEnd: Date;
-  @ApiProperty({
-    description: 'Scheduled payment date (any calendar day; usually on or after period end)',
+  @ApiPropertyOptional({
+    description: 'Payment date. Required only for scheduled payouts; immediate payouts use today.',
   })
+  @ValidateIf((object: CreatePayrollRunDto) => object.payoutMode === 'scheduled')
   @Type(() => Date)
   @IsDate({ message: 'Expected pay date must be a valid date' })
   @IsNotPast({ message: 'Payment date cannot be in the past' })
-  paymentDate: Date;
+  @IsAfterToday({ message: 'Scheduled payment date must be in the future' })
+  paymentDate?: Date;
   @ApiPropertyOptional({
     description: 'Whether the approved run should be paid immediately or on its payment date',
     enum: ['immediate', 'scheduled'],

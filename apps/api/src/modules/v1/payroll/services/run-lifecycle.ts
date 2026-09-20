@@ -5,6 +5,7 @@ import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
+import { payrollTodayCalendarDatePart } from '../../../../common/validators/payroll-date.validator';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
 import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
@@ -58,19 +59,27 @@ export class RunLifecycle {
       },
     });
     if (dup) return Object.assign(dup, { alreadyExists: true });
+    const payoutMode = dto.payoutMode ?? 'immediate';
+    if (payoutMode === 'scheduled' && !dto.paymentDate) {
+      throw new BadRequestException('Payment date is required for scheduled payroll');
+    }
+    const paymentDate =
+      payoutMode === 'immediate'
+        ? new Date(`${payrollTodayCalendarDatePart()}T00:00:00.000Z`)
+        : dto.paymentDate!;
     const run = this.payrollRunRepository.create({
       title: dto.title,
       frequency: dto.frequency,
       periodStart: dto.periodStart,
       periodEnd: dto.periodEnd,
-      paymentDate: dto.paymentDate,
+      paymentDate,
       baseCurrency: currency,
       status: PayrollStatus.DRAFT,
       employeeCount: dto.employeeIds.length,
       createdById,
       tenantId,
       idempotencyKey: key,
-      payoutMode: dto.payoutMode ?? 'immediate',
+      payoutMode,
     });
     const saved = await this.payrollRunRepository.save(run);
     const items = dto.employeeIds.map((memberId) =>
