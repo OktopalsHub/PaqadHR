@@ -21,8 +21,22 @@ export function payrollCalendarDatePart(value: Date | string): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function payrollTodayCalendarDatePart(): string {
-  return new Date().toISOString().slice(0, 10);
+export function payrollTodayCalendarDatePart(timeZone = 'UTC', now = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+  } catch {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+  }
 }
 
 export function payrollPeriodDiffDays(
