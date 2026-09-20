@@ -20,7 +20,7 @@ export const configureMiddleware = (app: NestExpressApplication) => {
   }
   app.use(
     express.json({
-      limit: '10mb',
+      limit: process.env.JSON_BODY_LIMIT ?? '1mb',
       verify: (req, _res, buf) => {
         const path = (req as Request).originalUrl ?? (req as Request).url ?? '';
         if (
@@ -33,7 +33,7 @@ export const configureMiddleware = (app: NestExpressApplication) => {
       },
     }),
   );
-  app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  app.use(express.urlencoded({ limit: process.env.URLENCODED_BODY_LIMIT ?? '1mb', extended: true }));
   const crossSiteCookies = usesCrossSiteCookies();
   const secureCookies = usesSecureCookies();
   const cookieDomain = resolveCookieDomain();
@@ -86,7 +86,8 @@ export const configureMiddleware = (app: NestExpressApplication) => {
     }
     next(err);
   });
-  app.set('trust proxy', true);
+  const trustProxy = Number.parseInt(process.env.TRUST_PROXY ?? '0', 10);
+  app.set('trust proxy', Number.isFinite(trustProxy) && trustProxy > 0 ? trustProxy : false);
   app.use(passport.initialize());
   let allowedOrigins = resolveTrustedOrigins();
   const allowAll = allowedOrigins.includes('*');
@@ -132,9 +133,6 @@ export const configureMiddleware = (app: NestExpressApplication) => {
         'X-Requested-With',
         'Accept',
         'Origin',
-        'Access-Control-Allow-Origin',
-        'Access-Control-Allow-Headers',
-        'Access-Control-Allow-Credentials',
         'x-csrf-token',
         'X-CSRF-Token',
         'x-tenant-id',
