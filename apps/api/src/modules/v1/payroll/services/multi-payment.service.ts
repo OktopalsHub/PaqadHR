@@ -72,6 +72,19 @@ export class MultiPaymentService {
     }
 
     try {
+      if (payrollRun.payoutMode === 'scheduled' && this.lifecycleNotify) {
+        await this.lifecycleNotify.onScheduledPayoutDue({
+          tenantId,
+          run: {
+            id: payrollRun.id,
+            title: payrollRun.title,
+            tenantId,
+            periodStart: payrollRun.periodStart,
+            periodEnd: payrollRun.periodEnd,
+            paymentDate: payrollRun.paymentDate,
+          },
+        });
+      }
       if (payrollRun.payoutMode === 'scheduled') {
         payrollRun.payoutMode = 'immediate';
         await this.payrollRunRepository.save(payrollRun);
