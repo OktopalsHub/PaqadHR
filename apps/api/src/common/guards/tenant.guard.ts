@@ -69,7 +69,7 @@ export class TenantGuard implements CanActivate {
       request.user.principalId,
       requestedTenantId,
     );
-    if (!membership || !membership.isActive) {
+    if (!membership?.isActive) {
       throw new ForbiddenException('Tenant access denied');
     }
 
