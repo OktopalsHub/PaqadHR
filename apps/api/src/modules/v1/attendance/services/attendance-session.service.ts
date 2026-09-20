@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { QueryFailedError } from 'typeorm';
 import { LessThan } from 'typeorm';
 import { AttendanceRepository } from '../repositories/attendance.repository';
 import { AttendancePolicyRepository } from '../repositories/attendance-policy.repository';
 import { AttendanceEligibilityService } from './attendance-eligibility.service';
+import { TenantMemberRepository } from '../../tenant-members/repositories/tenant-members.repository';
 
 @Injectable()
 export class AttendanceSessionService {
@@ -12,6 +14,7 @@ export class AttendanceSessionService {
     private readonly attendanceRepo: AttendanceRepository,
     private readonly policyRepo: AttendancePolicyRepository,
     private readonly eligibility: AttendanceEligibilityService,
+    private readonly tenantMemberRepository: TenantMemberRepository,
   ) {}
 
   async getTodayAttendance(tenantId: string, tenantMemberId: string) {
@@ -58,6 +61,13 @@ export class AttendanceSessionService {
       notes?: string;
     },
   ) {
+    const member = await this.tenantMemberRepository.findOne({
+      where: { id: tenantMemberId, tenantId },
+    });
+    if (!member) {
+      throw new NotFoundException('Tenant member not found');
+    }
+
     const date = await this.eligibility.getTenantLocalDate(tenantId, dto.date);
     const sessions = await this.attendanceRepo.find({
       where: { tenantId, tenantMemberId, date },
@@ -67,11 +77,14 @@ export class AttendanceSessionService {
     let workHours: string | undefined;
     if (dto.clockIn && dto.clockOut) {
       const workMs = dto.clockOut.getTime() - dto.clockIn.getTime();
-      if (workMs < 0) throw new Error('Clock out time cannot be before clock in time.');
+      if (workMs < 0) {
+        throw new BadRequestException('Clock out time cannot be before clock in time.');
+      }
       workHours = this.eligibility.formatDurationToHHMMSS(workMs);
     }
-    return this.attendanceRepo.save(
-      this.attendanceRepo.create({
+    try {
+      return await this.attendanceRepo.save(
+        this.attendanceRepo.create({
         tenantId,
         tenantMemberId,
         date,
@@ -84,9 +97,15 @@ export class AttendanceSessionService {
         location: dto.location || 'Office',
         notes: dto.notes,
         entryMethod: 'manual',
-        isManualEntry: true,
-      }),
-    );
+          isManualEntry: true,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof QueryFailedError && error.driverError?.code === '23505') {
+        throw new ConflictException('You already have an active attendance session.');
+      }
+      throw error;
+    }
   }
 
   async getClockInInfo(tenantId: string, tenantMemberId: string, targetDate?: Date) {
@@ -95,7 +114,7 @@ export class AttendanceSessionService {
       : await this.eligibility.getTenantLocalDate(tenantId);
     const [clockInEnabled, isWeekendDay, leaveStatus] = await Promise.all([
       this.eligibility.isClockInEnabled(tenantId),
-      this.eligibility.isWeekend(tenantId, new Date()),
+      this.eligibility.isWeekend(tenantId, targetDate ?? new Date()),
       this.eligibility.isOnLeave(tenantId, tenantMemberId, date),
     ]);
     const forgottenSession = await this.attendanceRepo.findOne({
