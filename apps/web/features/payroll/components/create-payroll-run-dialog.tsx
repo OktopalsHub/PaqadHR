@@ -314,7 +314,8 @@ export function CreatePayrollRunDialog({
                   className={fieldClassName}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Choose a future date. The payroll will be funded after approval and paid on this date.
+                  Choose a future date. The payroll will be funded after approval and paid on this
+                  date.
                 </p>
               </div>
             ) : (
