@@ -33,8 +33,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   ): TUser {
     const request = context.switchToHttp().getRequest<IAuthenticatedUserRequest>();
     if (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      throw new UnauthorizedException(`Authentication error: ${message}`);
+      throw new UnauthorizedException('Authentication failed');
     }
     if (!user || !this.isJwtPayload(user)) {
       throw new UnauthorizedException('User is unauthenticated');

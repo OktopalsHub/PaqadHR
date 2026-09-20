@@ -301,19 +301,6 @@ export class PayrollPaymentOrchestrator {
           this.logger.warn(`Scheduled payroll ${run.id} is due but has not been funded`);
           continue;
         }
-        if (this.lifecycleNotify) {
-          await this.lifecycleNotify.onScheduledPayoutDue({
-            tenantId: run.tenantId,
-            run: {
-              id: run.id,
-              title: run.title,
-              tenantId: run.tenantId,
-              periodStart: run.periodStart,
-              periodEnd: run.periodEnd,
-              paymentDate: run.paymentDate,
-            },
-          });
-        }
         await this.multiPaymentService.processMultiPaymentPayroll(run.id, run.tenantId, {
           tenantId: run.tenantId,
           payrollRunId: run.id,
