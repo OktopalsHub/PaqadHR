@@ -12,7 +12,6 @@ import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { PaymentBatching } from './payment-batching';
 import { PaymentValidation } from './payment-validation';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
-import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
 
 const PAYROLL_PROCESSING_LOCK_MS = 30 * 60 * 1000;
