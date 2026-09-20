@@ -22,6 +22,7 @@ import { AuthEmailVerificationService } from './services/auth-email-verification
 import { AuthOAuthService } from './services/auth-oauth.service';
 import { AuthPasswordService } from './services/auth-password.service';
 import { AuthSessionService } from './services/auth-session.service';
+import { AuthSessionCleanupService } from './services/auth-session-cleanup.service';
 import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
 
 @Module({
@@ -46,6 +47,7 @@ import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
     AuthService,
     AuthCredentialService,
     AuthSessionService,
+    AuthSessionCleanupService,
     AuthEmailVerificationService,
     AuthPasswordService,
     AuthOAuthService,

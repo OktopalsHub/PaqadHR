@@ -7,6 +7,7 @@ import { ENVIRONMENT } from 'src/common/config/env.config';
 import type { JwtPayload } from 'src/common/interfaces';
 import { Repository } from 'typeorm';
 import { Session } from '../entities/session.entity';
+import { hashSessionToken } from '../utils/session-token.util';
 
 interface JwtTokenPayload {
   sub: string;
@@ -37,11 +38,20 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
 
     if (payload.sid) {
+      const hashedToken = hashSessionToken(payload.sid);
       const session = await this.sessionRepository.findOne({
-        where: { token: payload.sid, userId: payload.sub },
+        where: [
+          { token: hashedToken, userId: payload.sub },
+          { token: payload.sid, userId: payload.sub },
+        ],
       });
       if (!session || session.expiresAt < new Date()) {
         throw new UnauthorizedException('Session expired');
+      }
+
+      if (session.token === payload.sid) {
+        session.token = hashedToken;
+        await this.sessionRepository.save(session);
       }
     }
 
