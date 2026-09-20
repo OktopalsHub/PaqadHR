@@ -64,6 +64,18 @@ export class IsNotFutureConstraint implements ValidatorConstraintInterface {
   }
 }
 
+@ValidatorConstraint({ name: 'isAfterToday', async: false })
+export class IsAfterTodayConstraint implements ValidatorConstraintInterface {
+  validate(date: unknown) {
+    if (!date) return false;
+    return payrollCalendarDatePart(date as string) > payrollTodayCalendarDatePart();
+  }
+
+  defaultMessage() {
+    return 'Payment date must be in the future';
+  }
+}
+
 @ValidatorConstraint({ name: 'isNotPast', async: false })
 export class IsNotPastConstraint implements ValidatorConstraintInterface {
   validate(date: unknown) {
@@ -126,6 +138,18 @@ export function IsNotFuture(validationOptions?: ValidationOptions) {
       options: validationOptions,
       constraints: [],
       validator: IsNotFutureConstraint,
+    });
+  };
+}
+
+export function IsAfterToday(validationOptions?: ValidationOptions) {
+  return (object: object, propertyName: string) => {
+    registerDecorator({
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      constraints: [],
+      validator: IsAfterTodayConstraint,
     });
   };
 }
