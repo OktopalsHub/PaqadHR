@@ -13,4 +13,7 @@ export class PayrollWebhookEvent extends BaseEntity {
 
   @Column({ name: 'received_at', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   receivedAt: Date;
+
+  @Column({ name: 'processed_at', type: 'timestamp', nullable: true })
+  processedAt: Date | null;
 }
