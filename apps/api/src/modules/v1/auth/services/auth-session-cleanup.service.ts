@@ -34,7 +34,7 @@ export class AuthSessionCleanupService {
     } while (deleted === SESSION_CLEANUP_BATCH_SIZE);
 
     if (deleted > 0) {
-      this.logger.log('Removed ' + deleted + ' expired auth sessions');
+      this.logger.log(`Removed ${deleted} expired auth sessions`);
     }
   }
 }
