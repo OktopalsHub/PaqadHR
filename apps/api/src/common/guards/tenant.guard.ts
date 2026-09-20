@@ -19,6 +19,7 @@ export class TenantGuard implements CanActivate {
     private reflector: Reflector,
     private readonly tenantMemberRepository: TenantMemberRepository,
   ) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -72,7 +73,11 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException('Tenant access denied');
     }
 
-    if (request.tenant && !request.tenant.isActive) {
+    const tenantMembership = await this.tenantMemberRepository.findOne({
+      where: { id: membership.id, tenantId: requestedTenantId },
+      relations: ['tenant'],
+    });
+    if (!tenantMembership?.tenant?.isActive) {
       throw new ForbiddenException('Tenant is not active');
     }
 
