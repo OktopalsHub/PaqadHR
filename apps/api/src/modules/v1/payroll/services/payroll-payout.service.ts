@@ -26,7 +26,8 @@ export class PayrollPayoutService {
     readonly payrollItemRepository: PayrollItemRepository,
     readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem) readonly payrollItemRepo: Repository<PayrollItem>,
-    @InjectRepository(PayrollWebhookEvent) readonly webhookEventRepository: Repository<PayrollWebhookEvent>,
+    @InjectRepository(PayrollWebhookEvent)
+    readonly webhookEventRepository: Repository<PayrollWebhookEvent>,
     @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {
     this.reconciliation = new PayoutReconciliation(
