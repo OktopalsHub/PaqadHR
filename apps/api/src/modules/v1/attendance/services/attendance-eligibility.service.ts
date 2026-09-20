@@ -27,9 +27,7 @@ export class AttendanceEligibilityService {
       day: '2-digit',
     }).formatToParts(date);
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return new Date(
-      Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)),
-    );
+    return new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)));
   }
 
   async isClockInEnabled(tenantId: string): Promise<boolean> {
