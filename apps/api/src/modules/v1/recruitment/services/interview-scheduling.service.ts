@@ -47,8 +47,14 @@ export class InterviewSchedulingService {
     if (candidate.jobOpeningId !== createInterviewDto.jobOpeningId) {
       throw new BadRequestException('Candidate does not belong to the selected job opening');
     }
-    if ([CandidateStatus.HIRED, CandidateStatus.REJECTED, CandidateStatus.WITHDRAWN].includes(candidate.status)) {
-      throw new ConflictException('Cannot schedule an interview for a candidate in the current status');
+    if (
+      [CandidateStatus.HIRED, CandidateStatus.REJECTED, CandidateStatus.WITHDRAWN].includes(
+        candidate.status,
+      )
+    ) {
+      throw new ConflictException(
+        'Cannot schedule an interview for a candidate in the current status',
+      );
     }
     const jobOpening = await this.jobOpeningRepository.findOne({
       where: { id: createInterviewDto.jobOpeningId, tenantId },
@@ -56,13 +62,14 @@ export class InterviewSchedulingService {
     if (!jobOpening) {
       throw new NotFoundException('Job opening not found or does not belong to this tenant');
     }
-    const interviewerIds = [...new Set(createInterviewDto.interviewers.map((interviewer) => interviewer.userId))].sort();
+    const interviewerIds = [
+      ...new Set(createInterviewDto.interviewers.map((interviewer) => interviewer.userId)),
+    ].sort();
     const saved = await this.interviewRepository.manager.transaction(async (manager) => {
       for (const interviewerId of interviewerIds) {
-        await manager.query(
-          'SELECT pg_advisory_xact_lock(hashtextextended($1, 0));',
-          [`recruitment:interviewer:${tenantId}:${interviewerId}`],
-        );
+        await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0));', [
+          `recruitment:interviewer:${tenantId}:${interviewerId}`,
+        ]);
       }
       const interviewRepository = manager.getRepository(Interview);
       const endDate = new Date(interviewDate.getTime() + createInterviewDto.duration * 60000);
@@ -90,7 +97,9 @@ export class InterviewSchedulingService {
         ),
       );
       if (hasConflict.some(Boolean)) {
-        throw new ConflictException('One or more interviewers have a scheduling conflict at the requested time');
+        throw new ConflictException(
+          'One or more interviewers have a scheduling conflict at the requested time',
+        );
       }
       const interview = interviewRepository.create({
         ...createInterviewDto,
