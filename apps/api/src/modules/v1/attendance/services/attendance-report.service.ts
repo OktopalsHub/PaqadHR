@@ -55,9 +55,7 @@ export class AttendanceReportService {
       second: '2-digit',
       hourCycle: 'h23',
     }).formatToParts(new Date(wallClock));
-    const offsetValues = Object.fromEntries(
-      offsetParts.map((part) => [part.type, part.value]),
-    );
+    const offsetValues = Object.fromEntries(offsetParts.map((part) => [part.type, part.value]));
     const representedWallClock = Date.UTC(
       Number(offsetValues.year),
       Number(offsetValues.month) - 1,
@@ -125,7 +123,11 @@ export class AttendanceReportService {
   }
 
   async getMonthlyReport(tenantId: string, month: number, year: number) {
-    const start = await this.toTenantDayBoundary(tenantId, new Date(Date.UTC(year, month - 1, 1)), false);
+    const start = await this.toTenantDayBoundary(
+      tenantId,
+      new Date(Date.UTC(year, month - 1, 1)),
+      false,
+    );
     const end = await this.toTenantDayBoundary(
       tenantId,
       new Date(Date.UTC(year, month - 1, 1)),
