@@ -8,7 +8,7 @@ import { PayoutReconciliation } from './payout-reconciliation';
 describe('PayoutReconciliation', () => {
   const createService = () => {
     const savedItem = {
-      id: 'item-1',
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       payrollRunId: 'run-1',
       memberId: 'member-1',
       status: PayrollItemStatus.PROCESSING,
@@ -31,7 +31,7 @@ describe('PayoutReconciliation', () => {
     };
     const payrollItemRepo = {
       manager: {
-        transaction: jest.fn(async (callback: (manager: typeof manager) => Promise<boolean>) =>
+        transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<boolean>) =>
           callback(manager),
         ),
       },
@@ -64,7 +64,7 @@ describe('PayoutReconciliation', () => {
     const { service, transactionRepository, lifecycleNotify } = createService();
 
     const changed = await service.applyTransferStatus(
-      'pi_item1',
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       'SUCCESS',
       'txn-1',
       PaymentProvider.NOMBA,
@@ -85,7 +85,7 @@ describe('PayoutReconciliation', () => {
   it('does not emit a second paid notification when the locked row is already paid', async () => {
     const { service, transactionRepository, lifecycleNotify } = createService();
     transactionRepository.findOne.mockResolvedValueOnce({
-      id: 'item-1',
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       payrollRunId: 'run-1',
       memberId: 'member-1',
       status: PayrollItemStatus.PAID,
@@ -99,7 +99,7 @@ describe('PayoutReconciliation', () => {
     });
 
     const changed = await service.applyTransferStatus(
-      'pi_item1',
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       'SUCCESS',
       'txn-duplicate',
       PaymentProvider.NOMBA,
