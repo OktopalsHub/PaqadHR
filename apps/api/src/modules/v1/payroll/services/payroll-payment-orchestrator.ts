@@ -235,8 +235,8 @@ export class PayrollPaymentOrchestrator {
     }
     if (paymentDate) run.paymentDate = paymentDate;
     if (!run.paymentDate) throw new BadRequestException('Set a payment date before scheduling');
-    if (payrollCalendarDatePart(run.paymentDate) < payrollTodayCalendarDatePart()) {
-      throw new BadRequestException('Payment date cannot be in the past');
+    if (payrollCalendarDatePart(run.paymentDate) <= payrollTodayCalendarDatePart()) {
+      throw new BadRequestException('Payment date must be in the future');
     }
     run.payoutMode = 'scheduled';
     const scheduledFor = this.toIsoDatePart(run.paymentDate);
