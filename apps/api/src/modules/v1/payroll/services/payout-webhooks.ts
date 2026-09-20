@@ -56,7 +56,9 @@ export class PayoutWebhooks {
           ? (value.data as Record<string, unknown>).id
           : undefined,
       ];
-      const candidate = candidates.find((item): item is string => typeof item === 'string' && item.trim());
+      const candidate = candidates.find(
+        (item): item is string => typeof item === 'string' && item.trim(),
+      );
       if (candidate) return candidate.trim();
     }
     return createHash('sha256').update(JSON.stringify(payload ?? null)).digest('hex');
@@ -113,7 +115,9 @@ export class PayoutWebhooks {
   async processNombaPayload(payload: unknown): Promise<{ received: boolean }> {
     const event = this.nombaTransferApi.parseTransferWebhook(payload);
     if (!event) return { received: true };
-    if (!(await this.claimWebhookEvent(PaymentProvider.NOMBA, payload))) return { received: true };
+    if (!(await this.claimWebhookEvent(PaymentProvider.NOMBA, payload))) {
+      return { received: true };
+    }
 
     const merchantRef = event.merchantTxRef ?? event.reference;
     const context = await this.resolvePayrollContext(merchantRef);
@@ -135,7 +139,9 @@ export class PayoutWebhooks {
   async processNoahPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
     const event = this.noahApi.parseTransferWebhook(payload);
     if (!event) return { received: true, matched: false };
-    if (!(await this.claimWebhookEvent(PaymentProvider.NOAH, payload))) return { received: true, matched: false };
+    if (!(await this.claimWebhookEvent(PaymentProvider.NOAH, payload))) {
+      return { received: true, matched: false };
+    }
 
     let merchantRef = event.merchantTxRef ?? event.reference;
     if (!merchantRef || !isPayrollMerchantRef(merchantRef)) {
@@ -167,7 +173,9 @@ export class PayoutWebhooks {
   async processFincraPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
     const event = this.fincraApi.parsePayoutWebhook(payload);
     if (!event) return { received: true, matched: false };
-    if (!(await this.claimWebhookEvent(PaymentProvider.FINCRA, payload))) return { received: true, matched: false };
+    if (!(await this.claimWebhookEvent(PaymentProvider.FINCRA, payload))) {
+      return { received: true, matched: false };
+    }
 
     const context = await this.resolvePayrollContext(event.merchantRef);
     if (!context) return { received: true, matched: false };
@@ -213,7 +221,9 @@ export class PayoutWebhooks {
     status: string;
     amount?: number;
   }): Promise<{ received: boolean; matched: boolean }> {
-    if (!(await this.claimWebhookEvent(PaymentProvider.MONNIFY, payload))) return { received: true, matched: false };
+    if (!(await this.claimWebhookEvent(PaymentProvider.MONNIFY, payload))) {
+      return { received: true, matched: false };
+    }
     const context = await this.resolvePayrollContext(payload.merchantRef);
     if (!context) return { received: true, matched: false };
 
@@ -234,7 +244,9 @@ export class PayoutWebhooks {
   async processBachsPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
     const event = parseBachsPayoutWebhook(payload);
     if (!event) return { received: true, matched: false };
-    if (!(await this.claimWebhookEvent(PaymentProvider.BACHS, payload))) return { received: true, matched: false };
+    if (!(await this.claimWebhookEvent(PaymentProvider.BACHS, payload))) {
+      return { received: true, matched: false };
+    }
 
     // data.reference is the reference Paqad set at payout creation (the payroll merchant ref).
     let merchantRef = event.reference;
