@@ -80,6 +80,7 @@ import { TenantMembersService } from './tenant-members.service';
     MemberProfileService,
     TenantMemberGuard,
     HeaderTenantMemberGuard,
+    TenantMemberRepository,
     TypeOrmModule,
   ],
 })
