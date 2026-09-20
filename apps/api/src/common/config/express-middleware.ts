@@ -33,7 +33,12 @@ export const configureMiddleware = (app: NestExpressApplication) => {
       },
     }),
   );
-  app.use(express.urlencoded({ limit: process.env.URLENCODED_BODY_LIMIT ?? '1mb', extended: true }));
+  app.use(
+    express.urlencoded({
+      limit: process.env.URLENCODED_BODY_LIMIT ?? '1mb',
+      extended: true,
+    }),
+  );
   const crossSiteCookies = usesCrossSiteCookies();
   const secureCookies = usesSecureCookies();
   const cookieDomain = resolveCookieDomain();
