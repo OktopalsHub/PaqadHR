@@ -9,6 +9,7 @@ import { normalizePayoutStatus } from 'src/common/utils/normalize-payout-status.
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
+import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   buildPayrollMerchantRef,
@@ -228,15 +229,21 @@ export class PayoutReconciliation {
       const where: Record<string, unknown> = { id: itemId };
       if (payrollRunId) where.payrollRunId = payrollRunId;
 
+      if (payrollRunId && resolvedTenantId) {
+        const payrollRun = await manager.getRepository(PayrollRun).findOne({
+          where: { id: payrollRunId, tenantId: resolvedTenantId },
+          select: ['id', 'tenantId'],
+        });
+        if (!payrollRun) return false;
+      }
+
+      // Lock only the payroll_item row. Loading relations here generates LEFT OUTER JOINs,
+      // and PostgreSQL rejects FOR UPDATE when it would also lock the nullable side.
       const item = await repository.findOne({
         where,
-        relations: ['payrollRun', 'employee'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!item) return false;
-
-      const itemTenantId = item.payrollRun?.tenantId;
-      if (tenantId && itemTenantId && itemTenantId !== tenantId) return false;
 
       if (normalizedStatus === 'completed') {
         if (item.status === PayrollItemStatus.PAID) return false;
@@ -310,8 +317,14 @@ export class PayoutReconciliation {
       return false;
     });
 
-    const changedItem = outcome.item;
+    let changedItem = outcome.item;
     const changedKind = outcome.kind;
+    if (changed && changedItem && this.lifecycleNotify) {
+      changedItem = await this.payrollItemRepo.findOne({
+        where: { id: changedItem.id },
+        relations: ['payrollRun', 'employee'],
+      });
+    }
     if (changed && changedItem && resolvedTenantId && this.lifecycleNotify) {
       if (changedKind === 'paid') {
         await this.lifecycleNotify.onItemPaid({
