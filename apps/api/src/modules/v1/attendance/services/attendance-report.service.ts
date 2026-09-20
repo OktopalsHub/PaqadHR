@@ -18,12 +18,34 @@ export class AttendanceReportService {
     private readonly departmentUtils: DepartmentUtils,
   ) {}
 
+  private async toTenantDayBoundary(
+    tenantId: string,
+    date: Date,
+    endOfDay: boolean,
+    targetMonth?: number,
+    targetYear?: number,
+  ): Promise<Date> {
+    const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+    const timezone = settings.settings.general?.timezone || 'UTC';
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    const year = targetYear ?? Number(values.year);
+    const month = targetMonth ?? Number(values.month);
+    const day = targetMonth && targetYear ? new Date(Date.UTC(year, month, 0)).getUTCDate() : Number(values.day);
+    return new Date(Date.UTC(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0));
+  }
+
   async getDailyReport(tenantId: string, date: Date) {
     try {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
+      const start = await this.tenantSettingsService
+        .getTenantSettings(tenantId)
+        .then(async () => this.toTenantDayBoundary(tenantId, date, false));
+      const end = await this.toTenantDayBoundary(tenantId, date, true);
       const attendances = await this.attendanceRepo.find({
         where: { tenantId, date: Between(start, end) },
         relations: ['tenantMember', 'tenantMember.user'],
@@ -74,8 +96,14 @@ export class AttendanceReportService {
   }
 
   async getMonthlyReport(tenantId: string, month: number, year: number) {
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0, 23, 59, 59, 999);
+    const start = await this.toTenantDayBoundary(tenantId, new Date(Date.UTC(year, month - 1, 1)), false);
+    const end = await this.toTenantDayBoundary(
+      tenantId,
+      new Date(Date.UTC(year, month - 1, 1)),
+      true,
+      month,
+      year,
+    );
     const attendances = await this.attendanceRepo.find({
       where: { tenantId, date: Between(start, end) },
       relations: ['tenantMember'],
@@ -148,8 +176,18 @@ export class AttendanceReportService {
     if (memberIds?.length)
       filteredMembers = filteredMembers.filter((m) => memberIds.includes(m.id));
     const totalMembers = filteredMembers.length;
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+    const startOfMonth = await this.toTenantDayBoundary(
+      tenantId,
+      new Date(Date.UTC(year, month - 1, 1)),
+      false,
+    );
+    const endOfMonth = await this.toTenantDayBoundary(
+      tenantId,
+      new Date(Date.UTC(year, month - 1, 1)),
+      true,
+      month,
+      year,
+    );
     const daysInMonth = endOfMonth.getDate();
     const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const weekends = tenantSettings?.settings?.attendance?.weekends || [0, 6];
