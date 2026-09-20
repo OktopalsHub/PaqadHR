@@ -6,7 +6,6 @@ import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import {
-  payrollCalendarDatePart,
   payrollTodayCalendarDatePart,
 } from '../../../../common/validators/payroll-date.validator';
 import { Tenant } from '../../tenants/entities/tenant.entity';
