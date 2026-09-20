@@ -20,7 +20,19 @@ describe('MultiPaymentService', () => {
     const payrollRunRepository = {
       findOne: jest.fn(),
       save: jest.fn(),
+      createQueryBuilder: jest.fn(),
     } as unknown as PayrollRunRepository;
+
+    let payrollRunClaimAffected = 1;
+    (payrollRunRepository.createQueryBuilder as jest.Mock).mockImplementation(() => {
+      const qb: Record<string, jest.Mock> = {};
+      qb.update = jest.fn().mockReturnValue(qb);
+      qb.set = jest.fn().mockReturnValue(qb);
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.andWhere = jest.fn().mockReturnValue(qb);
+      qb.execute = jest.fn(async () => ({ affected: payrollRunClaimAffected }));
+      return qb;
+    });
 
     const payrollItemRepository = {
       findOne: jest.fn(),
@@ -101,6 +113,9 @@ describe('MultiPaymentService', () => {
       paymentProvider,
       paymentProviderFactory,
       payrollPayoutService,
+      setPayrollRunClaimAffected: (affected: number) => {
+        payrollRunClaimAffected = affected;
+      },
     };
   };
 
@@ -110,6 +125,46 @@ describe('MultiPaymentService', () => {
     process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
     process.env.NOAH_API_KEY = originalNoahApiKey;
     jest.restoreAllMocks();
+  });
+
+  it('rejects a concurrent payroll processing claim before initiating payouts', async () => {
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
+
+    const {
+      service,
+      payrollRunRepository,
+      paymentProvider,
+      setPayrollRunClaimAffected,
+    } = createService();
+
+    const item = {
+      id: 'item-race',
+      memberId: 'member-1',
+      paymentCurrency: 'NGN',
+      paymentAmount: 1000,
+      status: PayrollItemStatus.PENDING,
+      employee: { firstName: 'Ada', lastName: 'Lovelace' },
+      metadata: {},
+    } as PayrollItem;
+
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-1',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      items: [item],
+      tenant: { name: 'Acme' },
+    });
+    setPayrollRunClaimAffected(0);
+
+    await expect(
+      service.processMultiPaymentPayroll('run-1', 'tenant-1', { userId: 'u1' } as never),
+    ).rejects.toThrow('Payroll run is already being processed');
+
+    expect(paymentProvider.createPayment).not.toHaveBeenCalled();
+    expect(paymentProvider.createBulkTransfer).not.toHaveBeenCalled();
   });
 
   it('throws when no pending employees are payable', async () => {
