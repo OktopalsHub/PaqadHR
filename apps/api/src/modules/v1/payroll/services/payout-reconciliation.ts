@@ -211,119 +211,136 @@ export class PayoutReconciliation {
     if (!parsed) return false;
 
     const { payrollRunId, payrollItemId: itemId } = parsed;
-    const where: Record<string, unknown> = { id: itemId };
-    if (payrollRunId) {
-      where.payrollRunId = payrollRunId;
-    }
-    if (tenantId) {
-      where.payrollRun = { tenantId };
-    }
-    const item = await this.payrollItemRepository.findOne({
-      where,
-      relations: ['payrollRun', 'employee'],
-    });
-    if (!item) return false;
-    if (tenantId) {
-      const runTenantId =
-        item.payrollRun?.tenantId ??
-        (payrollRunId ? await this.resolveTenantId(payrollRunId) : undefined) ??
-        (await this.resolveTenantId(item.payrollRunId));
-      if (runTenantId && runTenantId !== tenantId) return false;
-    }
-
     const status = rawStatus.toUpperCase();
     const providerName = paymentProviderLabel(provider);
     const resolvedTenantId =
-      tenantId ?? item.payrollRun?.tenantId ?? (await this.resolveTenantId(item.payrollRunId));
+      tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
+    let changedItem: PayrollItem | null = null;
+    let changedKind: 'paid' | 'failed' | null = null;
 
-    if (SUCCESS_STATUSES.has(status)) {
-      if (item.status === PayrollItemStatus.PAID) return false;
-      // FX-at-payout items are quoted at disbursement (paymentAmount is 0 — the salary
-      // amount is what the provider converts), so there is no stored expected destination
-      // amount to compare the delivered amount against.
-      if (
-        item.metadata?.fxAtPayout !== true &&
-        amount != null &&
-        Number.isFinite(amount) &&
-        Math.abs(Number(amount) - Number(item.paymentAmount)) > PAYROLL_AMOUNT_TOLERANCE
-      ) {
-        this.logger.error(
-          `Payroll amount mismatch for item ${itemId}: expected ${item.paymentAmount}, got ${amount}; leaving PROCESSING`,
-        );
-        if (item.status === PayrollItemStatus.PENDING) {
+    const changed = await this.payrollItemRepo.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(PayrollItem);
+      const where: Record<string, unknown> = { id: itemId };
+      if (payrollRunId) where.payrollRunId = payrollRunId;
+
+      const item = await repository.findOne({
+        where,
+        relations: ['payrollRun', 'employee'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!item) return false;
+
+      const itemTenantId = item.payrollRun?.tenantId;
+      if (tenantId && itemTenantId && itemTenantId !== tenantId) return false;
+
+      if (SUCCESS_STATUSES.has(status)) {
+        if (item.status === PayrollItemStatus.PAID) return false;
+        if (
+          item.metadata?.fxAtPayout !== true &&
+          amount != null &&
+          Number.isFinite(amount) &&
+          Math.abs(Number(amount) - Number(item.paymentAmount)) > PAYROLL_AMOUNT_TOLERANCE
+        ) {
+          this.logger.error(
+            `Payroll amount mismatch for item ${itemId}: expected ${item.paymentAmount}, got ${amount}; leaving PROCESSING`,
+          );
+          if (item.status !== PayrollItemStatus.PENDING) return false;
           item.status = PayrollItemStatus.PROCESSING;
           item.transactionId = transactionId;
           item.paymentProvider = providerName;
-          await this.payrollItemRepository.save(item);
+          await repository.save(item);
           return true;
         }
-        return false;
+
+        if (
+          item.status !== PayrollItemStatus.PENDING &&
+          item.status !== PayrollItemStatus.PROCESSING
+        ) {
+          return false;
+        }
+        item.status = PayrollItemStatus.PAID;
+        item.transactionId = transactionId;
+        item.paymentProvider = providerName;
+        item.paidAt = new Date();
+        item.failureReason = null;
+        await repository.save(item);
+        changedItem = item;
+        changedKind = 'paid';
+        return true;
       }
-      item.status = PayrollItemStatus.PAID;
-      item.transactionId = transactionId;
-      item.paymentProvider = providerName;
-      item.paidAt = new Date();
-      item.failureReason = null;
-      await this.payrollItemRepository.save(item);
-      if (resolvedTenantId && this.lifecycleNotify) {
+
+      if (FAILED_STATUSES.has(status)) {
+        if (
+          item.status === PayrollItemStatus.FAILED ||
+          item.status === PayrollItemStatus.PAID
+        ) {
+          return false;
+        }
+        if (
+          item.status !== PayrollItemStatus.PENDING &&
+          item.status !== PayrollItemStatus.PROCESSING
+        ) {
+          return false;
+        }
+        item.status = PayrollItemStatus.FAILED;
+        item.transactionId = transactionId;
+        item.paymentProvider = providerName;
+        item.failureReason = `${providerName} ${status.toLowerCase()}`;
+        await repository.save(item);
+        changedItem = item;
+        changedKind = 'failed';
+        this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
+        return true;
+      }
+
+      if (PENDING_STATUSES.has(status)) {
+        if (
+          item.status !== PayrollItemStatus.PENDING &&
+          item.status !== PayrollItemStatus.FAILED
+        ) {
+          return false;
+        }
+        item.status = PayrollItemStatus.PROCESSING;
+        item.transactionId = transactionId;
+        item.paymentProvider = providerName;
+        item.failureReason = null;
+        await repository.save(item);
+        return true;
+      }
+
+      return false;
+    });
+
+    if (changed && changedItem && resolvedTenantId && this.lifecycleNotify) {
+      if (changedKind === 'paid') {
         await this.lifecycleNotify.onItemPaid({
           tenantId: resolvedTenantId,
-          item,
-          run: item.payrollRun,
+          item: changedItem,
+          run: changedItem.payrollRun,
           auditContext: {
             tenantId: resolvedTenantId,
-            payrollRunId: item.payrollRunId,
-            performedById: item.payrollRun?.createdById ?? item.memberId,
-            memberId: item.memberId,
+            payrollRunId: changedItem.payrollRunId,
+            performedById: changedItem.payrollRun?.createdById ?? changedItem.memberId,
+            memberId: changedItem.memberId,
           },
         });
-      }
-      return true;
-    }
-
-    if (FAILED_STATUSES.has(status)) {
-      if (item.status === PayrollItemStatus.FAILED) return false;
-      if (item.status === PayrollItemStatus.PAID) return false;
-      item.status = PayrollItemStatus.FAILED;
-      item.transactionId = transactionId;
-      item.failureReason = `${providerName} ${status.toLowerCase()}`;
-      await this.payrollItemRepository.save(item);
-      this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
-      if (resolvedTenantId && this.lifecycleNotify) {
+      } else if (changedKind === 'failed') {
         await this.lifecycleNotify.onItemFailed({
           tenantId: resolvedTenantId,
-          item,
-          run: item.payrollRun,
-          reason: item.failureReason,
+          item: changedItem,
+          run: changedItem.payrollRun,
+          reason: changedItem.failureReason ?? `${providerName} ${status.toLowerCase()}`,
           auditContext: {
             tenantId: resolvedTenantId,
-            payrollRunId: item.payrollRunId,
-            performedById: item.payrollRun?.createdById ?? item.memberId,
-            memberId: item.memberId,
+            payrollRunId: changedItem.payrollRunId,
+            performedById: changedItem.payrollRun?.createdById ?? changedItem.memberId,
+            memberId: changedItem.memberId,
           },
         });
       }
-      return true;
     }
 
-    if (PENDING_STATUSES.has(status) && item.status === PayrollItemStatus.PENDING) {
-      item.status = PayrollItemStatus.PROCESSING;
-      item.transactionId = transactionId;
-      item.paymentProvider = providerName;
-      await this.payrollItemRepository.save(item);
-      return true;
-    }
-
-    if (PENDING_STATUSES.has(status) && item.status === PayrollItemStatus.FAILED) {
-      item.status = PayrollItemStatus.PROCESSING;
-      item.transactionId = transactionId;
-      item.paymentProvider = providerName;
-      item.failureReason = null;
-      await this.payrollItemRepository.save(item);
-      return true;
-    }
-
-    return false;
+    return changed;
   }
 
   classifyPaymentResultStatus(rawStatus?: string): 'paid' | 'processing' | 'failed' {
