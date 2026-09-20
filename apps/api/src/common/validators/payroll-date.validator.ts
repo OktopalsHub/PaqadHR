@@ -22,21 +22,12 @@ export function payrollCalendarDatePart(value: Date | string): string {
 }
 
 export function payrollTodayCalendarDatePart(timeZone = 'UTC', now = new Date()): string {
-  try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(now);
-  } catch {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'UTC',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(now);
-  }
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
 }
 
 export function payrollPeriodDiffDays(
