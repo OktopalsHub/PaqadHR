@@ -105,6 +105,9 @@ export const configureMiddleware = (app: NestExpressApplication) => {
     cors({
       origin: (origin, callback) => {
         if (!origin) return callback(null, true);
+        if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+          return callback(new Error('CORS is not configured for production'), false);
+        }
         if (allowedOrigins.includes('*')) return callback(null, true);
         if (process.env.NODE_ENV === 'development') {
           try {
