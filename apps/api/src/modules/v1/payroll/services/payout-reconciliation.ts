@@ -8,7 +8,6 @@ import { PaymentProviderFactoryService } from 'src/common/services/payment-provi
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
-import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   buildPayrollMerchantRef,
@@ -52,7 +51,6 @@ export class PayoutReconciliation {
   constructor(
     private readonly fincraApi: FincraApiService,
     private readonly factory: PaymentProviderFactoryService,
-    private readonly payrollItemRepository: PayrollItemRepository,
     private readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem)
     private readonly payrollItemRepo: Repository<PayrollItem>,
@@ -213,8 +211,7 @@ export class PayoutReconciliation {
     const { payrollRunId, payrollItemId: itemId } = parsed;
     const status = rawStatus.toUpperCase();
     const providerName = paymentProviderLabel(provider);
-    const resolvedTenantId =
-      tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
+    const resolvedTenantId = tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
     let changedItem: PayrollItem | null = null;
     let changedKind: 'paid' | 'failed' | null = null;
 
@@ -270,10 +267,7 @@ export class PayoutReconciliation {
       }
 
       if (FAILED_STATUSES.has(status)) {
-        if (
-          item.status === PayrollItemStatus.FAILED ||
-          item.status === PayrollItemStatus.PAID
-        ) {
+        if (item.status === PayrollItemStatus.FAILED || item.status === PayrollItemStatus.PAID) {
           return false;
         }
         if (
@@ -294,10 +288,7 @@ export class PayoutReconciliation {
       }
 
       if (PENDING_STATUSES.has(status)) {
-        if (
-          item.status !== PayrollItemStatus.PENDING &&
-          item.status !== PayrollItemStatus.FAILED
-        ) {
+        if (item.status !== PayrollItemStatus.PENDING && item.status !== PayrollItemStatus.FAILED) {
           return false;
         }
         item.status = PayrollItemStatus.PROCESSING;
