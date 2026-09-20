@@ -5,7 +5,8 @@ import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
-import { payrollTodayCalendarDatePart } from '../../../../common/validators/payroll-date.validator';
+import { payrollCalendarDatePart, payrollTodayCalendarDatePart } from '../../../../common/validators/payroll-date.validator';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
 import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
@@ -60,12 +61,18 @@ export class RunLifecycle {
     });
     if (dup) return Object.assign(dup, { alreadyExists: true });
     const payoutMode = dto.payoutMode ?? 'immediate';
+    const tenant = await this.payrollRunRepository.manager.getRepository(Tenant).findOne({
+      where: { id: tenantId },
+      select: ['id', 'timezone'],
+    });
+    if (!tenant) throw new BadRequestException('Tenant not found');
+    const today = payrollTodayCalendarDatePart(tenant.timezone);
     if (payoutMode === 'scheduled' && !dto.paymentDate) {
       throw new BadRequestException('Payment date is required for scheduled payroll');
     }
     const paymentDate =
       payoutMode === 'immediate'
-        ? new Date(`${payrollTodayCalendarDatePart()}T00:00:00.000Z`)
+        ? new Date(`${today}T00:00:00.000Z`)
         : dto.paymentDate!;
     const run = this.payrollRunRepository.create({
       title: dto.title,
