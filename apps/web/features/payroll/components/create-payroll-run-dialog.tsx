@@ -126,8 +126,12 @@ export function CreatePayrollRunDialog({
       toast.error('Enter a payroll title');
       return false;
     }
-    if (!periodStart || !periodEnd || !paymentDate) {
-      toast.error('Set period and expected pay dates');
+    if (!periodStart || !periodEnd) {
+      toast.error('Set the pay period dates');
+      return false;
+    }
+    if (payoutMode === 'scheduled' && !paymentDate) {
+      toast.error('Set a scheduled payment date');
       return false;
     }
     if (new Date(periodEnd) <= new Date(periodStart)) {
@@ -180,7 +184,9 @@ export function CreatePayrollRunDialog({
           frequency,
           periodStart: new Date(periodStart).toISOString(),
           periodEnd: new Date(periodEnd).toISOString(),
-          paymentDate: new Date(paymentDate).toISOString(),
+          ...(payoutMode === 'scheduled'
+            ? { paymentDate: new Date(paymentDate).toISOString() }
+            : {}),
           payoutMode,
           baseCurrency: currency,
           employeeIds,
@@ -297,17 +303,30 @@ export function CreatePayrollRunDialog({
                   : 'You will review and approve the run before opening checkout to pay employees.'}
               </p>
             </div>
-            <div className="space-y-2">
-              <Label>
-                {payoutMode === 'scheduled' ? 'Scheduled payment date' : 'Expected pay date'}
-              </Label>
-              <Input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className={fieldClassName}
-              />
-            </div>
+            {payoutMode === 'scheduled' ? (
+              <div className="space-y-2">
+                <Label>Scheduled payment date</Label>
+                <Input
+                  type="date"
+                  value={paymentDate}
+                  min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  className={fieldClassName}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Choose a future date. The payroll will be funded after approval and paid on this date.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-[8px] border border-[#d7e3f6] bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/60">
+                <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
+                  Payment date: Today
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  The payment date is set automatically to today when the payroll is created.
+                </p>
+              </div>
+            )}
             {allEligibleEmployeeIds.length > 0 ? (
               <div className="space-y-2">
                 <div className="flex flex-wrap gap-2">
