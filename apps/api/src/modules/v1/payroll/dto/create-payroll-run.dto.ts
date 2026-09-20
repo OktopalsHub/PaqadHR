@@ -117,11 +117,10 @@ export class CreatePayrollRunDto {
   @ApiPropertyOptional({
     description: 'Payment date. Required only for scheduled payouts; immediate payouts use today.',
   })
-  @IsOptional()
+  @ValidateIf((object: CreatePayrollRunDto) => object.payoutMode === 'scheduled')
   @Type(() => Date)
   @IsDate({ message: 'Expected pay date must be a valid date' })
   @IsNotPast({ message: 'Payment date cannot be in the past' })
-  @ValidateIf((object: CreatePayrollRunDto) => object.payoutMode === 'scheduled')
   @IsAfterToday({ message: 'Scheduled payment date must be in the future' })
   paymentDate?: Date;
   @ApiPropertyOptional({
