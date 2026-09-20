@@ -9,6 +9,11 @@ import type { Repository } from 'typeorm';
 import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import {
+  buildPayrollMerchantRef,
+  isPayrollMerchantRef,
+  parsePayrollMerchantRef,
+} from '../utils/payroll-merchant-ref.util';
 import { PayoutReconciliation } from './payout-reconciliation';
 
 @Injectable()
