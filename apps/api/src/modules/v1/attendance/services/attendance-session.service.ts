@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { LessThan, QueryFailedError } from 'typeorm';
 import { TenantMemberRepository } from '../../tenant-members/repositories/tenant-members.repository';
 import { AttendanceRepository } from '../repositories/attendance.repository';
