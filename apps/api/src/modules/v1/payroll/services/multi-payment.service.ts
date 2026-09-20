@@ -12,12 +12,16 @@ import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { PaymentBatching } from './payment-batching';
 import { PaymentValidation } from './payment-validation';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
+
+const PAYROLL_PROCESSING_LOCK_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class MultiPaymentService {
   private readonly batching: PaymentBatching;
   private readonly validation: PaymentValidation;
+  private readonly lifecycleNotify?: PayrollLifecycleNotifyService;
   constructor(
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
@@ -26,6 +30,7 @@ export class MultiPaymentService {
     private readonly payrollPayoutService: PayrollPayoutService,
     @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {
+    this.lifecycleNotify = lifecycleNotify;
     this.validation = new PaymentValidation(payrollItemRepository);
     this.batching = new PaymentBatching(
       payrollItemRepository,
@@ -60,42 +65,53 @@ export class MultiPaymentService {
         `Payroll run must be approved before payout. Current: ${payrollRun.status}`,
       );
     }
-    if (payrollRun.payoutMode === 'scheduled') {
-      payrollRun.payoutMode = 'immediate';
-      await this.payrollRunRepository.save(payrollRun);
+
+    const lockAt = new Date();
+    if (!(await this.claimPayrollRun(payrollRunId, tenantId, auditContext, lockAt))) {
+      throw new BadRequestException('Payroll run is already being processed');
     }
-    const paymentBatch = await this.batching.categorizePayments(payrollRun.items, tenantId);
-    const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
-    if (payable.length === 0) {
-      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
-      throw new BadRequestException(
-        'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then use Retry payment.',
+
+    try {
+      if (payrollRun.payoutMode === 'scheduled') {
+        payrollRun.payoutMode = 'immediate';
+        await this.payrollRunRepository.save(payrollRun);
+      }
+      const paymentBatch = await this.batching.categorizePayments(payrollRun.items, tenantId);
+      const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
+      if (payable.length === 0) {
+        await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+        throw new BadRequestException(
+          'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then use Retry payment.',
+        );
+      }
+      const payoutResults = await this.batching.processPayouts(
+        payable,
+        auditContext,
+        tenantId,
+        payrollRun.tenant?.name,
+        payrollRun.title,
+        {
+          periodStart: payrollRun.periodStart,
+          periodEnd: payrollRun.periodEnd,
+          baseCurrency: payrollRun.baseCurrency,
+        },
       );
+      const summary = this.validation.calculatePaymentSummary(payoutResults);
+      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+      return {
+        totalItems: payrollRun.items.length,
+        successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
+        failedPayments: summary.bankFailed + summary.cryptoFailed,
+        processingPayments: summary.bankProcessing + summary.cryptoProcessing,
+        fiatResults: payoutResults,
+        payoutResults,
+        summary,
+      };
+    } finally {
+      await this.releasePayrollRun(payrollRunId, tenantId, lockAt);
     }
-    const payoutResults = await this.batching.processPayouts(
-      payable,
-      auditContext,
-      tenantId,
-      payrollRun.tenant?.name,
-      payrollRun.title,
-      {
-        periodStart: payrollRun.periodStart,
-        periodEnd: payrollRun.periodEnd,
-        baseCurrency: payrollRun.baseCurrency,
-      },
-    );
-    const summary = this.validation.calculatePaymentSummary(payoutResults);
-    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
-    return {
-      totalItems: payrollRun.items.length,
-      successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
-      failedPayments: summary.bankFailed + summary.cryptoFailed,
-      processingPayments: summary.bankProcessing + summary.cryptoProcessing,
-      fiatResults: payoutResults,
-      payoutResults,
-      summary,
-    };
   }
+
   async retryFailedPayments(
     payrollRunId: string,
     tenantId: string,
@@ -121,52 +137,106 @@ export class MultiPaymentService {
     if (failedItems.length === 0) {
       throw new BadRequestException('No failed payments found to retry');
     }
-    const retriableItems: PayrollItem[] = [];
-    for (const item of failedItems) {
-      const canRetry = await this.payrollPayoutService.reconcileFailedItemBeforeRetry(
-        item,
-        tenantId,
-      );
-      if (canRetry) {
-        retriableItems.push(item);
+
+    const lockAt = new Date();
+    if (!(await this.claimPayrollRun(payrollRunId, tenantId, auditContext, lockAt))) {
+      throw new BadRequestException('Payroll run is already being processed');
+    }
+
+    try {
+      const retriableItems: PayrollItem[] = [];
+      for (const item of failedItems) {
+        const canRetry = await this.payrollPayoutService.reconcileFailedItemBeforeRetry(
+          item,
+          tenantId,
+        );
+        if (canRetry) {
+          retriableItems.push(item);
+        }
       }
-    }
-    if (retriableItems.length === 0) {
-      throw new BadRequestException('No failed payments found to retry');
-    }
-    await this.validation.resetItemsForRetry(retriableItems);
-    const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
-    const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
-    if (payable.length === 0) {
-      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
-      throw new BadRequestException(
-        'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then retry again.',
+      if (retriableItems.length === 0) {
+        throw new BadRequestException('No failed payments found to retry');
+      }
+      await this.validation.resetItemsForRetry(retriableItems);
+      const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
+      const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
+      if (payable.length === 0) {
+        await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+        throw new BadRequestException(
+          'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then retry again.',
+        );
+      }
+      const payoutResults = await this.batching.processPayouts(
+        payable,
+        auditContext,
+        tenantId,
+        payrollRun.tenant?.name,
+        payrollRun.title,
+        {
+          periodStart: payrollRun.periodStart,
+          periodEnd: payrollRun.periodEnd,
+          baseCurrency: payrollRun.baseCurrency,
+        },
       );
+      const summary = this.validation.calculatePaymentSummary(payoutResults);
+      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+      return {
+        totalItems: retriableItems.length,
+        successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
+        failedPayments: summary.bankFailed + summary.cryptoFailed,
+        processingPayments: summary.bankProcessing + summary.cryptoProcessing,
+        fiatResults: payoutResults,
+        payoutResults,
+        summary,
+      };
+    } finally {
+      await this.releasePayrollRun(payrollRunId, tenantId, lockAt);
     }
-    const payoutResults = await this.batching.processPayouts(
-      payable,
-      auditContext,
-      tenantId,
-      payrollRun.tenant?.name,
-      payrollRun.title,
-      {
-        periodStart: payrollRun.periodStart,
-        periodEnd: payrollRun.periodEnd,
-        baseCurrency: payrollRun.baseCurrency,
-      },
-    );
-    const summary = this.validation.calculatePaymentSummary(payoutResults);
-    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
-    return {
-      totalItems: retriableItems.length,
-      successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
-      failedPayments: summary.bankFailed + summary.cryptoFailed,
-      processingPayments: summary.bankProcessing + summary.cryptoProcessing,
-      fiatResults: payoutResults,
-      payoutResults,
-      summary,
-    };
   }
+
+  private async claimPayrollRun(
+    payrollRunId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+    lockAt: Date,
+  ): Promise<boolean> {
+    const cutoff = new Date(lockAt.getTime() - PAYROLL_PROCESSING_LOCK_MS);
+    const result = await this.payrollRunRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        processingLockedAt: lockAt,
+        processingLockedById: auditContext.performedById ?? null,
+      })
+      .where('id = :payrollRunId', { payrollRunId })
+      .andWhere('tenant_id = :tenantId', { tenantId })
+      .andWhere('status IN (:...statuses)', {
+        statuses: [PayrollStatus.APPROVED, PayrollStatus.PROCESSING],
+      })
+      .andWhere('(processing_locked_at IS NULL OR processing_locked_at < :cutoff)', { cutoff })
+      .execute();
+
+    return (result.affected ?? 0) === 1;
+  }
+
+  private async releasePayrollRun(
+    payrollRunId: string,
+    tenantId: string,
+    lockAt: Date,
+  ): Promise<void> {
+    await this.payrollRunRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        processingLockedAt: null,
+        processingLockedById: null,
+      })
+      .where('id = :payrollRunId', { payrollRunId })
+      .andWhere('tenant_id = :tenantId', { tenantId })
+      .andWhere('processing_locked_at = :lockAt', { lockAt })
+      .execute();
+  }
+
   async getPaymentStatusSummary(payrollRunId: string, tenantId: string) {
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
