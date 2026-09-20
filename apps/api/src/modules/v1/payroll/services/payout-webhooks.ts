@@ -1,19 +1,14 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import type { Repository } from 'typeorm';
-import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
 import { parseBachsPayoutWebhook } from 'src/common/config/bachs-payout.util';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
+import type { Repository } from 'typeorm';
+import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import {
-  buildPayrollMerchantRef,
-  isPayrollMerchantRef,
-  parsePayrollMerchantRef,
-} from '../utils/payroll-merchant-ref.util';
 import { PayoutReconciliation } from './payout-reconciliation';
 
 @Injectable()
