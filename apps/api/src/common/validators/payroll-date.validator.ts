@@ -64,13 +64,16 @@ export class IsNotFutureConstraint implements ValidatorConstraintInterface {
   }
 }
 
+/** Validates that a payroll payment date is strictly after today's calendar date. */
 @ValidatorConstraint({ name: 'isAfterToday', async: false })
 export class IsAfterTodayConstraint implements ValidatorConstraintInterface {
+  /** Checks the supplied payment date against today's calendar date. */
   validate(date: unknown) {
     if (!date) return false;
     return payrollCalendarDatePart(date as string) > payrollTodayCalendarDatePart();
   }
 
+  /** Returns the validation message for a non-future payment date. */
   defaultMessage() {
     return 'Payment date must be in the future';
   }
