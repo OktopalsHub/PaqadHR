@@ -132,12 +132,7 @@ describe('MultiPaymentService', () => {
     process.env.NOMBA_CLIENT_SECRET = 'secret';
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
 
-    const {
-      service,
-      payrollRunRepository,
-      paymentProvider,
-      setPayrollRunClaimAffected,
-    } = createService();
+    const { service, payrollRunRepository, paymentProvider, setPayrollRunClaimAffected } = createService();
 
     const item = {
       id: 'item-race',
