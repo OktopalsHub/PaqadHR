@@ -31,14 +31,36 @@ export class PayoutWebhooks {
 
   private async claimWebhookEvent(provider: PaymentProvider, payload: unknown): Promise<boolean> {
     const eventId = this.extractEventId(payload);
+    const now = new Date();
     const result = await this.webhookEventRepository
       .createQueryBuilder()
       .insert()
       .into(PayrollWebhookEvent)
-      .values({ provider, eventId })
+      .values({ provider, eventId, receivedAt: now, processedAt: null })
       .orIgnore()
       .execute();
-    return (result.identifiers?.length ?? 0) > 0;
+
+    if ((result.identifiers?.length ?? 0) > 0) return true;
+
+    const existing = await this.webhookEventRepository.findOne({
+      where: { provider, eventId },
+    });
+    if (!existing || existing.processedAt) return false;
+
+    const leaseExpiresAt = new Date(existing.receivedAt.getTime() + 5 * 60 * 1000);
+    if (leaseExpiresAt > now) return false;
+
+    existing.receivedAt = now;
+    await this.webhookEventRepository.save(existing);
+    return true;
+  }
+
+  private async completeWebhookEvent(provider: PaymentProvider, payload: unknown): Promise<void> {
+    const eventId = this.extractEventId(payload);
+    await this.webhookEventRepository.update(
+      { provider, eventId },
+      { processedAt: new Date() },
+    );
   }
 
   private extractEventId(payload: unknown): string {
@@ -133,6 +155,7 @@ export class PayoutWebhooks {
     if (changed) {
       await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
+    await this.completeWebhookEvent(PaymentProvider.NOMBA, payload);
     return { received: true };
   }
 
@@ -167,6 +190,7 @@ export class PayoutWebhooks {
     if (changed) {
       await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
+    await this.completeWebhookEvent(PaymentProvider.NOAH, payload);
     return { received: true, matched: true };
   }
 
@@ -212,6 +236,7 @@ export class PayoutWebhooks {
     if (changed) {
       await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
+    await this.completeWebhookEvent(PaymentProvider.FINCRA, payload);
     return { received: true, matched: changed };
   }
 
@@ -238,6 +263,7 @@ export class PayoutWebhooks {
     if (changed) {
       await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
+    await this.completeWebhookEvent(PaymentProvider.MONNIFY, payload);
     return { received: true, matched: changed };
   }
 
@@ -277,6 +303,7 @@ export class PayoutWebhooks {
     if (changed) {
       await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
+    await this.completeWebhookEvent(PaymentProvider.BACHS, payload);
     return { received: true, matched: changed };
   }
 }
