@@ -73,6 +73,27 @@ interface NoahWithdrawResponse {
   Transaction?: { ID?: string; Status?: string };
 }
 
+function getChannelId(channel: NoahChannelItem): string | undefined {
+  return channel.ID ?? channel.id;
+}
+
+function validateNoahFormAgainstSchema(
+  channel: NoahChannelItem,
+  form: Record<string, unknown>,
+): void {
+  const schema = channel.FormSchema;
+  if (!schema) return;
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter((value): value is string => typeof value === 'string')
+    : [];
+  const missing = required.filter((field) => form[field] === undefined || form[field] === null);
+  if (missing.length > 0) {
+    throw new BadRequestException(
+      `Noah payout channel requires fields not available in payroll data: ${missing.join(', ')}`,
+    );
+  }
+}
+
 function resolveNoahCryptoAsset(code: string): string {
   const upper = code.toUpperCase();
   if (getNoahEnvironment() === 'production') {
@@ -144,12 +165,17 @@ export class NoahPayoutService {
     const bankChannels = items.filter(
       (item) => (item.PaymentMethodCategory || '').toLowerCase() === 'bank',
     );
+    const requestedChannel = input.channelId
+      ? bankChannels.find((item) => getChannelId(item) === input.channelId)
+      : undefined;
     const bankChannel =
+      requestedChannel ??
       preferredTypes
         .map((type) => bankChannels.find((item) => item.PaymentMethodType === type))
-        .find(Boolean) ?? bankChannels[0];
-    const channelId = input.channelId ?? bankChannel?.ID ?? bankChannel?.id;
-    if (!channelId) {
+        .find(Boolean) ??
+      bankChannels[0];
+    const channelId = bankChannel ? getChannelId(bankChannel) : undefined;
+    if (!channelId || !bankChannel) {
       throw new BadRequestException(
         `No Noah payout channel for ${input.fiatCurrency} in ${input.countryCode}`,
       );
@@ -188,7 +214,11 @@ export class NoahPayoutService {
         City: input.holderAddress.city,
         PostalCode: input.holderAddress.postalCode,
         State: input.holderAddress.state,
+        CountryCode: input.holderAddress.countryCode.toUpperCase(),
       };
+    }
+
+    validateNoahFormAgainstSchema(bankChannel, form);
     }
 
     const prepared = await this.auth.request<NoahPrepareResponse>(
