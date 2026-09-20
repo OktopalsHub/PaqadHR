@@ -5,8 +5,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { tenantContext } from '../context/tenant.context';
 import { TenantMemberRepository } from '../../modules/v1/tenant-members/repositories/tenant-members.repository';
+import { tenantContext } from '../context/tenant.context';
 import {
   AUTH_ONLY_KEY,
   IS_MEMBER_OPTIONAL_KEY,
@@ -46,7 +46,9 @@ export class TenantGuard implements CanActivate {
     ]);
     const request = context.switchToHttp().getRequest();
     const requestedTenantId =
-      request?.params?.tenantId ?? request?.headers?.['x-tenant-id'] ?? tenantContext.getCurrentTenantId();
+      request?.params?.tenantId ??
+      request?.headers?.['x-tenant-id'] ??
+      tenantContext.getCurrentTenantId();
     const requireTenant = explicitRequireTenant ?? Boolean(requestedTenantId);
     if (!requireTenant) return true;
 
