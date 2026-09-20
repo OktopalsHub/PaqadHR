@@ -23,6 +23,7 @@ import {
 } from '../utils/payroll-mutability.util';
 import { AuditService } from './audit.service';
 import { resolvePostApprovalPayrollStatus } from './payout-reconciliation';
+import { payrollTodayCalendarDatePart } from '../../../../common/validators/payroll-date.validator';
 
 @Injectable()
 export class RunLifecycle {
@@ -58,19 +59,27 @@ export class RunLifecycle {
       },
     });
     if (dup) return Object.assign(dup, { alreadyExists: true });
+    const payoutMode = dto.payoutMode ?? 'immediate';
+    if (payoutMode === 'scheduled' && !dto.paymentDate) {
+      throw new BadRequestException('Payment date is required for scheduled payroll');
+    }
+    const paymentDate =
+      payoutMode === 'immediate'
+        ? new Date(`${payrollTodayCalendarDatePart()}T00:00:00.000Z`)
+        : dto.paymentDate!;
     const run = this.payrollRunRepository.create({
       title: dto.title,
       frequency: dto.frequency,
       periodStart: dto.periodStart,
       periodEnd: dto.periodEnd,
-      paymentDate: dto.paymentDate,
+      paymentDate,
       baseCurrency: currency,
       status: PayrollStatus.DRAFT,
       employeeCount: dto.employeeIds.length,
       createdById,
       tenantId,
       idempotencyKey: key,
-      payoutMode: dto.payoutMode ?? 'immediate',
+      payoutMode,
     });
     const saved = await this.payrollRunRepository.save(run);
     const items = dto.employeeIds.map((memberId) =>
