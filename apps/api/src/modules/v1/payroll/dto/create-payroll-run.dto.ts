@@ -13,9 +13,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  ValidateIf,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { TransactionType } from 'src/common/enums';
