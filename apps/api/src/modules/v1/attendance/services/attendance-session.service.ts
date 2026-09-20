@@ -1,10 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { QueryFailedError } from 'typeorm';
-import { LessThan } from 'typeorm';
+import { LessThan, QueryFailedError } from 'typeorm';
+import { TenantMemberRepository } from '../../tenant-members/repositories/tenant-members.repository';
 import { AttendanceRepository } from '../repositories/attendance.repository';
 import { AttendancePolicyRepository } from '../repositories/attendance-policy.repository';
 import { AttendanceEligibilityService } from './attendance-eligibility.service';
-import { TenantMemberRepository } from '../../tenant-members/repositories/tenant-members.repository';
 
 @Injectable()
 export class AttendanceSessionService {
@@ -85,18 +84,18 @@ export class AttendanceSessionService {
     try {
       return await this.attendanceRepo.save(
         this.attendanceRepo.create({
-        tenantId,
-        tenantMemberId,
-        date,
-        clockIn: dto.clockIn,
-        clockOut: dto.clockOut,
-        status: dto.status,
-        sessionStatus: dto.clockOut ? 'CLOSED' : 'ACTIVE',
-        sessionNumber,
-        workHours,
-        location: dto.location || 'Office',
-        notes: dto.notes,
-        entryMethod: 'manual',
+          tenantId,
+          tenantMemberId,
+          date,
+          clockIn: dto.clockIn,
+          clockOut: dto.clockOut,
+          status: dto.status,
+          sessionStatus: dto.clockOut ? 'CLOSED' : 'ACTIVE',
+          sessionNumber,
+          workHours,
+          location: dto.location || 'Office',
+          notes: dto.notes,
+          entryMethod: 'manual',
           isManualEntry: true,
         }),
       );
