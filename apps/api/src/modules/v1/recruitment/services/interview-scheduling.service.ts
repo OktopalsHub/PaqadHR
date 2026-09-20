@@ -6,12 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { InterviewStatus } from 'src/common/enums';
+import { CandidateStatus, InterviewStatus } from 'src/common/enums';
 import { Repository } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateInterviewDto, UpdateInterviewDto } from '../dto/interview.dto';
 import { Candidate } from '../entities/candidate.entity';
-import type { Interview } from '../entities/interview.entity';
+import { Interview } from '../entities/interview.entity';
 import { JobOpening } from '../entities/job-opening.entity';
 import { InterviewRepository } from '../repositories/interview.repository';
 
@@ -34,26 +34,21 @@ export class InterviewSchedulingService {
     if (new Date(createInterviewDto.date) <= new Date()) {
       throw new BadRequestException('Interview date must be in the future');
     }
-    for (const interviewer of createInterviewDto.interviewers) {
-      const hasConflict = await this.interviewRepository.checkInterviewConflict(
-        tenantId,
-        interviewer.userId,
-        typeof createInterviewDto.date === 'string'
-          ? new Date(createInterviewDto.date)
-          : createInterviewDto.date,
-        createInterviewDto.duration,
-      );
-      if (hasConflict) {
-        throw new ConflictException(
-          `Interviewer ${interviewer.role} has a scheduling conflict at the requested time`,
-        );
-      }
-    }
+    const interviewDate =
+      typeof createInterviewDto.date === 'string'
+        ? new Date(createInterviewDto.date)
+        : createInterviewDto.date;
     const candidate = await this.candidateRepository.findOne({
       where: { id: createInterviewDto.candidateId, tenantId },
     });
     if (!candidate) {
       throw new NotFoundException('Candidate not found or does not belong to this tenant');
+    }
+    if (candidate.jobOpeningId !== createInterviewDto.jobOpeningId) {
+      throw new BadRequestException('Candidate does not belong to the selected job opening');
+    }
+    if ([CandidateStatus.HIRED, CandidateStatus.REJECTED, CandidateStatus.WITHDRAWN].includes(candidate.status)) {
+      throw new ConflictException('Cannot schedule an interview for a candidate in the current status');
     }
     const jobOpening = await this.jobOpeningRepository.findOne({
       where: { id: createInterviewDto.jobOpeningId, tenantId },
@@ -61,14 +56,57 @@ export class InterviewSchedulingService {
     if (!jobOpening) {
       throw new NotFoundException('Job opening not found or does not belong to this tenant');
     }
-    const saved = await this.interviewRepository.save(
-      this.interviewRepository.create({
+    const interviewerIds = [...new Set(createInterviewDto.interviewers.map((interviewer) => interviewer.userId))].sort();
+    const saved = await this.interviewRepository.manager.transaction(async (manager) => {
+      for (const interviewerId of interviewerIds) {
+        await manager.query(
+          'SELECT pg_advisory_xact_lock(hashtextextended($1, 0));',
+          [`recruitment:interviewer:${tenantId}:${interviewerId}`],
+        );
+      }
+      const interviewRepository = manager.getRepository(Interview);
+      const endDate = new Date(interviewDate.getTime() + createInterviewDto.duration * 60000);
+      const hasConflict = await Promise.all(
+        interviewerIds.map(async (interviewerId) =>
+          interviewRepository
+            .createQueryBuilder('interview')
+            .where('interview.tenantId = :tenantId', { tenantId })
+            .andWhere('interview.status = :status', { status: InterviewStatus.SCHEDULED })
+            .andWhere('interview.deletedAt IS NULL')
+            .andWhere(
+              `EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements(interview.interviewers::jsonb) interviewer_elem
+                WHERE interviewer_elem->>'userId' = :interviewerId
+              )`,
+              { interviewerId },
+            )
+            .andWhere(
+              `interview.date < :endDate
+                AND (interview.date + (interview.duration * interval '1 minute')) > :startDate`,
+              { startDate: interviewDate, endDate },
+            )
+            .getExists(),
+        ),
+      );
+      if (hasConflict.some(Boolean)) {
+        throw new ConflictException('One or more interviewers have a scheduling conflict at the requested time');
+      }
+      const interview = interviewRepository.create({
         ...createInterviewDto,
         tenantId,
         tenantMemberId,
         status: InterviewStatus.SCHEDULED,
-      }),
-    );
+      });
+      const savedInterview = await interviewRepository.save(interview);
+      if (candidate.status !== CandidateStatus.INTERVIEW) {
+        await manager.getRepository(Candidate).update(candidate.id, {
+          status: CandidateStatus.INTERVIEW,
+          currentStage: { name: CandidateStatus.INTERVIEW, startedAt: new Date() },
+        });
+      }
+      return savedInterview;
+    });
 
     void this.activitiesService
       .queueActivity({
