@@ -18,14 +18,7 @@ const PROCESSING = new Set([
   'AWAITING_AUTHORIZATION',
   'AWAITING_PROCESSING',
 ]);
-const FAILED = new Set([
-  'FAILED',
-  'REFUND',
-  'REVERSED',
-  'CANCELLED',
-  'CANCELED',
-  'REJECTED',
-]);
+const FAILED = new Set(['FAILED', 'REFUND', 'REVERSED', 'CANCELLED', 'CANCELED', 'REJECTED']);
 
 /** Normalize provider-specific payout lifecycle states before applying payroll state transitions. */
 export function normalizePayoutStatus(
