@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { parseBachsPayoutWebhook } from 'src/common/config/bachs-payout.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
@@ -57,10 +57,7 @@ export class PayoutWebhooks {
 
   private async completeWebhookEvent(provider: PaymentProvider, payload: unknown): Promise<void> {
     const eventId = this.extractEventId(payload);
-    await this.webhookEventRepository.update(
-      { provider, eventId },
-      { processedAt: new Date() },
-    );
+    await this.webhookEventRepository.update({ provider, eventId }, { processedAt: new Date() });
   }
 
   private extractEventId(payload: unknown): string {
@@ -83,7 +80,9 @@ export class PayoutWebhooks {
       );
       if (candidate) return candidate.trim();
     }
-    return createHash('sha256').update(JSON.stringify(payload ?? null)).digest('hex');
+    return createHash('sha256')
+      .update(JSON.stringify(payload ?? null))
+      .digest('hex');
   }
 
   private async resolvePayrollContext(merchantRef: string): Promise<{
