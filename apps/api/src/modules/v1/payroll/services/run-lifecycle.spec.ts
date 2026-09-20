@@ -7,7 +7,6 @@ import type { AuditService } from './audit.service';
 import { RunLifecycle } from './run-lifecycle';
 
 describe('RunLifecycle', () => {
-
   const createService = () => {
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue(null),
