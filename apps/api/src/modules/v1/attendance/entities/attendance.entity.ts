@@ -1,9 +1,10 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('attendances')
+@Index('idx_attendance_tenant_member_date', ['tenantId', 'tenantMemberId', 'date'])
 export class Attendance extends BaseEntity {
   @Column({ name: 'tenant_id' })
   tenantId: string;

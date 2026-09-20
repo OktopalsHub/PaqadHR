@@ -17,6 +17,19 @@ export class AttendanceEligibilityService {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
+  async getTenantLocalDate(tenantId: string, date = new Date()): Promise<Date> {
+    const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+    const timezone = settings.settings.general?.timezone || 'UTC';
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day)));
+  }
+
   async isClockInEnabled(tenantId: string): Promise<boolean> {
     try {
       const s = await this.tenantSettingsService.getTenantSettings(tenantId);
@@ -28,10 +41,16 @@ export class AttendanceEligibilityService {
 
   async isWeekend(tenantId: string, date: Date): Promise<boolean> {
     try {
-      const s = await this.tenantSettingsService.getTenantSettings(tenantId);
-      return (s.settings.attendance?.weekends || [0, 6]).includes(date.getDay());
+      const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+      const timezone = settings.settings.general?.timezone || 'UTC';
+      const weekday = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        weekday: 'short',
+      }).format(date);
+      const weekdayNumber = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
+      return (settings.settings.attendance?.weekends || [0, 6]).includes(weekdayNumber);
     } catch {
-      return [0, 6].includes(date.getDay());
+      return [0, 6].includes(date.getUTCDay());
     }
   }
 

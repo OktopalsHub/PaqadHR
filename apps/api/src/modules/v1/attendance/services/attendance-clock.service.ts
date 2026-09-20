@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
-import { LessThan } from 'typeorm';
+import { LessThan, QueryFailedError } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { ClockInDto } from '../dto/clock-in.dto';
 import type { ClockOutDto } from '../dto/clock-out.dto';
@@ -36,15 +36,18 @@ export class AttendanceClockService {
   ) {
     if (!(await this.eligibility.isClockInEnabled(tenantId)))
       throw new ConflictException('Clock in is disabled for this workspace.');
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (await this.eligibility.isWeekend(tenantId, today))
+
+    const today = await this.eligibility.getTenantLocalDate(tenantId);
+    if (await this.eligibility.isWeekend(tenantId, new Date())) {
       throw new ConflictException('Cannot clock in on weekends.');
+    }
+
     const leave = await this.eligibility.isOnLeave(tenantId, tenantMemberId, today);
     if (leave.isOnLeave)
       throw new ConflictException(
         `Cannot clock in while on leave${leave.leaveType ? `: ${leave.leaveType}` : ''}.`,
       );
+
     if (
       await this.attendanceRepo.findOne({
         where: { tenantId, tenantMemberId, sessionStatus: 'ACTIVE', date: LessThan(today) },
@@ -53,12 +56,14 @@ export class AttendanceClockService {
       throw new ConflictException(
         'You have an unclosed attendance session from a previous day. Please close it first.',
       );
+
     if (
       await this.attendanceRepo.findOne({
         where: { tenantId, tenantMemberId, date: today, sessionStatus: 'ACTIVE' },
       })
     )
       throw new ConflictException('You already have an active session. Please clock out first.');
+
     const policy = await this.policyRepo.findOne({ where: { tenantId, isActive: true } });
     const maxSessions = policy?.maxSessionsPerDay || 3;
     const todaySessions = await this.attendanceRepo.find({
@@ -69,36 +74,44 @@ export class AttendanceClockService {
       todaySessions.length > 0 ? Math.max(...todaySessions.map((s) => s.sessionNumber)) + 1 : 1;
     if (nextSession > maxSessions)
       throw new ConflictException(`Maximum sessions per day (${maxSessions}) reached.`);
-    const attendance = await this.attendanceRepo.save(
-      this.attendanceRepo.create({
-        tenantId,
-        tenantMemberId,
-        date: today,
-        clockIn: new Date(),
-        status: 'PRESENT',
-        sessionStatus: 'ACTIVE',
-        sessionNumber: nextSession,
-        location: dto.location || 'Office',
-        ipAddress: metadata?.ipAddress,
-        userAgent: metadata?.userAgent,
-        deviceType: metadata?.deviceType,
-        entryMethod: 'auto',
-        isManualEntry: false,
-      }),
-    );
-    void this.activitiesService
-      .queueActivity({
-        tenantId,
-        actorMemberId: tenantMemberId,
-        action: 'attendance.clocked_in',
-        resourceType: 'attendance',
-        resourceId: attendance.id,
-        description: `Clocked in at ${dto.location || 'Office'}`,
-        metadata: { location: dto.location, sessionNumber: nextSession },
-      })
-      .catch(() => {});
-    this.productAnalytics.capture(tenantMemberId, 'attendance_clocked_in', { tenantId });
-    return attendance;
+
+    try {
+      const attendance = await this.attendanceRepo.save(
+        this.attendanceRepo.create({
+          tenantId,
+          tenantMemberId,
+          date: today,
+          clockIn: new Date(),
+          status: 'PRESENT',
+          sessionStatus: 'ACTIVE',
+          sessionNumber: nextSession,
+          location: dto.location || 'Office',
+          ipAddress: metadata?.ipAddress,
+          userAgent: metadata?.userAgent,
+          deviceType: metadata?.deviceType,
+          entryMethod: 'auto',
+          isManualEntry: false,
+        }),
+      );
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId: tenantMemberId,
+          action: 'attendance.clocked_in',
+          resourceType: 'attendance',
+          resourceId: attendance.id,
+          description: `Clocked in at ${dto.location || 'Office'}`,
+          metadata: { location: dto.location, sessionNumber: nextSession },
+        })
+        .catch(() => {});
+      this.productAnalytics.capture(tenantMemberId, 'attendance_clocked_in', { tenantId });
+      return attendance;
+    } catch (error) {
+      if (error instanceof QueryFailedError && error.driverError?.code === '23505') {
+        throw new ConflictException('You already have an active session. Please clock out first.');
+      }
+      throw error;
+    }
   }
 
   async clockOut(tenantId: string, tenantMemberId: string, attendanceId: string, dto: ClockOutDto) {

@@ -18,12 +18,61 @@ export class AttendanceReportService {
     private readonly departmentUtils: DepartmentUtils,
   ) {}
 
+  private async toTenantDayBoundary(
+    tenantId: string,
+    date: Date,
+    endOfDay: boolean,
+    targetMonth?: number,
+    targetYear?: number,
+  ): Promise<Date> {
+    const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+    const timezone = settings.settings.general?.timezone || 'UTC';
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    const year = targetYear ?? Number(values.year);
+    const month = targetMonth ?? Number(values.month);
+    const day =
+      targetMonth && targetYear
+        ? new Date(Date.UTC(year, month, 0)).getUTCDate()
+        : Number(values.day);
+    const hour = endOfDay ? 23 : 0;
+    const minute = endOfDay ? 59 : 0;
+    const second = endOfDay ? 59 : 0;
+    const millisecond = endOfDay ? 999 : 0;
+    const wallClock = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+    const offsetParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(wallClock));
+    const offsetValues = Object.fromEntries(offsetParts.map((part) => [part.type, part.value]));
+    const representedWallClock = Date.UTC(
+      Number(offsetValues.year),
+      Number(offsetValues.month) - 1,
+      Number(offsetValues.day),
+      Number(offsetValues.hour),
+      Number(offsetValues.minute),
+      Number(offsetValues.second),
+      millisecond,
+    );
+    const offset = representedWallClock - wallClock;
+    return new Date(wallClock - offset);
+  }
+
   async getDailyReport(tenantId: string, date: Date) {
     try {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
+      const start = await this.toTenantDayBoundary(tenantId, date, false);
+      const end = await this.toTenantDayBoundary(tenantId, date, true);
       const attendances = await this.attendanceRepo.find({
         where: { tenantId, date: Between(start, end) },
         relations: ['tenantMember', 'tenantMember.user'],
@@ -74,8 +123,18 @@ export class AttendanceReportService {
   }
 
   async getMonthlyReport(tenantId: string, month: number, year: number) {
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0, 23, 59, 59, 999);
+    const start = await this.toTenantDayBoundary(
+      tenantId,
+      new Date(Date.UTC(year, month - 1, 1)),
+      false,
+    );
+    const end = await this.toTenantDayBoundary(
+      tenantId,
+      new Date(Date.UTC(year, month - 1, 1)),
+      true,
+      month,
+      year,
+    );
     const attendances = await this.attendanceRepo.find({
       where: { tenantId, date: Between(start, end) },
       relations: ['tenantMember'],
@@ -148,15 +207,25 @@ export class AttendanceReportService {
     if (memberIds?.length)
       filteredMembers = filteredMembers.filter((m) => memberIds.includes(m.id));
     const totalMembers = filteredMembers.length;
-    const startOfMonth = new Date(year, month - 1, 1);
-    const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
-    const daysInMonth = endOfMonth.getDate();
+    const startOfMonth = await this.toTenantDayBoundary(
+      tenantId,
+      new Date(Date.UTC(year, month - 1, 1)),
+      false,
+    );
+    const endOfMonth = await this.toTenantDayBoundary(
+      tenantId,
+      new Date(Date.UTC(year, month - 1, 1)),
+      true,
+      month,
+      year,
+    );
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
     const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const weekends = tenantSettings?.settings?.attendance?.weekends || [0, 6];
     let workingDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month - 1, d);
-      if (!weekends.includes(date.getDay())) workingDays++;
+      const date = new Date(Date.UTC(year, month - 1, d));
+      if (!weekends.includes(date.getUTCDay())) workingDays++;
     }
 
     const paginatedMembers = filteredMembers.slice((page - 1) * limit, page * limit);
@@ -239,10 +308,10 @@ export class AttendanceReportService {
         workingDaysCount = 0;
 
       for (let d = 1; d <= daysInMonth; d++) {
-        const date = new Date(year, month - 1, d);
+        const date = new Date(Date.UTC(year, month - 1, d));
         const dateStr = date.toISOString().split('T')[0];
-        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
-        if (weekends.includes(date.getDay())) {
+        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+        if (weekends.includes(date.getUTCDay())) {
           weekendDays++;
           dailyAttendance.push({
             date: dateStr,
@@ -255,9 +324,11 @@ export class AttendanceReportService {
           continue;
         }
         workingDaysCount++;
-        const leave = memberLeaves.find(
-          (l) => date >= new Date(l.startDate) && date <= new Date(l.endDate),
-        );
+        const leave = memberLeaves.find((l) => {
+          const leaveStart = new Date(l.startDate).toISOString().slice(0, 10);
+          const leaveEnd = new Date(l.endDate).toISOString().slice(0, 10);
+          return dateStr >= leaveStart && dateStr <= leaveEnd;
+        });
         if (leave) {
           leaveDays++;
           dailyAttendance.push({
@@ -271,10 +342,9 @@ export class AttendanceReportService {
           });
           continue;
         }
-        const dayRecords = memberAttendance.filter((a) => {
-          const ad = new Date(a.date);
-          return ad.getFullYear() === year && ad.getMonth() === month - 1 && ad.getDate() === d;
-        });
+        const dayRecords = memberAttendance.filter(
+          (a) => new Date(a.date).toISOString().slice(0, 10) === dateStr,
+        );
         if (dayRecords.length > 0) {
           const r = dayRecords[0];
           const s = r.status === 'PRESENT' || r.status === 'LATE' ? r.status : 'WORKING_DAY';
@@ -363,12 +433,12 @@ export class AttendanceReportService {
     year: number,
     month: number,
   ): Promise<number> {
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
     let workingDays = 0;
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const weekends = settings?.settings?.attendance?.weekends || [0, 6];
     for (let d = 1; d <= daysInMonth; d++) {
-      if (!weekends.includes(new Date(year, month - 1, d).getDay())) workingDays++;
+      if (!weekends.includes(new Date(Date.UTC(year, month - 1, d)).getUTCDay())) workingDays++;
     }
     return workingDays;
   }
