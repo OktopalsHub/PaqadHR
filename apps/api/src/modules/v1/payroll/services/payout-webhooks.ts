@@ -76,7 +76,7 @@ export class PayoutWebhooks {
           : undefined,
       ];
       const candidate = candidates.find(
-        (item): item is string => typeof item === 'string' && item.trim(),
+        (item): item is string => typeof item === 'string' && item.trim().length > 0,
       );
       if (candidate) return candidate.trim();
     }
