@@ -60,3 +60,4 @@ export * from '../../integrations/entities/integration-channel.entity';
 export * from '../../integrations/entities/platform-integration.entity';
 export * from '../../integrations/entities/platform-user.entity';
 export * from '../../integrations/entities/user-integration-token.entity';
+export * from '../../../modules/v1/payroll/entities/payroll-webhook-event.entity';
