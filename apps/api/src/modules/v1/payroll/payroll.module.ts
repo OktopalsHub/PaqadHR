@@ -20,6 +20,7 @@ import { PayrollRunsController } from './controllers/payroll-runs.controller';
 import { PayrollWebhooksController } from './controllers/payroll-webhooks.controller';
 import { PayrollItem } from './entities/payroll-item.entity';
 import { PayrollRun } from './entities/payroll-run.entity';
+import { PayrollWebhookEvent } from './entities/payroll-webhook-event.entity';
 import { PayrollItemRepository } from './repositories/payroll-item.repository';
 import { PayrollRunRepository } from './repositories/payroll-run.repository';
 import { AuditService } from './services/audit.service';
@@ -40,7 +41,7 @@ import { PayrollRunService } from './services/payroll-run.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PayrollRun, PayrollItem, Tenant]),
+    TypeOrmModule.forFeature([PayrollRun, PayrollItem, PayrollWebhookEvent, Tenant]),
     ActivitiesModule,
     PaymentsModule,
     SubscriptionsModule,
