@@ -213,6 +213,10 @@ export class PayoutReconciliation {
     const status = rawStatus.toUpperCase();
     const normalizedStatus = normalizePayoutStatus(provider, rawStatus);
     const providerName = paymentProviderLabel(provider);
+    if (!normalizedStatus) {
+      this.logger.warn(`Unknown ${providerName} payout status: ${rawStatus}`);
+      return false;
+    }
     const resolvedTenantId = tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
     const outcome: { item: PayrollItem | null; kind: 'paid' | 'failed' | null } = {
       item: null,
