@@ -42,9 +42,7 @@ export class AttendanceReportService {
 
   async getDailyReport(tenantId: string, date: Date) {
     try {
-      const start = await this.tenantSettingsService
-        .getTenantSettings(tenantId)
-        .then(async () => this.toTenantDayBoundary(tenantId, date, false));
+      const start = await this.toTenantDayBoundary(tenantId, date, false);
       const end = await this.toTenantDayBoundary(tenantId, date, true);
       const attendances = await this.attendanceRepo.find({
         where: { tenantId, date: Between(start, end) },
@@ -193,8 +191,8 @@ export class AttendanceReportService {
     const weekends = tenantSettings?.settings?.attendance?.weekends || [0, 6];
     let workingDays = 0;
     for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month - 1, d);
-      if (!weekends.includes(date.getDay())) workingDays++;
+      const date = new Date(Date.UTC(year, month - 1, d));
+      if (!weekends.includes(date.getUTCDay())) workingDays++;
     }
 
     const paginatedMembers = filteredMembers.slice((page - 1) * limit, page * limit);
