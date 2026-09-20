@@ -227,7 +227,12 @@ export class PaymentMethodService {
 
   async findById(id: string, tenantId: string): Promise<PaymentMethod | null> {
     try {
-      return this.withDecrypted(await this.repo.findOne({ where: { id, tenantId } }));
+      return this.withDecrypted(
+        await this.repo.findOne({
+          where: { id, tenantId },
+          relations: ['member', 'member.address'],
+        }),
+      );
     } catch (e) {
       this.logger.error(`Failed to find payment method ${id}`, e);
       throw e;

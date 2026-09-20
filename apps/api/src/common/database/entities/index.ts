@@ -26,6 +26,7 @@ export * from '../../../modules/v1/payment-method/entities/payment-method-passco
 export * from '../../../modules/v1/payment-method/entities/payment-security.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-item.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-run.entity';
+export * from '../../../modules/v1/payroll/entities/payroll-webhook-event.entity';
 export * from '../../../modules/v1/plans/entities/plan.entity';
 export * from '../../../modules/v1/plans/entities/plan-price.entity';
 export * from '../../../modules/v1/position/entities/position.entity';
