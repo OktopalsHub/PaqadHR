@@ -85,3 +85,5 @@ export * from './1788205216357-add-position-deleted-at';
 export * from './1788205216358-add-leave-balance-deleted-at';
 export * from './1788305216359-PayrollRunUniquePerCurrency';
 export * from './1788305216360-payroll-webhook-events';
+
+export * from './1789930060361-payroll-webhook-processing';
