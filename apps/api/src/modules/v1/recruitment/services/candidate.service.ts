@@ -156,7 +156,48 @@ export class CandidateService {
     updateDto: UpdateCandidateStatusDto,
     actorMemberId?: string,
   ): Promise<Candidate> {
-    await this.getCandidate(candidateId, tenantId);
+    const candidate = await this.getCandidate(candidateId, tenantId);
+    const allowedTransitions: Record<CandidateStatus, CandidateStatus[]> = {
+      [CandidateStatus.APPLIED]: [
+        CandidateStatus.SCREENING,
+        CandidateStatus.UNDER_REVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.SCREENING]: [
+        CandidateStatus.UNDER_REVIEW,
+        CandidateStatus.INTERVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.UNDER_REVIEW]: [
+        CandidateStatus.SCREENING,
+        CandidateStatus.INTERVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.INTERVIEW]: [
+        CandidateStatus.OFFER,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.OFFER]: [
+        CandidateStatus.HIRED,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.HIRED]: [],
+      [CandidateStatus.REJECTED]: [],
+      [CandidateStatus.WITHDRAWN]: [],
+    };
+    if (
+      updateDto.status !== candidate.status &&
+      !allowedTransitions[candidate.status]?.includes(updateDto.status)
+    ) {
+      throw new BadRequestException(
+        `Cannot move candidate from ${candidate.status} to ${updateDto.status}`,
+      );
+    }
     const updateData: Record<string, unknown> = {
       status: updateDto.status,
       currentStage: {
