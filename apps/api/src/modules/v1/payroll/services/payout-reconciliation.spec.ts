@@ -26,8 +26,18 @@ describe('PayoutReconciliation', () => {
       findOne: jest.fn().mockResolvedValue(lockedItem),
       save: jest.fn().mockResolvedValue(lockedItem),
     };
+    const payrollRunTransactionRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'run-1',
+        tenantId: 'tenant-1',
+      }),
+    };
     const manager = {
-      getRepository: jest.fn().mockReturnValue(transactionRepository),
+      getRepository: jest.fn((entity: unknown) =>
+        entity && typeof entity === 'function' && entity.name === 'PayrollRun'
+          ? payrollRunTransactionRepository
+          : transactionRepository,
+      ),
     };
     const payrollItemRepo = {
       manager: {
@@ -77,7 +87,59 @@ describe('PayoutReconciliation', () => {
       }),
     );
     expect(transactionRepository.save).toHaveBeenCalledTimes(1);
+    expect(transactionRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: savedItem.id },
+        relations: ['payrollRun', 'employee'],
+      }),
+    );
     expect(lifecycleNotify.onItemPaid).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the committed failed state to lifecycle notification before releasing the row lock', async () => {
+    const { service, transactionRepository, lifecycleNotify } = createService();
+    const failedItem = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.FAILED,
+      paymentAmount: 1000,
+      failureReason: 'nomba failed',
+      metadata: {},
+      payrollRun: {
+        id: 'run-1',
+        tenantId: 'tenant-1',
+        createdById: 'admin-1',
+      },
+      employee: {},
+    } as unknown as PayrollItem;
+
+    transactionRepository.findOne
+      .mockResolvedValueOnce({
+        id: failedItem.id,
+        payrollRunId: failedItem.payrollRunId,
+        memberId: failedItem.memberId,
+        status: PayrollItemStatus.PROCESSING,
+        paymentAmount: 1000,
+        metadata: {},
+      })
+      .mockResolvedValueOnce(failedItem);
+
+    const changed = await service.applyTransferStatus(
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'FAILED',
+      'txn-failed',
+      PaymentProvider.NOMBA,
+      'tenant-1',
+    );
+
+    expect(changed).toBe(true);
+    expect(lifecycleNotify.onItemFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        item: failedItem,
+        reason: 'nomba failed',
+      }),
+    );
   });
 
   it('does not emit a second paid notification when the locked row is already paid', async () => {

@@ -9,6 +9,7 @@ import { normalizePayoutStatus } from 'src/common/utils/normalize-payout-status.
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
+import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   buildPayrollMerchantRef,
@@ -228,15 +229,21 @@ export class PayoutReconciliation {
       const where: Record<string, unknown> = { id: itemId };
       if (payrollRunId) where.payrollRunId = payrollRunId;
 
+      if (payrollRunId && resolvedTenantId) {
+        const payrollRun = await manager.getRepository(PayrollRun).findOne({
+          where: { id: payrollRunId, tenantId: resolvedTenantId },
+          select: ['id', 'tenantId'],
+        });
+        if (!payrollRun) return false;
+      }
+
+      // Lock only the payroll_item row. Loading relations here generates LEFT OUTER JOINs,
+      // and PostgreSQL rejects FOR UPDATE when it would also lock the nullable side.
       const item = await repository.findOne({
         where,
-        relations: ['payrollRun', 'employee'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!item) return false;
-
-      const itemTenantId = item.payrollRun?.tenantId;
-      if (tenantId && itemTenantId && itemTenantId !== tenantId) return false;
 
       if (normalizedStatus === 'completed') {
         if (item.status === PayrollItemStatus.PAID) return false;
@@ -269,7 +276,10 @@ export class PayoutReconciliation {
         item.paidAt = new Date();
         item.failureReason = null;
         await repository.save(item);
-        outcome.item = item;
+        outcome.item = await repository.findOne({
+          where: { id: item.id },
+          relations: ['payrollRun', 'employee'],
+        });
         outcome.kind = 'paid';
         return true;
       }
@@ -289,7 +299,10 @@ export class PayoutReconciliation {
         item.paymentProvider = providerName;
         item.failureReason = `${providerName} ${status.toLowerCase()}`;
         await repository.save(item);
-        outcome.item = item;
+        outcome.item = await repository.findOne({
+          where: { id: item.id },
+          relations: ['payrollRun', 'employee'],
+        });
         outcome.kind = 'failed';
         this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
         return true;
