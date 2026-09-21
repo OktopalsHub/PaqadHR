@@ -96,6 +96,52 @@ describe('PayoutReconciliation', () => {
     expect(lifecycleNotify.onItemPaid).toHaveBeenCalledTimes(1);
   });
 
+  it('passes the committed failed state to lifecycle notification before releasing the row lock', async () => {
+    const { service, transactionRepository, lifecycleNotify } = createService();
+    const failedItem = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.FAILED,
+      paymentAmount: 1000,
+      failureReason: 'nomba failed',
+      metadata: {},
+      payrollRun: {
+        id: 'run-1',
+        tenantId: 'tenant-1',
+        createdById: 'admin-1',
+      },
+      employee: {},
+    } as unknown as PayrollItem;
+
+    transactionRepository.findOne
+      .mockResolvedValueOnce({
+        id: failedItem.id,
+        payrollRunId: failedItem.payrollRunId,
+        memberId: failedItem.memberId,
+        status: PayrollItemStatus.PROCESSING,
+        paymentAmount: 1000,
+        metadata: {},
+      })
+      .mockResolvedValueOnce(failedItem);
+
+    const changed = await service.applyTransferStatus(
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'FAILED',
+      'txn-failed',
+      PaymentProvider.NOMBA,
+      'tenant-1',
+    );
+
+    expect(changed).toBe(true);
+    expect(lifecycleNotify.onItemFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        item: failedItem,
+        reason: 'nomba failed',
+      }),
+    );
+  });
+
   it('does not emit a second paid notification when the locked row is already paid', async () => {
     const { service, transactionRepository, lifecycleNotify } = createService();
     transactionRepository.findOne.mockResolvedValueOnce({
