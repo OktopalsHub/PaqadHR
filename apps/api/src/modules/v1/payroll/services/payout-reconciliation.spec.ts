@@ -26,8 +26,18 @@ describe('PayoutReconciliation', () => {
       findOne: jest.fn().mockResolvedValue(lockedItem),
       save: jest.fn().mockResolvedValue(lockedItem),
     };
+    const payrollRunTransactionRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'run-1',
+        tenantId: 'tenant-1',
+      }),
+    };
     const manager = {
-      getRepository: jest.fn().mockReturnValue(transactionRepository),
+      getRepository: jest.fn((entity: unknown) =>
+        entity && typeof entity === 'function' && entity.name === 'PayrollRun'
+          ? payrollRunTransactionRepository
+          : transactionRepository,
+      ),
     };
     const payrollItemRepo = {
       manager: {
@@ -77,6 +87,12 @@ describe('PayoutReconciliation', () => {
       }),
     );
     expect(transactionRepository.save).toHaveBeenCalledTimes(1);
+    expect(transactionRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: savedItem.id },
+        relations: ['payrollRun', 'employee'],
+      }),
+    );
     expect(lifecycleNotify.onItemPaid).toHaveBeenCalledTimes(1);
   });
 
