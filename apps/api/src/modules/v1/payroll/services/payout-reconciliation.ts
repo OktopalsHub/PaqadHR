@@ -276,7 +276,10 @@ export class PayoutReconciliation {
         item.paidAt = new Date();
         item.failureReason = null;
         await repository.save(item);
-        outcome.item = item;
+        outcome.item = await repository.findOne({
+          where: { id: item.id },
+          relations: ['payrollRun', 'employee'],
+        });
         outcome.kind = 'paid';
         return true;
       }
@@ -296,7 +299,10 @@ export class PayoutReconciliation {
         item.paymentProvider = providerName;
         item.failureReason = `${providerName} ${status.toLowerCase()}`;
         await repository.save(item);
-        outcome.item = item;
+        outcome.item = await repository.findOne({
+          where: { id: item.id },
+          relations: ['payrollRun', 'employee'],
+        });
         outcome.kind = 'failed';
         this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
         return true;
@@ -317,14 +323,8 @@ export class PayoutReconciliation {
       return false;
     });
 
-    let changedItem = outcome.item;
+    const changedItem = outcome.item;
     const changedKind = outcome.kind;
-    if (changed && changedItem && this.lifecycleNotify) {
-      changedItem = await this.payrollItemRepo.findOne({
-        where: { id: changedItem.id },
-        relations: ['payrollRun', 'employee'],
-      });
-    }
     if (changed && changedItem && resolvedTenantId && this.lifecycleNotify) {
       if (changedKind === 'paid') {
         await this.lifecycleNotify.onItemPaid({
