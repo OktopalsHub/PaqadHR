@@ -35,6 +35,12 @@ async function exportOpenApi(): Promise<void> {
   });
 
   const document = buildOpenApiDocument(app);
+  const representativePath = Object.keys(document.paths).find((path) => path.startsWith('/api/v1/'));
+  if (!representativePath) throw new Error('OpenAPI export is missing /api/v1 routes');
+  if (document.servers?.some((server) => server.url.endsWith('/api'))) {
+    throw new Error('OpenAPI server URL must not include /api');
+  }
+
   const outputPath = resolve(process.cwd(), '../../docs/openapi.json');
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
