@@ -12,7 +12,7 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
         'Tags are organized by feature area. Use the filter box above to search endpoints.',
     )
     .setVersion('1.0')
-    .addServer('http://localhost:9001/api', 'Local Server')
+    .addServer('http://localhost:9001', 'Local Server')
     .addBearerAuth(
       {
         type: 'http',
