@@ -26,6 +26,9 @@ export class ApiKeys1787950600190 implements MigrationInterface {
     await queryRunner.query(`
       CREATE INDEX "IDX_api_keys_tenant_prefix" ON "api_keys" ("tenant_id", "key_prefix")
     `);
+    await queryRunner.query(`
+      CREATE INDEX "IDX_api_keys_active_prefix" ON "api_keys" ("key_prefix") WHERE "is_active" = true
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
