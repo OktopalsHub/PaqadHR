@@ -1,10 +1,10 @@
 import { AdminOnlyGate } from '@/features/navigations/components/admin-only-gate';
-import { RecruitmentPage } from '@/features/recruitment/components/recruitment-page';
+import { RecruitmentPipelinePage } from '@/features/recruitment/components/recruitment-pipeline-page';
 
 export default function Page() {
   return (
     <AdminOnlyGate>
-      <RecruitmentPage />
+      <RecruitmentPipelinePage />
     </AdminOnlyGate>
   );
 }

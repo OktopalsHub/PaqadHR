@@ -1,10 +1,11 @@
-import { ActivityLogPage } from '@/features/activity/components/activity-log-page';
-import { AdminOnlyGate } from '@/features/navigations/components/admin-only-gate';
+import { redirect } from 'next/navigation';
 
-export default function ActivityPage() {
-  return (
-    <AdminOnlyGate>
-      <ActivityLogPage />
-    </AdminOnlyGate>
-  );
+type PageProps = {
+  params: Promise<{ tenantSlug: string }>;
+};
+
+// The activity log now lives at /logs; keep the old URL working.
+export default async function Page({ params }: PageProps) {
+  const { tenantSlug } = await params;
+  redirect(`/${tenantSlug}/logs`);
 }

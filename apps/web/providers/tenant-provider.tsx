@@ -50,14 +50,26 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     typeof window !== 'undefined' ? readTenantId() : null,
   );
 
+  // The URL (subdomain or first path segment) is the workspace on screen.
+  const workspaceSlug = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return getTenantSlugFromHost(window.location.host) ?? getTenantSlugFromPath(pathname);
+  }, [pathname]);
+
   const tenant = useMemo(() => {
     if (!tenants.length) return null;
+    // Prefer the URL slug over the stored selection so queries never fire for
+    // a different workspace while the selection catches up after login.
+    const fromSlug = workspaceSlug
+      ? tenants.find((item) => item.slug === workspaceSlug)
+      : undefined;
     return (
+      fromSlug ??
       tenants.find((item) => item.id === selectedId) ??
       tenants.find((item) => item.isActive) ??
       tenants[0]
     );
-  }, [tenants, selectedId]);
+  }, [tenants, selectedId, workspaceSlug]);
 
   const isLoading = authLoading || (isAuthenticated && !hasResolvedSession);
   const hasResolvedTenants = !isAuthenticated || hasResolvedSession;

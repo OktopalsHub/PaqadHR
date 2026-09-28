@@ -617,10 +617,6 @@ export default function PublicCareersPage() {
           <div className="rounded-[8px] border border-dashed border-[#c9ddd4] bg-white px-4 py-20 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
             <h3 className="mt-4 text-lg font-semibold">No open roles found</h3>
-            <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
-              We couldn't find any job openings matching your search criteria. Try adjusting your
-              filters.
-            </p>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

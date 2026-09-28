@@ -128,7 +128,7 @@ export function useSidebarNavigationPrefetch() {
             staleTime: PREFETCH_STALE_TIME_MS,
           });
           break;
-        case 'activity':
+        case 'logs':
           void queryClient.prefetchQuery({
             queryKey: [
               ...queryKeys.activities.list(tenantId),

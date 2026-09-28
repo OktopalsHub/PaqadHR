@@ -24,7 +24,7 @@ export function useTenantNavItems(): NavItem[] {
       return items;
     }
 
-    const memberHidden = new Set(['payroll', 'recruitment', 'analytics', 'activity']);
+    const memberHidden = new Set(['payroll', 'recruitment', 'analytics', 'logs']);
     return items.filter((item) => !item.segment || !memberHidden.has(item.segment));
   }, [pathname, tenant?.slug, tenant?.member?.role]);
 }

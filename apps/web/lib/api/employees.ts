@@ -39,8 +39,10 @@ export type EmployeeSummary = {
   departments: number;
 };
 
-export async function fetchEmployeeSummary(): Promise<EmployeeSummary> {
-  const tenantId = await resolveTenantId();
+export async function fetchEmployeeSummary(tenantIdOverride?: string): Promise<EmployeeSummary> {
+  // Use the tenantId from the query key when provided so the response always
+  // matches the workspace the dashboard card was requested for.
+  const tenantId = tenantIdOverride ?? (await resolveTenantId());
   return apiClient<EmployeeSummary>(tenantPath(tenantId, 'members/summary'));
 }
 

@@ -17,7 +17,7 @@ export function useEmployeeSummary(options?: { enabled?: boolean }) {
 
   return useQuery({
     queryKey: [...queryKeys.employees.summary, tenantId],
-    queryFn: fetchEmployeeSummary,
+    queryFn: () => fetchEmployeeSummary(tenantId ?? undefined),
     enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     staleTime: 60_000,
   });

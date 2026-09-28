@@ -28,7 +28,7 @@ export function DashboardActivityFeed() {
       bodyClassName="min-w-0 flex-1 space-y-2.5 p-4 sm:p-5"
       action={
         isAdmin ? (
-          <Link href={tenantHref('activity')} className="dashboard-link text-xs font-semibold">
+          <Link href={tenantHref('logs')} className="dashboard-link text-xs font-semibold">
             View all
           </Link>
         ) : undefined

@@ -54,7 +54,6 @@ export const Dashboard = () => {
   const { canAccessRecruitment, recruitmentQueriesEnabled } = recruitmentAccess;
   const {
     data: employeeSummary,
-    isLoading: employeesLoading,
     isError: employeesError,
     refetch: refetchEmployeeSummary,
   } = useEmployeeSummary();
@@ -115,7 +114,9 @@ export const Dashboard = () => {
   const statCards = [
     {
       label: 'Headcount',
-      value: employeesLoading ? '—' : (employeeSummary?.activeEmployees ?? 0),
+      // Keep the placeholder until the summary for this workspace actually
+      // arrives — never flash a stale/default number while the tenant resolves.
+      value: employeeSummary ? employeeSummary.activeEmployees : '—',
       hint: 'Active employees',
       icon: Users,
       iconClassName: 'bg-warning/15 text-warning',
@@ -143,7 +144,7 @@ export const Dashboard = () => {
     },
     {
       label: 'Departments',
-      value: employeesLoading ? '—' : departmentCount,
+      value: employeeSummary ? departmentCount : '—',
       hint: 'With assigned members',
       icon: Building2,
       iconClassName: 'bg-indigo-100 text-indigo-700',
