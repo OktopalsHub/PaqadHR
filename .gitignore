@@ -55,4 +55,5 @@ next-env.d.ts
 *.pem
 .cursor
 .cursorrules
+brag-output/
 mcp

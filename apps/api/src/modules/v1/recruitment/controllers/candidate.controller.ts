@@ -54,11 +54,13 @@ export class CandidateController {
     @Param('candidateId') candidateId: string,
     @Param('tenantId') tenantId: string,
     @Body() updateDto: UpdateCandidateStatusDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
     const updated = await this.candidateService.updateCandidateStatus(
       candidateId,
       tenantId,
       updateDto,
+      member.id,
     );
     return CandidateMapper.toResponse(updated, this.fileUrlService);
   }

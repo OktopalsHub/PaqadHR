@@ -14,12 +14,16 @@ import {
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
 import {
   BOARD_COLUMNS,
   type BoardColumnId,
   type CandidateStatus,
+  canReject,
   columnForStatus,
   isDisqualified,
+  resolveColumnDrop,
 } from './board-columns';
 import { type CandidateCardData, CandidateKanbanCard } from './candidate-kanban-card';
 import { RecruitmentKanbanColumn } from './recruitment-kanban-column';
@@ -40,12 +44,14 @@ function DroppableColumn({
   count,
   candidates,
   interactive,
+  onRejectCandidate,
 }: {
   columnId: BoardColumnId;
   title: string;
   count: number;
   candidates: BoardCandidate[];
   interactive?: boolean;
+  onRejectCandidate?: (candidate: BoardCandidate) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId });
 
@@ -65,7 +71,10 @@ function DroppableColumn({
         showAdd={!interactive}
         renderCard={(candidate) =>
           interactive ? (
-            <SortableCard candidate={candidate as BoardCandidate} />
+            <SortableCard
+              candidate={candidate as BoardCandidate}
+              onRejectCandidate={onRejectCandidate}
+            />
           ) : (
             <CandidateKanbanCard candidate={candidate} />
           )
@@ -75,9 +84,16 @@ function DroppableColumn({
   );
 }
 
-function SortableCard({ candidate }: { candidate: BoardCandidate }) {
+function SortableCard({
+  candidate,
+  onRejectCandidate,
+}: {
+  candidate: BoardCandidate;
+  onRejectCandidate?: (candidate: BoardCandidate) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: candidate.id,
+    disabled: isDisqualified(candidate.status),
   });
 
   const style = {
@@ -87,7 +103,15 @@ function SortableCard({ candidate }: { candidate: BoardCandidate }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <CandidateKanbanCard candidate={candidate} isDragging={isDragging} />
+      <CandidateKanbanCard
+        candidate={candidate}
+        isDragging={isDragging}
+        onReject={
+          onRejectCandidate && canReject(candidate.status)
+            ? () => onRejectCandidate(candidate)
+            : undefined
+        }
+      />
     </div>
   );
 }
@@ -98,27 +122,22 @@ export function RecruitmentKanbanBoard({
   onMoveCandidate,
 }: RecruitmentKanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<BoardCandidate | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  const activeCandidates = candidates.filter((c) => !isDisqualified(c.status));
-
   const grouped = useMemo(() => {
-    const map: Record<BoardColumnId, BoardCandidate[]> = {
-      applied: [],
-      review: [],
-      interview: [],
-      hiring: [],
-    };
+    const map = Object.fromEntries(
+      BOARD_COLUMNS.map((column) => [column.id, [] as BoardCandidate[]]),
+    ) as Record<BoardColumnId, BoardCandidate[]>;
 
-    for (const candidate of activeCandidates) {
-      const columnId = columnForStatus(candidate.status);
-      map[columnId].push(candidate);
+    for (const candidate of candidates) {
+      map[columnForStatus(candidate.status)].push(candidate);
     }
 
     return map;
-  }, [activeCandidates]);
+  }, [candidates]);
 
-  const activeCandidate = activeCandidates.find((c) => c.id === activeId);
+  const activeCandidate = candidates.find((c) => c.id === activeId);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -132,18 +151,29 @@ export function RecruitmentKanbanBoard({
     if (!over) return;
 
     const candidateId = String(active.id);
-    const candidate = activeCandidates.find((c) => c.id === candidateId);
+    const candidate = candidates.find((c) => c.id === candidateId);
     if (!candidate) return;
 
-    const overId = String(over.id) as BoardColumnId | string;
+    const overId = String(over.id);
     const targetColumn =
       BOARD_COLUMNS.find((col) => col.id === overId) ??
       BOARD_COLUMNS.find((col) => grouped[col.id].some((item) => item.id === overId));
 
     if (!targetColumn) return;
 
-    if (candidate.status !== targetColumn.primaryStatus) {
-      onMoveCandidate(candidateId, targetColumn.primaryStatus);
+    const resolution = resolveColumnDrop(candidate.status, targetColumn.id);
+
+    if (resolution.type === 'move') {
+      if (isDisqualified(resolution.status) && !isDisqualified(candidate.status)) {
+        setRejectTarget(candidate);
+        return;
+      }
+      onMoveCandidate(candidateId, resolution.status);
+      return;
+    }
+
+    if (resolution.type === 'invalid') {
+      toast.error(`Cannot move candidate from ${candidate.status} to ${resolution.status}`);
     }
   };
 
@@ -157,6 +187,7 @@ export function RecruitmentKanbanBoard({
           count={grouped[column.id].length}
           candidates={grouped[column.id]}
           interactive={interactive}
+          onRejectCandidate={interactive && onMoveCandidate ? setRejectTarget : undefined}
         />
       ))}
     </div>
@@ -165,6 +196,13 @@ export function RecruitmentKanbanBoard({
   if (!interactive) {
     return columns;
   }
+
+  const confirmReject = () => {
+    if (rejectTarget) {
+      onMoveCandidate?.(rejectTarget.id, 'REJECTED');
+    }
+    setRejectTarget(null);
+  };
 
   return (
     <DndContext
@@ -177,6 +215,20 @@ export function RecruitmentKanbanBoard({
       <DragOverlay>
         {activeCandidate ? <CandidateKanbanCard candidate={activeCandidate} isDragging /> : null}
       </DragOverlay>
+      <DestructiveConfirmDialog
+        open={rejectTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRejectTarget(null);
+        }}
+        title="Reject candidate?"
+        description={
+          rejectTarget
+            ? `${`${rejectTarget.firstName} ${rejectTarget.lastName}`.trim()} will move to Disqualified. This is permanent — the candidate can no longer progress in this pipeline.`
+            : ''
+        }
+        actionLabel="Reject candidate"
+        onConfirm={confirmReject}
+      />
     </DndContext>
   );
 }

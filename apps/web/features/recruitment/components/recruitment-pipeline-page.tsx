@@ -45,6 +45,7 @@ export function RecruitmentPipelinePage() {
   ).length;
 
   const handleMoveCandidate = async (candidateId: string, status: CandidateStatus) => {
+    if (updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ candidateId, status });
     } catch (err) {

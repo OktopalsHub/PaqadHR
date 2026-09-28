@@ -108,6 +108,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
   ).length;
 
   const handleMoveCandidate = async (candidateId: string, status: CandidateStatus) => {
+    if (updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ candidateId, status });
     } catch (err) {

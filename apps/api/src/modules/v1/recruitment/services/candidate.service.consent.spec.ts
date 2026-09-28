@@ -13,11 +13,12 @@ describe('CandidateService.applyForJob consent', () => {
       getActiveJob: jest.fn().mockResolvedValue({ tenantId: 'tenant-1' }),
     };
     const activitiesService = { queueActivity: jest.fn() };
+    const productAnalytics = { capture: jest.fn() };
     const service = new CandidateService(
       candidateRepository as never,
       jobOpeningService as never,
       activitiesService as never,
-      {} as never,
+      productAnalytics as never,
     );
     return { service, candidateRepository };
   };
