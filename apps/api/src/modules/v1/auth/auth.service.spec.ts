@@ -135,7 +135,7 @@ describe('AuthService', () => {
         { provide: ZeptomailEmailService, useValue: mockZeptomailEmailService },
         {
           provide: ProductAnalyticsService,
-          useValue: { capture: jest.fn(), identify: jest.fn() },
+          useValue: { capture: jest.fn(), identify: jest.fn(), buildDistinctId: jest.fn() },
         },
       ],
     }).compile();
@@ -740,7 +740,7 @@ describe('AuthService', () => {
           },
           {
             provide: ProductAnalyticsService,
-            useValue: { capture: jest.fn(), identify: jest.fn() },
+            useValue: { capture: jest.fn(), identify: jest.fn(), buildDistinctId: jest.fn() },
           },
         ],
       }).compile();

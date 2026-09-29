@@ -72,8 +72,7 @@ export class RewardsClaimCronService {
 
       for (const claim of stalePending) {
         try {
-          await this.rewardsService.refundStaleClaim(claim);
-          refundedPending += 1;
+          if (await this.rewardsService.refundStaleClaim(claim)) refundedPending += 1;
         } catch (err) {
           this.logger.warn(
             `Failed to refund stale PENDING claim ${claim.id}: ${err instanceof Error ? err.message : err}`,

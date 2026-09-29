@@ -1,8 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import type { Leave } from '../leave/entities/leave.entity';
 import { LeavePolicyService } from '../leave-policy/leave-policy.service';
-import { NotificationHelperService } from '../notifications/services/notification-helper.service';
 import type { LeaveBalance } from './entities/leave-balance.entity';
 import { LeaveBalanceRepository } from './leave-balance.repository';
 import { LeaveBalanceCalcService } from './leave-balance-calc.service';
@@ -10,11 +9,9 @@ import { leaveBalanceUsedDaysChange } from './leave-balance-impact.util';
 
 @Injectable()
 export class LeaveBalanceAccrualService {
-  private readonly logger = new Logger(LeaveBalanceAccrualService.name);
   constructor(
     private readonly leaveBalanceRepository: LeaveBalanceRepository,
     private readonly leavePolicyService: LeavePolicyService,
-    private readonly notificationHelperService: NotificationHelperService,
     private readonly leaveBalanceCalcService: LeaveBalanceCalcService,
   ) {}
 
@@ -202,16 +199,6 @@ export class LeaveBalanceAccrualService {
         usedDays: newUsedDays,
         remainingDays: newRemainingDays,
       });
-
-      void this.notificationHelperService
-        .sendLeaveBalanceUpdatedNotification(leave.requestedBy, leave.tenantId, {
-          leaveTypeName: leave.leaveTypes?.name ?? 'Leave',
-          remainingDays: newRemainingDays,
-          reason: usedDaysChange > 0 ? 'Leave requested' : 'Leave cancelled',
-        })
-        .catch((error) => {
-          this.logger.error('Failed to send leave balance notification', error);
-        });
     }
   }
 

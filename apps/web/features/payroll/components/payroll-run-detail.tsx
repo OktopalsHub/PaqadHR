@@ -48,6 +48,7 @@ import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { downloadPayslipPdf } from '@/lib/api/payroll';
 import { canManageMember } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
+import { isPayrollFundingPending } from '@/lib/payroll-funding';
 import type {
   PayrollAdjustmentLine,
   PayrollItem,
@@ -342,6 +343,9 @@ export function PayrollRunDetail({
     detail && detail.status !== 'completed' && onDelete && !hasPaidOrInFlight,
   );
   const hasFailedItems = activeItems.some((item) => item.status === 'failed');
+  const hasPendingItems = activeItems.some((item) => item.status === 'pending');
+  const hasInFlightItems = activeItems.some((item) => item.status === 'processing');
+  const fundingPending = isPayrollFundingPending(detail?.metadata);
   const canReopen =
     Boolean(isAdmin && detail?.status === 'processing' && onReopen) && !hasPaidOrInFlight;
   const canRetry =
@@ -563,6 +567,12 @@ export function PayrollRunDetail({
                   Scheduled · {formatDate(detail.paymentDate)}
                 </span>
               ) : null}
+              {fundingPending ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-400">
+                  <RefreshCw className="size-3 animate-spin" />
+                  Awaiting funding
+                </span>
+              ) : null}
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               {formatDate(detail.periodStart)} – {formatDate(detail.periodEnd)}
@@ -637,33 +647,40 @@ export function PayrollRunDetail({
             ) : null}
             {isAdmin && detail.status === 'approved' ? (
               <>
-                {payrollGatewayEnabled ? (
-                  <Button
-                    size="sm"
-                    variant="brandSolid"
-                    disabled={busy}
-                    onClick={() => setPayNowConfirmOpen(true)}
-                  >
-                    {detail.payoutMode === 'scheduled' ? 'Pay now instead' : 'Pay employees'}
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                    disabled={busy}
-                    onClick={async () => {
-                      try {
-                        await actions.disburse.mutateAsync(runId);
-                        toast.success('Marked as paid');
-                      } catch (err) {
-                        toast.error(err instanceof Error ? err.message : 'Disburse failed');
-                      }
-                    }}
-                  >
-                    Mark paid
-                  </Button>
-                )}
+                {!hasPendingItems && hasInFlightItems ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-400">
+                    <RefreshCw className="size-3 animate-spin" />
+                    Payment in progress
+                  </span>
+                ) : hasPendingItems ? (
+                  payrollGatewayEnabled ? (
+                    <Button
+                      size="sm"
+                      variant="brandSolid"
+                      disabled={busy}
+                      onClick={() => setPayNowConfirmOpen(true)}
+                    >
+                      {detail.payoutMode === 'scheduled' ? 'Pay now instead' : 'Pay employees'}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                      disabled={busy}
+                      onClick={async () => {
+                        try {
+                          await actions.disburse.mutateAsync(runId);
+                          toast.success('Marked as paid');
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : 'Disburse failed');
+                        }
+                      }}
+                    >
+                      Mark paid
+                    </Button>
+                  )
+                ) : null}
                 {payrollGatewayEnabled ? (
                   <Button
                     size="sm"

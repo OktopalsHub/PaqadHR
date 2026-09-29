@@ -1,10 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { EmailTemplateService } from '../../notifications/services/email-template.service';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { RewardRedemption } from '../../rewards/entities/reward-redemption.entity';
-import { TenantWalletService } from '../../rewards/services/tenant-wallet.service';
+import { ClaimBillingService } from '../../rewards/services/claim-billing.service';
+import type { ClaimInput } from '../../rewards/services/claim-verification.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+
+/** Persisted on the redemption and shown to the member when Tremendous cannot deliver. */
+const TREMENDOUS_FAILURE_MESSAGE = 'Tremendous could not deliver this reward. Points refunded.';
 
 function isValidHttpsUrl(url: string): boolean {
   try {
@@ -47,9 +52,10 @@ export class TremendousWebhookService {
 
   constructor(
     private readonly dataSource: DataSource,
-    private readonly walletService: TenantWalletService,
     private readonly emailTemplateService: EmailTemplateService,
     private readonly emailService: ZeptomailEmailService,
+    private readonly notificationHelper: NotificationHelperService,
+    private readonly claimBillingService: ClaimBillingService,
   ) {}
 
   async dispatch(rawBody: string): Promise<{ received: boolean }> {
@@ -102,38 +108,70 @@ export class TremendousWebhookService {
       return;
     }
 
-    if (redemption.status === 'SUCCESS' || redemption.status === 'FAILED') {
+    if (redemption.status === 'FAILED') {
       return;
     }
 
     const deliveryLink = reward?.delivery?.link ?? reward?.redemption?.details?.redemption_url;
     const safeDeliveryLink =
       deliveryLink && isValidHttpsUrl(deliveryLink) ? deliveryLink : undefined;
+    // The link can arrive after the order was already accepted at claim time.
+    const pendingLink = safeDeliveryLink && !redemption.voucher?.code ? safeDeliveryLink : null;
+    const alreadyFulfilled = redemption.status === 'SUCCESS';
+    const providerRef = {
+      ...redemption.providerRef,
+      txRef: reward?.id ?? redemption.providerRef?.txRef,
+    };
 
-    await redemptionRepo.update(redemption.id, {
-      status: 'SUCCESS',
-      providerRef: {
-        ...redemption.providerRef,
-        txRef: reward?.id ?? redemption.providerRef?.txRef,
-      },
-      ...(safeDeliveryLink
-        ? {
-            voucher: {
-              ...redemption.voucher,
-              code: safeDeliveryLink,
-              instructions: 'Open this link to choose and redeem your gift card.',
-            },
-          }
-        : {}),
-    });
+    if (alreadyFulfilled) {
+      if (pendingLink) {
+        await redemptionRepo.update(redemption.id, {
+          providerRef,
+          voucher: {
+            ...redemption.voucher,
+            code: pendingLink,
+            instructions: 'Open this link to choose and redeem your gift card.',
+          },
+        });
+      }
+    } else {
+      await redemptionRepo.update(redemption.id, {
+        status: 'SUCCESS',
+        providerRef,
+        processingStartedAt: null,
+        ...(pendingLink
+          ? {
+              voucher: {
+                ...redemption.voucher,
+                code: pendingLink,
+                instructions: 'Open this link to choose and redeem your gift card.',
+              },
+            }
+          : {}),
+      });
+    }
 
-    if (safeDeliveryLink && !redemption.voucher?.code) {
-      void this.sendRewardClaimEmail(redemption, safeDeliveryLink).catch((err) => {
+    if (pendingLink) {
+      void this.sendRewardClaimEmail(redemption, pendingLink).catch((err) => {
         this.logger.warn(
           `Failed to send reward claim email for ${redemption.id}: ${err instanceof Error ? err.message : err}`,
         );
       });
     }
+
+    // The claim-time notification already covered orders marked successful on submission.
+    if (alreadyFulfilled) return;
+
+    void this.notificationHelper
+      .sendRewardRedemptionNotification(redemption.memberId, redemption.tenantId, {
+        rewardName: redemption.rewardName ?? 'Gift Card',
+        status: 'fulfilled',
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to notify fulfilled reward ${redemption.id}: ${err instanceof Error ? err.message : err}`,
+        );
+      });
   }
 
   private async sendRewardClaimEmail(
@@ -191,42 +229,42 @@ export class TremendousWebhookService {
       return;
     }
 
-    if (redemption.status === 'SUCCESS' || redemption.status === 'FAILED') {
+    if (redemption.status === 'FAILED') {
       return;
     }
 
-    await this.dataSource.transaction(async (manager) => {
-      const currentRedemption = await manager.getRepository(RewardRedemption).findOneOrFail({
-        where: { id: redemption.id },
-      });
+    const input: ClaimInput = {
+      rewardType: redemption.rewardType,
+      rewardId: redemption.rewardId ?? redemption.id,
+      rewardName: redemption.rewardName ?? undefined,
+      pointsCost: redemption.pointsSpent,
+      currencyValue: Number(redemption.currencyValue),
+      currencyCode: redemption.currencyCode,
+    };
 
-      if (currentRedemption.status === 'SUCCESS' || currentRedemption.status === 'FAILED') {
-        return;
-      }
-
-      const pointsCost = currentRedemption.pointsSpent;
-      const tenantId = currentRedemption.tenantId;
-      const memberId = currentRedemption.memberId;
-
-      await manager.getRepository(RewardRedemption).update(currentRedemption.id, {
-        status: 'FAILED',
-        providerRef: {
-          ...currentRedemption.providerRef,
-          error: 'Tremendous fulfillment failed',
-        },
-      });
-
-      if (pointsCost > 0) {
-        await this.walletService.credit(
-          tenantId,
-          pointsCost,
-          'REFUND',
-          `refund:${currentRedemption.id}`,
-          `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId}`,
-          manager,
-          { actorMemberId: memberId },
-        );
-      }
+    const refunded = await this.claimBillingService.refundFailedClaim({
+      tenantId: redemption.tenantId,
+      memberId: redemption.memberId,
+      redemptionId: redemption.id,
+      pointsCost: redemption.pointsSpent,
+      // Fallback only; the real debit is resolved from the stored SPENT transaction.
+      totalTenantDebit: 0,
+      input,
+      failureReason: TREMENDOUS_FAILURE_MESSAGE,
     });
+
+    if (!refunded) return;
+
+    void this.notificationHelper
+      .sendRewardRedemptionNotification(redemption.memberId, redemption.tenantId, {
+        rewardName: redemption.rewardName ?? 'Gift Card',
+        status: 'failed',
+        failureReason: TREMENDOUS_FAILURE_MESSAGE,
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to notify failed reward ${redemption.id}: ${err instanceof Error ? err.message : err}`,
+        );
+      });
   }
 }

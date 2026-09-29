@@ -76,6 +76,16 @@ export class ProductAnalyticsService implements OnModuleDestroy {
     });
   }
 
+  /**
+   * Distinct id shared with the browser client so web and API events merge into one
+   * PostHog person. Returns null when analytics is not configured — the raw id is
+   * never exposed, only the salted HMAC.
+   */
+  buildDistinctId(userId: string): string | null {
+    if (!this.identifierSalt || !userId) return null;
+    return pseudonymizeAnalyticsIdentifier('actor', userId, this.identifierSalt);
+  }
+
   identify(distinctId: string, context: ProductAnalyticsContext = {}): void {
     const identifierSalt = this.identifierSalt;
     if (!this.client || !distinctId || !identifierSalt) return;

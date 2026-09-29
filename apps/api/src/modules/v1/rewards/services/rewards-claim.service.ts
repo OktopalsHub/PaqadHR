@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
 import { DataSource } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { RewardRedemption } from '../entities/reward-redemption.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import { ClaimBillingService } from './claim-billing.service';
@@ -26,6 +27,7 @@ export class RewardsClaimService {
     private readonly catalogService: RewardsCatalogService,
     private readonly walletTopupService: TenantWalletTopupService,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationHelper: NotificationHelperService,
   ) {}
 
   assertNgNombaRouting(input: ClaimInput, settings: RewardsSettings): void {
@@ -172,7 +174,15 @@ export class RewardsClaimService {
   }
 
   async refundStaleClaim(redemption: RewardRedemption): Promise<boolean> {
-    await this.billingService.refundStaleClaim(redemption);
+    if (!(await this.billingService.refundStaleClaim(redemption))) return false;
+
+    void this.notificationHelper
+      .sendRewardRedemptionNotification(redemption.memberId, redemption.tenantId, {
+        rewardName: redemption.rewardName ?? redemption.rewardId ?? 'Reward',
+        status: 'failed',
+        failureReason: 'We could not complete this reward in time. Your points were refunded.',
+      })
+      .catch(() => {});
     void this.activitiesService
       .queueActivity({
         tenantId: redemption.tenantId,

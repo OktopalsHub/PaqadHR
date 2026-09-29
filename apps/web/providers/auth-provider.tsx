@@ -43,6 +43,7 @@ import { cacheKeys, clearAppCache, getCached, MAX_CACHE_TTL, setCached } from '@
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
+import { resetPostHog } from '@/lib/observability/posthog-client';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import type { SessionBootstrap } from '@/lib/schemas/session-bootstrap';
@@ -53,6 +54,8 @@ interface AuthContextType {
   workspaces: Tenant[];
   paymentsEnabled: boolean;
   featureGatingEnabled: boolean;
+  /** Salted analytics distinct id shared with the API so client and server events merge. */
+  analyticsDistinctId: string | null;
   hasResolvedSession: boolean;
   login: (input: LoginInput) => Promise<void>;
   register: (input: SignupInput) => Promise<RegistrationResponse>;
@@ -207,6 +210,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Server unreachable — still tear down client state below
     }
     clearSession();
+    // Release the identified analytics identity before the full-page redirect.
+    resetPostHog();
     queryClient.setQueryData(queryKeys.auth.session, null);
     queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
     queryClient.removeQueries({ queryKey: ['privacy', 'consent'] });
@@ -223,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       workspaces: sessionQuery.data?.workspaces ?? [],
       paymentsEnabled: sessionQuery.data?.paymentsEnabled ?? false,
       featureGatingEnabled: sessionQuery.data?.featureGatingEnabled ?? false,
+      analyticsDistinctId: sessionQuery.data?.analyticsDistinctId ?? null,
       hasResolvedSession,
       login: async (input) => {
         await loginMutation.mutateAsync(input);

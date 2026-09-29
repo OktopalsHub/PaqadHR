@@ -16,6 +16,7 @@ export const sessionBootstrapSchema = z.object({
   }),
   paymentsEnabled: z.boolean(),
   featureGatingEnabled: z.boolean(),
+  analyticsDistinctId: z.string().nullish(),
   workspaces: z.array(sessionWorkspaceSchema),
 });
 

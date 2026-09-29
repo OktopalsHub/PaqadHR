@@ -1,23 +1,20 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import { DateTimeHelper } from 'src/common/helpers';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { LeaveBalanceService } from '../../leave-balance/leave-balance.service';
-import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import type { CreateLeaveDto } from '../dto/create-leave.dto';
 import { LeaveRepository } from '../leave.repository';
 
 @Injectable()
 export class LeaveRequestService {
-  private readonly logger = new Logger(LeaveRequestService.name);
   constructor(
     private readonly leaveRepository: LeaveRepository,
     private readonly leaveBalanceService: LeaveBalanceService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly activitiesService: ActivitiesService,
-    private readonly notificationHelperService: NotificationHelperService,
     private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
@@ -60,16 +57,6 @@ export class LeaveRequestService {
         endDate: saved.endDate,
       },
     });
-
-    void this.notificationHelperService
-      .sendLeaveRequestNotification(memberId, tenantId, {
-        status: 'pending',
-        startDate: String(saved.startDate),
-        endDate: String(saved.endDate),
-      })
-      .catch((error) => {
-        this.logger.error('Failed to send leave request notification', error);
-      });
 
     this.productAnalytics.capture(memberId, 'leave_requested', { tenantId });
 

@@ -92,12 +92,6 @@ export class PaymentMethodVerificationService {
     const employeeName = pm.member
       ? `${pm.member.firstName ?? ''} ${pm.member.lastName ?? ''}`.trim()
       : 'Employee';
-    void this.notificationHelper
-      .sendPaymentMethodSubmittedEmployeeNotification(memberId, tenantId, {
-        currency: pm.currency ?? 'NGN',
-        paymentMethodId: saved.id,
-      })
-      .catch((e) => this.logger.error('Failed to send notification', e));
     void this.notifyAdmins(tenantId, employeeName, pm.currency ?? 'NGN', saved.id).catch((e) =>
       this.logger.error('Failed to notify admins', e),
     );

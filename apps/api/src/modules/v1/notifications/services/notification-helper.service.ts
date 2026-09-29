@@ -131,21 +131,9 @@ export class NotificationHelperService {
   async sendLeaveRequestNotification(
     recipientId: string,
     tenantId: string,
-    variables: { status: string; startDate: string; endDate: string; requesterName?: string },
+    variables: { status: string; startDate: string; endDate: string },
   ): Promise<void> {
     return this.leaveNotifications.sendLeaveRequestNotification(recipientId, tenantId, variables);
-  }
-
-  async sendLeaveBalanceUpdatedNotification(
-    recipientId: string,
-    tenantId: string,
-    variables: { leaveTypeName: string; remainingDays: number; reason: string },
-  ): Promise<void> {
-    return this.leaveNotifications.sendLeaveBalanceUpdatedNotification(
-      recipientId,
-      tenantId,
-      variables,
-    );
   }
 
   async sendShoutoutNotification(
@@ -199,7 +187,7 @@ export class NotificationHelperService {
     tenantId: string,
     variables: {
       documentName: string;
-      status: 'approved' | 'rejected' | 'pending_review';
+      status: 'approved' | 'rejected';
       reviewerName: string;
       documentUrl?: string;
       comments?: string;
@@ -324,18 +312,6 @@ export class NotificationHelperService {
   ): Promise<void> {
     return this.payrollNotifications.sendPaymentMethodSubmittedAdminNotification(
       recipientIds,
-      tenantId,
-      variables,
-    );
-  }
-
-  async sendPaymentMethodSubmittedEmployeeNotification(
-    recipientId: string,
-    tenantId: string,
-    variables: { currency: string; paymentMethodId: string },
-  ): Promise<void> {
-    return this.payrollNotifications.sendPaymentMethodSubmittedEmployeeNotification(
-      recipientId,
       tenantId,
       variables,
     );

@@ -73,6 +73,9 @@ export class SessionBootstrapResponseDto {
   @ApiProperty()
   featureGatingEnabled: boolean;
 
+  @ApiProperty({ nullable: true })
+  analyticsDistinctId: string | null;
+
   @ApiProperty({ type: [SessionWorkspaceDto] })
   workspaces: SessionWorkspaceDto[];
 }

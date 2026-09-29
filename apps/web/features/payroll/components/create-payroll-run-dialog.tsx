@@ -304,15 +304,10 @@ export function CreatePayrollRunDialog({
                   <SelectItem value="scheduled">Schedule payment</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                {payoutMode === 'scheduled'
-                  ? 'The payroll will be paid automatically on the selected date after approval.'
-                  : 'You will review and approve the run before opening checkout to pay employees.'}
-              </p>
             </div>
             {payoutMode === 'scheduled' ? (
               <div className="space-y-2">
-                <Label>Scheduled payment date</Label>
+                <Label>Payment date</Label>
                 <Input
                   type="date"
                   value={paymentDate}
@@ -320,39 +315,19 @@ export function CreatePayrollRunDialog({
                   onChange={(e) => setPaymentDate(e.target.value)}
                   className={fieldClassName}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Choose a future date. The payroll will be funded after approval and paid on this
-                  date.
-                </p>
               </div>
-            ) : (
-              <div className="rounded-[8px] border border-[#d7e3f6] bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/60">
-                <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
-                  Payment date: Today
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  The payment date is set automatically to today when the payroll is created.
-                </p>
-              </div>
-            )}
+            ) : null}
             {allEligibleEmployeeIds.length > 0 ? (
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  {groupEmployeeIdsBySalaryCurrency(
-                    allEligibleEmployeeIds,
-                    currentSalaries,
-                    fallbackCurrency,
-                  ).map((row) => (
-                    <Badge key={row.currency} variant="outline">
-                      {row.currency} · {row.employeeIds.length}
-                    </Badge>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Runs are grouped by salary currency for bookkeeping. Payout uses each
-                  employee&apos;s primary payment method — conversion applies when currencies
-                  differ.
-                </p>
+              <div className="flex flex-wrap gap-2">
+                {groupEmployeeIdsBySalaryCurrency(
+                  allEligibleEmployeeIds,
+                  currentSalaries,
+                  fallbackCurrency,
+                ).map((row) => (
+                  <Badge key={row.currency} variant="outline">
+                    {row.currency} salary · {row.employeeIds.length}
+                  </Badge>
+                ))}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -370,11 +345,6 @@ export function CreatePayrollRunDialog({
           </div>
         ) : (
           <div className="space-y-4 pt-2">
-            <p className="text-sm text-muted-foreground">
-              Include employees with a verified primary payout method. Salary currency and payout
-              currency can differ — FX is applied at calculate/payout.
-            </p>
-
             {groupEmployeeIdsBySalaryCurrency(
               allEligibleEmployeeIds,
               currentSalaries,

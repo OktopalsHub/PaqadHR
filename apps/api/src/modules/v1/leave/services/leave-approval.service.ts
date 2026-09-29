@@ -157,15 +157,17 @@ export class LeaveApprovalService {
       },
     });
 
-    void this.notificationHelperService
-      .sendLeaveRequestNotification(updated.requestedBy, tenantId, {
-        status: 'cancelled',
-        startDate: String(updated.startDate),
-        endDate: String(updated.endDate),
-      })
-      .catch((error) => {
-        this.logger.error('Failed to send leave cancellation notification', error);
-      });
+    if (updated.requestedBy !== actorMemberId) {
+      void this.notificationHelperService
+        .sendLeaveRequestNotification(updated.requestedBy, tenantId, {
+          status: 'cancelled',
+          startDate: String(updated.startDate),
+          endDate: String(updated.endDate),
+        })
+        .catch((error) => {
+          this.logger.error('Failed to send leave cancellation notification', error);
+        });
+    }
 
     this.productAnalytics.capture(actorMemberId, 'leave_cancelled', { tenantId });
 

@@ -3,6 +3,10 @@ import { ProductAnalyticsService } from 'src/common/observability/product-analyt
 import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
+import {
+  isTremendousInsufficientFundsError,
+  TREMENDOUS_SUPPORT_MESSAGE,
+} from 'src/common/utils/tremendous-error.util';
 import { DataSource } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { EmailTemplateService } from '../../notifications/services/email-template.service';
@@ -52,6 +56,10 @@ export class ClaimFulfillmentService {
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Unknown fulfillment error';
       this.logger.error(`Reward fulfillment failed for ${redemptionId}: ${msg}`);
+      const failureReason =
+        input.rewardType === 'TREMENDOUS' && isTremendousInsufficientFundsError(msg)
+          ? TREMENDOUS_SUPPORT_MESSAGE
+          : undefined;
       const alreadyFailed = await this.dataSource
         .getRepository(RewardRedemption)
         .findOne({ where: { id: redemptionId, status: 'FAILED' as RedemptionStatus } });
@@ -63,7 +71,19 @@ export class ClaimFulfillmentService {
         pointsCost,
         totalTenantDebit,
         input,
+        failureReason,
       });
+      void this.notificationHelper
+        .sendRewardRedemptionNotification(memberId, tenantId, {
+          rewardName: input.rewardName ?? input.rewardId,
+          status: 'failed',
+          failureReason: failureReason ?? msg,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to send notification: ${err instanceof Error ? err.message : err}`,
+          ),
+        );
       return this.dataSource
         .getRepository(RewardRedemption)
         .findOneOrFail({ where: { id: redemptionId, tenantId, memberId } });
@@ -86,19 +106,25 @@ export class ClaimFulfillmentService {
         this.logger.warn(`Failed to queue activity: ${err instanceof Error ? err.message : err}`),
       );
     this.productAnalytics.capture(memberId, 'reward_redeemed', { tenantId });
+    const saved = await this.dataSource
+      .getRepository(RewardRedemption)
+      .findOneOrFail({ where: { id: redemptionId, tenantId, memberId } });
     void this.notificationHelper
       .sendRewardRedemptionNotification(memberId, tenantId, {
         rewardName: input.rewardName ?? input.rewardId,
-        status: 'processing',
+        status:
+          saved.status === 'SUCCESS'
+            ? 'fulfilled'
+            : saved.status === 'FAILED'
+              ? 'failed'
+              : 'processing',
       })
       .catch((err) =>
         this.logger.warn(
           `Failed to send notification: ${err instanceof Error ? err.message : err}`,
         ),
       );
-    return this.dataSource
-      .getRepository(RewardRedemption)
-      .findOneOrFail({ where: { id: redemptionId, tenantId, memberId } });
+    return saved;
   }
 
   async runClaimFulfillment(redemption: RewardRedemption, input: ClaimInput): Promise<void> {

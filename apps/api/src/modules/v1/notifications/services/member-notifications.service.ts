@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
+import { describeChangedFields } from '../../tenant-members/utils/member-activity-diff.util';
 import { NotificationService } from './notification.service';
 
 @Injectable()
@@ -87,13 +88,13 @@ export class MemberNotificationsService {
       updatedBy: string;
     },
   ): Promise<void> {
-    const fields = variables.updatedFields.join(', ');
+    const fields = describeChangedFields(variables.updatedFields);
     await this.notificationService.createNotification({
       type: NotificationType.USER,
-      channel: NotificationChannel.BOTH,
+      channel: NotificationChannel.IN_APP,
       priority: NotificationPriority.LOW,
       title: 'Profile updated',
-      message: `Your profile was updated by ${variables.updatedBy}. Fields changed: ${fields}`,
+      message: `${variables.updatedBy} updated your ${fields}.`,
       recipientId,
       tenantId,
       metadata: {

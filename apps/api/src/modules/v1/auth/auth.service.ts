@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import type { GeoRequestContext } from 'src/common/utils/geo-location.util';
 import {
   isBillingGatewayEnabled,
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly emailVerificationService: AuthEmailVerificationService,
     private readonly passwordService: AuthPasswordService,
     private readonly oauthService: AuthOAuthService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
   async validateUser(
@@ -142,6 +144,7 @@ export class AuthService {
       },
       paymentsEnabled: isBillingGatewayEnabled(),
       featureGatingEnabled: isFeatureGatingEnabled(),
+      analyticsDistinctId: this.productAnalytics.buildDistinctId(user.id),
       workspaces,
     };
   }

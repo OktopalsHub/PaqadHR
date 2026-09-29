@@ -10,7 +10,9 @@ export function initPostHog(): void {
 
   posthog.init(apiKey, {
     api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com',
-    persistence: 'memory',
+    // 'memory' handed out a brand-new anonymous id on every full page load, so no
+    // visitor could ever be stitched back together across reloads.
+    persistence: 'localStorage',
     autocapture: false,
     capture_pageview: false,
     disable_session_recording: true,
@@ -18,6 +20,15 @@ export function initPostHog(): void {
   });
 
   initialized = true;
+}
+
+/**
+ * Binds the session to the same pseudonymised distinct id the API uses, so browser
+ * and server events land on one PostHog person. The raw user id never leaves the app.
+ */
+export function identifyPostHog(distinctId: string): void {
+  if (!initialized || !distinctId) return;
+  posthog.identify(distinctId);
 }
 
 export function capturePageview(path?: string): void {

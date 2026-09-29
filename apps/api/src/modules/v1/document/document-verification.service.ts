@@ -4,6 +4,7 @@ import type { DocumentCategory } from '../../../common/enums/document-category.e
 import { DocumentType } from '../../../common/enums/document-type.enum';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { NotificationHelperService } from '../notifications/services/notification-helper.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { DocumentRepository } from './document.repository';
 import { DocumentUploadService } from './document-upload.service';
 import type { Document } from './entities/document.entity';
@@ -18,6 +19,7 @@ export class DocumentVerificationService {
     private readonly auditLogsService: AuditLogsService,
     private readonly notificationHelperService: NotificationHelperService,
     private readonly documentUploadService: DocumentUploadService,
+    private readonly tenantMembersService: TenantMembersService,
   ) {}
 
   async verifyDocument(
@@ -30,11 +32,12 @@ export class DocumentVerificationService {
     const updated = await this.documentUploadService.updateDocument(id, { isVerified }, tenantId);
 
     if (isVerified) {
+      const reviewerName = await this.resolveReviewerName(tenantId, actorMemberId);
       void this.notificationHelperService
         .sendDocumentApprovalNotification(doc.tenantMemberId, tenantId, {
           documentName: doc.name,
           status: 'approved',
-          reviewerName: actorMemberId ?? 'Admin',
+          reviewerName,
         })
         .catch((error) => {
           this.logger.error('Failed to send document approval notification', error);
@@ -42,6 +45,16 @@ export class DocumentVerificationService {
     }
 
     return updated;
+  }
+
+  private async resolveReviewerName(tenantId: string, actorMemberId?: string): Promise<string> {
+    if (!actorMemberId) return 'An admin';
+    try {
+      const actor = await this.tenantMembersService.getTenantMemberId(tenantId, actorMemberId);
+      return actor.displayName.trim() || 'An admin';
+    } catch {
+      return 'An admin';
+    }
   }
 
   async getDocumentsByVerificationStatus(

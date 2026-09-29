@@ -175,31 +175,6 @@ export class PayrollNotificationsService {
     });
   }
 
-  async sendPaymentMethodSubmittedEmployeeNotification(
-    recipientId: string,
-    tenantId: string,
-    variables: {
-      currency: string;
-      paymentMethodId: string;
-    },
-  ): Promise<void> {
-    await this.notificationService.createNotification({
-      type: NotificationType.USER,
-      channel: NotificationChannel.IN_APP,
-      priority: NotificationPriority.LOW,
-      title: 'Payment details submitted for review',
-      message: `Your ${variables.currency} payment account was submitted for admin verification.`,
-      recipientId,
-      tenantId,
-      metadata: {
-        type: 'payment_method_review',
-        status: 'pending_verification',
-        paymentMethodId: variables.paymentMethodId,
-        currency: variables.currency,
-      },
-    });
-  }
-
   async sendPaymentMethodVerifiedNotification(
     recipientId: string,
     tenantId: string,

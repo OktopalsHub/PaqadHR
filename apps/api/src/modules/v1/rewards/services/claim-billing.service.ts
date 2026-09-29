@@ -99,7 +99,9 @@ export class ClaimBillingService {
     pointsCost: number;
     totalTenantDebit: number;
     input: ClaimInput;
-  }): Promise<void> {
+    /** User-facing reason persisted on the redemption and surfaced to the claimer. */
+    failureReason?: string;
+  }): Promise<boolean> {
     const { tenantId, memberId, redemptionId, pointsCost, totalTenantDebit, input } = params;
 
     let originalDebitAmount = totalTenantDebit;
@@ -108,14 +110,14 @@ export class ClaimBillingService {
       .findOne({ where: { reference: redemptionId, type: 'SPENT' } });
     if (originalDebit) originalDebitAmount = Math.abs(Number(originalDebit.amount));
 
-    await this.dataSource.transaction(async (manager) => {
+    const refunded = await this.dataSource.transaction(async (manager) => {
       const flip = await manager
         .getRepository(RewardRedemption)
         .createQueryBuilder()
         .update(RewardRedemption)
         .set({
           status: 'FAILED' as RedemptionStatus,
-          providerRef: { error: 'Fulfillment failed' },
+          providerRef: { error: params.failureReason ?? 'Fulfillment failed' },
           processingStartedAt: null,
         })
         .where(
@@ -123,7 +125,7 @@ export class ClaimBillingService {
           { redemptionId, tenantId, memberId, failed: 'FAILED' as RedemptionStatus },
         )
         .execute();
-      if (!flip.affected) return;
+      if (!flip.affected) return false;
       const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
       await pointsRepo
         .createQueryBuilder()
@@ -193,7 +195,9 @@ export class ClaimBillingService {
             .getRepository(CustomReward)
             .update(cr.id, { stockLimit: cr.stockLimit + 1 });
       }
+      return true;
     });
+    return refunded;
   }
 
   async refundStaleClaim(redemption: RewardRedemption): Promise<boolean> {
@@ -209,22 +213,22 @@ export class ClaimBillingService {
       .findOne({ where: { reference: redemptionId, type: 'SPENT' } });
     const originalDebitAmount = originalDebit ? Math.abs(Number(originalDebit.amount)) : 0;
 
-    await this.dataSource.transaction(async (manager) => {
+    const refunded = await this.dataSource.transaction(async (manager) => {
       const flip = await manager
         .getRepository(RewardRedemption)
         .createQueryBuilder()
         .update(RewardRedemption)
         .set({
           status: 'FAILED' as RedemptionStatus,
-          providerRef: { ...redemption.providerRef, error: 'Stale processing lease expired' },
+          providerRef: { ...redemption.providerRef, error: 'Claim timed out before fulfillment' },
           processingStartedAt: null,
         })
         .where(
           'id = :redemptionId AND tenant_id = :tenantId AND member_id = :memberId AND status = :status',
-          { redemptionId, tenantId, memberId, status: 'PROCESSING' },
+          { redemptionId, tenantId, memberId, status: 'PENDING' },
         )
         .execute();
-      if (!flip.affected) return;
+      if (!flip.affected) return false;
       const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
       await pointsRepo
         .createQueryBuilder()
@@ -292,7 +296,8 @@ export class ClaimBillingService {
             .getRepository(CustomReward)
             .update(cr.id, { stockLimit: cr.stockLimit + 1 });
       }
+      return true;
     });
-    return true;
+    return refunded;
   }
 }

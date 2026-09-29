@@ -57,7 +57,7 @@ export class SystemNotificationsService {
     tenantId: string,
     variables: {
       documentName: string;
-      status: 'approved' | 'rejected' | 'pending_review';
+      status: 'approved' | 'rejected';
       reviewerName: string;
       documentUrl?: string;
       comments?: string;
@@ -66,7 +66,6 @@ export class SystemNotificationsService {
     const statusMessages = {
       approved: 'has been approved',
       rejected: 'has been rejected',
-      pending_review: 'is pending review',
     };
 
     await this.notificationService.createNotification({
@@ -74,7 +73,7 @@ export class SystemNotificationsService {
       channel: NotificationChannel.BOTH,
       priority:
         variables.status === 'rejected' ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
-      title: `Document ${variables.status === 'approved' ? 'approved' : variables.status === 'rejected' ? 'rejected' : 'under review'}`,
+      title: `Document ${variables.status}`,
       message: `Your document "${variables.documentName}" ${statusMessages[variables.status]} by ${variables.reviewerName}${variables.comments ? `. Comments: ${variables.comments}` : ''}`,
       recipientId,
       tenantId,

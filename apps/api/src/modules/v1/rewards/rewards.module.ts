@@ -96,6 +96,6 @@ import { TopupWebhookService } from './services/topup-webhook.service';
     RewardsCatalogSyncCronService,
     RewardsClaimCronService,
   ],
-  exports: [RewardsService, TenantWalletService, TenantWalletTopupService],
+  exports: [RewardsService, ClaimBillingService, TenantWalletService, TenantWalletTopupService],
 })
 export class RewardsModule {}

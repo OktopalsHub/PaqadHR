@@ -1,18 +1,21 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import {
   isStaleChunkError,
   markChunkReloadAttempted,
   shouldReloadForChunkError,
 } from '@/lib/app-version/chunk-reload';
 import { parseVersionBuildId } from '@/lib/app-version/parse-version';
+import { decideUpdateFlow } from '@/lib/app-version/update-prompt';
 import {
   markVersionReloadAttempted,
   shouldReloadForVersion,
 } from '@/lib/app-version/version-reload';
 
 const POLL_MS = 5 * 60_000;
+const UPDATE_TOAST_ID = 'paqadhr-new-version';
 
 function getInitialBuildId(): string {
   return process.env.NEXT_PUBLIC_APP_BUILD_ID?.trim() || 'dev';
@@ -34,39 +37,53 @@ function reloadIfMarked(mark: () => boolean): void {
   }
 }
 
+function showUpdatePrompt(): void {
+  toast.info('A new version is ready', {
+    id: UPDATE_TOAST_ID,
+    duration: Infinity,
+    description: 'Refresh when it suits you — nothing changes until you do.',
+    action: {
+      label: 'Refresh',
+      onClick: () => window.location.reload(),
+    },
+  });
+}
+
 export function AppVersionWatcher() {
   const initialBuildId = getInitialBuildId();
-  const pendingRemoteRef = useRef<string | null>(null);
+  const promptedBuildIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') return;
 
-    const trySilentReload = (remoteBuildId: string) => {
-      if (!shouldReloadForVersion(remoteBuildId)) return;
+    const applyUpdate = (remoteBuildId: string) => {
+      const flow = decideUpdateFlow({
+        remoteBuildId,
+        promptedBuildId: promptedBuildIdRef.current,
+        isVisible: document.visibilityState === 'visible',
+      });
 
-      if (document.visibilityState === 'visible') {
-        pendingRemoteRef.current = remoteBuildId;
+      if (flow === 'prompt') {
+        promptedBuildIdRef.current = remoteBuildId;
+        showUpdatePrompt();
         return;
       }
 
-      reloadIfMarked(() => markVersionReloadAttempted(remoteBuildId));
+      if (flow === 'silentReload' && shouldReloadForVersion(remoteBuildId)) {
+        reloadIfMarked(() => markVersionReloadAttempted(remoteBuildId));
+      }
     };
 
     const checkVersion = async () => {
       const remoteBuildId = await fetchRemoteBuildId();
       if (!remoteBuildId || remoteBuildId === initialBuildId) return;
-      trySilentReload(remoteBuildId);
+      applyUpdate(remoteBuildId);
     };
 
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
         void checkVersion();
-        return;
       }
-
-      const pending = pendingRemoteRef.current;
-      if (!pending || !shouldReloadForVersion(pending)) return;
-      reloadIfMarked(() => markVersionReloadAttempted(pending));
     };
 
     void checkVersion();

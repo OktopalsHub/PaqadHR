@@ -16,6 +16,7 @@ export const payrollRunSchema = z.object({
   createdAt: z.string().optional(),
   processedAt: z.string().nullable().optional(),
   alreadyExists: z.boolean().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type PayrollRun = z.infer<typeof payrollRunSchema>;
