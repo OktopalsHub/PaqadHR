@@ -23,7 +23,8 @@ const BACHS_SCRIPT_SRC = 'https://checkout.bachs.io/bachs.js';
 const BACHS_CHECKOUT_HOSTS = new Set(['checkout.bachs.io', 'sandbox-checkout.bachs.io']);
 
 let loadPromise: Promise<BachsSdk> | null = null;
-let initializedBaseUrl: string | null = null;
+/** Which SDK instance currently holds which checkout origin, so we never skip Initialize. */
+let initialized: { sdk: BachsSdk; baseUrl: string } | null = null;
 
 declare global {
   interface Window {
@@ -88,10 +89,11 @@ async function ensureInitialized(baseUrl: string): Promise<BachsSdk> {
   const Bachs = await loadBachsSdk();
   // bachs.js validates `checkoutUrl` against `baseUrl` (live checkout by default), so a
   // sandbox session URL would be rejected with "checkoutUrl must be on
-  // https://checkout.bachs.io". Re-initialize whenever the session origin changes.
-  if (initializedBaseUrl !== baseUrl) {
+  // https://checkout.bachs.io". Re-initialize when the session origin changes, or when
+  // window.Bachs is a different SDK instance (its config would not carry our baseUrl).
+  if (initialized?.sdk !== Bachs || initialized.baseUrl !== baseUrl) {
     Bachs.Initialize({ baseUrl });
-    initializedBaseUrl = baseUrl;
+    initialized = { sdk: Bachs, baseUrl };
   }
   return Bachs;
 }
