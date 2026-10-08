@@ -176,6 +176,33 @@ export function SlackIntegrationSection() {
       ) : null}
 
       {status?.integrationId && <SlackUserSyncSection integrationId={status.integrationId} />}
+
+      {isConnected ? (
+        <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+          <p className="mb-2 font-medium text-foreground">Slack slash commands</p>
+          <p className="mb-2">
+            Register these in your Slack app (Request URL:{' '}
+            <code className="text-xs">/api/v1/webhooks/slack/slash-commands</code>):
+          </p>
+          <ul className="list-inside list-disc space-y-1">
+            <li>
+              <code>/shoutout</code>, <code>/kudos</code> — recognition
+            </li>
+            <li>
+              <code>/leaves</code> — balance and leave requests
+            </li>
+            <li>
+              <code>/approvals</code> — pending leave with approve/reject buttons
+            </li>
+            <li>
+              <code>/payroll</code> — recent runs and status
+            </li>
+            <li>
+              <code>/paqadhr</code> — command help
+            </li>
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

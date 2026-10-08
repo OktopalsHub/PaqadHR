@@ -10,4 +10,6 @@ export interface CreateActivityPayload {
   ipAddress?: string | null;
   userAgent?: string | null;
   metadata?: Record<string, unknown> | null;
+  actorType?: string;
+  correlationId?: string | null;
 }

@@ -6,6 +6,7 @@ import type { LeaveResponseDto } from './dto/leave-response.dto';
 import type { UpdateLeaveDto } from './dto/update-leave.dto';
 import { LeaveController } from './leave.controller';
 import { LeaveService } from './leave.service';
+import { LeaveAuthorizationService } from './services/leave-authorization.service';
 
 describe('LeaveController', () => {
   let controller: LeaveController;
@@ -26,6 +27,7 @@ describe('LeaveController', () => {
     };
     controller = new LeaveController(
       leaveService as unknown as LeaveService,
+      {} as LeaveAuthorizationService,
       {} as ManagerAccessService,
     );
   });
