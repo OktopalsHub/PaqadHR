@@ -31,9 +31,29 @@ export class AuthSessionService {
     });
     const refreshToken = this.jwtService.sign(payload, {
       secret: ENVIRONMENT.JWT.REFRESH_SECRET,
-      expiresIn: '30d',
+      expiresIn: ENVIRONMENT.JWT.REFRESH_EXPIRES_IN as `${number}${'s' | 'm' | 'h' | 'd'}`,
     });
     return { accessToken, refreshToken };
+  }
+
+  static getSessionDurationMs(): number {
+    const raw = ENVIRONMENT.JWT.SESSION_EXPIRES_IN;
+    if (!raw) return 15 * 60 * 1000;
+    const match = /^(\d+)(s|m|h|d)$/.exec(raw.toLowerCase());
+    if (!match) return 15 * 60 * 1000;
+    const value = parseInt(match[1], 10);
+    switch (match[2]) {
+      case 's':
+        return value * 1000;
+      case 'm':
+        return value * 60 * 1000;
+      case 'h':
+        return value * 60 * 60 * 1000;
+      case 'd':
+        return value * 24 * 60 * 60 * 1000;
+      default:
+        return 15 * 60 * 1000;
+    }
   }
 
   async createSession(
@@ -43,7 +63,7 @@ export class AuthSessionService {
     _rememberMe = true,
   ): Promise<Session> {
     const sessionToken = randomUUID();
-    const durationMs = 30 * 24 * 60 * 60 * 1000;
+    const durationMs = AuthSessionService.getSessionDurationMs();
     const expiresAt = new Date(Date.now() + durationMs);
     const session = this.sessionRepository.create({
       userId,
@@ -89,7 +109,7 @@ export class AuthSessionService {
       }
 
       session.token = hashSessionToken(newSessionToken);
-      session.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      session.expiresAt = new Date(Date.now() + AuthSessionService.getSessionDurationMs());
       await manager.save(Session, session);
       return true;
     });

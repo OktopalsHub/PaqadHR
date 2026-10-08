@@ -7,6 +7,11 @@ export const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
+const AUTH_RATE_LIMIT_MAX =
+  process.env.AUTH_RATE_LIMIT_MAX !== undefined
+    ? parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10)
+    : 5;
+
 function ipToNum(ip: string): number | null {
   const parts = ip.split('.').map(Number);
   if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return null;
@@ -66,7 +71,7 @@ export const configureRateLimiters = (app: NestExpressApplication) => {
   app.use(limiter);
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5,
+    max: AUTH_RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: false,

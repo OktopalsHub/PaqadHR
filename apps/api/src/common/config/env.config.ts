@@ -42,6 +42,8 @@ export interface IEnvironment {
     ACCESS_SECRET: string;
     REFRESH_SECRET: string;
     ACCESS_EXPIRES_IN: string | number;
+    REFRESH_EXPIRES_IN: string;
+    SESSION_EXPIRES_IN?: string;
   };
   GOOGLE: {
     CLIENT_ID: string;
@@ -82,6 +84,8 @@ export const ENVIRONMENT: IEnvironment = {
     ACCESS_SECRET: env.getRequired('ACCESS_SECRET'),
     REFRESH_SECRET: env.getRequired('REFRESH_SECRET'),
     ACCESS_EXPIRES_IN: resolveJwtAccessExpiresIn(),
+    REFRESH_EXPIRES_IN: env.getOptional('REFRESH_EXPIRES_IN', '7d'),
+    SESSION_EXPIRES_IN: env.getOptional('SESSION_EXPIRES_IN', '15m'),
   },
   GOOGLE: {
     CLIENT_ID: env.getOptional('GOOGLE_CLIENT_ID', ''),

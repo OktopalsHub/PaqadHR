@@ -184,14 +184,11 @@ export class AuthSessionController {
   @Post('refresh')
   @Public()
   async refresh(
-    @Body() body: RefreshTokenDto,
+    @Body() _body: RefreshTokenDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
-    const isProduction = (process.env.NODE_ENV || 'development') === 'production';
-    const refreshToken = isProduction
-      ? req.cookies.refresh_token
-      : body.refreshToken || req.cookies.refresh_token;
+    const refreshToken = req.cookies.refresh_token;
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
