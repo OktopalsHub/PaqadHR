@@ -4,7 +4,10 @@ type BachsCheckoutEvent = {
 };
 
 type BachsSdk = {
-  Initialize: (options: { onEvent?: (event: BachsCheckoutEvent) => void }) => BachsSdk;
+  Initialize: (options: {
+    baseUrl?: string;
+    onEvent?: (event: BachsCheckoutEvent) => void;
+  }) => BachsSdk;
   Checkout: {
     open: (args: {
       checkoutUrl: string;
@@ -20,7 +23,7 @@ const BACHS_SCRIPT_SRC = 'https://checkout.bachs.io/bachs.js';
 const BACHS_CHECKOUT_HOSTS = new Set(['checkout.bachs.io', 'sandbox-checkout.bachs.io']);
 
 let loadPromise: Promise<BachsSdk> | null = null;
-let initialized = false;
+let initializedBaseUrl: string | null = null;
 
 declare global {
   interface Window {
@@ -28,13 +31,18 @@ declare global {
   }
 }
 
-export function isBachsCheckoutUrl(url: string): boolean {
+/** Origin of a Bachs hosted checkout URL, or null when the URL is not Bachs-hosted. */
+function bachsCheckoutOrigin(url: string): string | null {
   try {
     const parsed = new URL(url);
-    return BACHS_CHECKOUT_HOSTS.has(parsed.hostname);
+    return BACHS_CHECKOUT_HOSTS.has(parsed.hostname) ? parsed.origin : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function isBachsCheckoutUrl(url: string): boolean {
+  return bachsCheckoutOrigin(url) !== null;
 }
 
 function failSdkLoad(script: HTMLScriptElement | null, reject: (error: Error) => void): void {
@@ -76,11 +84,14 @@ function loadBachsSdk(): Promise<BachsSdk> {
   return loadPromise;
 }
 
-async function ensureInitialized(): Promise<BachsSdk> {
+async function ensureInitialized(baseUrl: string): Promise<BachsSdk> {
   const Bachs = await loadBachsSdk();
-  if (!initialized) {
-    Bachs.Initialize({});
-    initialized = true;
+  // bachs.js validates `checkoutUrl` against `baseUrl` (live checkout by default), so a
+  // sandbox session URL would be rejected with "checkoutUrl must be on
+  // https://checkout.bachs.io". Re-initialize whenever the session origin changes.
+  if (initializedBaseUrl !== baseUrl) {
+    Bachs.Initialize({ baseUrl });
+    initializedBaseUrl = baseUrl;
   }
   return Bachs;
 }
@@ -91,39 +102,46 @@ export type OpenBachsCheckoutOptions = {
   onFailed?: () => void;
 };
 
-/** Open Bachs overlay when the URL is a Bachs checkout; otherwise return false. */
-export async function openBachsCheckoutIfNeeded(
+/** Open the Bachs overlay for a Bachs checkout URL; return false when it cannot open. */
+async function openBachsOverlay(
   checkoutUrl: string,
   options: OpenBachsCheckoutOptions = {},
 ): Promise<boolean> {
-  if (!isBachsCheckoutUrl(checkoutUrl)) return false;
+  const origin = bachsCheckoutOrigin(checkoutUrl);
+  if (!origin) return false;
 
-  const Bachs = await ensureInitialized();
-  await Bachs.Checkout.open({
-    checkoutUrl,
-    onEvent: (event) => {
-      if (event.type === 'checkout.completed') {
-        options.onCompleted?.(event.data?.reference);
-      } else if (event.type === 'checkout.failed' || event.type === 'checkout.expired') {
-        options.onFailed?.();
-      } else if (event.type === 'checkout.closed') {
-        options.onClosed?.(event.data?.reason);
-      }
-    },
-  });
+  try {
+    const Bachs = await ensureInitialized(origin);
+    await Bachs.Checkout.open({
+      checkoutUrl,
+      onEvent: (event) => {
+        if (event.type === 'checkout.completed') {
+          options.onCompleted?.(event.data?.reference);
+        } else if (event.type === 'checkout.failed' || event.type === 'checkout.expired') {
+          options.onFailed?.();
+        } else if (event.type === 'checkout.closed') {
+          options.onClosed?.(event.data?.reason);
+        }
+      },
+    });
+  } catch {
+    // SDK load / Initialize / open() failures all reject before anything is mounted
+    // (bad token, wrong origin, script blocked). The hosted checkout page is a valid
+    // fallback; fulfilment still waits on the collection.succeeded webhook.
+    return false;
+  }
   return true;
 }
 
 /**
- * Prefer Bachs overlay; fall back to full-page redirect for other providers.
- * Returns `'overlay'` | `'redirect'`.
+ * Prefer Bachs overlay; fall back to full-page redirect for other providers or a
+ * failed overlay. Returns `'overlay'` | `'redirect'`.
  */
 export async function openCheckoutUrl(
   checkoutUrl: string,
   options: OpenBachsCheckoutOptions = {},
 ): Promise<'overlay' | 'redirect'> {
-  const opened = await openBachsCheckoutIfNeeded(checkoutUrl, options);
-  if (opened) return 'overlay';
+  if (await openBachsOverlay(checkoutUrl, options)) return 'overlay';
   window.location.assign(checkoutUrl);
   return 'redirect';
 }
@@ -139,8 +157,9 @@ export async function openCheckoutUrlWithOptionalTab(
 ): Promise<'overlay' | 'redirect'> {
   if (isBachsCheckoutUrl(checkoutUrl)) {
     checkoutTab?.close();
-    await openBachsCheckoutIfNeeded(checkoutUrl, options);
-    return 'overlay';
+    if (await openBachsOverlay(checkoutUrl, options)) return 'overlay';
+    window.location.assign(checkoutUrl);
+    return 'redirect';
   }
   if (checkoutTab) {
     checkoutTab.opener = null;
