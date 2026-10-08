@@ -58,4 +58,31 @@ describe('resolvePostApprovalPayrollStatus', () => {
       }),
     ).toBe(PayrollStatus.APPROVED);
   });
+
+  // Regression: async rails (Bachs) leave every item `processing` until a payout webhook
+  // arrives, so the run stays `approved` with nothing left to send. The UI used to offer
+  // "Pay employees" here, and the payout then failed with "No employees could be paid".
+  it('stays approved while every item is still in flight', () => {
+    expect(
+      resolvePostApprovalPayrollStatus({
+        pending: 0,
+        processing: 2,
+        paid: 0,
+        failed: 0,
+        active: 2,
+      }),
+    ).toBe(PayrollStatus.APPROVED);
+  });
+
+  it('completes once every in-flight item is confirmed paid', () => {
+    expect(
+      resolvePostApprovalPayrollStatus({
+        pending: 0,
+        processing: 0,
+        paid: 2,
+        failed: 0,
+        active: 2,
+      }),
+    ).toBe(PayrollStatus.COMPLETED);
+  });
 });

@@ -131,8 +131,29 @@ export class RunLifecycle {
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
+    return this.withItemCounts(runs, tenantId, total);
+  }
+
+  /**
+   * Attach per-status item counts so the run list can tell "approved and unpaid" from
+   * "already paid / payout in flight" and stop offering a payout that has nothing to pay.
+   */
+  private async withItemCounts(runs: PayrollRun[], tenantId: string, total: number) {
+    const counts = await this.payrollItemRepository.countByRunIds(
+      runs.map((run) => run.id),
+      tenantId,
+    );
+    const byRun = new Map<string, Record<string, number>>();
+    for (const row of counts) {
+      const bucket = byRun.get(row.payrollRunId) ?? {};
+      bucket[row.status] = (bucket[row.status] ?? 0) + row.count;
+      byRun.set(row.payrollRunId, bucket);
+    }
     const healed = await Promise.all(runs.map((run) => this.healMisclassifiedApprovedRun(run)));
-    return { runs: healed, total };
+    return {
+      runs: healed.map((run) => ({ ...run, itemCounts: byRun.get(run.id) ?? {} })),
+      total,
+    };
   }
   async getPayrollRunsForRequester(
     tenantId: string,
@@ -154,13 +175,14 @@ export class RunLifecycle {
     });
     const runIds = [...new Set(items.map((i) => i.payrollRunId))];
     if (runIds.length === 0) return { runs: [], total: 0 };
-    return this.payrollRunRepository.paginate({
+    const { data: runs, total } = await this.payrollRunRepository.paginate({
       where: { tenantId, id: In(runIds) },
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
+    return this.withItemCounts(runs, tenantId, total);
   }
   async getPayrollRunForRequester(
     id: string,

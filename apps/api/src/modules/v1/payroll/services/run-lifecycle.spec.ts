@@ -1,5 +1,6 @@
 import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
+import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
@@ -94,6 +95,7 @@ describe('RunLifecycle', () => {
     const payrollItemRepository = {
       create: jest.fn((input) => input),
       save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest.fn().mockResolvedValue([]),
     } as unknown as PayrollItemRepository;
     const auditService = {
       logPayrollCreated: jest.fn().mockResolvedValue(undefined),
@@ -133,5 +135,38 @@ describe('RunLifecycle', () => {
         status: PayrollItemStatus.PENDING,
       }),
     ]);
+  });
+
+  // Regression: the run list drives the "Pay employees" button. Without item counts the
+  // list could not tell a paid run from an unpaid one, so it kept offering a payout with
+  // nothing left to send.
+  it('reports per-status item counts so the list can hide payout on settled runs', async () => {
+    const payrollRunRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((input) => input),
+      save: jest.fn(),
+      paginate: jest.fn().mockResolvedValue({
+        data: [{ id: 'run-1', status: PayrollStatus.APPROVED, metadata: { approvedAt: 'x' } }],
+        total: 1,
+      }),
+    } as unknown as PayrollRunRepository;
+    const payrollItemRepository = {
+      create: jest.fn((input) => input),
+      save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest
+        .fn()
+        .mockResolvedValue([{ payrollRunId: 'run-1', status: PayrollItemStatus.PAID, count: 3 }]),
+    } as unknown as PayrollItemRepository;
+    const service = new RunLifecycle(
+      payrollRunRepository,
+      payrollItemRepository,
+      { logPayrollCreated: jest.fn() } as unknown as AuditService,
+      {} as never,
+    );
+
+    const result = await service.getPayrollRuns('tenant-1');
+
+    expect(payrollItemRepository.countByRunIds).toHaveBeenCalledWith(['run-1'], 'tenant-1');
+    expect(result.runs[0]).toEqual(expect.objectContaining({ itemCounts: { paid: 3 } }));
   });
 });
