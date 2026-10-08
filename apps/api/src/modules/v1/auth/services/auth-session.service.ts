@@ -36,11 +36,11 @@ export class AuthSessionService {
     return { accessToken, refreshToken };
   }
 
-  static getSessionDurationMs(): number {
-    const raw = ENVIRONMENT.JWT.SESSION_EXPIRES_IN;
-    if (!raw) return 15 * 60 * 1000;
+  static getSessionDurationMs(raw = ENVIRONMENT.JWT.SESSION_EXPIRES_IN): number {
+    const fallback = 7 * 24 * 60 * 60 * 1000;
+    if (!raw) return fallback;
     const match = /^(\d+)(s|m|h|d)$/.exec(raw.toLowerCase());
-    if (!match) return 15 * 60 * 1000;
+    if (!match) return fallback;
     const value = parseInt(match[1], 10);
     switch (match[2]) {
       case 's':
@@ -52,7 +52,7 @@ export class AuthSessionService {
       case 'd':
         return value * 24 * 60 * 60 * 1000;
       default:
-        return 15 * 60 * 1000;
+        return fallback;
     }
   }
 

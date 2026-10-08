@@ -16,7 +16,6 @@ describe('NoahWebhookService', () => {
   const service = new NoahWebhookService(
     noahApi as never,
     payrollPayoutService as never,
-    {} as never,
     walletTopupService as never,
   );
 

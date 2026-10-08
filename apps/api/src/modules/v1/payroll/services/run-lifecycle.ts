@@ -5,6 +5,8 @@ import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
+import { payrollTodayCalendarDatePart } from '../../../../common/validators/payroll-date.validator';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
 import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
@@ -12,12 +14,17 @@ import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
+  collectAdjustmentsForEmployee,
+  computePayrollItemAmounts,
+} from '../utils/payroll-adjustment.util';
+import {
   assertPayrollRunDeletable,
   assertPayrollRunMutable,
   assertPayrollRunReopenable,
   assertPayrollRunTitleEditable,
 } from '../utils/payroll-mutability.util';
 import { AuditService } from './audit.service';
+import { resolvePostApprovalPayrollStatus } from './payout-reconciliation';
 
 @Injectable()
 export class RunLifecycle {
@@ -53,23 +60,35 @@ export class RunLifecycle {
       },
     });
     if (dup) return Object.assign(dup, { alreadyExists: true });
+    const payoutMode = dto.payoutMode ?? 'immediate';
+    const tenant = await this.payrollRunRepository.manager.getRepository(Tenant).findOne({
+      where: { id: tenantId },
+      select: ['id', 'timezone'],
+    });
+    if (!tenant) throw new BadRequestException('Tenant not found');
+    const today = payrollTodayCalendarDatePart(tenant.timezone);
+    if (payoutMode === 'scheduled' && !dto.paymentDate) {
+      throw new BadRequestException('Payment date is required for scheduled payroll');
+    }
+    const paymentDate =
+      payoutMode === 'immediate' ? new Date(`${today}T00:00:00.000Z`) : dto.paymentDate!;
     const run = this.payrollRunRepository.create({
       title: dto.title,
       frequency: dto.frequency,
       periodStart: dto.periodStart,
       periodEnd: dto.periodEnd,
-      paymentDate: dto.paymentDate,
+      paymentDate,
       baseCurrency: currency,
       status: PayrollStatus.DRAFT,
       employeeCount: dto.employeeIds.length,
       createdById,
       tenantId,
       idempotencyKey: key,
-      payoutMode: null,
+      payoutMode,
     });
     const saved = await this.payrollRunRepository.save(run);
-    for (const memberId of dto.employeeIds) {
-      const item = this.payrollItemRepository.create({
+    const items = dto.employeeIds.map((memberId) =>
+      this.payrollItemRepository.create({
         payrollRunId: saved.id,
         memberId,
         status: PayrollItemStatus.PENDING,
@@ -80,9 +99,9 @@ export class RunLifecycle {
         paymentCurrency: currency,
         paymentAmount: 0,
         exchangeRate: 1,
-      });
-      await this.payrollItemRepository.save(item);
-    }
+      }),
+    );
+    await this.payrollItemRepository.save(items);
     await this.auditService.logPayrollCreated(
       { tenantId, payrollRunId: saved.id, performedById: createdById },
       {
@@ -90,16 +109,20 @@ export class RunLifecycle {
         frequency: dto.frequency,
         employeeCount: dto.employeeIds.length,
         baseCurrency: currency,
+        payoutMode: saved.payoutMode,
       },
     );
     return saved;
   }
   async getPayrollRun(id: string, tenantId: string): Promise<PayrollRun | null> {
-    return this.payrollRunRepository.findOne({
+    const run = await this.payrollRunRepository.findOne({
       where: { id, tenantId },
       relations: ['items', 'items.employee', 'createdBy', 'tenant'],
     });
+    if (!run) return null;
+    return this.healMisclassifiedApprovedRun(run);
   }
+
   async getPayrollRuns(tenantId: string, limit = 20, offset = 0) {
     const { data: runs, total } = await this.payrollRunRepository.paginate({
       where: { tenantId },
@@ -108,7 +131,8 @@ export class RunLifecycle {
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
-    return { runs, total };
+    const healed = await Promise.all(runs.map((run) => this.healMisclassifiedApprovedRun(run)));
+    return { runs: healed, total };
   }
   async getPayrollRunsForRequester(
     tenantId: string,
@@ -130,14 +154,13 @@ export class RunLifecycle {
     });
     const runIds = [...new Set(items.map((i) => i.payrollRunId))];
     if (runIds.length === 0) return { runs: [], total: 0 };
-    const { data: runs, total } = await this.payrollRunRepository.paginate({
+    return this.payrollRunRepository.paginate({
       where: { tenantId, id: In(runIds) },
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
-    return { runs, total };
   }
   async getPayrollRunForRequester(
     id: string,
@@ -355,7 +378,26 @@ export class RunLifecycle {
       throw new BadRequestException('Cannot edit cancelled item');
     if (dto.adjustmentLines !== undefined) {
       item.metadata = { ...item.metadata, adjustmentLines: dto.adjustmentLines };
+      const base = Number(item.baseSalary);
+      if (base > 0) {
+        const lines = collectAdjustmentsForEmployee(
+          item.memberId,
+          undefined,
+          item.metadata ?? undefined,
+        );
+        const amounts = computePayrollItemAmounts(base, lines);
+        item.grossAmount = amounts.grossAmount;
+        item.adjustments = amounts.adjustments;
+        item.deductions = amounts.deductions;
+        item.netAmount = amounts.netAmount;
+        item.paymentAmount = amounts.paymentAmount;
+      }
       await this.payrollItemRepository.save(item);
+      const active = (run.items ?? []).filter((e) => e.status !== PayrollItemStatus.CANCELLED);
+      run.totalGrossAmount = active.reduce((s, e) => s + Number(e.grossAmount ?? 0), 0);
+      run.totalDeductions = active.reduce((s, e) => s + Number(e.deductions ?? 0), 0);
+      run.totalNetAmount = active.reduce((s, e) => s + Number(e.netAmount ?? 0), 0);
+      await this.payrollRunRepository.save(run);
     }
     await this.auditService.logAdjustmentCalculated(auditContext, {
       action: 'update_item',
@@ -364,5 +406,67 @@ export class RunLifecycle {
       adjustmentCount: dto.adjustmentLines?.length ?? 0,
     });
     return (await this.getPayrollRun(payrollRunId, tenantId))!;
+  }
+
+  /**
+   * Older payout reconciliation set approved runs back to `processing`, which resurfaces Approve.
+   * Heal on read using approvedAt + item statuses.
+   */
+  private async healMisclassifiedApprovedRun(run: PayrollRun): Promise<PayrollRun> {
+    const approvedAt = run.metadata?.approvedAt;
+    if (
+      run.status !== PayrollStatus.PROCESSING ||
+      typeof approvedAt !== 'string' ||
+      approvedAt.length === 0
+    ) {
+      return run;
+    }
+
+    const items = run.items;
+    if (!items || items.length === 0) {
+      run.status = PayrollStatus.APPROVED;
+      return this.payrollRunRepository.save(run);
+    }
+
+    let pending = 0;
+    let processing = 0;
+    let paid = 0;
+    let failed = 0;
+    let cancelled = 0;
+    for (const item of items) {
+      switch (item.status) {
+        case PayrollItemStatus.PENDING:
+          pending += 1;
+          break;
+        case PayrollItemStatus.PROCESSING:
+          processing += 1;
+          break;
+        case PayrollItemStatus.PAID:
+          paid += 1;
+          break;
+        case PayrollItemStatus.FAILED:
+          failed += 1;
+          break;
+        case PayrollItemStatus.CANCELLED:
+          cancelled += 1;
+          break;
+        default:
+          break;
+      }
+    }
+
+    const next = resolvePostApprovalPayrollStatus({
+      pending,
+      processing,
+      paid,
+      failed,
+      active: items.length - cancelled,
+    });
+    if (next === run.status) return run;
+    run.status = next;
+    if (next === PayrollStatus.COMPLETED) {
+      run.processedAt = run.processedAt ?? new Date();
+    }
+    return this.payrollRunRepository.save(run);
   }
 }

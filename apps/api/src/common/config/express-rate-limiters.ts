@@ -7,10 +7,17 @@ export const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
-const AUTH_RATE_LIMIT_MAX =
-  process.env.AUTH_RATE_LIMIT_MAX !== undefined
-    ? parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10)
-    : 5;
+function resolveAuthRateLimitMax(): number {
+  const raw = process.env.AUTH_RATE_LIMIT_MAX;
+  if (raw === undefined || raw.trim() === '') return 5;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+    throw new Error('AUTH_RATE_LIMIT_MAX must be a positive integer');
+  }
+  return parsed;
+}
+
+const AUTH_RATE_LIMIT_MAX = resolveAuthRateLimitMax();
 
 function ipToNum(ip: string): number | null {
   const parts = ip.split('.').map(Number);

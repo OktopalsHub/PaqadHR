@@ -85,7 +85,8 @@ export const ENVIRONMENT: IEnvironment = {
     REFRESH_SECRET: env.getRequired('REFRESH_SECRET'),
     ACCESS_EXPIRES_IN: resolveJwtAccessExpiresIn(),
     REFRESH_EXPIRES_IN: env.getOptional('REFRESH_EXPIRES_IN', '7d'),
-    SESSION_EXPIRES_IN: env.getOptional('SESSION_EXPIRES_IN', '15m'),
+    // Keep session >= refresh so cookie refresh works after idle (not access-token length).
+    SESSION_EXPIRES_IN: env.getOptional('SESSION_EXPIRES_IN', '7d'),
   },
   GOOGLE: {
     CLIENT_ID: env.getOptional('GOOGLE_CLIENT_ID', ''),
