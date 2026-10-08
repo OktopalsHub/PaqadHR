@@ -43,6 +43,7 @@ export function buildContentSecurityPolicyFromSources(
     "'self'",
     'https://challenges.cloudflare.com',
     'https://static.cloudflareinsights.com',
+    'https://checkout.bachs.io',
   ];
 
   if (options.scriptNonce) {
@@ -64,7 +65,7 @@ export function buildContentSecurityPolicyFromSources(
     "font-src 'self' https://fonts.gstatic.com data:",
     `img-src ${imageSources.join(' ')}`,
     `connect-src ${connectSources.join(' ')}`,
-    'frame-src https://challenges.cloudflare.com',
+    'frame-src https://challenges.cloudflare.com https://checkout.bachs.io https://sandbox-checkout.bachs.io',
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

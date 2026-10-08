@@ -462,18 +462,21 @@ export function SettingsRewardsTab() {
 
                 {autoTopupEnabled && !hasBillingCard ? (
                   <Alert>
-                    <AlertTitle>Billing card required</AlertTitle>
+                    <AlertTitle>Card required</AlertTitle>
                     <AlertDescription>
+                      Complete a Top up checkout once to save a card
                       {billingSettingsHref ? (
-                        <Link
-                          href={billingSettingsHref}
-                          className="font-medium underline underline-offset-2"
-                        >
-                          Add a card in Billing
-                        </Link>
-                      ) : (
-                        'Add a card in Settings → Billing.'
-                      )}
+                        <>
+                          , or{' '}
+                          <Link
+                            href={billingSettingsHref}
+                            className="font-medium underline underline-offset-2"
+                          >
+                            add one in Billing
+                          </Link>
+                        </>
+                      ) : null}
+                      .
                     </AlertDescription>
                   </Alert>
                 ) : null}

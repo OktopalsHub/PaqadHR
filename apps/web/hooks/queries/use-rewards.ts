@@ -25,6 +25,7 @@ import {
   updateAutoTopupConfig,
   updateCustomReward,
 } from '@/lib/api/rewards';
+import { openCheckoutUrl } from '@/lib/bachs-checkout';
 import { queryKeys } from '@/lib/query/keys';
 import type { MemberPointsBalance } from '@/lib/schemas/member-points';
 import { useTenant } from '@/providers/tenant-provider';
@@ -232,6 +233,7 @@ export function useManualTopupWallet() {
 const WALLET_TOPUP_PENDING_KEY = 'paqad.walletTopupPending';
 
 export function useWalletTopupCheckout() {
+  const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   return useMutation({
     mutationFn: (amount: number) => {
@@ -253,7 +255,14 @@ export function useWalletTopupCheckout() {
         } catch {
           // ignore storage failures — webhook may still credit
         }
-        window.location.assign(result.checkoutUrl);
+        void openCheckoutUrl(result.checkoutUrl, {
+          onCompleted: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+            void queryClient.invalidateQueries({
+              queryKey: queryKeys.rewards.walletTransactions,
+            });
+          },
+        });
       }
     },
   });

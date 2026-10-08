@@ -11,7 +11,12 @@ describe('BachsProvider', () => {
       is_usable: true,
       account_name: 'ADA OKAFOR',
     }),
-    createPayoutQuote: jest.fn().mockResolvedValue({ quote_id: 'qt_1' }),
+    createPayoutQuote: jest.fn().mockResolvedValue({
+      quote_id: 'qt_1',
+      from_amount: '100.00',
+      to_amount: '74.30',
+      exchange_rate: '0.743',
+    }),
     createPayout: jest.fn().mockResolvedValue({ id: 'pay_1', status: 'pending', currency: 'NGN' }),
     getPayout: jest.fn(),
   });
@@ -69,9 +74,12 @@ describe('BachsProvider', () => {
     resolvers.splice(0, 5).forEach((resolve) => {
       resolve();
     });
+    // Workers continue on microtasks after the first five settle.
+    await Promise.resolve();
+    await Promise.resolve();
 
-    expect(resolvers).toHaveLength(6);
-    resolvers[5]();
+    expect(resolvers).toHaveLength(1);
+    resolvers[0]();
 
     const result = await resultPromise;
 
@@ -84,6 +92,7 @@ describe('BachsProvider', () => {
 
     expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith({
       currency: 'NGN',
+      type: 'bank_account',
       accountNumber: '0123456789',
       bankCode: '058',
     });
@@ -138,6 +147,7 @@ describe('BachsProvider', () => {
 
     expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith({
       currency: 'USDT_TRC20',
+      type: 'crypto_wallet',
       walletAddress: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
       network: 'TRC20',
     });
@@ -158,13 +168,98 @@ describe('BachsProvider', () => {
     expect(bachsApi.createPayoutDestination).not.toHaveBeenCalled();
   });
 
-  it('rejects fiat currencies Bachs cannot deliver to bank accounts', async () => {
+  it('pays a USD ACH payroll item through a bank destination', async () => {
     const result = await provider.createPayment({
       amount: 500,
       currency: 'USD',
       description: 'Payroll',
-      accountNumber: '84419915',
-      bankCode: '026',
+      accountNumber: '3010001234567',
+      accountName: 'Ada Okafor',
+      bankName: 'Bank of America',
+      bankCode: '026009593',
+      merchantTxRef: 'pi_usd',
+      metadata: {
+        payrollItemId: 'item-usd',
+        noahHolderAddress: {
+          line1: '100 North Tryon Street',
+          city: 'Charlotte',
+          state: 'NC',
+          postalCode: '28255',
+          countryCode: 'US',
+        },
+      },
+    } as never);
+
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currency: 'USD',
+        scheme: 'ach',
+        routingNumber: '026009593',
+        accountNumber: '3010001234567',
+        accountName: 'Ada Okafor',
+        bankName: 'Bank of America',
+        bankAddress: {
+          line1: '100 North Tryon Street',
+          city: 'Charlotte',
+          state: 'NC',
+          postalCode: '28255',
+          country: 'US',
+        },
+      }),
+    );
+    expect(bachsApi.createPayoutQuote).not.toHaveBeenCalled();
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_dest1',
+      amount: '500.00',
+      quoteId: undefined,
+      reference: 'pi_usd',
+      idempotencyKey: 'pi_usd',
+    });
+    expect(result.success).toBe(true);
+    expect(result.rail).toBe('bank');
+  });
+
+  it('quotes a GBP salary from the USD balance to hit the destination amount', async () => {
+    const result = await provider.createPayment({
+      amount: 371.5,
+      currency: 'GBP',
+      description: 'Payroll',
+      accountNumber: '55779911',
+      accountName: 'Ada Okafor',
+      bankName: 'Barclays',
+      bankCode: '200000',
+      merchantTxRef: 'pi_gbp',
+      metadata: { payrollItemId: 'item-gbp' },
+    } as never);
+
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currency: 'GBP',
+        sortCode: '200000',
+        accountNumber: '55779911',
+      }),
+    );
+    expect(bachsApi.createPayoutQuote).toHaveBeenCalled();
+    expect(bachsApi.createPayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: 'pd_dest1',
+        amount: undefined,
+        quoteId: 'qt_1',
+        reference: 'pi_gbp',
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects USD payouts without a US bank address', async () => {
+    const result = await provider.createPayment({
+      amount: 500,
+      currency: 'USD',
+      description: 'Payroll',
+      accountNumber: '3010001234567',
+      accountName: 'Ada Okafor',
+      bankName: 'Bank of America',
+      bankCode: '026009593',
     } as never);
 
     expect(result.success).toBe(false);

@@ -1,6 +1,31 @@
-/** Payout-rail helpers for the Bachs provider (NGN bank + USDT crypto payouts). */
+/** Payout-rail helpers for the Bachs provider (NGN/USD/EUR/GBP bank + USDT crypto). */
 
 export type BachsCryptoDestinationCurrency = 'USDT_TRC20' | 'USDT_BEP20';
+
+/** Fiat bank currencies Bachs delivers internationally (funded from the USD balance). */
+export const BACHS_INTL_BANK_CURRENCIES = ['USD', 'EUR', 'GBP'] as const;
+
+export type BachsIntlBankCurrency = (typeof BACHS_INTL_BANK_CURRENCIES)[number];
+
+export function isBachsIntlBankCurrency(currency: string): currency is BachsIntlBankCurrency {
+  return (BACHS_INTL_BANK_CURRENCIES as readonly string[]).includes(currency.toUpperCase());
+}
+
+/** International bank routes always debit the USD balance — NGN cannot fund them. */
+export const BACHS_INTL_BANK_SOURCE_CURRENCY = 'USD';
+
+/** UK IBAN: GB + check(2) + bank(4) + sort(6) + account(8) = 22 chars. */
+export function parseBachsUkIban(
+  value: string,
+): { iban: string; sortCode: string; accountNumber: string } | null {
+  const iban = value.replace(/\s/g, '').toUpperCase();
+  if (!/^GB\d{2}[A-Z]{4}\d{14}$/.test(iban)) return null;
+  return {
+    iban,
+    sortCode: iban.slice(8, 14),
+    accountNumber: iban.slice(14, 22),
+  };
+}
 
 /**
  * Map a Paqad crypto network label to a Bachs crypto destination currency.

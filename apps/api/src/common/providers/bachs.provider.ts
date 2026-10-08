@@ -4,13 +4,24 @@ import {
   getBachsPayoutSourceCurrency,
   isBachsConfigured,
 } from '../config/bachs.config';
-import { mapBachsCryptoDestinationCurrency } from '../config/bachs-payout.util';
+import { quoteSourceAmountForDestination } from '../config/bachs-funding-quote.util';
+import {
+  BACHS_INTL_BANK_SOURCE_CURRENCY,
+  isBachsIntlBankCurrency,
+  mapBachsCryptoDestinationCurrency,
+  parseBachsUkIban,
+} from '../config/bachs-payout.util';
 import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
 import { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';
 import type { WebhookResult } from '../interfaces/webhook-result.interface';
-import { BachsApiError, BachsApiService } from '../services/bachs-api.service';
+import {
+  BachsApiError,
+  BachsApiService,
+  type BachsBankAddress,
+  type BachsPayoutDestinationInput,
+} from '../services/bachs-api.service';
 import { BasePaymentProvider } from './base-payment.provider';
 import { PaymentProviderError } from './payment-provider.interface';
 import { runConcurrentCreatePayments } from './run-concurrent-create-payments';
@@ -31,18 +42,44 @@ const NON_RETRYABLE_ERROR_CODES = new Set([
 const DESTINATION_CACHE_TTL_MS = 10 * 60 * 1000;
 const BACHS_PAYOUT_CONCURRENCY = 5;
 
-type BachsDestinationInput = {
-  currency: string;
-  accountNumber?: string;
-  bankCode?: string;
-  walletAddress?: string;
-  network?: string;
-};
-
 /** Uppercase a currency value from payout metadata, or undefined when absent/blank. */
 function readMetadataCurrency(value: unknown): string | undefined {
   if (typeof value !== 'string' || !value.trim()) return undefined;
   return value.trim().toUpperCase();
+}
+
+function readUsdScheme(data: CreatePaymentData): 'ach' | 'wire' | 'rtp' {
+  const raw =
+    (typeof data.metadata?.bachsPayoutScheme === 'string'
+      ? data.metadata.bachsPayoutScheme
+      : data.paymentRail) ?? 'ach';
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'wire' || normalized === 'rtp' || normalized === 'ach') return normalized;
+  return 'ach';
+}
+
+function readBankAddress(metadata?: Record<string, unknown>): BachsBankAddress | undefined {
+  const raw = metadata?.bachsBankAddress ?? metadata?.noahHolderAddress;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const addr = raw as Record<string, unknown>;
+  const line1 = typeof addr.line1 === 'string' ? addr.line1.trim() : '';
+  const city = typeof addr.city === 'string' ? addr.city.trim() : '';
+  const state = typeof addr.state === 'string' ? addr.state.trim() : '';
+  const postalCode =
+    typeof addr.postalCode === 'string'
+      ? addr.postalCode.trim()
+      : typeof addr.postal_code === 'string'
+        ? addr.postal_code.trim()
+        : '';
+  const countryRaw =
+    typeof addr.country === 'string'
+      ? addr.country
+      : typeof addr.countryCode === 'string'
+        ? addr.countryCode
+        : '';
+  const country = countryRaw.trim().toUpperCase();
+  if (!line1 || !city || !state || !postalCode || !country) return undefined;
+  return { line1, city, state, postalCode, country };
 }
 
 @Injectable()
@@ -60,7 +97,7 @@ export class BachsProvider extends BasePaymentProvider {
   }
 
   protected initializeCurrencyConfigs(): void {
-    for (const code of ['NGN', 'USD', 'USDT']) {
+    for (const code of ['NGN', 'USD', 'EUR', 'GBP', 'USDT']) {
       this.currencyConfigs.set(code, {
         code,
         name: code,
@@ -91,16 +128,28 @@ export class BachsProvider extends BasePaymentProvider {
       const destinationCurrency = destinationInput.currency;
 
       // Bachs debits a per-currency balance. FX-at-payout items carry the salary-currency
-      // amount; everything else carries the payout-currency amount. Whichever it is, that
-      // currency is the quote's `from_currency` (a pre-converted amount cannot be re-quoted).
+      // amount; everything else carries the payout-currency amount. International bank
+      // routes always debit USD (EUR/GBP need a quote; USD is same-currency).
       const destinationBaseCurrency = destinationCurrency.split('_')[0];
+      const intlBank = isBachsIntlBankCurrency(destinationBaseCurrency);
       const fxAtPayout = data.metadata?.fxAtPayout === true;
       const salaryCurrency = readMetadataCurrency(data.metadata?.salaryCurrency);
       const declaredSource =
         readMetadataCurrency(data.metadata?.bachsSourceCurrency) ?? getBachsPayoutSourceCurrency();
-      const amountCurrency = fxAtPayout && salaryCurrency ? salaryCurrency : destinationCurrency;
+      const amountCurrency =
+        fxAtPayout && salaryCurrency ? salaryCurrency : destinationBaseCurrency;
 
-      if (declaredSource && declaredSource !== amountCurrency) {
+      if (intlBank) {
+        if (declaredSource && declaredSource !== BACHS_INTL_BANK_SOURCE_CURRENCY) {
+          return {
+            success: false,
+            retryable: false,
+            error:
+              `Bachs international bank payouts debit ${BACHS_INTL_BANK_SOURCE_CURRENCY} only; ` +
+              `unset BACHS_PAYOUT_SOURCE_CURRENCY or set it to USD`,
+          };
+        }
+      } else if (declaredSource && declaredSource !== amountCurrency) {
         return {
           success: false,
           retryable: false,
@@ -113,7 +162,37 @@ export class BachsProvider extends BasePaymentProvider {
 
       let amount: string | undefined;
       let quoteId: string | undefined;
-      if (amountCurrency === destinationCurrency || amountCurrency === destinationBaseCurrency) {
+      if (intlBank && destinationBaseCurrency !== 'USD') {
+        // EUR/GBP banks are funded from USD. When the item amount is already USD (FX-at-payout),
+        // quote that source amount; otherwise target the destination salary amount.
+        if (amountCurrency === 'USD') {
+          const quote = await this.bachsApi.createPayoutQuote({
+            fromCurrency: BACHS_INTL_BANK_SOURCE_CURRENCY,
+            toCurrency: destinationBaseCurrency,
+            amount: data.amount.toFixed(2),
+            payoutMethod: 'BANK_TRANSFER',
+          });
+          quoteId = quote.quote_id;
+        } else if (amountCurrency === destinationBaseCurrency) {
+          const quoted = await quoteSourceAmountForDestination({
+            createQuote: (input) => this.bachsApi.createPayoutQuote(input),
+            fromCurrency: BACHS_INTL_BANK_SOURCE_CURRENCY,
+            toCurrency: destinationBaseCurrency,
+            targetToAmount: data.amount,
+            payoutMethod: 'BANK_TRANSFER',
+          });
+          quoteId = quoted.quoteId;
+        } else {
+          return {
+            success: false,
+            retryable: false,
+            error: `Bachs ${destinationBaseCurrency} payouts need an amount in USD or ${destinationBaseCurrency}`,
+          };
+        }
+      } else if (
+        amountCurrency === destinationCurrency ||
+        amountCurrency === destinationBaseCurrency
+      ) {
         // Same currency, or the same asset on another chain (USDT → USDT_TRC20).
         amount = data.amount.toFixed(2);
       } else {
@@ -192,7 +271,7 @@ export class BachsProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['NGN', 'USDT'];
+    return ['NGN', 'USD', 'EUR', 'GBP', 'USDT'];
   }
 
   /** Bachs signatures need the timestamp header; verification happens in BachsWebhookService. */
@@ -219,7 +298,7 @@ export class BachsProvider extends BasePaymentProvider {
   private resolveDestinationInput(
     data: CreatePaymentData,
     currency: string,
-  ): BachsDestinationInput {
+  ): BachsPayoutDestinationInput {
     if (currency === 'NGN') {
       if (!data.accountNumber?.trim() || !data.bankCode?.trim()) {
         throw new PaymentProviderError(
@@ -230,9 +309,14 @@ export class BachsProvider extends BasePaymentProvider {
       }
       return {
         currency: 'NGN',
+        type: 'bank_account',
         accountNumber: data.accountNumber.trim(),
         bankCode: data.bankCode.trim(),
       };
+    }
+
+    if (isBachsIntlBankCurrency(currency)) {
+      return this.resolveIntlBankDestination(data, currency);
     }
 
     if (isCryptoCurrency(currency)) {
@@ -270,23 +354,131 @@ export class BachsProvider extends BasePaymentProvider {
       }
       return {
         currency: destinationCurrency,
+        type: 'crypto_wallet',
         walletAddress,
         network: destinationCurrency.split('_')[1],
       };
     }
 
     throw new PaymentProviderError(
-      `Bachs does not support ${currency} payouts; supported: NGN bank transfer and USDT (TRC20/BEP20)`,
+      `Bachs does not support ${currency} payouts; supported: NGN/USD/EUR/GBP bank and USDT (TRC20/BEP20)`,
       'VALIDATION_ERROR',
       false,
     );
   }
 
-  private async resolveDestinationId(input: BachsDestinationInput): Promise<string> {
+  private resolveIntlBankDestination(
+    data: CreatePaymentData,
+    currency: 'USD' | 'EUR' | 'GBP',
+  ): BachsPayoutDestinationInput {
+    const accountName = data.accountName?.trim();
+    const bankName = (data.bankName ?? data.institutionName)?.trim();
+    if (!accountName || !bankName) {
+      throw new PaymentProviderError(
+        `Account holder name and bank name are required for ${currency} Bachs payouts`,
+        'VALIDATION_ERROR',
+        false,
+      );
+    }
+
+    const institution = (data.institutionCode ?? data.bankCode ?? '').trim();
+    const accountRaw = (data.accountNumber ?? '').trim();
+    if (!accountRaw) {
+      throw new PaymentProviderError(
+        `Bank account details are required for ${currency} Bachs payouts`,
+        'VALIDATION_ERROR',
+        false,
+      );
+    }
+
+    const base: BachsPayoutDestinationInput = {
+      currency,
+      type: 'bank_account',
+      name: `${accountName} ${currency}`,
+      accountName,
+      bankName,
+    };
+
+    if (currency === 'USD') {
+      const routingNumber = institution.replace(/\D/g, '');
+      const accountNumber = accountRaw.replace(/\D/g, '');
+      const bankAddress = readBankAddress(data.metadata);
+      if (!/^\d{9}$/.test(routingNumber) || !accountNumber || !bankAddress) {
+        throw new PaymentProviderError(
+          'USD Bachs payouts need a 9-digit routing number, account number, and US bank address',
+          'VALIDATION_ERROR',
+          false,
+        );
+      }
+      if (bankAddress.country !== 'US') {
+        throw new PaymentProviderError(
+          'USD Bachs bank address country must be US',
+          'VALIDATION_ERROR',
+          false,
+        );
+      }
+      return {
+        ...base,
+        scheme: readUsdScheme(data),
+        routingNumber,
+        accountNumber,
+        bankCode: routingNumber,
+        bankAddress,
+      };
+    }
+
+    if (currency === 'GBP') {
+      const ukIban = parseBachsUkIban(accountRaw);
+      const sortCode = (institution.replace(/\D/g, '') || ukIban?.sortCode || '').trim();
+      const accountNumber = ukIban?.accountNumber ?? accountRaw.replace(/\D/g, '');
+      if (!/^\d{6}$/.test(sortCode) || !/^\d{6,8}$/.test(accountNumber)) {
+        throw new PaymentProviderError(
+          'GBP Bachs payouts need a 6-digit sort code and UK account number (or a GB IBAN)',
+          'VALIDATION_ERROR',
+          false,
+        );
+      }
+      return {
+        ...base,
+        sortCode,
+        accountNumber,
+        bankCode: sortCode,
+        ...(ukIban ? { iban: ukIban.iban } : {}),
+      };
+    }
+
+    // EUR — SEPA
+    const iban = accountRaw.replace(/\s/g, '').toUpperCase();
+    const swiftBic = institution.replace(/\s/g, '').toUpperCase();
+    if (iban.length < 15 || iban.length > 34 || !/^[A-Z]{2}\d{2}[A-Z0-9]+$/.test(iban)) {
+      throw new PaymentProviderError(
+        'EUR Bachs payouts need a valid IBAN',
+        'VALIDATION_ERROR',
+        false,
+      );
+    }
+    if (swiftBic.length !== 8 && swiftBic.length !== 11) {
+      throw new PaymentProviderError(
+        'EUR Bachs payouts need an 8 or 11 character BIC / SWIFT',
+        'VALIDATION_ERROR',
+        false,
+      );
+    }
+    return {
+      ...base,
+      iban,
+      swiftBic,
+      accountNumber: iban,
+      bankCode: swiftBic,
+    };
+  }
+
+  private async resolveDestinationId(input: BachsPayoutDestinationInput): Promise<string> {
     const cacheKey = [
       input.currency,
+      input.scheme ?? '',
+      input.routingNumber ?? input.sortCode ?? input.iban ?? input.bankCode ?? '',
       input.accountNumber ?? '',
-      input.bankCode ?? '',
       input.walletAddress ?? '',
     ].join('|');
     const cached = this.destinationCache.get(cacheKey);

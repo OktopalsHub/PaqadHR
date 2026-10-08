@@ -17,7 +17,11 @@
     "test": "turbo test",
     "deploy": "pnpm --filter web deploy",
     "cf-deploy": "pnpm --filter web cf-deploy",
-    "cf-typegen": "pnpm --filter web cf-typegen"
+    "cf-typegen": "pnpm --filter web cf-typegen",
+    "db:up": "docker compose up -d db",
+    "db:status": "docker compose ps",
+    "db:logs": "docker compose logs -f db",
+    "db:down": "docker compose down"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",

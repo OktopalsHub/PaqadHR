@@ -42,3 +42,18 @@ test('production CSP without nonce omits unsafe-inline from script-src', () => {
   const scriptSrc = csp.split('; ').find((part) => part.startsWith('script-src')) ?? '';
   assert.equal(scriptSrc.includes("'unsafe-inline'"), false);
 });
+
+test('CSP allows Bachs overlay script and iframe origins', () => {
+  const csp = buildContentSecurityPolicyFromSources({
+    apiOrigin: 'https://api.paqadhr.com',
+    brandOrigin: 'https://paqadhr.com',
+    isDevelopment: false,
+    scriptNonce: 'n1',
+  });
+
+  const scriptSrc = csp.split('; ').find((part) => part.startsWith('script-src')) ?? '';
+  const frameSrc = csp.split('; ').find((part) => part.startsWith('frame-src')) ?? '';
+  assert.equal(scriptSrc.includes('https://checkout.bachs.io'), true);
+  assert.equal(frameSrc.includes('https://checkout.bachs.io'), true);
+  assert.equal(frameSrc.includes('https://sandbox-checkout.bachs.io'), true);
+});

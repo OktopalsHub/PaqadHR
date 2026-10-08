@@ -66,8 +66,11 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
       ? successUrl.replace('billing=success', 'billing=cancelled')
       : undefined;
 
+    const billingCurrency = planPrice.currency.toUpperCase();
     let result: { checkout_id: string; checkout_url: string; reference?: string };
     try {
+      // Omit billing_currency for USD so org adaptive pricing can show a local chooser.
+      // Pin NGN — Bachs adaptive pricing only converts USD-priced checkouts.
       result = await this.bachsApi.createCheckoutSession({
         productId,
         quantity: seats,
@@ -76,12 +79,13 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
         successUrl,
         cancelUrl,
         reference: orderReference,
-        billingCurrency: planPrice.currency.toUpperCase(),
+        ...(billingCurrency === 'NGN' ? { billingCurrency: 'NGN' } : {}),
         metadata: {
           ...metadata,
           quantity: seats,
           billingType: BillingChargeType.SUBSCRIPTION,
           planSlug,
+          billingCurrency,
         },
       });
     } catch (error) {

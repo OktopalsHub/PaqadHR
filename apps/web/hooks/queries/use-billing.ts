@@ -10,6 +10,7 @@ import {
   startTrial,
   updatePaymentMethod,
 } from '@/lib/api/subscriptions';
+import { openCheckoutUrl } from '@/lib/bachs-checkout';
 import { tenantUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -98,7 +99,7 @@ export function useUpdatePaymentMethod() {
     },
     onSuccess: (result) => {
       if (result.checkoutUrl) {
-        window.location.assign(result.checkoutUrl);
+        void openCheckoutUrl(result.checkoutUrl, { onCompleted: invalidate });
       }
       invalidate();
     },

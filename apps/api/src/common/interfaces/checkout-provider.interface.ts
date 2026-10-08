@@ -8,6 +8,9 @@ export interface CheckoutInput {
   callbackUrl: string;
   customerName: string;
   meta: Record<string, unknown>;
+  /** Bachs: attach to an existing `cust_…` and optionally save the card. */
+  bachsCustomerId?: string;
+  savePaymentMethod?: boolean;
 }
 
 export interface CheckoutResult {

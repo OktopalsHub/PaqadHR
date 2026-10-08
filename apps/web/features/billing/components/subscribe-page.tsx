@@ -21,6 +21,7 @@ import {
   useCreateSubscriptionCheckout,
   useStartTrial,
 } from '@/hooks/queries/use-billing';
+import { openCheckoutUrl } from '@/lib/bachs-checkout';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { formatWorkspaceName } from '@/lib/format-name';
 import {
@@ -146,7 +147,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
         : subscribePageUrl({ billing: true });
       const result = await checkout.mutateAsync({ planSlug, successUrl });
       if (result.checkoutUrl) {
-        window.location.assign(result.checkoutUrl);
+        await openCheckoutUrl(result.checkoutUrl);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start checkout');

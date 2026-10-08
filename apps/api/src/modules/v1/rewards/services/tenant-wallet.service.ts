@@ -286,7 +286,7 @@ export class TenantWalletService {
         tenant.countryCode,
         wallet.currencyCode,
       );
-      if (walletProvider === PaymentProvider.BACHS) {
+      if (walletProvider === PaymentProvider.FINCRA) {
         throw new BadRequestException(WALLET_SAVED_CARD_UNSUPPORTED);
       }
     }

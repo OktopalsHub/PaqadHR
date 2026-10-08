@@ -5,6 +5,7 @@ import {
   getBachsSecretKey,
   getBachsWalletTopupProductId,
 } from 'src/common/config/bachs.config';
+import { scopeBachsCustomerEmail } from 'src/common/config/bachs-customer.util';
 
 export interface BachsProductInput {
   name: string;
@@ -23,6 +24,9 @@ export interface BachsCheckoutInput {
   successUrl: string;
   cancelUrl?: string;
   billingCurrency?: string;
+  /** When set, attaches the checkout to an existing Bachs customer (`cust_…`). */
+  customerId?: string;
+  savePaymentMethod?: boolean;
   reference: string;
   metadata?: Record<string, string | number | boolean | undefined>;
 }
@@ -34,6 +38,14 @@ export interface BachsWalletTopupCheckoutInput {
   customerName: string;
   successUrl: string;
   cancelUrl?: string;
+  /** When set, attaches the checkout to an existing Bachs customer (`cust_…`). */
+  customerId?: string;
+  savePaymentMethod?: boolean;
+  /**
+   * Pin checkout `billing_currency` to the wallet/float currency.
+   * Defaults to true — adaptive local-currency chooser is unsafe for fixed wallet credits.
+   */
+  pinBillingCurrency?: boolean;
   reference: string;
   metadata?: Record<string, string | number | boolean | undefined>;
 }
@@ -50,11 +62,29 @@ export class BachsApiError extends Error {
   }
 }
 
+export interface BachsBankAddress {
+  line1: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
 export interface BachsPayoutDestinationInput {
-  /** Destination currency: 'NGN' for bank accounts, 'USDT_TRC20'/'USDT_BEP20' for wallets. */
+  /** Destination currency: NGN/USD/EUR/GBP bank, or USDT_TRC20/USDT_BEP20 wallets. */
   currency: string;
+  type?: 'bank_account' | 'mobile_money' | 'crypto_wallet';
+  name?: string;
   accountNumber?: string;
   bankCode?: string;
+  accountName?: string;
+  bankName?: string;
+  sortCode?: string;
+  iban?: string;
+  swiftBic?: string;
+  routingNumber?: string;
+  scheme?: 'ach' | 'wire' | 'rtp';
+  bankAddress?: BachsBankAddress;
   walletAddress?: string;
   network?: string;
 }
@@ -101,6 +131,7 @@ export interface BachsPayoutResult {
 @Injectable()
 export class BachsApiService {
   private readonly logger = new Logger(BachsApiService.name);
+  private adaptivePricingEnsured = false;
 
   isConfigured(): boolean {
     return Boolean(getBachsSecretKey());
@@ -137,6 +168,7 @@ export class BachsApiService {
     checkout_url: string;
     reference?: string;
   }> {
+    await this.ensureAdaptivePricingEnabled();
     const metadata = Object.fromEntries(
       Object.entries(input.metadata ?? {}).filter(([, value]) => value != null),
     );
@@ -144,10 +176,12 @@ export class BachsApiService {
     return this.request('/v1/checkout-sessions', {
       method: 'POST',
       body: {
-        customer: {
-          email: input.customerEmail,
-          name: input.customerName,
-        },
+        customer: input.customerId
+          ? { customer_id: input.customerId }
+          : {
+              email: input.customerEmail,
+              name: input.customerName,
+            },
         product_cart: [
           {
             product_id: input.productId,
@@ -155,6 +189,7 @@ export class BachsApiService {
           },
         ],
         ...(input.billingCurrency ? { billing_currency: input.billingCurrency } : {}),
+        ...(input.savePaymentMethod ? { save_payment_method: true } : {}),
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
         reference: input.reference,
@@ -173,17 +208,22 @@ export class BachsApiService {
       throw new Error('bachs_wallet_topup_product_not_configured');
     }
 
+    await this.ensureAdaptivePricingEnabled();
     const metadata = Object.fromEntries(
       Object.entries(input.metadata ?? {}).filter(([, value]) => value != null),
     );
+    // Always pin wallet/float currency so adaptive FX cannot change what we credit.
+    const pinBilling = input.pinBillingCurrency !== false;
 
     return this.request('/v1/checkout-sessions', {
       method: 'POST',
       body: {
-        customer: {
-          email: input.customerEmail,
-          name: input.customerName,
-        },
+        customer: input.customerId
+          ? { customer_id: input.customerId }
+          : {
+              email: input.customerEmail,
+              name: input.customerName,
+            },
         product_cart: [
           {
             product_id: productId,
@@ -191,16 +231,118 @@ export class BachsApiService {
             pricing: {
               price_type: 'fixed',
               amount: input.amount.toFixed(2),
+              currency: input.currency,
             },
           },
         ],
-        billing_currency: input.currency,
+        ...(pinBilling ? { billing_currency: input.currency } : {}),
+        ...(input.savePaymentMethod !== false ? { save_payment_method: true } : {}),
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
         reference: input.reference,
         metadata,
       },
     });
+  }
+
+  /**
+   * Find or create a Bachs customer scoped to one Paqad tenant.
+   * Never reuse a bare billing email across tenants (shared MSP contacts).
+   */
+  async findOrCreateCustomer(input: {
+    email: string;
+    name: string;
+    tenantId: string;
+  }): Promise<{ customer_id: string }> {
+    const email = scopeBachsCustomerEmail(input.email, input.tenantId);
+    try {
+      const listed = await this.request<{
+        items?: Array<{ customer_id?: string; id?: string; email?: string }>;
+      }>(`/v1/customers?limit=5&search=${encodeURIComponent(email)}`);
+      const match = (listed.items ?? []).find(
+        (item) => (item.email ?? '').trim().toLowerCase() === email,
+      );
+      const existingId = match?.customer_id ?? match?.id;
+      if (existingId?.startsWith('cust_')) {
+        return { customer_id: existingId };
+      }
+    } catch {
+      // Fall through to create.
+    }
+
+    const created = await this.request<{ customer_id?: string; id?: string }>('/v1/customers', {
+      method: 'POST',
+      body: {
+        email,
+        name: input.name.trim() || email,
+        metadata: { tenantId: input.tenantId },
+      },
+    });
+    const customerId = created.customer_id ?? created.id;
+    if (!customerId?.startsWith('cust_')) {
+      throw new Error('bachs_customer_create_failed');
+    }
+    return { customer_id: customerId };
+  }
+
+  /**
+   * Off-session charge of a saved card. Status may be `processing` — wait for
+   * `collection.succeeded` / verify before crediting.
+   */
+  async createCharge(input: {
+    customerId: string;
+    amount: number;
+    currency: string;
+    reference: string;
+    description?: string;
+    paymentMethodId?: string;
+    metadata?: Record<string, string | number | boolean | undefined>;
+    idempotencyKey: string;
+  }): Promise<{ payment_id: string; status: string; amount?: string }> {
+    const metadata = Object.fromEntries(
+      Object.entries(input.metadata ?? {}).filter(([, value]) => value != null),
+    );
+    return this.request('/v1/charges', {
+      method: 'POST',
+      body: {
+        customer: input.customerId,
+        amount: input.amount.toFixed(2),
+        currency: input.currency.toUpperCase(),
+        reference: input.reference,
+        ...(input.description ? { description: input.description } : {}),
+        ...(input.paymentMethodId ? { payment_method: input.paymentMethodId } : {}),
+        ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+      },
+      idempotencyKey: input.idempotencyKey,
+    });
+  }
+
+  /**
+   * Org-level adaptive pricing lets USD checkouts show a local-currency chooser.
+   * NGN-priced checkouts stay NGN regardless — Bachs does not convert those at the page.
+   */
+  async ensureAdaptivePricingEnabled(): Promise<void> {
+    if (this.adaptivePricingEnsured) return;
+    try {
+      const settings = await this.request<{ adaptive_pricing?: boolean }>(
+        '/v1/accounts/checkout/settings',
+      );
+      if (settings.adaptive_pricing === true) {
+        this.adaptivePricingEnsured = true;
+        return;
+      }
+      await this.request('/v1/accounts/checkout/settings', {
+        method: 'PUT',
+        body: { adaptive_pricing: true },
+      });
+      this.adaptivePricingEnsured = true;
+    } catch (error) {
+      this.logger.warn(
+        `Could not enable Bachs adaptive_pricing: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   /** Paginated lookup by checkout reference for wallet top-up verification. */
@@ -308,13 +450,31 @@ export class BachsApiService {
     });
   }
 
-  /** Register a payout destination. Bachs resolves the account with the bank in this call. */
+  /** Register a payout destination. Bachs resolves/reviews the account in this call. */
   async createPayoutDestination(
     input: BachsPayoutDestinationInput,
   ): Promise<BachsPayoutDestination> {
     const body: Record<string, unknown> = { currency: input.currency };
+    if (input.type) body.type = input.type;
+    if (input.name) body.name = input.name;
     if (input.accountNumber) body.account_number = input.accountNumber;
     if (input.bankCode) body.bank_code = input.bankCode;
+    if (input.accountName) body.account_name = input.accountName;
+    if (input.bankName) body.bank_name = input.bankName;
+    if (input.sortCode) body.sort_code = input.sortCode;
+    if (input.iban) body.iban = input.iban;
+    if (input.swiftBic) body.swift_bic = input.swiftBic;
+    if (input.routingNumber) body.routing_number = input.routingNumber;
+    if (input.scheme) body.scheme = input.scheme;
+    if (input.bankAddress) {
+      body.bank_address = {
+        line1: input.bankAddress.line1,
+        city: input.bankAddress.city,
+        state: input.bankAddress.state,
+        postal_code: input.bankAddress.postalCode,
+        country: input.bankAddress.country,
+      };
+    }
     if (input.walletAddress) body.wallet_address = input.walletAddress;
     if (input.network) body.network = input.network;
     return this.request<BachsPayoutDestination>('/v1/payouts/destinations', {
@@ -326,19 +486,23 @@ export class BachsApiService {
   /**
    * Quote a cross-currency payout. `amount` is in `fromCurrency` (the balance being
    * debited). Same-currency payouts must NOT be quoted — Bachs rejects that.
+   * International bank routes need `payoutMethod: 'BANK_TRANSFER'`.
    */
   async createPayoutQuote(input: {
     fromCurrency: string;
     toCurrency: string;
     amount: string;
+    payoutMethod?: 'BANK_TRANSFER';
   }): Promise<BachsPayoutQuote> {
+    const body: Record<string, unknown> = {
+      from_currency: input.fromCurrency,
+      to_currency: input.toCurrency,
+      amount: input.amount,
+    };
+    if (input.payoutMethod) body.payout_method = input.payoutMethod;
     return this.request<BachsPayoutQuote>('/v1/payouts/quotes', {
       method: 'POST',
-      body: {
-        from_currency: input.fromCurrency,
-        to_currency: input.toCurrency,
-        amount: input.amount,
-      },
+      body,
     });
   }
 

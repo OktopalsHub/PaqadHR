@@ -87,6 +87,8 @@ export class TenantSubscription extends BaseEntity {
     pendingSeatChargedAt?: string;
     monnifyWalletCardToken?: string;
     monnifyWalletCardEmail?: string;
+    /** Bachs `cust_…` used for saved-card wallet top-ups. */
+    bachsCustomerId?: string;
   } | null;
   @Column({ name: 'billing_history', type: 'jsonb', nullable: true })
   billingHistory: Array<{

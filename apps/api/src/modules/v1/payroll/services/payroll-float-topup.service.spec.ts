@@ -41,6 +41,14 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       getTenantSettings: jest.fn(),
     } as unknown as TenantSettingsService;
 
+    const payrollFeeService = {
+      getPayrollFeePercentage: jest.fn().mockResolvedValue(3),
+    };
+
+    const bachsApi = {
+      createPayoutQuote: jest.fn(),
+    };
+
     const tenantRepository = {
       findOne: jest.fn(),
     } as unknown as Repository<Tenant>;
@@ -51,6 +59,8 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       paymentFactory,
       paymentOrchestrator,
       tenantSettingsService,
+      payrollFeeService as never,
+      bachsApi as never,
       tenantRepository,
     );
 
@@ -249,6 +259,14 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
       }),
     } as unknown as TenantSettingsService;
 
+    const payrollFeeService = {
+      getPayrollFeePercentage: jest.fn().mockResolvedValue(3),
+    };
+
+    const bachsApi = {
+      createPayoutQuote: jest.fn(),
+    };
+
     const tenantRepository = {
       findOne: jest.fn().mockResolvedValue({ id: 'tenant-1', slug: 'acme', name: 'Acme' }),
     } as unknown as Repository<Tenant>;
@@ -259,6 +277,8 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
       paymentFactory,
       paymentOrchestrator,
       tenantSettingsService,
+      payrollFeeService as never,
+      bachsApi as never,
       tenantRepository,
     );
 

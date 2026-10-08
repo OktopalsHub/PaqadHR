@@ -88,14 +88,21 @@ export function validateEnvAtBoot(): void {
 
   const intlPayrollProvider = resolveIntlPayrollProvider();
   const intlRewardsDepositProvider = resolveIntlRewardsDepositProvider();
-  if (intlPayrollProvider !== 'noah' && intlPayrollProvider !== 'fincra') {
-    warnings.push('INTL_PAYROLL_PROVIDER must be noah or fincra');
+  if (
+    intlPayrollProvider !== 'noah' &&
+    intlPayrollProvider !== 'fincra' &&
+    intlPayrollProvider !== 'bachs'
+  ) {
+    warnings.push('INTL_PAYROLL_PROVIDER must be noah, fincra, or bachs');
   }
   if (intlRewardsDepositProvider !== 'noah' && intlRewardsDepositProvider !== 'fincra') {
     warnings.push('INTL_REWARDS_DEPOSIT_PROVIDER must be noah or fincra');
   }
   if (intlPayrollProvider === 'fincra' && !isFincraConfigured()) {
     warnings.push('INTL_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY is not set');
+  }
+  if (intlPayrollProvider === 'bachs' && !process.env.BACHS_SECRET_KEY?.trim()) {
+    warnings.push('INTL_PAYROLL_PROVIDER=bachs but BACHS_SECRET_KEY is not set');
   }
   if (intlRewardsDepositProvider === 'fincra' && !isFincraCheckoutConfigured()) {
     warnings.push(
