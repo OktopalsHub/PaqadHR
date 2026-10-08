@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthOnly, RateLimit, RateLimitPresets } from 'src/common/decorators';
+import { AgentActionAuthGuard } from 'src/common/guards/agent-action-auth.guard';
 import { AgentApiKeyMemberGuard } from 'src/common/guards/agent-api-key-member.guard';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { ExecuteAgentActionDto } from './dto/execute-agent-action.dto';
@@ -24,6 +25,7 @@ export class AgentGatewayController {
   constructor(private readonly agentActionsService: AgentActionsService) {}
 
   @Post('actions')
+  @UseGuards(AgentActionAuthGuard)
   @RateLimit(RateLimitPresets.SENSITIVE)
   @ApiOperation({
     summary: 'Execute a semantic agent action (tenant derived from API key)',

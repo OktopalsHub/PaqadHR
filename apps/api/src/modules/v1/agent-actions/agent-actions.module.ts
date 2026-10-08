@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AgentActionAuthGuard } from 'src/common/guards/agent-action-auth.guard';
 import { AgentApiKeyMemberGuard } from 'src/common/guards/agent-api-key-member.guard';
 import { ManagerAccessModule } from 'src/common/modules/manager-access.module';
 import { ActivitiesModule } from '../activities/activities.module';
@@ -9,6 +10,7 @@ import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import { AgentActionRegistry } from './agents/agent-actions.registry';
 import { AgentActionsController } from './agent-actions.controller';
 import { AgentGatewayController } from './agent-gateway.controller';
 import { AgentActionIdempotency } from './entities/agent-action-idempotency.entity';
@@ -27,7 +29,12 @@ import { AgentActionsService } from './services/agent-actions.service';
     ActivitiesModule,
   ],
   controllers: [AgentActionsController, AgentGatewayController],
-  providers: [AgentActionsService, AgentApiKeyMemberGuard],
-  exports: [AgentActionsService],
+  providers: [
+    AgentActionsService,
+    AgentActionRegistry,
+    AgentActionAuthGuard,
+    AgentApiKeyMemberGuard,
+  ],
+  exports: [AgentActionsService, AgentActionRegistry],
 })
 export class AgentActionsModule {}

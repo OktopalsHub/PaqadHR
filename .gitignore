@@ -8,6 +8,7 @@ node_modules
 !AGENTS.md
 !SECURITY.md
 !PERFORMANCE.md
+!docs/mastra-adoption.md
 !apps/api/README.md
 !apps/web/README.md
 

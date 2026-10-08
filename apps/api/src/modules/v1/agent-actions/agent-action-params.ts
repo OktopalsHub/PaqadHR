@@ -179,7 +179,7 @@ function validatePayrollRunCreate(params: Record<string, unknown>): void {
   }
 }
 
-const VALIDATORS: Record<AgentActionName, (params: Record<string, unknown>) => void> = {
+const VALIDATORS: Partial<Record<AgentActionName, (params: Record<string, unknown>) => void>> = {
   'employees.list': validateEmployeesList,
   'leave.balance': validateLeaveBalance,
   'leave.request': validateLeaveRequest,
@@ -197,7 +197,10 @@ export function validateAgentActionParams(
   params: Record<string, unknown>,
 ): void {
   requireObject(params);
-  VALIDATORS[action](params);
+  const validator = VALIDATORS[action];
+  if (validator) {
+    validator(params);
+  }
 }
 
 function stableStringify(value: unknown): string {

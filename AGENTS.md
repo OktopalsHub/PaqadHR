@@ -7,6 +7,7 @@ All AI agents and tools working in this repository **must** follow these documen
 | [SECURITY.md](./SECURITY.md) | **Mandatory** — OWASP API security mandate, auth/authz, validation, rate limits, logging |
 | [PERFORMANCE.md](./PERFORMANCE.md) | **Mandatory** — query efficiency, column selection, pagination, batching, no premature caching |
 | [docs/agent-api-auth.md](./docs/agent-api-auth.md) | Runtime agent authentication (JWT, API keys, agent gateway) |
+| [docs/mastra-adoption.md](./docs/mastra-adoption.md) | Mastra/LLM-framework decision — **do not adopt**; own a thin loop |
 | [docs/openapi.json](./docs/openapi.json) | Committed OpenAPI spec for API discovery |
 
 ## Workflow
@@ -106,10 +107,10 @@ Use these decorators on controllers/handlers:
 
 ### Add an agent-callable action
 1. Add action name to `packages/contracts/src/agent-actions.ts`
-2. Register handler in `agent-actions.service.ts`
-3. Map required API key scopes
+2. Add a handler in `apps/api/.../agent-actions/agents/register-agent-action-handlers.ts` (and any deps)
+3. Map required API key scopes (`AGENT_ACTION_REQUIRED_SCOPES`); execute routes use `AgentActionAuthGuard`
 4. Add MCP tool in `packages/mcp-server/`
-5. Log via `ActivitiesService` with `actorType` in metadata
+5. Log via `ActivitiesService` with `actorType` in metadata (orchestrator already records success)
 
 ## Local development
 

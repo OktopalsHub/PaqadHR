@@ -15,6 +15,7 @@ import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
+import { AgentActionAuthGuard } from 'src/common/guards/agent-action-auth.guard';
 import { ExecuteAgentActionDto } from './dto/execute-agent-action.dto';
 import { PendingAgentActionListItemDto } from './dto/pending-agent-action-list-item.dto';
 import { RejectAgentActionDto } from './dto/reject-agent-action.dto';
@@ -37,6 +38,7 @@ export class AgentActionsController {
   constructor(private readonly agentActionsService: AgentActionsService) {}
 
   @Post('actions')
+  @UseGuards(AgentActionAuthGuard)
   @RateLimit(RateLimitPresets.SENSITIVE)
   @ApiOperation({ summary: 'Execute a semantic agent action' })
   @ApiHeader({ name: 'Idempotency-Key', required: false })
