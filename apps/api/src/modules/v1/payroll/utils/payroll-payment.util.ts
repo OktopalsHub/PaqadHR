@@ -51,6 +51,41 @@ function readStoredBachsBankAddress(
   return { line1, city, state, postalCode, country };
 }
 
+/**
+ * USD Bachs destinations need a US bank address. Prefer a saved US `bachsBankAddress`;
+ * otherwise use a US employee home address. Non-US saved addresses are ignored so they
+ * cannot override a valid US home address (readiness and payout must agree).
+ */
+export function resolveBachsUsdBankAddress(
+  metadata: Record<string, unknown> | null | undefined,
+  homeAddress?: {
+    street?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  } | null,
+): Record<string, string> | undefined {
+  const stored = readStoredBachsBankAddress(metadata ?? {});
+  if (stored?.country === 'US') return stored;
+  if (
+    homeAddress?.street?.trim() &&
+    homeAddress.city?.trim() &&
+    homeAddress.state?.trim() &&
+    homeAddress.postalCode?.trim() &&
+    homeAddress.country?.trim().toUpperCase() === 'US'
+  ) {
+    return {
+      line1: homeAddress.street.trim(),
+      city: homeAddress.city.trim(),
+      state: homeAddress.state.trim(),
+      postalCode: homeAddress.postalCode.trim(),
+      country: 'US',
+    };
+  }
+  return undefined;
+}
+
 /** Build provider-neutral payout data from a payroll item and its payment method. */
 export function buildPayrollPaymentData(
   item: PayrollItem,
@@ -79,19 +114,7 @@ export function buildPayrollPaymentData(
           countryCode: address.country.toUpperCase(),
         }
       : undefined;
-  // Prefer an explicit US bank address on the payment method; only fall back to the
-  // employee's home address when that address is itself in the US.
-  const storedBankAddress = readStoredBachsBankAddress(meta);
-  const usHomeAsBankAddress =
-    canonicalHolderAddress?.countryCode === 'US'
-      ? {
-          line1: canonicalHolderAddress.line1,
-          city: canonicalHolderAddress.city,
-          state: canonicalHolderAddress.state,
-          postalCode: canonicalHolderAddress.postalCode,
-          country: 'US',
-        }
-      : undefined;
+  const bachsBankAddress = resolveBachsUsdBankAddress(meta, address);
   const retryAttempt =
     typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
   const bachsSourceCurrency = options?.bachsSourceCurrency?.trim().toUpperCase() || undefined;
@@ -131,7 +154,7 @@ export function buildPayrollPaymentData(
       cryptoNetwork: meta.cryptoNetwork,
       noahChannelId: meta.noahChannelId,
       noahHolderAddress: canonicalHolderAddress,
-      bachsBankAddress: storedBankAddress ?? usHomeAsBankAddress,
+      bachsBankAddress,
       bachsDestinationId:
         typeof meta.bachsDestinationId === 'string' ? meta.bachsDestinationId : undefined,
       bachsSourceCurrency,

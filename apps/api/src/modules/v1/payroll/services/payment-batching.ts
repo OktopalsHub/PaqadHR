@@ -1,5 +1,6 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import type { CreatePaymentData } from 'src/common/interfaces/create-payment-data.interface';
 import type { PaymentProviderInterface } from 'src/common/interfaces/payment-provider-interface.interface';
@@ -285,14 +286,17 @@ export class PaymentBatching {
       typeof paymentMethod.metadata?.cryptoNetwork === 'string'
         ? paymentMethod.metadata.cryptoNetwork
         : undefined;
+    const resolvedProvider = resolvePaymentProvider(
+      item.paymentCurrency,
+      paymentMethod.type,
+      cryptoNetwork,
+    );
     const provider = this.paymentProviderFactory.getFiatProvider(
       item.paymentCurrency,
       paymentMethod.type,
       cryptoNetwork,
     );
-    const providerName = paymentProviderLabel(
-      resolvePaymentProvider(item.paymentCurrency, paymentMethod.type, cryptoNetwork),
-    );
+    const providerName = paymentProviderLabel(resolvedProvider);
     const employeeName = item.employee
       ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
       : item.memberId;
@@ -302,7 +306,11 @@ export class PaymentBatching {
       employeeName,
       tenantName,
       payrollRunTitle,
-      { bachsSourceCurrency },
+      {
+        // Only Bachs items consume float-topup funding currency (never stamp NGN onto USD banks).
+        bachsSourceCurrency:
+          resolvedProvider === PaymentProvider.BACHS ? bachsSourceCurrency : undefined,
+      },
     );
 
     return { item, paymentData, paymentMethod, provider, providerName, rail };

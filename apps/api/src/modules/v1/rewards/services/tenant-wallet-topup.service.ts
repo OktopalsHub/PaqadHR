@@ -278,6 +278,8 @@ export class TenantWalletTopupService {
         });
       }
 
+      await this.clearBachsPendingCharge(input.tenantId, input.orderReference);
+
       this.logger.log(
         `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
       );
@@ -428,6 +430,11 @@ export class TenantWalletTopupService {
       bachsCustomerId,
     );
 
+    // Reuse an in-flight Bachs charge so retries don't create a second payment.
+    const pendingBachsRef = metrics?.bachsPendingWalletChargeRef?.trim();
+    const chargeOrderRef =
+      provider === PaymentProvider.BACHS && pendingBachsRef ? pendingBachsRef : reference;
+
     let chargeReference: string;
     try {
       chargeReference = await this.savedCardCharge.executeCharge(
@@ -436,7 +443,7 @@ export class TenantWalletTopupService {
         amount,
         currency,
         customerEmail,
-        reference,
+        chargeOrderRef,
         description,
         initiatingMemberId,
         tokenKey,
@@ -445,10 +452,14 @@ export class TenantWalletTopupService {
       );
     } catch (error) {
       if (error instanceof SavedCardChargePendingError) {
+        await this.persistBachsPendingCharge(tenantId, error.reference);
         this.logger.log(
           `Bachs charge ${error.reference} still processing for tenant ${tenantId}; webhook will credit`,
         );
         return wallet;
+      }
+      if (provider === PaymentProvider.BACHS && pendingBachsRef) {
+        await this.clearBachsPendingCharge(tenantId, pendingBachsRef);
       }
       const reason = error instanceof Error ? error.message : String(error);
       this.notifyWalletChargeFailed(tenantId, amount, currency, reason);
@@ -458,15 +469,19 @@ export class TenantWalletTopupService {
     }
 
     try {
-      return await this.walletService.credit(
+      const credited = await this.walletService.credit(
         tenantId,
         amount,
         'DEPOSIT',
-        reference,
+        chargeOrderRef,
         description,
         manager,
         { providerEventId: chargeReference, actorMemberId: initiatingMemberId },
       );
+      if (provider === PaymentProvider.BACHS) {
+        await this.clearBachsPendingCharge(tenantId, chargeOrderRef);
+      }
+      return credited;
     } catch (error) {
       this.logger.error(
         `CRITICAL: Payment charged (${chargeReference}) but wallet credit failed for tenant ${tenantId}: ${error instanceof Error ? error.message : error}`,
@@ -474,6 +489,29 @@ export class TenantWalletTopupService {
       );
       throw new BadRequestException(WALLET_CREDIT_FAILED);
     }
+  }
+
+  private async persistBachsPendingCharge(tenantId: string, reference: string): Promise<void> {
+    const sub = await this.subscriptionRepository.findOne({ where: { tenantId } });
+    if (!sub) return;
+    if (sub.usageMetrics?.bachsPendingWalletChargeRef === reference) return;
+    sub.usageMetrics = {
+      ...(sub.usageMetrics ?? {}),
+      bachsPendingWalletChargeRef: reference,
+    };
+    await this.subscriptionRepository.save(sub);
+  }
+
+  private async clearBachsPendingCharge(tenantId: string, reference?: string): Promise<void> {
+    const sub = await this.subscriptionRepository.findOne({ where: { tenantId } });
+    const pending = sub?.usageMetrics?.bachsPendingWalletChargeRef?.trim();
+    if (!sub || !pending) return;
+    if (reference && pending !== reference) return;
+    sub.usageMetrics = {
+      ...(sub.usageMetrics ?? {}),
+      bachsPendingWalletChargeRef: undefined,
+    };
+    await this.subscriptionRepository.save(sub);
   }
 
   private async resolveBillingEmail(tenantId: string): Promise<string | null> {

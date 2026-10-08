@@ -140,14 +140,20 @@ export class BachsProvider extends BasePaymentProvider {
       const amountCurrency =
         fxAtPayout && salaryCurrency ? salaryCurrency : destinationBaseCurrency;
 
-      if (intlBank && declaredSource && declaredSource !== BACHS_INTL_BANK_SOURCE_CURRENCY) {
-        return {
-          success: false,
-          retryable: false,
-          error:
-            `Bachs international bank payouts debit ${BACHS_INTL_BANK_SOURCE_CURRENCY} only; ` +
-            `unset BACHS_PAYOUT_SOURCE_CURRENCY or set it to USD`,
-        };
+      // Intl bank routes always debit USD. A mixed-provider float top-up may stamp an
+      // NGN fundingCurrency onto metadata — ignore that for USD/EUR/GBP destinations.
+      // Only the global env override can misconfigure the intl source.
+      if (intlBank) {
+        const envSource = getBachsPayoutSourceCurrency();
+        if (envSource && envSource !== BACHS_INTL_BANK_SOURCE_CURRENCY) {
+          return {
+            success: false,
+            retryable: false,
+            error:
+              `Bachs international bank payouts debit ${BACHS_INTL_BANK_SOURCE_CURRENCY} only; ` +
+              `unset BACHS_PAYOUT_SOURCE_CURRENCY or set it to USD`,
+          };
+        }
       }
 
       const sourceCurrency = intlBank

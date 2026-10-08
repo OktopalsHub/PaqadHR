@@ -267,6 +267,35 @@ describe('BachsProvider', () => {
     expect(bachsApi.createPayout).not.toHaveBeenCalled();
   });
 
+  it('ignores a mismatched NGN funding currency for USD bank payouts', async () => {
+    const result = await provider.createPayment({
+      amount: 500,
+      currency: 'USD',
+      description: 'Payroll',
+      accountNumber: '3010001234567',
+      accountName: 'Ada Okafor',
+      bankName: 'Bank of America',
+      bankCode: '026009593',
+      merchantTxRef: 'pi_usd_ngn_meta',
+      metadata: {
+        payrollItemId: 'item-usd',
+        bachsSourceCurrency: 'NGN',
+        bachsBankAddress: {
+          line1: '100 North Tryon Street',
+          city: 'Charlotte',
+          state: 'NC',
+          postalCode: '28255',
+          country: 'US',
+        },
+      },
+    } as never);
+
+    expect(result.success).toBe(true);
+    expect(bachsApi.createPayout).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: '500.00', quoteId: undefined }),
+    );
+  });
+
   it('quotes a cross-currency USD→NGN payout from the salary amount', async () => {
     process.env.BACHS_PAYOUT_SOURCE_CURRENCY = 'USD';
     const result = await provider.createPayment({

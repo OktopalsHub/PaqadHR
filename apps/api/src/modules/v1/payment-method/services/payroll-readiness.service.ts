@@ -12,52 +12,12 @@ import type {
 import { EncryptionService } from 'src/common/services/encryption.service';
 import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provider.util';
 import { In, Not, Repository } from 'typeorm';
+import { resolveBachsUsdBankAddress } from '../../payroll/utils/payroll-payment.util';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { PaymentMethod } from '../entities/payment-method.entity';
 import { requiresGlobalInstitutionCode } from '../utils/global-bank-validation.util';
 import { PaymentSecurityService } from './payment-security.service';
-
-function hasUsBachsBankAddress(metadata: Record<string, unknown> | null | undefined): boolean {
-  const raw = metadata?.bachsBankAddress;
-  if (!raw || typeof raw !== 'object') return false;
-  const addr = raw as Record<string, unknown>;
-  const line1 = typeof addr.line1 === 'string' ? addr.line1.trim() : '';
-  const city = typeof addr.city === 'string' ? addr.city.trim() : '';
-  const state = typeof addr.state === 'string' ? addr.state.trim() : '';
-  const postalCode =
-    typeof addr.postalCode === 'string'
-      ? addr.postalCode.trim()
-      : typeof addr.postal_code === 'string'
-        ? addr.postal_code.trim()
-        : '';
-  const countryRaw =
-    typeof addr.country === 'string'
-      ? addr.country
-      : typeof addr.countryCode === 'string'
-        ? addr.countryCode
-        : '';
-  return Boolean(line1 && city && state && postalCode && countryRaw.trim().toUpperCase() === 'US');
-}
-
-function hasUsHomeAddress(
-  address: {
-    street?: string | null;
-    city?: string | null;
-    state?: string | null;
-    postalCode?: string | null;
-    country?: string | null;
-  } | null,
-): boolean {
-  if (!address) return false;
-  return Boolean(
-    address.street?.trim() &&
-      address.city?.trim() &&
-      address.state?.trim() &&
-      address.postalCode?.trim() &&
-      address.country?.trim().toUpperCase() === 'US',
-  );
-}
 
 @Injectable()
 export class PayrollReadinessService {
@@ -150,7 +110,24 @@ export class PayrollReadinessService {
     if (needsMemberRows && memberIds.length > 0) {
       const tm = await this.tenantMemberRepo.find({
         where: { id: In(memberIds), tenantId },
-        relations: usdOnBachs ? ['address'] : [],
+        ...(usdOnBachs
+          ? {
+              relations: ['address'],
+              select: {
+                id: true,
+                identityBvn: true,
+                identityNin: true,
+                address: {
+                  id: true,
+                  street: true,
+                  city: true,
+                  state: true,
+                  postalCode: true,
+                  country: true,
+                },
+              },
+            }
+          : { select: ['id', 'identityBvn', 'identityNin'] as const }),
       });
       members = tm.map((m) => ({
         id: m.id,
@@ -215,10 +192,7 @@ export class PayrollReadinessService {
           resolvePaymentProvider('USD', PaymentMethodType.BANK) === PaymentProvider.BACHS
         ) {
           const member = memberMap.get(memberId);
-          if (
-            !hasUsBachsBankAddress(method.metadata) &&
-            !hasUsHomeAddress(member?.address ?? null)
-          ) {
+          if (!resolveBachsUsdBankAddress(method.metadata, member?.address ?? null)) {
             issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
           }
         }
