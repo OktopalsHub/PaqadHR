@@ -204,29 +204,44 @@ export class SlackWebhookService {
       };
     }
 
-    const requestMatch = trimmed.match(/^request\s+(\S+)\s+(\S+)(?:\s+(.+))?$/i);
+    const requestMatch = trimmed.match(/^request\s+(\S+)\s+(\S+)\s+(\S+)(?:\s+(.+))?$/i);
     if (!requestMatch) {
       return {
         response_type: 'ephemeral',
-        text: 'Usage: `/leaves balance` or `/leaves request YYYY-MM-DD YYYY-MM-DD [reason]`',
+        text: 'Usage: `/leaves balance` or `/leaves request <leaveType> YYYY-MM-DD YYYY-MM-DD [reason]`',
       };
     }
 
-    const [, startDate, endDate, reason] = requestMatch;
+    const [, leaveTypeName, startDate, endDate, reason] = requestMatch;
     const balances = await this.leaveService.getLeaveBalanceForMember(
       context.tenantId,
       context.member.id,
     );
-    const firstBalance = balances?.[0];
-    if (!firstBalance?.leaveTypeId) {
+    const needle = leaveTypeName.toLowerCase();
+    const matches = (balances ?? []).filter(
+      (balance) => balance.leaveType?.name?.toLowerCase() === needle,
+    );
+    if (matches.length === 0) {
+      const available = (balances ?? [])
+        .map((balance) => balance.leaveType?.name)
+        .filter(Boolean)
+        .join(', ');
       return {
         response_type: 'ephemeral',
-        text: 'No leave type configured for your account. Contact HR.',
+        text: available
+          ? `Unknown leave type "${leaveTypeName}". Available: ${available}`
+          : 'No leave type configured for your account. Contact HR.',
+      };
+    }
+    if (matches.length > 1) {
+      return {
+        response_type: 'ephemeral',
+        text: `Leave type "${leaveTypeName}" is ambiguous. Contact HR.`,
       };
     }
 
     const leave = await this.leaveService.createLeave(context.tenantId, context.member.id, {
-      leaveTypeId: firstBalance.leaveTypeId,
+      leaveTypeId: matches[0].leaveTypeId,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       reason: reason?.trim(),

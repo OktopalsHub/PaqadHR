@@ -188,7 +188,8 @@ export function AgentApprovalsSection() {
             <Input
               id="reject-reason"
               value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
+              onChange={(e) => setRejectReason(e.target.value.slice(0, 500))}
+              maxLength={500}
               placeholder="Not authorized for this payroll period"
             />
           </div>

@@ -28,7 +28,7 @@ export class LeaveAuthorizationService {
       throw new BadRequestException('Leave request is not pending');
     }
     if (leave.requester?.id === member.id) {
-      throw new ForbiddenException('You cannot approve your own leave request');
+      throw new ForbiddenException('You cannot approve or reject your own leave request');
     }
     if (leave.requester?.id) {
       await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);

@@ -24,6 +24,7 @@ import {
   useSlackChannels,
 } from '@/hooks/queries/use-integrations';
 import { useTenant } from '@/providers/tenant-provider';
+import { getApiOrigin } from '@/lib/api/client';
 import { SlackChannelPickerInline } from './slack-channel-picker-inline';
 import { SlackUserSyncSection } from './slack-user-sync-section';
 
@@ -182,7 +183,10 @@ export function SlackIntegrationSection() {
           <p className="mb-2 font-medium text-foreground">Slack slash commands</p>
           <p className="mb-2">
             Register these in your Slack app (Request URL:{' '}
-            <code className="text-xs">/api/v1/webhooks/slack/slash-commands</code>):
+            <code className="text-xs break-all">
+              {getApiOrigin()}/api/v1/webhooks/slack/slash-commands
+            </code>
+            ):
           </p>
           <ul className="list-inside list-disc space-y-1">
             <li>

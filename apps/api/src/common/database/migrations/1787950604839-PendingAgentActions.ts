@@ -23,6 +23,7 @@ export class PendingAgentActions1787950604839 implements MigrationInterface {
         CONSTRAINT "PK_pending_agent_actions" PRIMARY KEY ("id"),
         CONSTRAINT "FK_pending_agent_actions_tenant" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_pending_agent_actions_member" FOREIGN KEY ("requested_by_member_id") REFERENCES "tenant_members"("id") ON DELETE SET NULL,
+        CONSTRAINT "FK_pending_agent_actions_approved_by_member" FOREIGN KEY ("approved_by_member_id") REFERENCES "tenant_members"("id") ON DELETE SET NULL,
         CONSTRAINT "FK_pending_agent_actions_api_key" FOREIGN KEY ("api_key_id") REFERENCES "api_keys"("id") ON DELETE SET NULL
       )
     `);

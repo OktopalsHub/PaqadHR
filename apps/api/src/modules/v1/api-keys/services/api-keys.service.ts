@@ -63,6 +63,9 @@ export class ApiKeysService {
     scopes: string[],
     expiresAt?: Date | null,
   ): Promise<CreateApiKeyResult> {
+    if (expiresAt && expiresAt.getTime() <= Date.now()) {
+      throw new BadRequestException('expiresAt must be in the future');
+    }
     const normalizedScopes = this.normalizeScopes(scopes);
     const rawSecret = `${API_KEY_PREFIX}${randomBytes(24).toString('base64url')}`;
     const keyPrefix = rawSecret.slice(0, 12);

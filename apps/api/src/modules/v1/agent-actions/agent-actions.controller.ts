@@ -40,7 +40,11 @@ export class AgentActionsController {
   @Post('actions')
   @UseGuards(AgentActionAuthGuard)
   @RateLimit(RateLimitPresets.SENSITIVE)
-  @ApiOperation({ summary: 'Execute a semantic agent action' })
+  @ApiOperation({
+    summary: 'Execute a semantic agent action (API key required)',
+    description:
+      'Legacy tenant-scoped execute route. Requires a tenant API key (`paq_...`), not a user JWT. Prefer `POST /agent/actions` (version-neutral gateway).',
+  })
   @ApiHeader({ name: 'Idempotency-Key', required: false })
   executeAction(
     @Param('tenantId') tenantId: string,

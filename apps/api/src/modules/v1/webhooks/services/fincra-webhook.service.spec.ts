@@ -4,6 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { FincraWebhookService } from './fincra-webhook.service';
@@ -33,6 +34,7 @@ describe('FincraWebhookService', () => {
 
     service = new FincraWebhookService(
       walletTopupService as unknown as TenantWalletTopupService,
+      {} as PayrollFloatTopupService,
       payrollPayoutService as unknown as PayrollPayoutService,
     );
     (verifyFincraWebhookSignature as jest.Mock).mockReturnValue(true);

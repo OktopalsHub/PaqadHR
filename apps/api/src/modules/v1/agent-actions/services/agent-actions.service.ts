@@ -107,29 +107,131 @@ export class AgentActionsService {
 
     await this.assertFeatureAccess(context.tenantId, action);
 
-    if (idempotencyKey) {
-      const cached = await this.idempotencyRepository.findOne({
+    const reservation = await this.reserveIdempotencyKey(
+      tenantId,
+      action,
+      paramsHash,
+      idempotencyKey,
+      context.correlationId,
+    );
+    if (reservation.kind === 'cached') {
+      return reservation.response;
+    }
+
+    try {
+      if ((HIGH_RISK_AGENT_ACTIONS as readonly string[]).includes(action)) {
+        const queued = await this.queueForApproval(
+          tenantId,
+          action,
+          dto.params,
+          context,
+          paramsHash,
+        );
+        await this.finalizeIdempotency(tenantId, action, context, queued, paramsHash);
+        return queued;
+      }
+
+      const result = await this.dispatch(action, tenantId, dto.params, context);
+      await this.recordSuccess(tenantId, action, context, result, undefined, paramsHash);
+      return { ...result, correlationId: context.correlationId };
+    } catch (error: unknown) {
+      if (reservation.kind === 'owner' && idempotencyKey) {
+        await this.idempotencyRepository.delete({ tenantId, idempotencyKey });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Atomically claim an Idempotency-Key before side effects. Concurrent callers
+   * either become the owner or receive the cached/in-flight outcome.
+   */
+  private async reserveIdempotencyKey(
+    tenantId: string,
+    action: AgentActionName,
+    paramsHash: string,
+    idempotencyKey: string | undefined,
+    correlationId?: string,
+  ): Promise<
+    | { kind: 'none' }
+    | { kind: 'owner' }
+    | { kind: 'cached'; response: Record<string, unknown> }
+  > {
+    if (!idempotencyKey) {
+      return { kind: 'none' };
+    }
+
+    const cached = await this.idempotencyRepository.findOne({
+      where: { tenantId, idempotencyKey },
+    });
+    if (cached) {
+      return this.resolveCachedIdempotency(cached, action, paramsHash, correlationId);
+    }
+
+    try {
+      await this.idempotencyRepository.insert({
+        tenantId,
+        idempotencyKey,
+        action,
+        paramsHash,
+        response: { status: 'processing' },
+      });
+      return { kind: 'owner' };
+    } catch (error: unknown) {
+      if (!(error && typeof error === 'object' && 'code' in error && error.code === '23505')) {
+        throw error;
+      }
+      const raced = await this.idempotencyRepository.findOne({
         where: { tenantId, idempotencyKey },
       });
-
-      if (cached) {
-        if (cached.action !== action || cached.paramsHash !== paramsHash) {
-          throw new ConflictException({
-            message: 'Idempotency key reused with a different action or payload',
-            code: 'IDEMPOTENCY_CONFLICT',
-          });
-        }
-        return { ...cached.response, correlationId: context.correlationId, cached: true };
+      if (!raced) {
+        throw error;
       }
+      return this.resolveCachedIdempotency(raced, action, paramsHash, correlationId);
     }
+  }
 
-    if ((HIGH_RISK_AGENT_ACTIONS as readonly string[]).includes(action)) {
-      return this.queueForApproval(tenantId, action, dto.params, context, paramsHash);
+  private resolveCachedIdempotency(
+    cached: AgentActionIdempotency,
+    action: AgentActionName,
+    paramsHash: string,
+    correlationId?: string,
+  ): { kind: 'cached'; response: Record<string, unknown> } {
+    if (cached.action !== action || cached.paramsHash !== paramsHash) {
+      throw new ConflictException({
+        message: 'Idempotency key reused with a different action or payload',
+        code: 'IDEMPOTENCY_CONFLICT',
+      });
     }
+    if (cached.response?.status === 'processing') {
+      throw new ConflictException({
+        message: 'A request with this Idempotency-Key is already in progress',
+        code: 'IDEMPOTENCY_IN_PROGRESS',
+      });
+    }
+    return {
+      kind: 'cached',
+      response: { ...cached.response, correlationId, cached: true },
+    };
+  }
 
-    const result = await this.dispatch(action, tenantId, dto.params, context);
-    await this.recordSuccess(tenantId, action, context, result, undefined, paramsHash);
-    return { ...result, correlationId: context.correlationId };
+  private async finalizeIdempotency(
+    tenantId: string,
+    action: AgentActionName,
+    context: AgentActionContext,
+    result: Record<string, unknown>,
+    paramsHash?: string,
+  ): Promise<void> {
+    if (!context.idempotencyKey) {
+      return;
+    }
+    if (!paramsHash) {
+      throw new BadRequestException('paramsHash required when Idempotency-Key is set');
+    }
+    await this.idempotencyRepository.update(
+      { tenantId, idempotencyKey: context.idempotencyKey },
+      { action, paramsHash, response: result as never },
+    );
   }
 
   async listPendingApprovals(tenantId: string): Promise<PendingAgentActionListItemDto[]> {
@@ -402,36 +504,7 @@ export class AgentActionsService {
     actorMemberId?: string,
     paramsHash?: string,
   ): Promise<void> {
-    if (context.idempotencyKey) {
-      if (!paramsHash) {
-        throw new BadRequestException('paramsHash required when Idempotency-Key is set');
-      }
-
-      try {
-        await this.idempotencyRepository.save({
-          tenantId,
-          idempotencyKey: context.idempotencyKey,
-          action,
-          paramsHash,
-          response: result,
-        });
-      } catch (error: unknown) {
-        if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
-          const cached = await this.idempotencyRepository.findOne({
-            where: { tenantId, idempotencyKey: context.idempotencyKey },
-          });
-
-          if (cached && (cached.action !== action || cached.paramsHash !== paramsHash)) {
-            throw new ConflictException({
-              message: 'Idempotency key reused with a different action or payload',
-              code: 'IDEMPOTENCY_CONFLICT',
-            });
-          }
-        } else {
-          throw error;
-        }
-      }
-    }
+    await this.finalizeIdempotency(tenantId, action, context, result, paramsHash);
 
     const sanitizedResult = { ...result };
     delete sanitizedResult.correlationId;

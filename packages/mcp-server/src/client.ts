@@ -30,11 +30,25 @@ export async function callAgentAction(
     headers['Idempotency-Key'] = idempotencyKey;
   }
 
-  const response = await fetch(`${apiUrl}/agent/actions`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ action, params }),
-  });
+  const controller = new AbortController();
+  const timeoutMs = 30_000;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}/agent/actions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action, params }),
+      signal: controller.signal,
+    });
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Agent action timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {

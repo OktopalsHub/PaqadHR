@@ -1,4 +1,5 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
@@ -54,7 +55,6 @@ describe('NombaWebhookService', () => {
   let subscriptionBilling: jest.Mocked<Pick<SubscriptionBillingService, 'processNombaPayload'>>;
   let payrollPayout: jest.Mocked<Pick<PayrollPayoutService, 'processNombaPayload'>>;
   let walletTopupService: jest.Mocked<Pick<TenantWalletTopupService, 'completeCheckoutTopup'>>;
-  let payrollFloatTopup: { completeFloatTopup: jest.Mock };
 
   beforeEach(() => {
     subscriptionBilling = { processNombaPayload: jest.fn().mockResolvedValue({ received: true }) };
@@ -62,26 +62,19 @@ describe('NombaWebhookService', () => {
     walletTopupService = {
       completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
     };
-    payrollFloatTopup = {
-      completeFloatTopup: jest.fn().mockResolvedValue({ received: true, paid: true }),
-    };
 
     service = new NombaWebhookService(
       subscriptionBilling as unknown as SubscriptionBillingService,
       payrollPayout as unknown as PayrollPayoutService,
-      payrollFloatTopup as never,
+      {} as PayrollFloatTopupService,
       walletTopupService as unknown as TenantWalletTopupService,
     );
 
     (verifyNombaWebhookSignature as jest.Mock).mockReturnValue(true);
   });
 
-  it('acknowledges unsigned URL validation probes without processing', async () => {
-    await expect(service.dispatch('{}', '')).resolves.toEqual({ received: true });
-    expect(subscriptionBilling.processNombaPayload).not.toHaveBeenCalled();
-    expect(payrollPayout.processNombaPayload).not.toHaveBeenCalled();
-    expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
-    expect(payrollFloatTopup.completeFloatTopup).not.toHaveBeenCalled();
+  it('rejects missing signature', async () => {
+    await expect(service.dispatch('{}', '')).rejects.toThrow(UnauthorizedException);
   });
 
   it('rejects invalid signature', async () => {
