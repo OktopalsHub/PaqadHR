@@ -42,7 +42,10 @@ export function resolveRefreshAndSessionExpiresIn(
   sessionRaw = process.env.SESSION_EXPIRES_IN,
 ): { REFRESH_EXPIRES_IN: string; SESSION_EXPIRES_IN: string } {
   const refresh = resolveJwtDurationString(refreshRaw, '7d');
-  const session = resolveJwtDurationString(sessionRaw, refresh as `${number}${'s' | 'm' | 'h' | 'd'}`);
+  const session = resolveJwtDurationString(
+    sessionRaw,
+    refresh as `${number}${'s' | 'm' | 'h' | 'd'}`,
+  );
   const refreshMs = parseDurationToMs(refresh);
   const sessionMs = parseDurationToMs(session);
   if (refreshMs === null || sessionMs === null) {
