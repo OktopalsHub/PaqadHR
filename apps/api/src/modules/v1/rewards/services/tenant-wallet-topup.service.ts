@@ -8,6 +8,7 @@ import { DEFAULT_WALLET_CURRENCY_FALLBACK } from 'src/common/utils/rewards-defau
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
+import { escapeHtml } from '../../notifications/templates/brand';
 import { BILLING_AMOUNT_TOLERANCE } from '../../subscriptions/constants/billing.constants';
 import { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
@@ -30,7 +31,7 @@ import {
   buildWalletTopupOrderRef,
   resolveWalletTopupProviderFromOrderRef,
 } from '../utils/wallet-order-ref.util';
-import { SavedCardChargeService } from './saved-card-charge.service';
+import { SavedCardChargePendingError, SavedCardChargeService } from './saved-card-charge.service';
 import { TenantWalletService } from './tenant-wallet.service';
 
 type ChargeAudience = 'member' | 'admin';
@@ -320,11 +321,12 @@ export class TenantWalletTopupService {
       return { received: true, matched: false };
     }
 
-    sub.paymentMethodId = paymentMethodId;
-    if (input.cardBrand?.trim()) sub.paymentMethodBrand = input.cardBrand.trim();
-    if (input.cardLastFour?.trim()) {
-      sub.paymentMethodLastFour = input.cardLastFour.trim().slice(-4);
-    }
+    // Wallet cards live in usageMetrics so they never overwrite subscription renewals.
+    sub.usageMetrics = {
+      ...(sub.usageMetrics ?? {}),
+      bachsCustomerId: customerId,
+      bachsPaymentMethodId: paymentMethodId,
+    };
     await this.subscriptionRepository.save(sub);
     return { received: true, matched: true };
   }
@@ -381,12 +383,24 @@ export class TenantWalletTopupService {
     const initiatingMemberId = this.requireInitiatingTenantMemberId(actorMemberId);
     this.assertTopupAmount(amount);
 
+    const wallet = await this.walletService.ensureWallet(tenantId, manager);
+    const currency = (wallet.currencyCode || DEFAULT_WALLET_CURRENCY_FALLBACK).toUpperCase();
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, currency);
+
     const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
     const metrics = subscription?.usageMetrics;
     const monnifyCardToken = metrics?.monnifyWalletCardToken?.trim();
     const monnifyCardEmail = metrics?.monnifyWalletCardEmail?.trim();
     const bachsCustomerId = metrics?.bachsCustomerId?.trim();
-    const tokenKey = (monnifyCardToken || subscription?.paymentMethodId)?.trim();
+    const bachsPaymentMethodId = metrics?.bachsPaymentMethodId?.trim();
+    // Pick only the active wallet provider's card — never prefer a stale Monnify token over Bachs.
+    const tokenKey =
+      provider === PaymentProvider.BACHS
+        ? bachsPaymentMethodId
+        : provider === PaymentProvider.MONNIFY
+          ? monnifyCardToken
+          : subscription?.paymentMethodId?.trim();
     if (!tokenKey) {
       throw new BadRequestException(
         audience === 'admin' ? WALLET_NO_BILLING_CARD : WALLET_UNAVAILABLE_MEMBER,
@@ -406,11 +420,6 @@ export class TenantWalletTopupService {
       );
     }
 
-    const wallet = await this.walletService.ensureWallet(tenantId, manager);
-    const currency = (wallet.currencyCode || DEFAULT_WALLET_CURRENCY_FALLBACK).toUpperCase();
-    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, currency);
-
     this.savedCardCharge.assertProviderAvailable(
       provider,
       monnifyCardToken,
@@ -419,7 +428,7 @@ export class TenantWalletTopupService {
       bachsCustomerId,
     );
 
-    let chargeReference = reference;
+    let chargeReference: string;
     try {
       chargeReference = await this.savedCardCharge.executeCharge(
         provider,
@@ -435,6 +444,12 @@ export class TenantWalletTopupService {
         bachsCustomerId,
       );
     } catch (error) {
+      if (error instanceof SavedCardChargePendingError) {
+        this.logger.log(
+          `Bachs charge ${error.reference} still processing for tenant ${tenantId}; webhook will credit`,
+        );
+        return wallet;
+      }
       const reason = error instanceof Error ? error.message : String(error);
       this.notifyWalletChargeFailed(tenantId, amount, currency, reason);
       throw new BadRequestException(
@@ -573,10 +588,10 @@ export class TenantWalletTopupService {
         `Reason: ${reason}`,
         `Top up via checkout in Rewards settings: ${settingsUrl}`,
       ].join('\n'),
-      html: `<p>A rewards wallet payment failed for <strong>${tenant?.name ?? 'your workspace'}</strong>.</p>
-<p>Amount: <strong>${currency} ${amount.toLocaleString()}</strong></p>
-<p>Reason: ${reason}</p>
-<p><a href="${settingsUrl}">Open Rewards settings</a></p>`,
+      html: `<p>A rewards wallet payment failed for <strong>${escapeHtml(tenant?.name ?? 'your workspace')}</strong>.</p>
+<p>Amount: <strong>${escapeHtml(currency)} ${escapeHtml(amount.toLocaleString())}</strong></p>
+<p>Reason: ${escapeHtml(reason)}</p>
+<p><a href="${escapeHtml(settingsUrl)}">Open Rewards settings</a></p>`,
     });
   }
 }

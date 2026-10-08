@@ -25,6 +25,32 @@ export function resolvePayrollPayoutAmount(item: PayrollItem): number {
   return 0;
 }
 
+function readStoredBachsBankAddress(
+  metadata: Record<string, unknown>,
+): Record<string, string> | undefined {
+  const raw = metadata.bachsBankAddress;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const addr = raw as Record<string, unknown>;
+  const line1 = typeof addr.line1 === 'string' ? addr.line1.trim() : '';
+  const city = typeof addr.city === 'string' ? addr.city.trim() : '';
+  const state = typeof addr.state === 'string' ? addr.state.trim() : '';
+  const postalCode =
+    typeof addr.postalCode === 'string'
+      ? addr.postalCode.trim()
+      : typeof addr.postal_code === 'string'
+        ? addr.postal_code.trim()
+        : '';
+  const countryRaw =
+    typeof addr.country === 'string'
+      ? addr.country
+      : typeof addr.countryCode === 'string'
+        ? addr.countryCode
+        : '';
+  const country = countryRaw.trim().toUpperCase();
+  if (!line1 || !city || !state || !postalCode || !country) return undefined;
+  return { line1, city, state, postalCode, country };
+}
+
 /** Build provider-neutral payout data from a payroll item and its payment method. */
 export function buildPayrollPaymentData(
   item: PayrollItem,
@@ -32,6 +58,7 @@ export function buildPayrollPaymentData(
   employeeName: string,
   tenantName?: string,
   payrollRunTitle?: string,
+  options?: { bachsSourceCurrency?: string },
 ): CreatePaymentData {
   const meta = paymentMethod.metadata ?? {};
   const baseDescription = payrollRunTitle
@@ -52,8 +79,22 @@ export function buildPayrollPaymentData(
           countryCode: address.country.toUpperCase(),
         }
       : undefined;
+  // Prefer an explicit US bank address on the payment method; only fall back to the
+  // employee's home address when that address is itself in the US.
+  const storedBankAddress = readStoredBachsBankAddress(meta);
+  const usHomeAsBankAddress =
+    canonicalHolderAddress?.countryCode === 'US'
+      ? {
+          line1: canonicalHolderAddress.line1,
+          city: canonicalHolderAddress.city,
+          state: canonicalHolderAddress.state,
+          postalCode: canonicalHolderAddress.postalCode,
+          country: 'US',
+        }
+      : undefined;
   const retryAttempt =
     typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
+  const bachsSourceCurrency = options?.bachsSourceCurrency?.trim().toUpperCase() || undefined;
 
   return {
     amount: resolvePayrollPayoutAmount(item),
@@ -90,8 +131,10 @@ export function buildPayrollPaymentData(
       cryptoNetwork: meta.cryptoNetwork,
       noahChannelId: meta.noahChannelId,
       noahHolderAddress: canonicalHolderAddress,
+      bachsBankAddress: storedBankAddress ?? usHomeAsBankAddress,
       bachsDestinationId:
         typeof meta.bachsDestinationId === 'string' ? meta.bachsDestinationId : undefined,
+      bachsSourceCurrency,
       tenantName,
       fxAtPayout,
       salaryCurrency,

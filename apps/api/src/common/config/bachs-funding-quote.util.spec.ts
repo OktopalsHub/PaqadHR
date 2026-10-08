@@ -58,6 +58,36 @@ describe('bachs-funding-quote.util', () => {
       expect(result.sourceAmount).toBe(500);
       expect(createQuote).toHaveBeenCalledTimes(2);
     });
+
+    it('does not send amount NaN when a refinement quote lacks from_amount', async () => {
+      const createQuote = jest
+        .fn()
+        .mockResolvedValueOnce({
+          quote_id: 'pqt_probe',
+          from_amount: '100.00',
+          to_amount: '50.00',
+        })
+        .mockResolvedValueOnce({
+          quote_id: 'pqt_second',
+          // Missing from_amount — must not produce a third call with amount: "NaN".
+          to_amount: '80.00',
+        });
+
+      await expect(
+        quoteSourceAmountForDestination({
+          createQuote,
+          fromCurrency: 'USD',
+          toCurrency: 'GBP',
+          targetToAmount: 100,
+          payoutMethod: 'BANK_TRANSFER',
+        }),
+      ).rejects.toThrow(/missing source amount/i);
+
+      expect(createQuote).toHaveBeenCalledTimes(2);
+      for (const [input] of createQuote.mock.calls) {
+        expect(String((input as { amount: string }).amount)).not.toBe('NaN');
+      }
+    });
   });
 
   describe('sourceAmountForBachsFundingItem', () => {

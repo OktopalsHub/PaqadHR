@@ -23,6 +23,5 @@ services:
 
 volumes:
   paqadhr-dev-data:
-    # Pre-existing dev data (created before compose); external so `down` never deletes it.
-    external: true
+    # Named volume survives `docker compose down` (use `down -v` to wipe).
     name: paqadhr-dev-data

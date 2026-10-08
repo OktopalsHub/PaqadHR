@@ -25,6 +25,14 @@ import { TenantWalletService } from './tenant-wallet.service';
 
 type ChargeAudience = 'member' | 'admin';
 
+/** Charge accepted by Bachs but not yet terminal — webhook will credit the wallet. */
+export class SavedCardChargePendingError extends Error {
+  constructor(readonly reference: string) {
+    super('Bachs saved-card charge is still processing');
+    this.name = 'SavedCardChargePendingError';
+  }
+}
+
 @Injectable()
 export class SavedCardChargeService {
   constructor(
@@ -153,7 +161,7 @@ export class SavedCardChargeService {
       },
     });
 
-    // Off-session charges start as processing — poll until Bachs settles or fails.
+    // Off-session charges start as processing — poll briefly; otherwise leave to webhook.
     for (let attempt = 0; attempt < 8; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       const verified = await this.bachsApi.findPaymentByReference(reference);
@@ -174,7 +182,7 @@ export class SavedCardChargeService {
         return reference;
       }
     }
-    throw new Error('Bachs saved-card charge is still processing — try again shortly');
+    throw new SavedCardChargePendingError(reference);
   }
 
   private async chargeMonnify(

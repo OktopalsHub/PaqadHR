@@ -64,6 +64,8 @@ type FloatTopupMeta = {
   completedAt?: string;
   shortfall?: number;
   provider?: string;
+  /** Balance currency the company funded (drives Bachs payout source quotes). */
+  fundingCurrency?: string;
 };
 
 @Injectable()
@@ -211,6 +213,20 @@ export class PayrollFloatTopupService {
     }
 
     if (preflight.ok) {
+      const run = await this.requireApprovedRun(payrollRunId, tenantId);
+      const existing = this.readFloatTopupMeta(run);
+      run.metadata = {
+        ...run.metadata,
+        floatTopup: {
+          orderReference: existing.orderReference,
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+          shortfall: 0,
+          provider: preflight.provider,
+          fundingCurrency: preflight.currency,
+        } satisfies FloatTopupMeta,
+      };
+      await this.payrollRunRepository.save(run);
       const result = await this.paymentOrchestrator.payNowPayroll(
         payrollRunId,
         tenantId,
@@ -300,6 +316,7 @@ export class PayrollFloatTopupService {
         completedAt: new Date().toISOString(),
         shortfall: 0,
         provider: preflight.provider,
+        fundingCurrency: preflight.currency,
       } satisfies FloatTopupMeta,
     };
     const saved = await this.payrollRunRepository.save(run);
@@ -385,12 +402,10 @@ export class PayrollFloatTopupService {
       );
       return { received: true, paid: false };
     }
-    // Reject wildly inflated provider amounts (wrong-currency / adaptive FX mismatch).
-    if (expected > 0 && paidAmount > expected * 10) {
+    if (expected > 0 && paidAmount > expected + BILLING_AMOUNT_TOLERANCE) {
       this.logger.warn(
-        `Payroll float top-up amount mismatch for ${input.orderReference}: expected ${expected}, got ${paidAmount}`,
+        `Payroll float top-up overpaid for ${input.orderReference}: expected ${expected}, got ${paidAmount}`,
       );
-      return { received: true, paid: false };
     }
 
     const claimed = await this.claimFloatTopupCompleted({
@@ -399,6 +414,7 @@ export class PayrollFloatTopupService {
       orderReference: input.orderReference,
       shortfall: meta.shortfall,
       provider,
+      fundingCurrency: meta.fundingCurrency,
     });
     if (!claimed) {
       return { received: true, paid: true };
@@ -491,6 +507,7 @@ export class PayrollFloatTopupService {
         status: 'pending',
         shortfall: amount,
         provider,
+        fundingCurrency: preflight.currency,
       } satisfies FloatTopupMeta,
     };
     await this.payrollRunRepository.save(run);
@@ -726,6 +743,7 @@ export class PayrollFloatTopupService {
     orderReference: string;
     shortfall?: number;
     provider: string;
+    fundingCurrency?: string;
   }): Promise<PayrollRun | null> {
     return this.payrollRunRepository.manager.transaction(async (manager) => {
       const locked = await manager
@@ -753,6 +771,7 @@ export class PayrollFloatTopupService {
           completedAt: new Date().toISOString(),
           shortfall: input.shortfall ?? meta.shortfall,
           provider: input.provider,
+          fundingCurrency: input.fundingCurrency ?? meta.fundingCurrency,
         } satisfies FloatTopupMeta,
       };
       await manager.save(locked);

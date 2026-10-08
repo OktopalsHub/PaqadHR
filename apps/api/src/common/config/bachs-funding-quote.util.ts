@@ -92,8 +92,15 @@ export async function quoteSourceAmountForDestination(params: {
     payoutMethod,
   });
   const got = Number(quote.to_amount);
-  if (Number.isFinite(got) && got > 0 && Math.abs(got - targetToAmount) / targetToAmount > 0.005) {
-    fromAmount = (targetToAmount * Number(quote.from_amount)) / got;
+  const quotedFrom = Number(quote.from_amount);
+  if (
+    Number.isFinite(got) &&
+    got > 0 &&
+    Number.isFinite(quotedFrom) &&
+    quotedFrom > 0 &&
+    Math.abs(got - targetToAmount) / targetToAmount > 0.005
+  ) {
+    fromAmount = (targetToAmount * quotedFrom) / got;
     quote = await createQuote({
       fromCurrency,
       toCurrency,

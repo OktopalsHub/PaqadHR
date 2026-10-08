@@ -120,11 +120,19 @@ export class PaymentBatching {
       periodStart?: string | Date | null;
       periodEnd?: string | Date | null;
       baseCurrency?: string | null;
+      bachsSourceCurrency?: string | null;
     },
   ): Promise<PaymentResult[]> {
     this.runNotifyContext = runContext ?? null;
     try {
-      return await this.executePayouts(items, auditContext, tenantId, tenantName, payrollRunTitle);
+      return await this.executePayouts(
+        items,
+        auditContext,
+        tenantId,
+        tenantName,
+        payrollRunTitle,
+        runContext?.bachsSourceCurrency ?? undefined,
+      );
     } finally {
       this.runNotifyContext = null;
     }
@@ -136,6 +144,7 @@ export class PaymentBatching {
     tenantId: string,
     tenantName?: string,
     payrollRunTitle?: string,
+    bachsSourceCurrency?: string,
   ): Promise<PaymentResult[]> {
     const results: PaymentResult[] = [];
     const claimedIds = await this.claimItemsForPayout(items.map((item) => item.id));
@@ -160,6 +169,7 @@ export class PaymentBatching {
           tenantName,
           payrollRunTitle,
           rail,
+          bachsSourceCurrency,
         );
         prepared.push(preparedItem);
       } catch (error) {
@@ -239,6 +249,7 @@ export class PaymentBatching {
     tenantName: string | undefined,
     payrollRunTitle: string | undefined,
     rail: 'bank' | 'crypto',
+    bachsSourceCurrency?: string,
   ): Promise<PreparedPayout> {
     const payoutAmount = resolvePayrollPayoutAmount(item);
     if (payoutAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT) {
@@ -291,6 +302,7 @@ export class PaymentBatching {
       employeeName,
       tenantName,
       payrollRunTitle,
+      { bachsSourceCurrency },
     );
 
     return { item, paymentData, paymentMethod, provider, providerName, rail };

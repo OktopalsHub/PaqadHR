@@ -282,6 +282,7 @@ describe('BachsProvider', () => {
       fromCurrency: 'USD',
       toCurrency: 'NGN',
       amount: '300000.00',
+      payoutMethod: 'BANK_TRANSFER',
     });
     expect(bachsApi.createPayout).toHaveBeenCalledWith({
       destination: 'pd_dest1',
@@ -293,14 +294,30 @@ describe('BachsProvider', () => {
     expect(result.success).toBe(true);
   });
 
-  it('fails closed when a foreign source balance cannot fund a pre-converted amount', async () => {
+  it('quotes USD→NGN when funding a pre-converted NGN amount from the USD balance', async () => {
     process.env.BACHS_PAYOUT_SOURCE_CURRENCY = 'USD';
+    bachsApi.createPayoutQuote
+      .mockResolvedValueOnce({
+        quote_id: 'qt_probe',
+        from_amount: '100.00',
+        to_amount: '150000.00',
+      })
+      .mockResolvedValueOnce({
+        quote_id: 'qt_final',
+        from_amount: '200.00',
+        to_amount: '300000.00',
+      });
+
     const result = await provider.createPayment(ngnData as never);
 
-    expect(result.success).toBe(false);
-    expect(result.retryable).toBe(false);
-    expect(bachsApi.createPayoutQuote).not.toHaveBeenCalled();
-    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_dest1',
+      amount: undefined,
+      quoteId: 'qt_final',
+      reference: 'pi_abc',
+      idempotencyKey: 'pi_abc',
+    });
   });
 
   it('quotes a USD→USDT payout at disbursement without any source-currency env', async () => {
@@ -360,16 +377,28 @@ describe('BachsProvider', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects a declared source currency that cannot match the item amount', async () => {
-    // The amount is pre-converted to NGN, so a USD-declared balance cannot fund it.
+  it('quotes from metadata bachsSourceCurrency when it differs from the item amount', async () => {
+    bachsApi.createPayoutQuote
+      .mockResolvedValueOnce({
+        quote_id: 'qt_probe',
+        from_amount: '100.00',
+        to_amount: '150000.00',
+      })
+      .mockResolvedValueOnce({
+        quote_id: 'qt_final',
+        from_amount: '200.00',
+        to_amount: '300000.00',
+      });
+
     const result = await provider.createPayment({
       ...ngnData,
       metadata: { payrollItemId: 'item-1', bachsSourceCurrency: 'USD' },
     } as never);
 
-    expect(result.success).toBe(false);
-    expect(result.retryable).toBe(false);
-    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
+    expect(bachsApi.createPayout).toHaveBeenCalledWith(
+      expect.objectContaining({ quoteId: 'qt_final', amount: undefined }),
+    );
   });
 
   it('classifies a synchronously failed payout as terminal', async () => {

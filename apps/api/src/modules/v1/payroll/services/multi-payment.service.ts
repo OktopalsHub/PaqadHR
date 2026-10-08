@@ -96,6 +96,13 @@ export class MultiPaymentService {
           'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then use Retry payment.',
         );
       }
+      const floatTopup = payrollRun.metadata?.floatTopup;
+      const fundingCurrency =
+        floatTopup &&
+        typeof floatTopup === 'object' &&
+        typeof (floatTopup as { fundingCurrency?: unknown }).fundingCurrency === 'string'
+          ? (floatTopup as { fundingCurrency: string }).fundingCurrency
+          : undefined;
       const payoutResults = await this.batching.processPayouts(
         payable,
         auditContext,
@@ -106,6 +113,7 @@ export class MultiPaymentService {
           periodStart: payrollRun.periodStart,
           periodEnd: payrollRun.periodEnd,
           baseCurrency: payrollRun.baseCurrency,
+          bachsSourceCurrency: fundingCurrency,
         },
       );
       const summary = this.validation.calculatePaymentSummary(payoutResults);
@@ -178,6 +186,13 @@ export class MultiPaymentService {
           'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then retry again.',
         );
       }
+      const floatTopup = payrollRun.metadata?.floatTopup;
+      const fundingCurrency =
+        floatTopup &&
+        typeof floatTopup === 'object' &&
+        typeof (floatTopup as { fundingCurrency?: unknown }).fundingCurrency === 'string'
+          ? (floatTopup as { fundingCurrency: string }).fundingCurrency
+          : undefined;
       const payoutResults = await this.batching.processPayouts(
         payable,
         auditContext,
@@ -188,6 +203,7 @@ export class MultiPaymentService {
           periodStart: payrollRun.periodStart,
           periodEnd: payrollRun.periodEnd,
           baseCurrency: payrollRun.baseCurrency,
+          bachsSourceCurrency: fundingCurrency,
         },
       );
       const summary = this.validation.calculatePaymentSummary(payoutResults);

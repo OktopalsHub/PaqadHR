@@ -129,7 +129,8 @@ export class BachsProvider extends BasePaymentProvider {
 
       // Bachs debits a per-currency balance. FX-at-payout items carry the salary-currency
       // amount; everything else carries the payout-currency amount. International bank
-      // routes always debit USD (EUR/GBP need a quote; USD is same-currency).
+      // routes always debit USD. Mixed runs fund one balance (usually USD) then quote
+      // each destination from that source via bachsSourceCurrency / BACHS_PAYOUT_SOURCE_CURRENCY.
       const destinationBaseCurrency = destinationCurrency.split('_')[0];
       const intlBank = isBachsIntlBankCurrency(destinationBaseCurrency);
       const fxAtPayout = data.metadata?.fxAtPayout === true;
@@ -139,26 +140,21 @@ export class BachsProvider extends BasePaymentProvider {
       const amountCurrency =
         fxAtPayout && salaryCurrency ? salaryCurrency : destinationBaseCurrency;
 
-      if (intlBank) {
-        if (declaredSource && declaredSource !== BACHS_INTL_BANK_SOURCE_CURRENCY) {
-          return {
-            success: false,
-            retryable: false,
-            error:
-              `Bachs international bank payouts debit ${BACHS_INTL_BANK_SOURCE_CURRENCY} only; ` +
-              `unset BACHS_PAYOUT_SOURCE_CURRENCY or set it to USD`,
-          };
-        }
-      } else if (declaredSource && declaredSource !== amountCurrency) {
+      if (intlBank && declaredSource && declaredSource !== BACHS_INTL_BANK_SOURCE_CURRENCY) {
         return {
           success: false,
           retryable: false,
           error:
-            `Bachs balance source ${declaredSource} cannot fund this ${destinationCurrency} payout ` +
-            `because the item amount is denominated in ${amountCurrency}; fund the ` +
-            `${amountCurrency} balance or unset BACHS_PAYOUT_SOURCE_CURRENCY`,
+            `Bachs international bank payouts debit ${BACHS_INTL_BANK_SOURCE_CURRENCY} only; ` +
+            `unset BACHS_PAYOUT_SOURCE_CURRENCY or set it to USD`,
         };
       }
+
+      const sourceCurrency = intlBank
+        ? BACHS_INTL_BANK_SOURCE_CURRENCY
+        : (declaredSource ?? amountCurrency);
+      const bankMethod =
+        destinationBaseCurrency === 'USDT' ? undefined : ('BANK_TRANSFER' as const);
 
       let amount: string | undefined;
       let quoteId: string | undefined;
@@ -190,18 +186,41 @@ export class BachsProvider extends BasePaymentProvider {
           };
         }
       } else if (
+        sourceCurrency === amountCurrency &&
+        (amountCurrency === destinationCurrency || amountCurrency === destinationBaseCurrency)
+      ) {
+        // Same-currency debit (or same asset on another chain, e.g. USDT → USDT_TRC20).
+        amount = data.amount.toFixed(2);
+      } else if (sourceCurrency === amountCurrency) {
+        // Amount already in the balance currency; quote into the destination.
+        const quote = await this.bachsApi.createPayoutQuote({
+          fromCurrency: sourceCurrency,
+          toCurrency: destinationCurrency,
+          amount: data.amount.toFixed(2),
+          ...(bankMethod ? { payoutMethod: bankMethod } : {}),
+        });
+        quoteId = quote.quote_id;
+      } else if (
         amountCurrency === destinationCurrency ||
         amountCurrency === destinationBaseCurrency
       ) {
-        // Same currency, or the same asset on another chain (USDT → USDT_TRC20).
-        amount = data.amount.toFixed(2);
-      } else {
-        const quote = await this.bachsApi.createPayoutQuote({
-          fromCurrency: amountCurrency,
+        // Amount is what the employee receives; quote the source debit needed.
+        const quoted = await quoteSourceAmountForDestination({
+          createQuote: (input) => this.bachsApi.createPayoutQuote(input),
+          fromCurrency: sourceCurrency,
           toCurrency: destinationCurrency,
-          amount: data.amount.toFixed(2),
+          targetToAmount: data.amount,
+          ...(bankMethod ? { payoutMethod: bankMethod } : {}),
         });
-        quoteId = quote.quote_id;
+        quoteId = quoted.quoteId;
+      } else {
+        return {
+          success: false,
+          retryable: false,
+          error:
+            `Bachs cannot fund ${destinationCurrency} payout denominated in ${amountCurrency} ` +
+            `from ${sourceCurrency}`,
+        };
       }
 
       const cachedDestinationId =
@@ -480,6 +499,7 @@ export class BachsProvider extends BasePaymentProvider {
       input.routingNumber ?? input.sortCode ?? input.iban ?? input.bankCode ?? '',
       input.accountNumber ?? '',
       input.walletAddress ?? '',
+      input.accountName ?? '',
     ].join('|');
     const cached = this.destinationCache.get(cacheKey);
     if (cached && Date.now() - cached.cachedAt < DESTINATION_CACHE_TTL_MS) {

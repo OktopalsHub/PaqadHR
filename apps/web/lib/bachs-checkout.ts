@@ -37,6 +37,12 @@ export function isBachsCheckoutUrl(url: string): boolean {
   }
 }
 
+function failSdkLoad(script: HTMLScriptElement | null, reject: (error: Error) => void): void {
+  loadPromise = null;
+  script?.remove();
+  reject(new Error('Bachs SDK failed to load'));
+}
+
 function loadBachsSdk(): Promise<BachsSdk> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('Bachs checkout requires a browser'));
@@ -49,9 +55,9 @@ function loadBachsSdk(): Promise<BachsSdk> {
     if (existing) {
       existing.addEventListener('load', () => {
         if (window.Bachs) resolve(window.Bachs);
-        else reject(new Error('Bachs SDK failed to load'));
+        else failSdkLoad(existing, reject);
       });
-      existing.addEventListener('error', () => reject(new Error('Bachs SDK failed to load')));
+      existing.addEventListener('error', () => failSdkLoad(existing, reject));
       if (window.Bachs) resolve(window.Bachs);
       return;
     }
@@ -61,9 +67,9 @@ function loadBachsSdk(): Promise<BachsSdk> {
     script.async = true;
     script.onload = () => {
       if (window.Bachs) resolve(window.Bachs);
-      else reject(new Error('Bachs SDK failed to load'));
+      else failSdkLoad(script, reject);
     };
-    script.onerror = () => reject(new Error('Bachs SDK failed to load'));
+    script.onerror = () => failSdkLoad(script, reject);
     document.head.appendChild(script);
   });
 

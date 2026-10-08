@@ -1,6 +1,37 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
 import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
+
+/** US bank address required for Bachs USD ACH/Wire/RTP destinations. */
+export class BachsBankAddressDto {
+  @IsString()
+  @MaxLength(120)
+  line1!: string;
+
+  @IsString()
+  @MaxLength(80)
+  city!: string;
+
+  @IsString()
+  @MaxLength(40)
+  state!: string;
+
+  @IsString()
+  @MaxLength(20)
+  postalCode!: string;
+
+  @IsString()
+  @MaxLength(2)
+  country!: string;
+}
 
 // M-5: Strict metadata allow-list to prevent mass-assignment / stored XSS (API3)
 export class PaymentMethodMetadataDto {
@@ -23,6 +54,11 @@ export class PaymentMethodMetadataDto {
   @IsString()
   @MaxLength(20)
   bankCode?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BachsBankAddressDto)
+  bachsBankAddress?: BachsBankAddressDto;
 
   // Allow index for service compatibility (Record<string, unknown> assignable) — extra keys stripped by whitelist
   [key: string]: unknown;

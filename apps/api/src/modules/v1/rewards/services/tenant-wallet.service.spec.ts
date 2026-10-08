@@ -56,6 +56,8 @@ describe('TenantWalletService', () => {
         update: jest.fn().mockReturnThis(),
         set: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
+        setLock: jest.fn().mockReturnThis(),
+        getOneOrFail: jest.fn().mockResolvedValue(wallet),
         execute: jest.fn().mockResolvedValue({
           affected: overrides?.debitUpdateAffected ?? 1,
         }),
@@ -79,6 +81,7 @@ describe('TenantWalletService', () => {
         return {};
       }),
       manager,
+      transaction: jest.fn(async (fn: (mgr: typeof manager) => unknown) => fn(manager)),
     };
 
     const tenantRecord = { id: tenantId, countryCode: 'NG', preferredCurrency: 'NGN' };
@@ -879,8 +882,10 @@ describe('TenantWalletTopupService', () => {
 
     it('charges saved Bachs card for manual top-up when card is on file', async () => {
       const { topupService, bachsApi, walletService } = createTopupService({
-        paymentMethodId: 'pm_saved_card',
-        usageMetrics: { bachsCustomerId: 'cust_saved' },
+        usageMetrics: {
+          bachsCustomerId: 'cust_saved',
+          bachsPaymentMethodId: 'pm_saved_card',
+        },
       });
       bachsApi.findPaymentByReference.mockResolvedValue({ status: 'succeeded', amount: 5000 });
 
@@ -894,6 +899,25 @@ describe('TenantWalletTopupService', () => {
         }),
       );
       expect(walletService.credit).toHaveBeenCalled();
+    });
+
+    it('prefers Bachs wallet card over a stale Monnify token', async () => {
+      process.env.NG_REWARDS_DEPOSIT_PROVIDER = 'bachs';
+      process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+      process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn';
+      const { topupService, bachsApi, monnifyApi } = createTopupService({
+        usageMetrics: {
+          monnifyWalletCardToken: 'MNFY_STALE',
+          bachsCustomerId: 'cust_saved',
+          bachsPaymentMethodId: 'pm_saved_card',
+        },
+      });
+      bachsApi.findPaymentByReference.mockResolvedValue({ status: 'succeeded', amount: 5000 });
+
+      await topupService.manualTopup(tenantId, 5000, actorMemberId);
+
+      expect(bachsApi.createCharge).toHaveBeenCalled();
+      expect(monnifyApi.chargeCardToken).not.toHaveBeenCalled();
     });
   });
 
