@@ -253,7 +253,7 @@ export class TenantWalletTopupService {
         select: ['id'],
       });
       if (dup) {
-        await this.clearBachsPendingCharge(input.tenantId, input.orderReference);
+        await this.clearBachsPendingCharge(input.tenantId, input.orderReference, manager);
         return { received: true, credited: false };
       }
 
@@ -284,7 +284,7 @@ export class TenantWalletTopupService {
         });
       }
 
-      await this.clearBachsPendingCharge(input.tenantId, input.orderReference);
+      await this.clearBachsPendingCharge(input.tenantId, input.orderReference, manager);
 
       this.logger.log(
         `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
@@ -502,7 +502,7 @@ export class TenantWalletTopupService {
         { providerEventId: chargeReference, actorMemberId: initiatingMemberId },
       );
       if (provider === PaymentProvider.BACHS) {
-        await this.clearBachsPendingCharge(tenantId, chargeOrderRef);
+        await this.clearBachsPendingCharge(tenantId, chargeOrderRef, manager);
       }
       return credited;
     } catch (error) {
@@ -525,19 +525,7 @@ export class TenantWalletTopupService {
         select: ['id', 'type'],
       });
       if (credited?.type === 'DEPOSIT') {
-        const sub = await manager
-          .getRepository(TenantSubscription)
-          .createQueryBuilder('sub')
-          .setLock('pessimistic_write')
-          .where('sub.tenantId = :tenantId', { tenantId })
-          .getOne();
-        if (sub?.usageMetrics?.bachsPendingWalletChargeRef === reference) {
-          sub.usageMetrics = {
-            ...(sub.usageMetrics ?? {}),
-            bachsPendingWalletChargeRef: undefined,
-          };
-          await manager.save(sub);
-        }
+        await this.clearBachsPendingCharge(tenantId, reference, manager);
         return false;
       }
 
@@ -575,9 +563,14 @@ export class TenantWalletTopupService {
     });
   }
 
-  private async clearBachsPendingCharge(tenantId: string, reference?: string): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      const sub = await manager
+  /** Clear pending Bachs charge ref. Pass `manager` when already inside a transaction. */
+  private async clearBachsPendingCharge(
+    tenantId: string,
+    reference?: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const run = async (mgr: EntityManager): Promise<void> => {
+      const sub = await mgr
         .getRepository(TenantSubscription)
         .createQueryBuilder('sub')
         .setLock('pessimistic_write')
@@ -590,8 +583,14 @@ export class TenantWalletTopupService {
         ...(sub.usageMetrics ?? {}),
         bachsPendingWalletChargeRef: undefined,
       };
-      await manager.save(sub);
-    });
+      await mgr.save(sub);
+    };
+
+    if (manager) {
+      await run(manager);
+      return;
+    }
+    await this.dataSource.transaction(run);
   }
 
   private async resolveBillingEmail(tenantId: string): Promise<string | null> {

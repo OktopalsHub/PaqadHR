@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Length,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -13,23 +14,28 @@ import { PaymentMethodStatus } from '../../../../common/enums/payment-method-sta
 /** US bank address required for Bachs USD ACH/Wire/RTP destinations. */
 export class BachsBankAddressDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(120)
   line1!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(80)
   city!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(40)
   state!: string;
 
   @IsString()
+  @IsNotEmpty()
   @MaxLength(20)
   postalCode!: string;
 
   @IsString()
-  @MaxLength(2)
+  @IsNotEmpty()
+  @Length(2, 2)
   country!: string;
 }
 
