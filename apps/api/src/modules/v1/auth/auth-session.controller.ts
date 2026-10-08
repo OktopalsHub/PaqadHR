@@ -28,9 +28,9 @@ import { GoogleConsentDto } from './dto/google-consent.dto';
 import { ResendEmailVerificationDto, VerifyEmailDto } from './dto/otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
-import { AuthSessionService } from './services/auth-session.service';
 import type { SessionBootstrapResponseDto } from './dto/session-bootstrap-response.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { AuthSessionService } from './services/auth-session.service';
 import {
   createGoogleOAuthConsentClaims,
   GOOGLE_OAUTH_CONSENT_COOKIE,

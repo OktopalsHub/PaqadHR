@@ -42,8 +42,6 @@ describe('parse-duration.util', () => {
   });
 
   it('rejects session shorter than refresh', () => {
-    expect(() => resolveRefreshAndSessionExpiresIn('7d', '1d')).toThrow(
-      /greater than or equal/,
-    );
+    expect(() => resolveRefreshAndSessionExpiresIn('7d', '1d')).toThrow(/greater than or equal/);
   });
 });
