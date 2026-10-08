@@ -257,11 +257,15 @@ export class ShoutoutChannelService {
   }
 
   private getSlackErrorCode(err: unknown): string | undefined {
+    // @slack/web-api throws WebAPIPlatformError with code 'slack_webapi_platform_error'
+    // (ErrorCode.PlatformError). Accept the bare 'platform_error' too so a hand-rolled
+    // or older SDK error still maps to the friendly invite message.
+    const PLATFORM_ERROR_CODES = new Set(['slack_webapi_platform_error', 'platform_error']);
     if (
       typeof err === 'object' &&
       err !== null &&
       'code' in err &&
-      (err as { code: string }).code === 'platform_error' &&
+      PLATFORM_ERROR_CODES.has((err as { code: string }).code) &&
       'data' in err
     ) {
       return (err as { data?: { error?: string } }).data?.error;

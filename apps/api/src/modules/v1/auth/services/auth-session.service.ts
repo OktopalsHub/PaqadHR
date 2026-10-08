@@ -119,6 +119,17 @@ export class AuthSessionService {
     });
 
     if (!rotated) {
+      // Reuse detection: a session still exists for this user, but not for the presented
+      // token. That means an already-rotated (or revoked) refresh token came back, which
+      // is the classic replay signal — drop every session so the attacker and the real
+      // owner are both forced to sign in again. When no live session remains there is
+      // nothing to steal, so we only reject.
+      const stillActive = await this.sessionRepository.findOne({
+        where: { userId: user.id, expiresAt: MoreThan(new Date()) },
+      });
+      if (stillActive) {
+        await this.sessionRepository.delete({ userId: user.id });
+      }
       throw new UnauthorizedException('Invalid or expired session');
     }
 

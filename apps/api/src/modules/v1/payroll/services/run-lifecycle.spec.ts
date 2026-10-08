@@ -8,15 +8,23 @@ import type { AuditService } from './audit.service';
 import { RunLifecycle } from './run-lifecycle';
 
 describe('RunLifecycle', () => {
+  // createPayrollRun reads the tenant through payrollRunRepository.manager to resolve
+  // "today" in the tenant's timezone.
+  const tenantRepository = {
+    findOne: jest.fn().mockResolvedValue({ id: 'tenant-1', timezone: 'Africa/Lagos' }),
+  };
+
   const createService = () => {
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((input) => input),
       save: jest.fn().mockImplementation(async (input) => ({ ...input, id: 'run-1' })),
+      manager: { getRepository: jest.fn(() => tenantRepository) },
     } as unknown as PayrollRunRepository;
     const payrollItemRepository = {
       create: jest.fn((input) => input),
       save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest.fn().mockResolvedValue([]),
     } as unknown as PayrollItemRepository;
     const auditService = {
       logPayrollCreated: jest.fn().mockResolvedValue(undefined),
@@ -30,6 +38,7 @@ describe('RunLifecycle', () => {
         {} as never,
       ),
       payrollRunRepository,
+      payrollItemRepository,
     };
   };
 
@@ -91,6 +100,7 @@ describe('RunLifecycle', () => {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((input) => input),
       save: jest.fn().mockImplementation(async (input) => ({ ...input, id: 'run-1' })),
+      manager: { getRepository: jest.fn(() => tenantRepository) },
     } as unknown as PayrollRunRepository;
     const payrollItemRepository = {
       create: jest.fn((input) => input),
@@ -140,6 +150,48 @@ describe('RunLifecycle', () => {
   // Regression: the run list drives the "Pay employees" button. Without item counts the
   // list could not tell a paid run from an unpaid one, so it kept offering a payout with
   // nothing left to send.
+  // A manager's list spans whole runs that include employees outside their reports, so
+  // per-status counts would disclose other employees' pay state.
+  it('omits item counts for non-admin requesters', async () => {
+    const payrollRunRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((input) => input),
+      save: jest.fn(),
+      paginate: jest.fn().mockResolvedValue({
+        data: [{ id: 'run-1', status: PayrollStatus.APPROVED, metadata: { approvedAt: 'x' } }],
+        total: 1,
+      }),
+    } as unknown as PayrollRunRepository;
+    const payrollItemRepository = {
+      create: jest.fn((input) => input),
+      save: jest.fn().mockResolvedValue(undefined),
+      find: jest.fn().mockResolvedValue([{ payrollRunId: 'run-1' }]),
+      countByRunIds: jest
+        .fn()
+        .mockResolvedValue([{ payrollRunId: 'run-1', status: PayrollItemStatus.PAID, count: 5 }]),
+    } as unknown as PayrollItemRepository;
+    const managerAccessService = {
+      getDirectReportIds: jest.fn().mockResolvedValue(['member-9']),
+    };
+    const service = new RunLifecycle(
+      payrollRunRepository,
+      payrollItemRepository,
+      { logPayrollCreated: jest.fn() } as unknown as AuditService,
+      managerAccessService as never,
+    );
+
+    const result = await service.getPayrollRunsForRequester(
+      'tenant-1',
+      20,
+      0,
+      'manager-1',
+      'member',
+    );
+
+    expect(payrollItemRepository.countByRunIds).not.toHaveBeenCalled();
+    expect(result.runs[0]).not.toHaveProperty('itemCounts');
+  });
+
   it('reports per-status item counts so the list can hide payout on settled runs', async () => {
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue(null),

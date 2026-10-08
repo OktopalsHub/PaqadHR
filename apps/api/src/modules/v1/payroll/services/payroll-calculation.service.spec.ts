@@ -9,6 +9,7 @@ describe('PayrollCalculationService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     expect(service).toBeInstanceOf(PayrollCalculationService);
   });

@@ -26,10 +26,21 @@ describe('PaymentMethodService encryption and masking', () => {
   });
 
   it('masks account numbers in display info', () => {
+    // formatDisplayInfo decrypts through PmCreationService, so wire a real one.
+    const creation = new PmCreationService(
+      {} as never,
+      encryptionService,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
     const service = new PaymentMethodService(
       {} as never,
       {} as never,
-      {} as never,
+      creation,
       {} as never,
       {} as never,
       {} as never,

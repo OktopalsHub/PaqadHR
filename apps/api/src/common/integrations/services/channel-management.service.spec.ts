@@ -1,7 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { ErrorCode } from '@slack/web-api';
 import { ChannelType } from 'src/common/enums';
+import { ChannelListingService } from './channel-listing.service';
 import { ChannelManagementService } from './channel-management.service';
+import { ShoutoutChannelService } from './shoutout-channel.service';
 
 const mockList = jest.fn();
 const mockJoin = jest.fn();
@@ -37,8 +39,13 @@ describe('ChannelManagementService', () => {
     update: jest.fn(),
   };
 
+  // ChannelManagementService now delegates to extracted collaborators; wire the real ones
+  // so the Slack error-mapping assertions below still exercise production code.
   const createService = () =>
-    new ChannelManagementService(channelRepo as any, integrationRepo as any);
+    new ChannelManagementService(
+      new ChannelListingService(channelRepo as any, integrationRepo as any),
+      new ShoutoutChannelService(channelRepo as any, integrationRepo as any),
+    );
 
   beforeEach(() => {
     jest.clearAllMocks();

@@ -17,11 +17,12 @@ export class PayrollItemRepository extends Repository<PayrollItem> {
     );
   }
   async findByPayrollRunId(payrollRunId: string, tenantId: string): Promise<PayrollItem[]> {
+    // No deletedAt filter: payroll_items has no soft-delete column. Removed employees are
+    // represented by status CANCELLED instead.
     return this.createQueryBuilder('item')
       .innerJoin('item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
       .leftJoinAndSelect('item.employee', 'employee')
       .where('item.payrollRunId = :payrollRunId', { payrollRunId })
-      .andWhere('item.deletedAt IS NULL')
       .getMany();
   }
   async findByMemberId(memberId: string, tenantId: string): Promise<PayrollItem[]> {
@@ -47,7 +48,6 @@ export class PayrollItemRepository extends Repository<PayrollItem> {
       .addSelect('COUNT(*)', 'count')
       .innerJoin('item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
       .where('item.payrollRunId IN (:...payrollRunIds)', { payrollRunIds })
-      .andWhere('item.deletedAt IS NULL')
       .groupBy('item.payrollRunId')
       .addGroupBy('item.status')
       .getRawMany<{ payrollRunId: string; status: PayrollItemStatus; count: string }>();

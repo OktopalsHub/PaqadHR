@@ -78,6 +78,22 @@ describe('AuthService', () => {
       delete: jest.fn(),
       find: jest.fn(),
     };
+    // refreshToken rotates the session inside a row-locked transaction and resolves
+    // entities through the EntityManager, so the mock needs a manager to run against.
+    (mockSessionRepository as { manager?: unknown }).manager = {
+      transaction: jest.fn(
+        async (
+          callback: (manager: {
+            findOne: (entity: unknown, options: unknown) => Promise<unknown>;
+            save: (entity: unknown, value: unknown) => Promise<unknown>;
+          }) => Promise<unknown>,
+        ) =>
+          callback({
+            findOne: (_entity: unknown, options: unknown) => mockSessionRepository.findOne(options),
+            save: (_entity: unknown, value: unknown) => mockSessionRepository.save(value),
+          }),
+      ),
+    };
     sessionRepository = mockSessionRepository;
     const mockVerificationRepository = {
       create: jest.fn(),
@@ -428,7 +444,27 @@ describe('AuthService', () => {
       expect(jwtService.sign).toHaveBeenCalled();
     });
 
-    it('revokes all sessions when a stale refresh token is reused', async () => {
+    // Refresh-token replay is treated as compromise: if the user still has a live session but
+    // the presented token is no longer the current one, every session is revoked.
+    it('revokes all sessions when a rotated refresh token is replayed', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'rotated-out-session' });
+      userRepository.findUser.mockResolvedValue(mockUser);
+      // The locked lookup misses (token no longer current) ...
+      sessionRepository.findOne.mockResolvedValueOnce(null);
+      // ... but the reuse check still finds another live session.
+      sessionRepository.findOne.mockResolvedValueOnce({
+        id: 'session-2',
+        userId: 'user-1',
+        expiresAt: new Date(Date.now() + 3_600_000),
+      });
+
+      await expect(authService.refreshToken('replayed-refresh')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    });
+
+    it('does not revoke anything when the user has no live session left', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'stale-session' });
       userRepository.findUser.mockResolvedValue(mockUser);
       sessionRepository.findOne.mockResolvedValue(null);
@@ -436,7 +472,7 @@ describe('AuthService', () => {
       await expect(authService.refreshToken('stale-refresh')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+      expect(sessionRepository.delete).not.toHaveBeenCalled();
     });
 
     it('revokes all sessions on a repeated refresh attempt after rotation', async () => {
@@ -450,11 +486,17 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 60_000),
       };
 
+      // Two query shapes reach findOne: the row lock (array of {token,userId} pairs) and
+      // the reuse check ({userId, expiresAt}, no token).
       sessionRepository.findOne.mockImplementation(async ({ where }) => {
-        if (where?.userId === activeSession.userId && where?.token === activeSession.token) {
-          return activeSession;
-        }
-        return null;
+        const candidates = Array.isArray(where) ? where : [where];
+        const matchesUser = candidates.some((entry) => entry?.userId === activeSession.userId);
+        const requiresToken = candidates.some((entry) => 'token' in (entry ?? {}));
+        if (!matchesUser) return null;
+        if (!requiresToken) return activeSession;
+        return candidates.some((entry) => entry?.token === activeSession.token)
+          ? activeSession
+          : null;
       });
       sessionRepository.save.mockImplementation(async (session) => {
         activeSession = {

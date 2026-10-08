@@ -15,9 +15,9 @@ describe('AuthSessionCleanupService', () => {
     };
     const repository = {
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
-    } as never;
+    };
 
-    const service = new AuthSessionCleanupService(repository);
+    const service = new AuthSessionCleanupService(repository as never);
 
     await service.cleanupExpiredSessions();
 

@@ -11,6 +11,15 @@ describe('PayrollPayoutCronService', () => {
     MONNIFY_SECRET_KEY: process.env.MONNIFY_SECRET_KEY,
     MONNIFY_CONTRACT_CODE: process.env.MONNIFY_CONTRACT_CODE,
     NOAH_API_KEY: process.env.NOAH_API_KEY,
+    FINCRA_API_KEY: process.env.FINCRA_API_KEY,
+    FINCRA_PUBLIC_KEY: process.env.FINCRA_PUBLIC_KEY,
+    FINCRA_WEBHOOK_SECRET: process.env.FINCRA_WEBHOOK_SECRET,
+    BACHS_SECRET_KEY: process.env.BACHS_SECRET_KEY,
+  };
+
+  /** isPayrollGatewayEnabled() is true when ANY rail is configured, so clear them all. */
+  const clearGatewayEnv = () => {
+    for (const key of Object.keys(originalEnv)) delete process.env[key];
   };
 
   const createService = () => {
@@ -35,13 +44,7 @@ describe('PayrollPayoutCronService', () => {
   });
 
   it('skips requery when payroll gateway is not configured', async () => {
-    delete process.env.NOMBA_CLIENT_ID;
-    delete process.env.NOMBA_CLIENT_SECRET;
-    delete process.env.NOMBA_PARENT_ACCOUNT_ID;
-    delete process.env.MONNIFY_API_KEY;
-    delete process.env.MONNIFY_SECRET_KEY;
-    delete process.env.MONNIFY_CONTRACT_CODE;
-    delete process.env.NOAH_API_KEY;
+    clearGatewayEnv();
     const { cronService, payrollPayoutService } = createService();
 
     await cronService.requeryStuckPayouts();

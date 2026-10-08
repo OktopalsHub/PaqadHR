@@ -36,6 +36,13 @@ import type {
 } from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
 
+/**
+ * Poll while any run still has items in flight. Bachs payouts settle on `payout.paid`
+ * webhooks, and focus-refresh is disabled here, so without polling a failure would not
+ * surface until the user reloaded — leaving "Payment in progress" spinning forever.
+ */
+const PAYROLL_PAYOUT_POLL_MS = 15_000;
+
 export function usePayrollRuns(enabled = true) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
@@ -43,6 +50,10 @@ export function usePayrollRuns(enabled = true) {
     queryKey: [...queryKeys.payroll.all, tenantId],
     queryFn: fetchPayrollRuns,
     enabled: enabled && !tenantLoading && Boolean(tenantId),
+    refetchInterval: (query) =>
+      (query.state.data?.runs ?? []).some((run) => (run.itemCounts?.processing ?? 0) > 0)
+        ? PAYROLL_PAYOUT_POLL_MS
+        : false,
   });
 }
 

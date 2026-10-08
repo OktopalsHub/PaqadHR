@@ -131,14 +131,26 @@ export class RunLifecycle {
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
-    return this.withItemCounts(runs, tenantId, total);
+    return this.withItemCounts(runs, tenantId, total, true);
   }
 
   /**
    * Attach per-status item counts so the run list can tell "approved and unpaid" from
    * "already paid / payout in flight" and stop offering a payout that has nothing to pay.
+   *
+   * Admin-only. A manager's list spans whole runs that include employees outside their
+   * reports, so per-status counts for those runs would disclose other employees' pay
+   * state. Managers get healed runs without counts; the UI reads no action without them.
    */
-  private async withItemCounts(runs: PayrollRun[], tenantId: string, total: number) {
+  private async withItemCounts(
+    runs: PayrollRun[],
+    tenantId: string,
+    total: number,
+    includeCounts: boolean,
+  ) {
+    const healed = await Promise.all(runs.map((run) => this.healMisclassifiedApprovedRun(run)));
+    if (!includeCounts) return { runs: healed, total };
+
     const counts = await this.payrollItemRepository.countByRunIds(
       runs.map((run) => run.id),
       tenantId,
@@ -149,7 +161,6 @@ export class RunLifecycle {
       bucket[row.status] = (bucket[row.status] ?? 0) + row.count;
       byRun.set(row.payrollRunId, bucket);
     }
-    const healed = await Promise.all(runs.map((run) => this.healMisclassifiedApprovedRun(run)));
     return {
       runs: healed.map((run) => ({ ...run, itemCounts: byRun.get(run.id) ?? {} })),
       total,
@@ -182,7 +193,7 @@ export class RunLifecycle {
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
-    return this.withItemCounts(runs, tenantId, total);
+    return this.withItemCounts(runs, tenantId, total, false);
   }
   async getPayrollRunForRequester(
     id: string,

@@ -2,14 +2,54 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import type { NoahApiService } from 'src/common/services/noah-api.service';
 import type { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
+import type { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import type { Repository } from 'typeorm';
 import type { PayrollItem } from '../entities/payroll-item.entity';
+import { PayrollRun } from '../entities/payroll-run.entity';
+import type { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
 import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import { buildPayrollMerchantRef } from '../utils/payroll-merchant-ref.util';
 import { PayrollPayoutService } from './payroll-payout.service';
 
 const RUN_ID = '11111111-1111-4111-8111-111111111111';
 const ITEM_ID = '22222222-2222-4222-8222-222222222222';
-const MERCHANT_REF = `payroll_${RUN_ID}_${ITEM_ID}`;
+// Derive the ref from the builder so these assertions track the current compact
+// `pi_{itemHex}` format instead of a hardcoded legacy string.
+const MERCHANT_REF = buildPayrollMerchantRef(RUN_ID, ITEM_ID);
+
+/**
+ * Webhook handlers claim each event with an INSERT ... ON CONFLICT DO NOTHING and mark it
+ * processed afterwards, so the stub has to report one inserted row for a fresh event.
+ */
+function buildWebhookEventRepository() {
+  const qb: Record<string, unknown> = {};
+  qb.insert = jest.fn().mockReturnValue(qb);
+  qb.into = jest.fn().mockReturnValue(qb);
+  qb.values = jest.fn().mockReturnValue(qb);
+  qb.orIgnore = jest.fn().mockReturnValue(qb);
+  qb.execute = jest.fn().mockResolvedValue({ identifiers: [{ id: 'evt-1' }] });
+  return {
+    createQueryBuilder: jest.fn().mockReturnValue(qb),
+    findOne: jest.fn().mockResolvedValue(null),
+    save: jest.fn(),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
+  } as unknown as Repository<PayrollWebhookEvent>;
+}
+
+/**
+ * PayrollPayoutService delegates to an internal PayoutReconciliation, so a spy on the
+ * service method is never seen by the code under test. Reach the delegate directly.
+ */
+function spyOnReconciliation(
+  service: PayrollPayoutService,
+  method: 'applyTransferStatus',
+): jest.SpyInstance {
+  return jest.spyOn(
+    (service as unknown as { reconciliation: Record<string, (...args: never[]) => unknown> })
+      .reconciliation,
+    method,
+  ) as unknown as jest.SpyInstance;
+}
 
 describe('PayrollPayoutService', () => {
   const createService = () => {
@@ -54,9 +94,47 @@ describe('PayrollPayoutService', () => {
       }),
     };
 
+    // applyTransferStatus works inside a transaction and resolves repositories from the
+    // manager, so the item repository has to expose one for the row lock.
+    const txManager = {
+      getRepository: jest.fn((entity: unknown) =>
+        entity === PayrollRun ? payrollRunRepository : payrollItemRepository,
+      ),
+    };
+    (payrollItemRepo as { manager?: unknown }).manager = {
+      transaction: jest.fn(async (callback: (manager: typeof txManager) => Promise<boolean>) =>
+        callback(txManager),
+      ),
+    };
+
+    // requeryStuckPayouts goes through the factory's payout queriers, which are thin
+    // adapters over the provider APIs. Wire the same adapters so stubbing
+    // getTransactionStatus / getDisbursementStatus is enough to drive them.
     const factory = {
-      resolvePayoutQuerier: jest.fn().mockReturnValue(undefined),
+      resolvePayoutQuerier: jest.fn((provider: PaymentProvider) => {
+        if (provider === PaymentProvider.NOMBA) {
+          return {
+            provider,
+            queryStatus: async (transactionId: string) => {
+              const status = await nombaTransferApi.getTransactionStatus(transactionId);
+              return status ? { status } : null;
+            },
+          };
+        }
+        if (provider === PaymentProvider.MONNIFY) {
+          return {
+            provider,
+            queryStatus: async (transactionId: string) => {
+              const result = await monnifyApi.getDisbursementStatus(transactionId);
+              return result?.status ? result : null;
+            },
+          };
+        }
+        return undefined;
+      }),
     } as unknown as PaymentProviderFactoryService;
+
+    const webhookEventRepository = buildWebhookEventRepository();
 
     const service = new PayrollPayoutService(
       nombaTransferApi,
@@ -66,6 +144,7 @@ describe('PayrollPayoutService', () => {
       payrollItemRepository,
       payrollRunRepository as never,
       payrollItemRepo,
+      webhookEventRepository,
     );
 
     return {
@@ -217,7 +296,7 @@ describe('PayrollPayoutService', () => {
     });
 
     it('applies transfer status for valid transfer webhooks', async () => {
-      const { service, nombaTransferApi } = createService();
+      const { service, nombaTransferApi, payrollItemRepository } = createService();
       (nombaTransferApi.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
       (nombaTransferApi.parseTransferWebhook as jest.Mock).mockReturnValue({
         merchantTxRef: MERCHANT_REF,
@@ -230,9 +309,11 @@ describe('PayrollPayoutService', () => {
         merchantTxRef: MERCHANT_REF,
         status: 'SUCCESS',
       });
-      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
-      const payrollRunRepository = (service as any).payrollRunRepository;
-      payrollRunRepository.findOne.mockResolvedValue({ tenantId: 'tenant-1' });
+      const applySpy = spyOnReconciliation(service, 'applyTransferStatus').mockResolvedValue(true);
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue({
+        ...baseItem(),
+        payrollRun: { tenantId: 'tenant-1' },
+      });
 
       const result = await service.handleNombaWebhook(rawBody, 'valid-sig');
 
@@ -267,9 +348,7 @@ describe('PayrollPayoutService', () => {
         reference: txnId,
         status: 'SETTLED',
       });
-      (payrollItemRepository.findOne as jest.Mock)
-        .mockResolvedValueOnce(item)
-        .mockResolvedValueOnce(item);
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
       (payrollItemRepository.save as jest.Mock).mockImplementation(async (saved) => saved);
       (payrollItemRepository.find as jest.Mock).mockResolvedValue([item]);
       const payrollRunRepository = (service as any).payrollRunRepository;
@@ -296,7 +375,7 @@ describe('PayrollPayoutService', () => {
       };
       (payrollItemRepo.find as jest.Mock).mockResolvedValue([stuckItem]);
       (nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue('SUCCESS');
-      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+      const applySpy = spyOnReconciliation(service, 'applyTransferStatus').mockResolvedValue(true);
       const payrollRunRepository = (service as any).payrollRunRepository;
       payrollRunRepository.findByIdWithItems.mockResolvedValue({
         id: RUN_ID,
@@ -331,7 +410,7 @@ describe('PayrollPayoutService', () => {
         status: 'SUCCESS',
         amount: 1000,
       });
-      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+      const applySpy = spyOnReconciliation(service, 'applyTransferStatus').mockResolvedValue(true);
       const payrollRunRepository = (service as any).payrollRunRepository;
       payrollRunRepository.findByIdWithItems.mockResolvedValue({
         id: RUN_ID,
@@ -364,7 +443,7 @@ describe('PayrollPayoutService', () => {
       (payrollItemRepo.find as jest.Mock).mockResolvedValue([stuckItem]);
       (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
       (nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue('SUCCESS');
-      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+      const applySpy = spyOnReconciliation(service, 'applyTransferStatus').mockResolvedValue(true);
 
       const result = await service.requeryStuckPayouts();
 
@@ -484,6 +563,16 @@ describe('PayrollPayoutService', () => {
         }),
       };
 
+      const payrollItemRepo = { find: jest.fn() } as unknown as Repository<PayrollItem>;
+      (payrollItemRepo as { manager?: unknown }).manager = {
+        transaction: jest.fn(async (callback: (manager: unknown) => Promise<boolean>) =>
+          callback({
+            getRepository: (entity: unknown) =>
+              entity === PayrollRun ? payrollRunRepository : payrollItemRepository,
+          }),
+        ),
+      };
+
       const service = new PayrollPayoutService(
         nombaTransferApi,
         noahApi,
@@ -491,7 +580,8 @@ describe('PayrollPayoutService', () => {
         factory,
         payrollItemRepository,
         payrollRunRepository as never,
-        { find: jest.fn() } as unknown as Repository<PayrollItem>,
+        payrollItemRepo,
+        buildWebhookEventRepository(),
       );
 
       return { service, payrollItemRepository, payrollRunRepository };
@@ -700,7 +790,7 @@ describe('PayrollPayoutService', () => {
 
   describe('processFincraPayload', () => {
     it('applies payout status from Fincra webhook payload', async () => {
-      const { service, fincraApi, payrollRunRepository } = createService();
+      const { service, fincraApi, payrollItemRepository } = createService();
       const payload = {
         event: 'payout.successful',
         data: {
@@ -721,8 +811,11 @@ describe('PayrollPayoutService', () => {
         reference: 'fincra-ref-1',
         amount: 1000,
       });
-      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
-      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue({
+        ...baseItem(),
+        payrollRun: { tenantId: 'tenant-1' },
+      });
+      const applySpy = spyOnReconciliation(service, 'applyTransferStatus').mockResolvedValue(true);
 
       const result = await service.processFincraPayload(payload);
 
@@ -738,7 +831,7 @@ describe('PayrollPayoutService', () => {
     });
 
     it('matches retry-suffixed merchant references for webhook reconciliation', async () => {
-      const { service, fincraApi, payrollRunRepository } = createService();
+      const { service, fincraApi, payrollItemRepository } = createService();
       const retryRef = `${MERCHANT_REF}_r1`;
       (fincraApi.parsePayoutWebhook as jest.Mock).mockReturnValue({
         merchantRef: retryRef,
@@ -749,8 +842,11 @@ describe('PayrollPayoutService', () => {
         status: 'SUCCESS',
         reference: 'fincra-ref-retry',
       });
-      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
-      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue({
+        ...baseItem(),
+        payrollRun: { tenantId: 'tenant-1' },
+      });
+      const applySpy = spyOnReconciliation(service, 'applyTransferStatus').mockResolvedValue(true);
 
       const result = await service.processFincraPayload({ event: 'payout.successful' });
 

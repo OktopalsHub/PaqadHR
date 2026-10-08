@@ -24,6 +24,32 @@ test('hides Pay employees once every item is paid', () => {
   assert.deepEqual(action, { kind: 'none', note: 'Paid' });
 });
 
+// Regression: pending and processing are both 0, so a naive check claimed "Paid" on a run
+// where every employee was cancelled and nobody received anything.
+test('does not claim Paid when everyone was cancelled', () => {
+  const action = payrollRowAction(
+    { status: 'approved', payoutMode: 'immediate', itemCounts: { cancelled: 3 } },
+    admin,
+  );
+  assert.deepEqual(action, { kind: 'none', note: null });
+});
+
+test('does not claim Paid when the run has no items at all', () => {
+  const action = payrollRowAction(
+    { status: 'approved', payoutMode: 'immediate', itemCounts: {} },
+    admin,
+  );
+  assert.deepEqual(action, { kind: 'none', note: null });
+});
+
+test('still says Paid when a cancelled run also had a successful payment', () => {
+  const action = payrollRowAction(
+    { status: 'approved', payoutMode: 'immediate', itemCounts: { paid: 1, cancelled: 2 } },
+    admin,
+  );
+  assert.deepEqual(action, { kind: 'none', note: 'Paid' });
+});
+
 test('offers Retry payment when an approved run has failures and nothing pending', () => {
   const action = payrollRowAction(
     { status: 'approved', payoutMode: 'immediate', itemCounts: { paid: 2, failed: 1 } },

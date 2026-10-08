@@ -29,32 +29,26 @@ export function payrollRowAction(
   const counts = run.itemCounts;
   const pending = counts?.pending ?? 0;
   const inFlight = counts?.processing ?? 0;
+  const paid = counts?.paid ?? 0;
   const failed = counts?.failed ?? 0;
-  const countsKnown = counts != null;
-  const nothingLeftToPay = countsKnown && pending === 0;
+  // Unknown counts (e.g. a manager's list) must not read as "nothing pending".
+  const nothingLeftToPay = counts != null && pending === 0;
 
   if (run.status === 'draft') return { kind: 'calculate' };
   if (run.status === 'processing') return { kind: 'approve' };
 
   if (run.status === 'approved') {
-    if (nothingLeftToPay && failed > 0) {
-      return payrollGatewayEnabled ? { kind: 'retry' } : { kind: 'disburse' };
-    }
     if (nothingLeftToPay) {
-      return {
-        kind: 'none',
-        note: inFlight > 0 ? 'Payment in progress' : 'Paid',
-      };
+      if (failed > 0) {
+        return payrollGatewayEnabled ? { kind: 'retry' } : { kind: 'disburse' };
+      }
+      if (inFlight > 0) return { kind: 'none', note: 'Payment in progress' };
+      // Only claim "Paid" when someone actually received a payment. An all-cancelled run
+      // (or empty counts) has nothing pending and nothing in flight but paid nobody.
+      if (paid > 0) return { kind: 'none', note: 'Paid' };
+      return { kind: 'none', note: null };
     }
-    if (!countsKnown) {
-      // Fallback for payloads without counts: previous status-only behaviour.
-      return payrollGatewayEnabled
-        ? {
-            kind: 'fund-and-pay',
-            label: run.payoutMode === 'scheduled' ? 'Pay now instead' : 'Pay employees',
-          }
-        : { kind: 'disburse' };
-    }
+    // Items are still pending, so there is something to pay.
     return payrollGatewayEnabled
       ? {
           kind: 'fund-and-pay',

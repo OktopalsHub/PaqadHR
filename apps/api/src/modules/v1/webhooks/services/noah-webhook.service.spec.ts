@@ -12,10 +12,14 @@ describe('NoahWebhookService', () => {
   const walletTopupService = {
     completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
   };
+  const payrollFloatTopupService = {
+    handleWebhook: jest.fn().mockResolvedValue({ received: true }),
+  };
 
   const service = new NoahWebhookService(
     noahApi as never,
     payrollPayoutService as never,
+    payrollFloatTopupService as never,
     walletTopupService as never,
   );
 

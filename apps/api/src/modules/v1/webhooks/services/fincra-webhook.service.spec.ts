@@ -11,9 +11,11 @@ import { FincraWebhookService } from './fincra-webhook.service';
 jest.mock('src/common/config/fincra-webhook.util', () => ({
   verifyFincraWebhookSignature: jest.fn(),
   extractFincraWalletTopupCheckout: jest.fn(),
+  extractFincraPayrollFloatTopupCheckout: jest.fn(),
 }));
 
 import {
+  extractFincraPayrollFloatTopupCheckout,
   extractFincraWalletTopupCheckout,
   verifyFincraWebhookSignature,
 } from 'src/common/config/fincra-webhook.util';
@@ -22,6 +24,7 @@ describe('FincraWebhookService', () => {
   let service: FincraWebhookService;
   let walletTopupService: jest.Mocked<Pick<TenantWalletTopupService, 'completeCheckoutTopup'>>;
   let payrollPayoutService: jest.Mocked<Pick<PayrollPayoutService, 'processFincraPayload'>>;
+  let payrollFloatTopupService: { completeFloatTopup: jest.Mock };
 
   beforeEach(() => {
     walletTopupService = {
@@ -30,13 +33,18 @@ describe('FincraWebhookService', () => {
     payrollPayoutService = {
       processFincraPayload: jest.fn().mockResolvedValue({ received: true, matched: true }),
     };
+    payrollFloatTopupService = {
+      completeFloatTopup: jest.fn().mockResolvedValue({ received: true }),
+    };
 
     service = new FincraWebhookService(
       walletTopupService as unknown as TenantWalletTopupService,
+      payrollFloatTopupService as never,
       payrollPayoutService as unknown as PayrollPayoutService,
     );
     (verifyFincraWebhookSignature as jest.Mock).mockReturnValue(true);
     (extractFincraWalletTopupCheckout as jest.Mock).mockReturnValue(null);
+    (extractFincraPayrollFloatTopupCheckout as jest.Mock).mockReturnValue(null);
   });
 
   it('rejects missing signature', async () => {
