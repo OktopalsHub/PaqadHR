@@ -62,6 +62,19 @@ test('falls back to the hosted checkout when the overlay cannot open', async () 
   assert.deepEqual(sdk.redirects, [sandboxUrl]);
 });
 
+// window.Bachs can be replaced (script reload, fresh instance) without the URL changing.
+// Skipping Initialize then would leave the new SDK on its default live origin.
+test('re-initializes when window.Bachs is a different SDK instance', async () => {
+  const sandboxUrl = 'https://sandbox-checkout.bachs.io/c/sandbox';
+  const first = stubBrowser();
+  await openCheckoutUrl(sandboxUrl);
+  assert.deepEqual(first.baseUrls, ['https://sandbox-checkout.bachs.io']);
+
+  const second = stubBrowser();
+  await openCheckoutUrl(sandboxUrl);
+  assert.deepEqual(second.baseUrls, ['https://sandbox-checkout.bachs.io']);
+});
+
 test('falls back to the hosted checkout when the SDK fails to initialize', async () => {
   const liveUrl = 'https://checkout.bachs.io/c/live';
   const sdk = stubBrowser({ failInitialize: true });
