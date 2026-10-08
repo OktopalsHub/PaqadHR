@@ -46,4 +46,22 @@ describe('intl-money-provider.util', () => {
     process.env.NOAH_API_KEY = 'noah-key';
     expect(resolveIntlPaymentProvider()).toBe(PaymentProvider.NOAH);
   });
+
+  it('routes intl payroll to Bachs when preferred and configured', () => {
+    process.env.INTL_PAYROLL_PROVIDER = 'bachs';
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.NOAH_API_KEY = 'noah-key';
+
+    expect(getIntlPayrollProviderPreference()).toBe('bachs');
+    expect(resolveIntlPaymentProvider()).toBe(PaymentProvider.BACHS);
+    // Rewards wallet checkout does not follow the Bachs payroll rail.
+    expect(resolveIntlWalletPaymentProvider()).toBe(PaymentProvider.NOAH);
+  });
+
+  it('falls back from bachs to noah when Bachs is not configured', () => {
+    process.env.INTL_PAYROLL_PROVIDER = 'bachs';
+    delete process.env.BACHS_SECRET_KEY;
+    process.env.NOAH_API_KEY = 'noah-key';
+    expect(resolveIntlPaymentProvider()).toBe(PaymentProvider.NOAH);
+  });
 });

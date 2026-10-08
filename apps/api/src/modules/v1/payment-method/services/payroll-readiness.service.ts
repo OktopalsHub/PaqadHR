@@ -3,13 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
 import type {
   PayrollPaymentIssue,
   PayrollPaymentReadiness,
 } from 'src/common/interfaces/payroll-payment-readiness.interface';
 import { EncryptionService } from 'src/common/services/encryption.service';
+import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provider.util';
 import { In, Not, Repository } from 'typeorm';
+import { resolveBachsUsdBankAddress } from '../../payroll/utils/payroll-payment.util';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { PaymentMethod } from '../entities/payment-method.entity';
@@ -88,16 +91,49 @@ export class PayrollReadinessService {
     const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
 
     const employeeSettings = await this.tenantConfigService.requireIdentityForPayroll(tenantId);
-    let members: { id: string; identityBvn?: string; identityNin?: string }[] = [];
-    if (employeeSettings) {
+    const usdOnBachs =
+      resolvePaymentProvider('USD', PaymentMethodType.BANK) === PaymentProvider.BACHS;
+    const needsMemberRows =
+      employeeSettings || usdOnBachs || !normalizedCurrency || normalizedCurrency === 'USD';
+    let members: Array<{
+      id: string;
+      identityBvn?: string;
+      identityNin?: string;
+      address: {
+        street?: string | null;
+        city?: string | null;
+        state?: string | null;
+        postalCode?: string | null;
+        country?: string | null;
+      } | null;
+    }> = [];
+    if (needsMemberRows && memberIds.length > 0) {
       const tm = await this.tenantMemberRepo.find({
         where: { id: In(memberIds), tenantId },
-        select: ['id', 'identityBvn', 'identityNin'],
+        ...(usdOnBachs
+          ? {
+              relations: ['address'],
+              select: {
+                id: true,
+                identityBvn: true,
+                identityNin: true,
+                address: {
+                  id: true,
+                  street: true,
+                  city: true,
+                  state: true,
+                  postalCode: true,
+                  country: true,
+                },
+              },
+            }
+          : { select: ['id', 'identityBvn', 'identityNin'] as const }),
       });
       members = tm.map((m) => ({
         id: m.id,
         identityBvn: m.identityBvn ?? undefined,
         identityNin: m.identityNin ?? undefined,
+        address: m.address ?? null,
       }));
     }
     const memberMap = new Map(members.map((m) => [m.id, m]));
@@ -151,6 +187,15 @@ export class PayrollReadinessService {
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
         if (methodCurrency !== 'NGN' && !method.country?.trim())
           issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
+        if (
+          methodCurrency === 'USD' &&
+          resolvePaymentProvider('USD', PaymentMethodType.BANK) === PaymentProvider.BACHS
+        ) {
+          const member = memberMap.get(memberId);
+          if (!resolveBachsUsdBankAddress(method.metadata, member?.address ?? null)) {
+            issues.push('INCOMPLETE_BANK_DETAILS' as PayrollPaymentIssue);
+          }
+        }
       }
 
       if (!getSupportedPaymentCurrencies().includes(methodCurrency) && !payoutIsCrypto)

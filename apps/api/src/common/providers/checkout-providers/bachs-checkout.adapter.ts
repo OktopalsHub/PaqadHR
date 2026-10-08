@@ -36,6 +36,8 @@ export class BachsCheckoutAdapter implements CheckoutProvider {
       customerName: input.customerName,
       successUrl: input.callbackUrl,
       reference: input.orderReference,
+      customerId: input.bachsCustomerId,
+      savePaymentMethod: input.savePaymentMethod !== false,
       metadata: input.meta as Record<string, string | number | boolean | undefined>,
     });
     return {

@@ -33,9 +33,8 @@ export function getBachsPayoutSourceCurrency(): string | null {
 }
 
 /**
- * Bachs USDT (TRC20/BEP20) payroll rail. Requires credentials plus an explicit
- * opt-in via INTL_PAYROLL_PROVIDER=bachs — Bachs cannot deliver USD/EUR/GBP bank
- * payouts, so those stay on Noah/Fincra.
+ * Bachs international payroll rail (USD/EUR/GBP bank + USDT TRC20/BEP20).
+ * Requires credentials plus an explicit opt-in via INTL_PAYROLL_PROVIDER=bachs.
  */
 export function isBachsUsdtPayoutRailEnabled(): boolean {
   if (!isBachsConfigured()) return false;

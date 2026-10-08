@@ -1,8 +1,30 @@
 import {
+  isBachsIntlBankCurrency,
   mapBachsCryptoDestinationCurrency,
   normalizeBachsUsdtNetwork,
   parseBachsPayoutWebhook,
+  parseBachsUkIban,
 } from './bachs-payout.util';
+
+describe('isBachsIntlBankCurrency', () => {
+  it('accepts USD EUR GBP only', () => {
+    expect(isBachsIntlBankCurrency('USD')).toBe(true);
+    expect(isBachsIntlBankCurrency('eur')).toBe(true);
+    expect(isBachsIntlBankCurrency('GBP')).toBe(true);
+    expect(isBachsIntlBankCurrency('NGN')).toBe(false);
+    expect(isBachsIntlBankCurrency('CAD')).toBe(false);
+  });
+});
+
+describe('parseBachsUkIban', () => {
+  it('extracts sort code and account number', () => {
+    expect(parseBachsUkIban('GB29 NWBK 601613 31926819')).toEqual({
+      iban: 'GB29NWBK60161331926819',
+      sortCode: '601613',
+      accountNumber: '31926819',
+    });
+  });
+});
 
 describe('mapBachsCryptoDestinationCurrency', () => {
   it('maps TRC20 aliases to USDT_TRC20', () => {

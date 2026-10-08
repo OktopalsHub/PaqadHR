@@ -9,6 +9,7 @@ import { ActivitiesModule } from '../activities/activities.module';
 import { Employment } from '../employment/entities/employment.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
+import { TenantSubscription } from '../subscriptions/entities/tenant-subscription.entity';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
@@ -27,7 +28,6 @@ import { ClaimBillingService } from './services/claim-billing.service';
 import { ClaimFulfillmentService } from './services/claim-fulfillment.service';
 import { ClaimVerificationService } from './services/claim-verification.service';
 import { CustomRewardsService } from './services/custom-rewards.service';
-import { ProviderRoutingService } from './services/provider-routing.service';
 import { RewardsService } from './services/rewards.service';
 import { RewardsCatalogService } from './services/rewards-catalog.service';
 import { RewardsCatalogQueryService } from './services/rewards-catalog-query.service';
@@ -41,9 +41,6 @@ import { RewardsTaskTemplatesService } from './services/rewards-task-templates.s
 import { SavedCardChargeService } from './services/saved-card-charge.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
 import { TenantWalletTopupService } from './services/tenant-wallet-topup.service';
-import { TopupChargeService } from './services/topup-charge.service';
-import { TopupCheckoutService } from './services/topup-checkout.service';
-import { TopupWebhookService } from './services/topup-webhook.service';
 
 @Module({
   imports: [
@@ -56,6 +53,7 @@ import { TopupWebhookService } from './services/topup-webhook.service';
       TaskSubmission,
       Tenant,
       TenantSettings,
+      TenantSubscription,
       Employment,
     ]),
     PaymentsModule,
@@ -82,11 +80,7 @@ import { TopupWebhookService } from './services/topup-webhook.service';
     RewardsTaskTemplatesService,
     TenantWalletService,
     TenantWalletTopupService,
-    ProviderRoutingService,
     SavedCardChargeService,
-    TopupChargeService,
-    TopupCheckoutService,
-    TopupWebhookService,
     CustomRewardsService,
     FiatExchangeService,
     NombaBillApiService,

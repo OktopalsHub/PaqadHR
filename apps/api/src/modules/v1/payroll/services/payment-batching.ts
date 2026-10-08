@@ -1,5 +1,6 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import type { CreatePaymentData } from 'src/common/interfaces/create-payment-data.interface';
 import type { PaymentProviderInterface } from 'src/common/interfaces/payment-provider-interface.interface';
@@ -120,11 +121,19 @@ export class PaymentBatching {
       periodStart?: string | Date | null;
       periodEnd?: string | Date | null;
       baseCurrency?: string | null;
+      bachsSourceCurrency?: string | null;
     },
   ): Promise<PaymentResult[]> {
     this.runNotifyContext = runContext ?? null;
     try {
-      return await this.executePayouts(items, auditContext, tenantId, tenantName, payrollRunTitle);
+      return await this.executePayouts(
+        items,
+        auditContext,
+        tenantId,
+        tenantName,
+        payrollRunTitle,
+        runContext?.bachsSourceCurrency ?? undefined,
+      );
     } finally {
       this.runNotifyContext = null;
     }
@@ -136,6 +145,7 @@ export class PaymentBatching {
     tenantId: string,
     tenantName?: string,
     payrollRunTitle?: string,
+    bachsSourceCurrency?: string,
   ): Promise<PaymentResult[]> {
     const results: PaymentResult[] = [];
     const claimedIds = await this.claimItemsForPayout(items.map((item) => item.id));
@@ -160,6 +170,7 @@ export class PaymentBatching {
           tenantName,
           payrollRunTitle,
           rail,
+          bachsSourceCurrency,
         );
         prepared.push(preparedItem);
       } catch (error) {
@@ -239,6 +250,7 @@ export class PaymentBatching {
     tenantName: string | undefined,
     payrollRunTitle: string | undefined,
     rail: 'bank' | 'crypto',
+    bachsSourceCurrency?: string,
   ): Promise<PreparedPayout> {
     const payoutAmount = resolvePayrollPayoutAmount(item);
     if (payoutAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT) {
@@ -274,14 +286,17 @@ export class PaymentBatching {
       typeof paymentMethod.metadata?.cryptoNetwork === 'string'
         ? paymentMethod.metadata.cryptoNetwork
         : undefined;
+    const resolvedProvider = resolvePaymentProvider(
+      item.paymentCurrency,
+      paymentMethod.type,
+      cryptoNetwork,
+    );
     const provider = this.paymentProviderFactory.getFiatProvider(
       item.paymentCurrency,
       paymentMethod.type,
       cryptoNetwork,
     );
-    const providerName = paymentProviderLabel(
-      resolvePaymentProvider(item.paymentCurrency, paymentMethod.type, cryptoNetwork),
-    );
+    const providerName = paymentProviderLabel(resolvedProvider);
     const employeeName = item.employee
       ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
       : item.memberId;
@@ -291,6 +306,11 @@ export class PaymentBatching {
       employeeName,
       tenantName,
       payrollRunTitle,
+      {
+        // Only Bachs items consume float-topup funding currency (never stamp NGN onto USD banks).
+        bachsSourceCurrency:
+          resolvedProvider === PaymentProvider.BACHS ? bachsSourceCurrency : undefined,
+      },
     );
 
     return { item, paymentData, paymentMethod, provider, providerName, rail };

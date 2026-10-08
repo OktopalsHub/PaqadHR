@@ -6,7 +6,10 @@ import {
 } from '../constants/crypto-currencies.constant';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 import { PaymentMethodType } from '../enums/payment-type.enum';
-import { resolveIntlPaymentProvider } from './intl-money-provider.util';
+import {
+  resolveIntlCryptoPaymentProvider,
+  resolveIntlPaymentProvider,
+} from './intl-money-provider.util';
 import { resolveNgPaymentProvider } from './ng-money-provider.util';
 
 export function resolvePaymentProvider(
@@ -28,7 +31,7 @@ export function resolvePaymentProvider(
     if (code === 'USDT' && normalizeBachsUsdtNetwork(cryptoNetwork)) {
       return PaymentProvider.BACHS;
     }
-    return resolveIntlPaymentProvider();
+    return resolveIntlCryptoPaymentProvider();
   }
 
   if (code === 'NGN') {

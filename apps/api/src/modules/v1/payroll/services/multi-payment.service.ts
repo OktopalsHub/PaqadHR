@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
@@ -15,6 +16,14 @@ import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.servic
 import { PayrollPayoutService } from './payroll-payout.service';
 
 const PAYROLL_PROCESSING_LOCK_MS = 30 * 60 * 1000;
+
+/** Bachs float top-up funding currency only — never stamp Nomba/Monnify NGN onto Bachs items. */
+function bachsFundingCurrencyFromFloatTopup(floatTopup: unknown): string | undefined {
+  if (!floatTopup || typeof floatTopup !== 'object') return undefined;
+  const meta = floatTopup as { provider?: unknown; fundingCurrency?: unknown };
+  if (meta.provider !== PaymentProvider.BACHS) return undefined;
+  return typeof meta.fundingCurrency === 'string' ? meta.fundingCurrency : undefined;
+}
 
 @Injectable()
 export class MultiPaymentService {
@@ -106,6 +115,7 @@ export class MultiPaymentService {
           periodStart: payrollRun.periodStart,
           periodEnd: payrollRun.periodEnd,
           baseCurrency: payrollRun.baseCurrency,
+          bachsSourceCurrency: bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
         },
       );
       const summary = this.validation.calculatePaymentSummary(payoutResults);
@@ -188,6 +198,7 @@ export class MultiPaymentService {
           periodStart: payrollRun.periodStart,
           periodEnd: payrollRun.periodEnd,
           baseCurrency: payrollRun.baseCurrency,
+          bachsSourceCurrency: bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
         },
       );
       const summary = this.validation.calculatePaymentSummary(payoutResults);

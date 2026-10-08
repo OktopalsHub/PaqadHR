@@ -1,0 +1,27 @@
+# Local development database only. API and web run on the host (pnpm dev).
+# Usage: docker compose up -d db  /  docker compose logs -f db  /  docker compose down
+services:
+  db:
+    image: postgres:16
+    container_name: paqadhr-postgres-dev
+    restart: unless-stopped
+    # Loopback only: never publish the dev database beyond this machine.
+    ports:
+      - '127.0.0.1:5432:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: paqadhr
+    volumes:
+      - paqadhr-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d paqadhr']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  paqadhr-dev-data:
+    # Named volume survives `docker compose down` (use `down -v` to wipe).
+    name: paqadhr-dev-data

@@ -56,15 +56,17 @@ describe('resolvePaymentProvider', () => {
     expect(resolvePaymentProvider('USDT', undefined, 'TRC20')).toBe(PaymentProvider.BACHS);
   });
 
-  it('keeps Ethereum USDT and USD bank payouts on the intl provider', () => {
+  it('routes USD/EUR/GBP bank payouts to Bachs when INTL_PAYROLL_PROVIDER=bachs', () => {
     process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
     process.env.NOAH_API_KEY = 'test-key';
     process.env.INTL_PAYROLL_PROVIDER = 'bachs';
 
+    expect(resolvePaymentProvider('USD')).toBe(PaymentProvider.BACHS);
+    expect(resolvePaymentProvider('EUR')).toBe(PaymentProvider.BACHS);
+    expect(resolvePaymentProvider('GBP')).toBe(PaymentProvider.BACHS);
+    // Ethereum USDT is not a Bachs rail — stays on the Noah/Fincra fallback path.
     expect(resolvePaymentProvider('USDT', undefined, 'Ethereum')).toBe(PaymentProvider.NOAH);
     expect(resolvePaymentProvider('USDT')).toBe(PaymentProvider.NOAH);
-    expect(resolvePaymentProvider('USD')).toBe(PaymentProvider.NOAH);
-    expect(resolvePaymentProvider('EUR')).toBe(PaymentProvider.NOAH);
   });
 
   it('labels providers', () => {

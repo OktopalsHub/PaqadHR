@@ -1,4 +1,5 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
@@ -12,18 +13,27 @@ import { verifyBachsWebhookSignature } from 'src/common/config/bachs-webhook.uti
 
 describe('BachsWebhookService', () => {
   let service: BachsWebhookService;
-  let walletTopupService: jest.Mocked<Pick<TenantWalletTopupService, 'completeCheckoutTopup'>>;
+  let walletTopupService: jest.Mocked<
+    Pick<TenantWalletTopupService, 'completeCheckoutTopup' | 'persistBachsSavedPaymentMethod'>
+  >;
   let subscriptionBillingService: jest.Mocked<
     Pick<SubscriptionBillingService, 'processBachsPayload'>
   >;
+  let payrollFloatTopupService: jest.Mocked<Pick<PayrollFloatTopupService, 'completeFloatTopup'>>;
   let payrollPayoutService: jest.Mocked<Pick<PayrollPayoutService, 'processBachsPayload'>>;
 
   beforeEach(() => {
     walletTopupService = {
       completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
+      persistBachsSavedPaymentMethod: jest
+        .fn()
+        .mockResolvedValue({ received: true, matched: true }),
     };
     subscriptionBillingService = {
       processBachsPayload: jest.fn().mockResolvedValue({ received: true }),
+    };
+    payrollFloatTopupService = {
+      completeFloatTopup: jest.fn().mockResolvedValue({ received: true }),
     };
     payrollPayoutService = {
       processBachsPayload: jest.fn().mockResolvedValue({ received: true, matched: true }),
@@ -32,6 +42,7 @@ describe('BachsWebhookService', () => {
     service = new BachsWebhookService(
       subscriptionBillingService as unknown as SubscriptionBillingService,
       walletTopupService as unknown as TenantWalletTopupService,
+      payrollFloatTopupService as unknown as PayrollFloatTopupService,
       payrollPayoutService as unknown as PayrollPayoutService,
     );
     (verifyBachsWebhookSignature as jest.Mock).mockReturnValue(true);
@@ -48,6 +59,33 @@ describe('BachsWebhookService', () => {
 
   it('rejects invalid JSON', async () => {
     await expect(service.dispatch('{bad', 'sig', '123')).rejects.toThrow(BadRequestException);
+  });
+
+  it('routes payment_method.saved to wallet card persistence', async () => {
+    const body = JSON.stringify({
+      type: 'payment_method.saved',
+      data: {
+        payment_method_id: 'pm_abc',
+        card_brand: 'visa',
+        card_last4: '4242',
+        customer: {
+          customer_id: 'cust_1a2b',
+          metadata: { tenantId: '11111111-1111-4111-8111-111111111111' },
+        },
+      },
+    });
+
+    await service.dispatch(body, 'sig', '123');
+
+    expect(walletTopupService.persistBachsSavedPaymentMethod).toHaveBeenCalledWith({
+      customerId: 'cust_1a2b',
+      paymentMethodId: 'pm_abc',
+      tenantId: '11111111-1111-4111-8111-111111111111',
+      cardBrand: 'visa',
+      cardLastFour: '4242',
+    });
+    expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
+    expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
   });
 
   it('routes wallet_topup collection.succeeded to wallet credit', async () => {

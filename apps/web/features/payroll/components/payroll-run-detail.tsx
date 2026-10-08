@@ -47,6 +47,7 @@ import {
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { downloadPayslipPdf } from '@/lib/api/payroll';
 import { canManageMember } from '@/lib/auth/manager-access';
+import { openCheckoutUrlWithOptionalTab } from '@/lib/bachs-checkout';
 import { formatDate } from '@/lib/format-date';
 import { isPayrollFundingPending } from '@/lib/payroll-funding';
 import type {
@@ -413,13 +414,11 @@ export function PayrollRunDetail({
       const response = await actions.fundAndPay.mutateAsync(runId);
       if (response.action === 'checkout') {
         if (response.checkoutUrl) {
-          toast.message('Complete checkout to fund, then we pay automatically');
-          if (checkoutTab) {
-            checkoutTab.opener = null;
-            checkoutTab.location.href = response.checkoutUrl;
-          } else {
-            window.location.assign(response.checkoutUrl);
-          }
+          toast.message(
+            response.preflight?.message ??
+              'Complete checkout as your company — we then pay each employee automatically',
+          );
+          await openCheckoutUrlWithOptionalTab(response.checkoutUrl, checkoutTab);
         } else {
           checkoutTab?.close();
           toast.error(response.preflight?.message ?? 'Fund the payout provider, then retry');
@@ -705,7 +704,9 @@ export function PayrollRunDetail({
             </DialogHeader>
             <div className="space-y-4 pt-2">
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                Opens checkout to fund this payroll, then pays employees automatically.
+                Your company pays one checkout to fund this run (including Paqad&apos;s fee when
+                applicable). We then send each employee&apos;s salary to their bank or wallet
+                automatically.
               </p>
               <Button
                 variant="brandSolid"

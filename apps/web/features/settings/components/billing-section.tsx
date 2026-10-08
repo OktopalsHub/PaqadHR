@@ -20,6 +20,7 @@ import {
 } from '@/hooks/queries/use-billing';
 import { usePatchTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import type { BillingSettings } from '@/lib/api/tenant-settings';
+import { openCheckoutUrl } from '@/lib/bachs-checkout';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { formatDate } from '@/lib/format-date';
 import { formatPlanMoney } from '@/lib/format-plan-money';
@@ -267,7 +268,7 @@ export function BillingSection() {
     try {
       const result = await checkout.mutateAsync({ planSlug });
       if (result.checkoutUrl) {
-        window.location.assign(result.checkoutUrl);
+        await openCheckoutUrl(result.checkoutUrl);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start checkout');

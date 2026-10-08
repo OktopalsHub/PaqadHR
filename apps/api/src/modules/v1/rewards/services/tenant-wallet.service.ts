@@ -196,54 +196,69 @@ export class TenantWalletService {
       throw new BadRequestException('Invalid credit amount');
     }
     const actorMemberId = await this.requireTenantMemberActor(tenantId, options.actorMemberId);
-    const mgr = manager ?? this.dataSource.manager;
-    const walletRepo = mgr.getRepository(TenantWallet);
-    const txRepo = mgr.getRepository(TenantWalletTransaction);
 
-    const wallet = await this.ensureWallet(tenantId, mgr);
+    const apply = async (mgr: EntityManager): Promise<TenantWallet> => {
+      const walletRepo = mgr.getRepository(TenantWallet);
+      const txRepo = mgr.getRepository(TenantWalletTransaction);
 
-    await walletRepo
-      .createQueryBuilder()
-      .update(TenantWallet)
-      .set({ balanceAmount: () => 'balance_amount + :amount' })
-      .where('tenant_id = :tenantId', { tenantId, amount })
-      .execute();
+      const wallet = await this.ensureWallet(tenantId, mgr);
+      await walletRepo
+        .createQueryBuilder('w')
+        .setLock('pessimistic_write')
+        .where('w.tenantId = :tenantId', { tenantId })
+        .getOneOrFail();
 
-    const updated = await walletRepo.findOneOrFail({ where: { tenantId } });
+      const existing = await txRepo.findOne({ where: { reference } });
+      if (existing) {
+        return walletRepo.findOneOrFail({ where: { tenantId } });
+      }
 
-    const tx = txRepo.create({
-      tenantWalletId: wallet.id,
-      type,
-      amount,
-      reference,
-      description,
-      status: options.status ?? 'COMPLETED',
-      rawAmount: options.rawAmount ?? amount,
-      providerEventId: options.providerEventId ?? null,
-      metadata: {
-        ...(options.metadata ?? {}),
-        actorMemberId,
-      },
-    });
-    await txRepo.save(tx);
+      await walletRepo
+        .createQueryBuilder()
+        .update(TenantWallet)
+        .set({ balanceAmount: () => 'balance_amount + :amount' })
+        .where('tenant_id = :tenantId', { tenantId, amount })
+        .execute();
 
-    void this.activitiesService
-      .queueActivity({
-        tenantId,
-        actorMemberId,
-        action: type === 'DEPOSIT' ? 'wallet.deposit' : 'wallet.refund',
-        resourceType: 'rewards_wallet',
-        resourceId: reference,
+      const updated = await walletRepo.findOneOrFail({ where: { tenantId } });
+
+      const tx = txRepo.create({
+        tenantWalletId: wallet.id,
+        type,
+        amount,
+        reference,
         description,
-        metadata: { amount, reference, actorMemberId },
-      })
-      .catch((err) => {
-        this.logger.warn(
-          `Failed to queue wallet ${type.toLowerCase()} activity: ${err instanceof Error ? err.message : err}`,
-        );
+        status: options.status ?? 'COMPLETED',
+        rawAmount: options.rawAmount ?? amount,
+        providerEventId: options.providerEventId ?? null,
+        metadata: {
+          ...(options.metadata ?? {}),
+          actorMemberId,
+        },
       });
+      await txRepo.save(tx);
 
-    return updated;
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: type === 'DEPOSIT' ? 'wallet.deposit' : 'wallet.refund',
+          resourceType: 'rewards_wallet',
+          resourceId: reference,
+          description,
+          metadata: { amount, reference, actorMemberId },
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Failed to queue wallet ${type.toLowerCase()} activity: ${err instanceof Error ? err.message : err}`,
+          );
+        });
+
+      return updated;
+    };
+
+    if (manager) return apply(manager);
+    return this.dataSource.transaction(apply);
   }
 
   private async requireTenantMemberActor(tenantId: string, memberId?: string): Promise<string> {
@@ -286,7 +301,7 @@ export class TenantWalletService {
         tenant.countryCode,
         wallet.currencyCode,
       );
-      if (walletProvider === PaymentProvider.BACHS) {
+      if (walletProvider === PaymentProvider.FINCRA) {
         throw new BadRequestException(WALLET_SAVED_CARD_UNSUPPORTED);
       }
     }
