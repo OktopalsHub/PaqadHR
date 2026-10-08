@@ -3,11 +3,15 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
+import { parseDurationToMs } from 'src/common/config/parse-duration.util';
 import { MoreThan, Repository } from 'typeorm';
 import type { User } from '../../users/entities/user.entity';
 import { UserRepository } from '../../users/repositories/users.repository';
 import { Session } from '../entities/session.entity';
 import { hashSessionToken } from '../utils/session-token.util';
+
+const DEFAULT_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_ACCESS_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class AuthSessionService {
@@ -36,24 +40,24 @@ export class AuthSessionService {
     return { accessToken, refreshToken };
   }
 
-  static getSessionDurationMs(raw = ENVIRONMENT.JWT.SESSION_EXPIRES_IN): number {
-    const fallback = 7 * 24 * 60 * 60 * 1000;
-    if (!raw) return fallback;
-    const match = /^(\d+)(s|m|h|d)$/.exec(raw.toLowerCase());
-    if (!match) return fallback;
-    const value = parseInt(match[1], 10);
-    switch (match[2]) {
-      case 's':
-        return value * 1000;
-      case 'm':
-        return value * 60 * 1000;
-      case 'h':
-        return value * 60 * 60 * 1000;
-      case 'd':
-        return value * 24 * 60 * 60 * 1000;
-      default:
-        return fallback;
+  /** Session row lifetime from env (validated at boot; session ≥ refresh). */
+  static getSessionDurationMs(): number {
+    return parseDurationToMs(ENVIRONMENT.JWT.SESSION_EXPIRES_IN) ?? DEFAULT_SESSION_MS;
+  }
+
+  /** Refresh cookie lifetime — keep aligned with REFRESH_EXPIRES_IN. */
+  static getRefreshDurationMs(): number {
+    return parseDurationToMs(ENVIRONMENT.JWT.REFRESH_EXPIRES_IN) ?? DEFAULT_SESSION_MS;
+  }
+
+  /** Access cookie lifetime — keep aligned with ACCESS_EXPIRES_IN. */
+  static getAccessDurationMs(): number {
+    const raw = ENVIRONMENT.JWT.ACCESS_EXPIRES_IN;
+    if (typeof raw === 'number') {
+      // Numeric ACCESS_EXPIRES_IN is seconds after env.config normalization.
+      return raw * 1000;
     }
+    return parseDurationToMs(raw) ?? DEFAULT_ACCESS_MS;
   }
 
   async createSession(

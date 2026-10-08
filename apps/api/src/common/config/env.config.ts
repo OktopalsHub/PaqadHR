@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import * as env from './env.util';
+import { resolveRefreshAndSessionExpiresIn } from './parse-duration.util';
 import { resolveTrustedOrigins } from './trusted-origins';
 
 dotenv.config();
@@ -43,7 +44,7 @@ export interface IEnvironment {
     REFRESH_SECRET: string;
     ACCESS_EXPIRES_IN: string | number;
     REFRESH_EXPIRES_IN: string;
-    SESSION_EXPIRES_IN?: string;
+    SESSION_EXPIRES_IN: string;
   };
   GOOGLE: {
     CLIENT_ID: string;
@@ -84,9 +85,7 @@ export const ENVIRONMENT: IEnvironment = {
     ACCESS_SECRET: env.getRequired('ACCESS_SECRET'),
     REFRESH_SECRET: env.getRequired('REFRESH_SECRET'),
     ACCESS_EXPIRES_IN: resolveJwtAccessExpiresIn(),
-    REFRESH_EXPIRES_IN: env.getOptional('REFRESH_EXPIRES_IN', '7d'),
-    // Keep session >= refresh so cookie refresh works after idle (not access-token length).
-    SESSION_EXPIRES_IN: env.getOptional('SESSION_EXPIRES_IN', '7d'),
+    ...resolveRefreshAndSessionExpiresIn(),
   },
   GOOGLE: {
     CLIENT_ID: env.getOptional('GOOGLE_CLIENT_ID', ''),

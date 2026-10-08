@@ -7,8 +7,8 @@ export const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
-function resolveAuthRateLimitMax(): number {
-  const raw = process.env.AUTH_RATE_LIMIT_MAX;
+/** Exported for unit tests — keep boot wiring in configureRateLimiters. */
+export function resolveAuthRateLimitMax(raw = process.env.AUTH_RATE_LIMIT_MAX): number {
   if (raw === undefined || raw.trim() === '') return 5;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {

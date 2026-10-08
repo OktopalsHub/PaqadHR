@@ -1,15 +1,16 @@
-import { AuthSessionService } from './auth-session.service';
+import { parseDurationToMs } from 'src/common/config/parse-duration.util';
 
-describe('AuthSessionService.getSessionDurationMs', () => {
-  it('defaults to 7 days when unset or invalid', () => {
-    expect(AuthSessionService.getSessionDurationMs(undefined)).toBe(7 * 24 * 60 * 60 * 1000);
-    expect(AuthSessionService.getSessionDurationMs('nope')).toBe(7 * 24 * 60 * 60 * 1000);
+/**
+ * Duration helpers on AuthSessionService read ENVIRONMENT at call time.
+ * Boot-time validation lives in resolveRefreshAndSessionExpiresIn (unit-tested).
+ * Here we only assert the shared parser contract the helpers rely on.
+ */
+describe('auth session duration parsing contract', () => {
+  it('maps 7d to seven days in ms (cookie / session fallback)', () => {
+    expect(parseDurationToMs('7d')).toBe(7 * 24 * 60 * 60 * 1000);
   });
 
-  it('parses supported duration units', () => {
-    expect(AuthSessionService.getSessionDurationMs('30s')).toBe(30_000);
-    expect(AuthSessionService.getSessionDurationMs('15m')).toBe(15 * 60 * 1000);
-    expect(AuthSessionService.getSessionDurationMs('2h')).toBe(2 * 60 * 60 * 1000);
-    expect(AuthSessionService.getSessionDurationMs('7d')).toBe(7 * 24 * 60 * 60 * 1000);
+  it('maps 15m to fifteen minutes in ms (access cookie)', () => {
+    expect(parseDurationToMs('15m')).toBe(15 * 60 * 1000);
   });
 });

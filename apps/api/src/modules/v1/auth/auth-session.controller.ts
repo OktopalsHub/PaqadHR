@@ -28,6 +28,7 @@ import { GoogleConsentDto } from './dto/google-consent.dto';
 import { ResendEmailVerificationDto, VerifyEmailDto } from './dto/otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
+import { AuthSessionService } from './services/auth-session.service';
 import type { SessionBootstrapResponseDto } from './dto/session-bootstrap-response.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import {
@@ -273,15 +274,14 @@ export class AuthSessionController {
     refreshToken: string,
     _rememberMe = true,
   ) {
-    const maxAge = 30 * 24 * 60 * 60 * 1000;
     const options = this.cookieOptions();
     res.cookie('access_token', accessToken, {
       ...options,
-      maxAge,
+      maxAge: AuthSessionService.getAccessDurationMs(),
     });
     res.cookie('refresh_token', refreshToken, {
       ...options,
-      maxAge,
+      maxAge: AuthSessionService.getRefreshDurationMs(),
     });
   }
 
