@@ -30,6 +30,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import type { SessionBootstrapResponseDto } from './dto/session-bootstrap-response.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { AuthSessionService } from './services/auth-session.service';
 import {
   createGoogleOAuthConsentClaims,
   GOOGLE_OAUTH_CONSENT_COOKIE,
@@ -184,14 +185,11 @@ export class AuthSessionController {
   @Post('refresh')
   @Public()
   async refresh(
-    @Body() body: RefreshTokenDto,
+    @Body() _body: RefreshTokenDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
-    const isProduction = (process.env.NODE_ENV || 'development') === 'production';
-    const refreshToken = isProduction
-      ? req.cookies.refresh_token
-      : body.refreshToken || req.cookies.refresh_token;
+    const refreshToken = req.cookies.refresh_token;
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
@@ -276,15 +274,14 @@ export class AuthSessionController {
     refreshToken: string,
     _rememberMe = true,
   ) {
-    const maxAge = 30 * 24 * 60 * 60 * 1000;
     const options = this.cookieOptions();
     res.cookie('access_token', accessToken, {
       ...options,
-      maxAge,
+      maxAge: AuthSessionService.getAccessDurationMs(),
     });
     res.cookie('refresh_token', refreshToken, {
       ...options,
-      maxAge,
+      maxAge: AuthSessionService.getRefreshDurationMs(),
     });
   }
 

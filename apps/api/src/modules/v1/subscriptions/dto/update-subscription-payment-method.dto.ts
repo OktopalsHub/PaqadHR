@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 
-export class UpdatePaymentMethodDto {
+export class UpdateSubscriptionPaymentMethodDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

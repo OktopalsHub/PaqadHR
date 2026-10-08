@@ -7,6 +7,18 @@ export const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
   .map((s) => s.trim())
   .filter(Boolean);
 
+/** Exported for unit tests — keep boot wiring in configureRateLimiters. */
+export function resolveAuthRateLimitMax(raw = process.env.AUTH_RATE_LIMIT_MAX): number {
+  if (raw === undefined || raw.trim() === '') return 5;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+    throw new Error('AUTH_RATE_LIMIT_MAX must be a positive integer');
+  }
+  return parsed;
+}
+
+const AUTH_RATE_LIMIT_MAX = resolveAuthRateLimitMax();
+
 function ipToNum(ip: string): number | null {
   const parts = ip.split('.').map(Number);
   if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return null;
@@ -66,7 +78,7 @@ export const configureRateLimiters = (app: NestExpressApplication) => {
   app.use(limiter);
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5,
+    max: AUTH_RATE_LIMIT_MAX,
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: false,

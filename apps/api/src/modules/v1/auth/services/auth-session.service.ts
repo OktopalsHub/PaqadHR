@@ -3,11 +3,15 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
+import { parseDurationToMs } from 'src/common/config/parse-duration.util';
 import { MoreThan, Repository } from 'typeorm';
 import type { User } from '../../users/entities/user.entity';
 import { UserRepository } from '../../users/repositories/users.repository';
 import { Session } from '../entities/session.entity';
 import { hashSessionToken } from '../utils/session-token.util';
+
+const DEFAULT_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_ACCESS_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class AuthSessionService {
@@ -31,9 +35,29 @@ export class AuthSessionService {
     });
     const refreshToken = this.jwtService.sign(payload, {
       secret: ENVIRONMENT.JWT.REFRESH_SECRET,
-      expiresIn: '30d',
+      expiresIn: ENVIRONMENT.JWT.REFRESH_EXPIRES_IN as `${number}${'s' | 'm' | 'h' | 'd'}`,
     });
     return { accessToken, refreshToken };
+  }
+
+  /** Session row lifetime from env (validated at boot; session ≥ refresh). */
+  static getSessionDurationMs(): number {
+    return parseDurationToMs(ENVIRONMENT.JWT.SESSION_EXPIRES_IN) ?? DEFAULT_SESSION_MS;
+  }
+
+  /** Refresh cookie lifetime — keep aligned with REFRESH_EXPIRES_IN. */
+  static getRefreshDurationMs(): number {
+    return parseDurationToMs(ENVIRONMENT.JWT.REFRESH_EXPIRES_IN) ?? DEFAULT_SESSION_MS;
+  }
+
+  /** Access cookie lifetime — keep aligned with ACCESS_EXPIRES_IN. */
+  static getAccessDurationMs(): number {
+    const raw = ENVIRONMENT.JWT.ACCESS_EXPIRES_IN;
+    if (typeof raw === 'number') {
+      // Numeric ACCESS_EXPIRES_IN is seconds after env.config normalization.
+      return raw * 1000;
+    }
+    return parseDurationToMs(raw) ?? DEFAULT_ACCESS_MS;
   }
 
   async createSession(
@@ -43,7 +67,7 @@ export class AuthSessionService {
     _rememberMe = true,
   ): Promise<Session> {
     const sessionToken = randomUUID();
-    const durationMs = 30 * 24 * 60 * 60 * 1000;
+    const durationMs = AuthSessionService.getSessionDurationMs();
     const expiresAt = new Date(Date.now() + durationMs);
     const session = this.sessionRepository.create({
       userId,
@@ -89,7 +113,7 @@ export class AuthSessionService {
       }
 
       session.token = hashSessionToken(newSessionToken);
-      session.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      session.expiresAt = new Date(Date.now() + AuthSessionService.getSessionDurationMs());
       await manager.save(Session, session);
       return true;
     });

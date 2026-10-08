@@ -3,7 +3,8 @@ import { IsOptional, IsString } from 'class-validator';
 
 export class RefreshTokenDto {
   @ApiPropertyOptional({
-    description: 'Development only; production requires refresh_token httpOnly cookie',
+    description:
+      'Deprecated: refresh token must be provided via the refresh_token httpOnly cookie, not the request body.',
   })
   @IsOptional()
   @IsString()
