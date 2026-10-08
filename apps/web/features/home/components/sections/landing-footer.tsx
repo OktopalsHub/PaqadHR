@@ -10,7 +10,9 @@ const companyLinks = [
 
 const legalLinks = [
   { href: '/privacy', label: 'Privacy Policy' },
-  { href: '/terms', label: 'Terms and Conditions' },
+  { href: '/terms', label: 'Terms of Use' },
+  { href: '/dpa', label: 'DPA' },
+  { href: '/cookies', label: 'Cookie Notice' },
 ] as const;
 
 export const LandingFooter = () => {
