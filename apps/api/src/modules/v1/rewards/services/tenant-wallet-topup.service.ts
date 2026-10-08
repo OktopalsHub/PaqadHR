@@ -170,8 +170,12 @@ export class TenantWalletTopupService {
   ): Promise<{ received: boolean; credited: boolean; retryable?: boolean }> {
     const existing = await this.dataSource.getRepository(TenantWalletTransaction).findOne({
       where: { reference: input.orderReference },
+      select: ['id', 'type'],
     });
     if (existing) {
+      if (existing.type === 'DEPOSIT') {
+        await this.clearBachsPendingCharge(input.tenantId, input.orderReference);
+      }
       return { received: true, credited: existing.type === 'DEPOSIT' };
     }
 
@@ -246,8 +250,10 @@ export class TenantWalletTopupService {
 
       const dup = await manager.getRepository(TenantWalletTransaction).findOne({
         where: { reference: input.orderReference },
+        select: ['id'],
       });
       if (dup) {
+        await this.clearBachsPendingCharge(input.tenantId, input.orderReference);
         return { received: true, credited: false };
       }
 
@@ -431,9 +437,22 @@ export class TenantWalletTopupService {
     );
 
     // Reuse an in-flight Bachs charge so retries don't create a second payment.
-    const pendingBachsRef = metrics?.bachsPendingWalletChargeRef?.trim();
-    const chargeOrderRef =
-      provider === PaymentProvider.BACHS && pendingBachsRef ? pendingBachsRef : reference;
+    // Drop a stale pending ref if the webhook already credited it.
+    let pendingBachsRef =
+      provider === PaymentProvider.BACHS
+        ? metrics?.bachsPendingWalletChargeRef?.trim() || undefined
+        : undefined;
+    if (pendingBachsRef) {
+      const alreadyPaid = await this.dataSource.getRepository(TenantWalletTransaction).findOne({
+        where: { reference: pendingBachsRef },
+        select: ['id', 'type'],
+      });
+      if (alreadyPaid?.type === 'DEPOSIT') {
+        await this.clearBachsPendingCharge(tenantId, pendingBachsRef);
+        pendingBachsRef = undefined;
+      }
+    }
+    const chargeOrderRef = pendingBachsRef || reference;
 
     let chargeReference: string;
     try {
@@ -452,7 +471,11 @@ export class TenantWalletTopupService {
       );
     } catch (error) {
       if (error instanceof SavedCardChargePendingError) {
-        await this.persistBachsPendingCharge(tenantId, error.reference);
+        const keptPending = await this.persistBachsPendingCharge(tenantId, error.reference);
+        if (!keptPending) {
+          // Webhook credited while we were polling — do not leave a stale pending ref.
+          return this.walletService.ensureWallet(tenantId, manager);
+        }
         this.logger.log(
           `Bachs charge ${error.reference} still processing for tenant ${tenantId}; webhook will credit`,
         );
@@ -491,27 +514,84 @@ export class TenantWalletTopupService {
     }
   }
 
-  private async persistBachsPendingCharge(tenantId: string, reference: string): Promise<void> {
-    const sub = await this.subscriptionRepository.findOne({ where: { tenantId } });
-    if (!sub) return;
-    if (sub.usageMetrics?.bachsPendingWalletChargeRef === reference) return;
-    sub.usageMetrics = {
-      ...(sub.usageMetrics ?? {}),
-      bachsPendingWalletChargeRef: reference,
-    };
-    await this.subscriptionRepository.save(sub);
+  /**
+   * Persist a pending Bachs charge ref only when that payment has not already been credited.
+   * Returns false when the deposit already exists (caller must not treat it as still pending).
+   */
+  private async persistBachsPendingCharge(tenantId: string, reference: string): Promise<boolean> {
+    return this.dataSource.transaction(async (manager) => {
+      const credited = await manager.getRepository(TenantWalletTransaction).findOne({
+        where: { reference },
+        select: ['id', 'type'],
+      });
+      if (credited?.type === 'DEPOSIT') {
+        const sub = await manager
+          .getRepository(TenantSubscription)
+          .createQueryBuilder('sub')
+          .setLock('pessimistic_write')
+          .where('sub.tenantId = :tenantId', { tenantId })
+          .getOne();
+        if (sub?.usageMetrics?.bachsPendingWalletChargeRef === reference) {
+          sub.usageMetrics = {
+            ...(sub.usageMetrics ?? {}),
+            bachsPendingWalletChargeRef: undefined,
+          };
+          await manager.save(sub);
+        }
+        return false;
+      }
+
+      const sub = await manager
+        .getRepository(TenantSubscription)
+        .createQueryBuilder('sub')
+        .setLock('pessimistic_write')
+        .where('sub.tenantId = :tenantId', { tenantId })
+        .getOne();
+      if (!sub) return false;
+
+      // Re-check after lock — webhook may have credited between the first read and the lock.
+      const creditedAfterLock = await manager.getRepository(TenantWalletTransaction).findOne({
+        where: { reference },
+        select: ['id'],
+      });
+      if (creditedAfterLock) {
+        if (sub.usageMetrics?.bachsPendingWalletChargeRef === reference) {
+          sub.usageMetrics = {
+            ...(sub.usageMetrics ?? {}),
+            bachsPendingWalletChargeRef: undefined,
+          };
+          await manager.save(sub);
+        }
+        return false;
+      }
+
+      if (sub.usageMetrics?.bachsPendingWalletChargeRef === reference) return true;
+      sub.usageMetrics = {
+        ...(sub.usageMetrics ?? {}),
+        bachsPendingWalletChargeRef: reference,
+      };
+      await manager.save(sub);
+      return true;
+    });
   }
 
   private async clearBachsPendingCharge(tenantId: string, reference?: string): Promise<void> {
-    const sub = await this.subscriptionRepository.findOne({ where: { tenantId } });
-    const pending = sub?.usageMetrics?.bachsPendingWalletChargeRef?.trim();
-    if (!sub || !pending) return;
-    if (reference && pending !== reference) return;
-    sub.usageMetrics = {
-      ...(sub.usageMetrics ?? {}),
-      bachsPendingWalletChargeRef: undefined,
-    };
-    await this.subscriptionRepository.save(sub);
+    await this.dataSource.transaction(async (manager) => {
+      const sub = await manager
+        .getRepository(TenantSubscription)
+        .createQueryBuilder('sub')
+        .setLock('pessimistic_write')
+        .where('sub.tenantId = :tenantId', { tenantId })
+        .getOne();
+      const pending = sub?.usageMetrics?.bachsPendingWalletChargeRef?.trim();
+      if (!sub || !pending) return;
+      if (reference && pending !== reference) return;
+      sub.usageMetrics = {
+        ...(sub.usageMetrics ?? {}),
+        bachsPendingWalletChargeRef: undefined,
+      };
+      await manager.save(sub);
+    });
   }
 
   private async resolveBillingEmail(tenantId: string): Promise<string | null> {
@@ -525,6 +605,13 @@ export class TenantWalletTopupService {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
       relations: ['createdBy'],
+      select: {
+        id: true,
+        createdBy: {
+          id: true,
+          email: true,
+        },
+      },
     });
     return tenant?.createdBy?.email?.trim() ?? null;
   }
@@ -613,7 +700,10 @@ export class TenantWalletTopupService {
   ): Promise<void> {
     const email = await this.resolveBillingEmail(tenantId);
     if (!email) return;
-    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      select: ['id', 'name', 'slug'],
+    });
     const settingsUrl = tenant?.slug
       ? tenantFrontendUrl(tenant.slug, '/settings?tab=rewards')
       : tenantFrontendUrl('', '/settings?tab=rewards');

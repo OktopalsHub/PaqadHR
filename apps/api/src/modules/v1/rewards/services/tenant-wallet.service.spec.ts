@@ -326,14 +326,6 @@ describe('TenantWalletTopupService', () => {
       }),
     };
 
-    const manager = {
-      getRepository: jest.fn((entity) => {
-        if (entity.name === 'TenantWallet') return walletRepo;
-        if (entity.name === 'TenantWalletTransaction') return txRepo;
-        return {};
-      }),
-    };
-
     const subscription = {
       paymentMethodId:
         overrides?.paymentMethodId !== undefined ? overrides.paymentMethodId : 'tok-1',
@@ -345,8 +337,18 @@ describe('TenantWalletTopupService', () => {
       findOne: jest.fn(async () => subscription),
       save: jest.fn(async (row) => row),
       createQueryBuilder: jest.fn().mockReturnValue({
+        setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(subscription),
+      }),
+    };
+
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity.name === 'TenantWallet') return walletRepo;
+        if (entity.name === 'TenantWalletTransaction') return txRepo;
+        if (entity.name === 'TenantSubscription') return subscriptionRepo;
+        return {};
       }),
     };
 
