@@ -110,8 +110,8 @@ async function openBachsOverlay(
   const origin = bachsCheckoutOrigin(checkoutUrl);
   if (!origin) return false;
 
-  const Bachs = await ensureInitialized(origin);
   try {
+    const Bachs = await ensureInitialized(origin);
     await Bachs.Checkout.open({
       checkoutUrl,
       onEvent: (event) => {
@@ -125,8 +125,9 @@ async function openBachsOverlay(
       },
     });
   } catch {
-    // open() rejects before mounting anything (bad token, wrong origin, SDK load failure).
-    // The hosted checkout page is a valid fallback; fulfilment still waits on the webhook.
+    // SDK load / Initialize / open() failures all reject before anything is mounted
+    // (bad token, wrong origin, script blocked). The hosted checkout page is a valid
+    // fallback; fulfilment still waits on the collection.succeeded webhook.
     return false;
   }
   return true;
