@@ -30,7 +30,7 @@ function createFacade() {
 
   const collaborators = {
     webhookDispatcher: {
-      handleWebhook: jest.fn(),
+      handleNombaWebhook: jest.fn(),
       processNombaPayload: jest.fn(),
       processBachsPayload: jest.fn(),
       processPolarPayload: jest.fn(),

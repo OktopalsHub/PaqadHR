@@ -86,25 +86,81 @@ async function chargeRenewal(processor: object, subscription: unknown): Promise<
   ).chargeSubscriptionRenewal(subscription);
 }
 
+const NOMBA_KEYS = ['NOMBA_CLIENT_ID', 'NOMBA_CLIENT_SECRET', 'NOMBA_PARENT_ACCOUNT_ID'] as const;
+
+/** Set the Nomba credentials these suites need, and restore the originals afterwards. */
+const configureNomba = () => {
+  process.env.NOMBA_CLIENT_ID = 'client-id';
+  process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+  process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+};
+
+/**
+ * Restore env vars, deleting any that were unset originally. Assigning `undefined` would
+ * store the literal string "undefined" in the variable, which leaves Nomba looking
+ * configured for every suite that runs after this one in the same worker.
+ */
+const restoreEnv = (saved: Record<string, string | undefined>) => {
+  for (const [key, original] of Object.entries(saved)) {
+    if (original === undefined) delete process.env[key];
+    else process.env[key] = original;
+  }
+};
+
+const restoreNomba = () => {
+  restoreEnv(NOMBA_ORIGINAL);
+  jest.restoreAllMocks();
+};
+
+const NOMBA_ORIGINAL: Record<(typeof NOMBA_KEYS)[number], string | undefined> = {
+  NOMBA_CLIENT_ID: process.env.NOMBA_CLIENT_ID,
+  NOMBA_CLIENT_SECRET: process.env.NOMBA_CLIENT_SECRET,
+  NOMBA_PARENT_ACCOUNT_ID: process.env.NOMBA_PARENT_ACCOUNT_ID,
+};
+
+/**
+ * Restoring `process.env.X = undefined` stores the literal string "undefined", which leaves
+ * Nomba looking configured for every suite that runs after these in the same worker. Unset
+ * variables must be deleted, not reassigned.
+ */
+describe('Nomba env hygiene', () => {
+  afterEach(restoreNomba);
+
+  it('deletes a variable whose original value was undefined', () => {
+    const probe = 'NOMBA_RESTORE_PROBE';
+    process.env[probe] = 'set-by-test';
+
+    restoreEnv({ [probe]: undefined });
+
+    // Assigning undefined would leave the literal string "undefined" here, which reads as
+    // a configured credential to isNombaConfigured().
+    expect(process.env[probe]).toBeUndefined();
+    expect(process.env[probe]).not.toBe('undefined');
+  });
+
+  it('restores a variable that was previously set', () => {
+    const probe = 'NOMBA_RESTORE_PROBE';
+    process.env[probe] = 'set-by-test';
+
+    restoreEnv({ [probe]: 'original-value' });
+
+    expect(process.env[probe]).toBe('original-value');
+    delete process.env[probe];
+  });
+
+  it('does not leave the string "undefined" in any Nomba variable after restore', () => {
+    configureNomba();
+    restoreNomba();
+
+    for (const key of NOMBA_KEYS) {
+      expect(process.env[key]).not.toBe('undefined');
+    }
+  });
+});
+
 describe('RenewalProcessor.processDueRenewals', () => {
-  const originalNomba = {
-    id: process.env.NOMBA_CLIENT_ID,
-    secret: process.env.NOMBA_CLIENT_SECRET,
-    account: process.env.NOMBA_PARENT_ACCOUNT_ID,
-  };
-
-  beforeEach(() => {
-    process.env.NOMBA_CLIENT_ID = 'client-id';
-    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
-  });
-
-  afterEach(() => {
-    process.env.NOMBA_CLIENT_ID = originalNomba.id;
-    process.env.NOMBA_CLIENT_SECRET = originalNomba.secret;
-    process.env.NOMBA_PARENT_ACCOUNT_ID = originalNomba.account;
-    jest.restoreAllMocks();
-  });
+  beforeEach(configureNomba);
+  afterEach(restoreNomba);
 
   it('returns an empty result when the billing gateway is not configured', async () => {
     const billingConfig = require('../config/billing.config');
@@ -143,15 +199,8 @@ describe('RenewalProcessor.processDueRenewals', () => {
 });
 
 describe('RenewalProcessor.chargeSubscriptionRenewal', () => {
-  beforeEach(() => {
-    process.env.NOMBA_CLIENT_ID = 'client-id';
-    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
+  beforeEach(configureNomba);
+  afterEach(restoreNomba);
 
   const dueSubscription = (overrides: Record<string, unknown> = {}) => ({
     id: 'sub-retry',

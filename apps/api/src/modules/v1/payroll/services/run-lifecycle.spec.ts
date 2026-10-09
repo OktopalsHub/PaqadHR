@@ -152,6 +152,71 @@ describe('RunLifecycle', () => {
   // nothing left to send.
   // A manager's list spans whole runs that include employees outside their reports, so
   // per-status counts would disclose other employees' pay state.
+  // Regression: the list queries do not load the items relation. Treating an unloaded
+  // relation as "no items" stamped APPROVED on runs whose employees had all been paid.
+  it('heals a legacy run from item counts, not the unloaded items relation', async () => {
+    const legacyRun = {
+      id: 'run-1',
+      status: PayrollStatus.PROCESSING,
+      metadata: { approvedAt: '2026-01-01T00:00:00.000Z' },
+    };
+    const payrollRunRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((input) => input),
+      save: jest.fn(async (input) => input),
+      paginate: jest.fn().mockResolvedValue({ data: [legacyRun], total: 1 }),
+    } as unknown as PayrollRunRepository;
+    const payrollItemRepository = {
+      create: jest.fn((input) => input),
+      save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest
+        .fn()
+        .mockResolvedValue([{ payrollRunId: 'run-1', status: PayrollItemStatus.PAID, count: 4 }]),
+    } as unknown as PayrollItemRepository;
+
+    const service = new RunLifecycle(
+      payrollRunRepository,
+      payrollItemRepository,
+      { logPayrollCreated: jest.fn() } as unknown as AuditService,
+      {} as never,
+    );
+
+    const result = await service.getPayrollRuns('tenant-1');
+
+    expect(result.runs[0].status).toBe(PayrollStatus.COMPLETED);
+    expect(payrollRunRepository.save).toHaveBeenCalled();
+  });
+
+  it('still stamps APPROVED when the run genuinely has no items', async () => {
+    const legacyRun = {
+      id: 'run-1',
+      status: PayrollStatus.PROCESSING,
+      metadata: { approvedAt: '2026-01-01T00:00:00.000Z' },
+    };
+    const payrollRunRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((input) => input),
+      save: jest.fn(async (input) => input),
+      paginate: jest.fn().mockResolvedValue({ data: [legacyRun], total: 1 }),
+    } as unknown as PayrollRunRepository;
+    const payrollItemRepository = {
+      create: jest.fn((input) => input),
+      save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest.fn().mockResolvedValue([]),
+    } as unknown as PayrollItemRepository;
+
+    const service = new RunLifecycle(
+      payrollRunRepository,
+      payrollItemRepository,
+      { logPayrollCreated: jest.fn() } as unknown as AuditService,
+      {} as never,
+    );
+
+    const result = await service.getPayrollRuns('tenant-1');
+
+    expect(result.runs[0].status).toBe(PayrollStatus.APPROVED);
+  });
+
   it('omits item counts for non-admin requesters', async () => {
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue(null),
@@ -188,8 +253,9 @@ describe('RunLifecycle', () => {
       'member',
     );
 
-    expect(payrollItemRepository.countByRunIds).not.toHaveBeenCalled();
+    // Counts are fetched to heal legacy runs, but must never reach a manager's response.
     expect(result.runs[0]).not.toHaveProperty('itemCounts');
+    expect(JSON.stringify(result)).not.toContain('itemCounts');
   });
 
   it('reports per-status item counts so the list can hide payout on settled runs', async () => {
