@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FindManyOptions, Repository } from 'typeorm';
+import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollItem } from '../entities/payroll-item.entity';
 
 @Injectable()
@@ -16,11 +17,12 @@ export class PayrollItemRepository extends Repository<PayrollItem> {
     );
   }
   async findByPayrollRunId(payrollRunId: string, tenantId: string): Promise<PayrollItem[]> {
+    // No deletedAt filter: payroll_items has no soft-delete column. Removed employees are
+    // represented by status CANCELLED instead.
     return this.createQueryBuilder('item')
       .innerJoin('item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
       .leftJoinAndSelect('item.employee', 'employee')
       .where('item.payrollRunId = :payrollRunId', { payrollRunId })
-      .andWhere('item.deletedAt IS NULL')
       .getMany();
   }
   async findByMemberId(memberId: string, tenantId: string): Promise<PayrollItem[]> {
@@ -30,6 +32,31 @@ export class PayrollItemRepository extends Repository<PayrollItem> {
       .where('item.memberId = :memberId', { memberId })
       .orderBy('item.createdAt', 'DESC')
       .getMany();
+  }
+  /**
+   * Per-run item counts by status for a page of runs, in one grouped query.
+   * Tenant-scoped through the run join so a run id from another tenant cannot leak counts.
+   */
+  async countByRunIds(
+    payrollRunIds: string[],
+    tenantId: string,
+  ): Promise<Array<{ payrollRunId: string; status: PayrollItemStatus; count: number }>> {
+    if (payrollRunIds.length === 0) return [];
+    const rows = await this.createQueryBuilder('item')
+      .select('item.payrollRunId', 'payrollRunId')
+      .addSelect('item.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .innerJoin('item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
+      .where('item.payrollRunId IN (:...payrollRunIds)', { payrollRunIds })
+      .groupBy('item.payrollRunId')
+      .addGroupBy('item.status')
+      .getRawMany<{ payrollRunId: string; status: PayrollItemStatus; count: string }>();
+
+    return rows.map((row) => ({
+      payrollRunId: row.payrollRunId,
+      status: row.status,
+      count: Number.parseInt(row.count, 10) || 0,
+    }));
   }
   async paginate(
     options: FindManyOptions<PayrollItem>,

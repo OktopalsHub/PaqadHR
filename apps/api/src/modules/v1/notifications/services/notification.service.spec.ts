@@ -3,10 +3,12 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { Notification } from '../entities/notification.entity';
 import { NotificationPreference } from '../entities/notification-preference.entity';
 import { NotificationService } from './notification.service';
+import { NotificationDeliveryService } from './notification-delivery.service';
 import { SSENotificationService } from './sse-notification.service';
 import { ZeptomailEmailService } from './zeptomail-email.service';
 
@@ -39,11 +41,14 @@ describe('NotificationService', () => {
         { provide: ZeptomailEmailService, useValue: { sendEmail: jest.fn() } },
         { provide: SSENotificationService, useValue: { sendToUser: jest.fn() } },
         { provide: TenantMembersService, useValue: tenantMembersService },
+        { provide: ActivitiesService, useValue: { recordActivity: jest.fn() } },
+        { provide: NotificationDeliveryService, useValue: { deliver: jest.fn() } },
       ],
     }).compile();
 
     service = module.get(NotificationService);
-    jest.spyOn(service as any, 'sendNotification').mockResolvedValue(undefined);
+    // Delivery moved to NotificationDeliveryService; stub the private fan-out.
+    jest.spyOn(service as any, 'deliver').mockResolvedValue(undefined);
   });
 
   it('creates notification when recipient is a tenant member', async () => {

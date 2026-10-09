@@ -25,6 +25,30 @@ function bachsFundingCurrencyFromFloatTopup(floatTopup: unknown): string | undef
   return typeof meta.fundingCurrency === 'string' ? meta.fundingCurrency : undefined;
 }
 
+/**
+ * Why a payout found nothing to send. A run whose items are already paid, in flight, or
+ * cancelled is not a payment-method or funding problem, so it must not be reported as one.
+ */
+export function noPayableEmployeesMessage(items: PayrollItem[], suffix: string): string {
+  const active = items.filter((item) => item.status !== PayrollItemStatus.CANCELLED);
+  const settled = active.filter(
+    (item) =>
+      item.status === PayrollItemStatus.PAID || item.status === PayrollItemStatus.PROCESSING,
+  );
+
+  if (active.length === 0) {
+    return 'Every employee on this run was cancelled, so there is nothing to pay.';
+  }
+  if (settled.length === active.length) {
+    const allPaid = active.every((item) => item.status === PayrollItemStatus.PAID);
+    return allPaid
+      ? 'Every employee on this run has already been paid.'
+      : 'Payment for this run is already in progress. It updates when each payout completes — no need to pay again.';
+  }
+
+  return `No employees could be paid. Check each employee payment method and that your payout provider account is funded, ${suffix}`;
+}
+
 @Injectable()
 export class MultiPaymentService {
   private readonly batching: PaymentBatching;
@@ -102,7 +126,7 @@ export class MultiPaymentService {
       if (payable.length === 0) {
         await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
         throw new BadRequestException(
-          'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then use Retry payment.',
+          noPayableEmployeesMessage(payrollRun.items, 'then use Retry payment.'),
         );
       }
       const payoutResults = await this.batching.processPayouts(
@@ -185,7 +209,7 @@ export class MultiPaymentService {
       if (payable.length === 0) {
         await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
         throw new BadRequestException(
-          'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then retry again.',
+          noPayableEmployeesMessage(retriableItems, 'then retry again.'),
         );
       }
       const payoutResults = await this.batching.processPayouts(

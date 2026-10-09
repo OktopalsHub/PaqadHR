@@ -17,6 +17,8 @@ export const payrollRunSchema = z.object({
   processedAt: z.string().nullable().optional(),
   alreadyExists: z.boolean().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  /** Item counts by status, so the list can tell unpaid from paid/in-flight runs. */
+  itemCounts: z.record(z.string(), z.number()).optional(),
 });
 
 export type PayrollRun = z.infer<typeof payrollRunSchema>;

@@ -1,5 +1,6 @@
 import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
+import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
@@ -7,15 +8,23 @@ import type { AuditService } from './audit.service';
 import { RunLifecycle } from './run-lifecycle';
 
 describe('RunLifecycle', () => {
+  // createPayrollRun reads the tenant through payrollRunRepository.manager to resolve
+  // "today" in the tenant's timezone.
+  const tenantRepository = {
+    findOne: jest.fn().mockResolvedValue({ id: 'tenant-1', timezone: 'Africa/Lagos' }),
+  };
+
   const createService = () => {
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((input) => input),
       save: jest.fn().mockImplementation(async (input) => ({ ...input, id: 'run-1' })),
+      manager: { getRepository: jest.fn(() => tenantRepository) },
     } as unknown as PayrollRunRepository;
     const payrollItemRepository = {
       create: jest.fn((input) => input),
       save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest.fn().mockResolvedValue([]),
     } as unknown as PayrollItemRepository;
     const auditService = {
       logPayrollCreated: jest.fn().mockResolvedValue(undefined),
@@ -29,6 +38,7 @@ describe('RunLifecycle', () => {
         {} as never,
       ),
       payrollRunRepository,
+      payrollItemRepository,
     };
   };
 
@@ -90,10 +100,12 @@ describe('RunLifecycle', () => {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((input) => input),
       save: jest.fn().mockImplementation(async (input) => ({ ...input, id: 'run-1' })),
+      manager: { getRepository: jest.fn(() => tenantRepository) },
     } as unknown as PayrollRunRepository;
     const payrollItemRepository = {
       create: jest.fn((input) => input),
       save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest.fn().mockResolvedValue([]),
     } as unknown as PayrollItemRepository;
     const auditService = {
       logPayrollCreated: jest.fn().mockResolvedValue(undefined),
@@ -133,5 +145,146 @@ describe('RunLifecycle', () => {
         status: PayrollItemStatus.PENDING,
       }),
     ]);
+  });
+
+  // Regression: the run list drives the "Pay employees" button. Without item counts the
+  // list could not tell a paid run from an unpaid one, so it kept offering a payout with
+  // nothing left to send.
+  // A manager's list spans whole runs that include employees outside their reports, so
+  // per-status counts would disclose other employees' pay state.
+  // Regression: the list queries do not load the items relation. Treating an unloaded
+  // relation as "no items" stamped APPROVED on runs whose employees had all been paid.
+  it('heals a legacy run from item counts, not the unloaded items relation', async () => {
+    const legacyRun = {
+      id: 'run-1',
+      status: PayrollStatus.PROCESSING,
+      metadata: { approvedAt: '2026-01-01T00:00:00.000Z' },
+    };
+    const payrollRunRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((input) => input),
+      save: jest.fn(async (input) => input),
+      paginate: jest.fn().mockResolvedValue({ data: [legacyRun], total: 1 }),
+    } as unknown as PayrollRunRepository;
+    const payrollItemRepository = {
+      create: jest.fn((input) => input),
+      save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest
+        .fn()
+        .mockResolvedValue([{ payrollRunId: 'run-1', status: PayrollItemStatus.PAID, count: 4 }]),
+    } as unknown as PayrollItemRepository;
+
+    const service = new RunLifecycle(
+      payrollRunRepository,
+      payrollItemRepository,
+      { logPayrollCreated: jest.fn() } as unknown as AuditService,
+      {} as never,
+    );
+
+    const result = await service.getPayrollRuns('tenant-1');
+
+    expect(result.runs[0].status).toBe(PayrollStatus.COMPLETED);
+    expect(payrollRunRepository.save).toHaveBeenCalled();
+  });
+
+  it('still stamps APPROVED when the run genuinely has no items', async () => {
+    const legacyRun = {
+      id: 'run-1',
+      status: PayrollStatus.PROCESSING,
+      metadata: { approvedAt: '2026-01-01T00:00:00.000Z' },
+    };
+    const payrollRunRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((input) => input),
+      save: jest.fn(async (input) => input),
+      paginate: jest.fn().mockResolvedValue({ data: [legacyRun], total: 1 }),
+    } as unknown as PayrollRunRepository;
+    const payrollItemRepository = {
+      create: jest.fn((input) => input),
+      save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest.fn().mockResolvedValue([]),
+    } as unknown as PayrollItemRepository;
+
+    const service = new RunLifecycle(
+      payrollRunRepository,
+      payrollItemRepository,
+      { logPayrollCreated: jest.fn() } as unknown as AuditService,
+      {} as never,
+    );
+
+    const result = await service.getPayrollRuns('tenant-1');
+
+    expect(result.runs[0].status).toBe(PayrollStatus.APPROVED);
+  });
+
+  it('omits item counts for non-admin requesters', async () => {
+    const payrollRunRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((input) => input),
+      save: jest.fn(),
+      paginate: jest.fn().mockResolvedValue({
+        data: [{ id: 'run-1', status: PayrollStatus.APPROVED, metadata: { approvedAt: 'x' } }],
+        total: 1,
+      }),
+    } as unknown as PayrollRunRepository;
+    const payrollItemRepository = {
+      create: jest.fn((input) => input),
+      save: jest.fn().mockResolvedValue(undefined),
+      find: jest.fn().mockResolvedValue([{ payrollRunId: 'run-1' }]),
+      countByRunIds: jest
+        .fn()
+        .mockResolvedValue([{ payrollRunId: 'run-1', status: PayrollItemStatus.PAID, count: 5 }]),
+    } as unknown as PayrollItemRepository;
+    const managerAccessService = {
+      getDirectReportIds: jest.fn().mockResolvedValue(['member-9']),
+    };
+    const service = new RunLifecycle(
+      payrollRunRepository,
+      payrollItemRepository,
+      { logPayrollCreated: jest.fn() } as unknown as AuditService,
+      managerAccessService as never,
+    );
+
+    const result = await service.getPayrollRunsForRequester(
+      'tenant-1',
+      20,
+      0,
+      'manager-1',
+      'member',
+    );
+
+    // Counts are fetched to heal legacy runs, but must never reach a manager's response.
+    expect(result.runs[0]).not.toHaveProperty('itemCounts');
+    expect(JSON.stringify(result)).not.toContain('itemCounts');
+  });
+
+  it('reports per-status item counts so the list can hide payout on settled runs', async () => {
+    const payrollRunRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn((input) => input),
+      save: jest.fn(),
+      paginate: jest.fn().mockResolvedValue({
+        data: [{ id: 'run-1', status: PayrollStatus.APPROVED, metadata: { approvedAt: 'x' } }],
+        total: 1,
+      }),
+    } as unknown as PayrollRunRepository;
+    const payrollItemRepository = {
+      create: jest.fn((input) => input),
+      save: jest.fn().mockResolvedValue(undefined),
+      countByRunIds: jest
+        .fn()
+        .mockResolvedValue([{ payrollRunId: 'run-1', status: PayrollItemStatus.PAID, count: 3 }]),
+    } as unknown as PayrollItemRepository;
+    const service = new RunLifecycle(
+      payrollRunRepository,
+      payrollItemRepository,
+      { logPayrollCreated: jest.fn() } as unknown as AuditService,
+      {} as never,
+    );
+
+    const result = await service.getPayrollRuns('tenant-1');
+
+    expect(payrollItemRepository.countByRunIds).toHaveBeenCalledWith(['run-1'], 'tenant-1');
+    expect(result.runs[0]).toEqual(expect.objectContaining({ itemCounts: { paid: 3 } }));
   });
 });

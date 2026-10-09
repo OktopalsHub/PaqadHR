@@ -36,9 +36,15 @@ export class AttendanceReportService {
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
     const year = targetYear ?? Number(values.year);
     const month = targetMonth ?? Number(values.month);
+    // With an explicit target month/year, anchor to that month: day 1 for a start boundary and
+    // the last day of the month for an end boundary. Deriving the day from the formatted
+    // UTC instant would shift a negative-offset timezone (e.g. America/New_York) back to
+    // the previous local day, making a March report start on 29 February.
     const day =
       targetMonth && targetYear
-        ? new Date(Date.UTC(year, month, 0)).getUTCDate()
+        ? endOfDay
+          ? new Date(Date.UTC(year, month, 0)).getUTCDate()
+          : 1
         : Number(values.day);
     const hour = endOfDay ? 23 : 0;
     const minute = endOfDay ? 59 : 0;
@@ -127,6 +133,8 @@ export class AttendanceReportService {
       tenantId,
       new Date(Date.UTC(year, month - 1, 1)),
       false,
+      month,
+      year,
     );
     const end = await this.toTenantDayBoundary(
       tenantId,

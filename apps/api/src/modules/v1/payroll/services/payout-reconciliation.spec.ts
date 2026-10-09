@@ -65,11 +65,11 @@ describe('PayoutReconciliation', () => {
       lifecycleNotify,
     );
 
-    return { service, transactionRepository, lifecycleNotify };
+    return { service, transactionRepository, lifecycleNotify, savedItem };
   };
 
   it('serializes duplicate success webhooks with a row lock', async () => {
-    const { service, transactionRepository, lifecycleNotify } = createService();
+    const { service, transactionRepository, lifecycleNotify, savedItem } = createService();
 
     const changed = await service.applyTransferStatus(
       'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',

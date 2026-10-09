@@ -56,6 +56,7 @@ import { formatDate } from '@/lib/format-date';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
 import type { PayrollRun, PublishedPayslip } from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
+import { payrollRowAction } from './payroll-payout-action';
 
 function statusVariant(status: string) {
   switch (status) {
@@ -124,6 +125,7 @@ function PayrollRunRow({
       : null;
 
   const canDelete = isAdmin && canDeletePayrollRun(run);
+  const rowAction = payrollRowAction(run, { isAdmin, payrollGatewayEnabled });
 
   let primary: {
     label: string;
@@ -131,21 +133,18 @@ function PayrollRunRow({
     className?: string;
     variant?: 'brandSolid';
   } | null = null;
-  if (isAdmin && run.status === 'draft') {
+  if (rowAction.kind === 'calculate') {
     primary = { label: 'Calculate', action: 'calculate' };
-  } else if (isAdmin && run.status === 'processing') {
+  } else if (rowAction.kind === 'approve') {
     primary = { label: 'Approve', action: 'approve', className: APPROVE_BUTTON_CLASS };
-  } else if (isAdmin && run.status === 'approved') {
-    primary = payrollGatewayEnabled
-      ? {
-          label: run.payoutMode === 'scheduled' ? 'Pay now instead' : 'Pay employees',
-          action: 'fund-and-pay',
-          variant: 'brandSolid',
-        }
-      : { label: 'Mark paid', action: 'disburse' };
-  } else if (isAdmin && run.status === 'failed' && payrollGatewayEnabled) {
+  } else if (rowAction.kind === 'fund-and-pay') {
+    primary = { label: rowAction.label, action: 'fund-and-pay', variant: 'brandSolid' };
+  } else if (rowAction.kind === 'retry') {
     primary = { label: 'Retry payment', action: 'retry', variant: 'brandSolid' };
+  } else if (rowAction.kind === 'disburse') {
+    primary = { label: 'Mark paid', action: 'disburse' };
   }
+  const note = rowAction.kind === 'none' ? rowAction.note : null;
 
   const secondaryItems: Array<{
     label: string;
@@ -214,6 +213,12 @@ function PayrollRunRow({
             {primary.action === 'retry' ? <RefreshCw className="mr-1 size-4" /> : null}
             {primary.label}
           </Button>
+        ) : null}
+        {!primary && note ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-400">
+            {note === 'Payment in progress' ? <RefreshCw className="size-3 animate-spin" /> : null}
+            {note}
+          </span>
         ) : null}
         {secondaryItems.length > 0 ? (
           <DropdownMenu>

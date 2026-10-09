@@ -95,9 +95,11 @@ describe('resolveGiftCardProviderFromEnv', () => {
     expect(resolveGiftCardProviderFromEnv('tremendous')).toBe('tremendous');
   });
 
-  it('returns reloadly when set', () => {
-    expect(resolveGiftCardProviderFromEnv('reloadly')).toBe('reloadly');
-    expect(resolveGiftCardProviderFromEnv(' RELOADLY ')).toBe('reloadly');
+  // Reloadly support was removed: Tremendous is the only gift-card provider, so any
+  // incoming value is ignored rather than honoured.
+  it('always returns the default provider regardless of input', () => {
+    expect(resolveGiftCardProviderFromEnv('reloadly')).toBe('tremendous');
+    expect(resolveGiftCardProviderFromEnv(' RELOADLY ')).toBe('tremendous');
   });
 });
 
@@ -112,22 +114,22 @@ describe('resolveGiftCatalogProviders', () => {
     }
   });
 
-  it('uses the environment provider for every workspace', () => {
+  it('uses the single supported provider for every workspace', () => {
     process.env.REWARDS_GIFT_CARD_PROVIDER = 'tremendous';
     expect(resolveGiftCatalogProviders('NG', 'reloadly')).toEqual(['tremendous']);
     expect(resolveGiftCatalogProviders('US', 'reloadly')).toEqual(['tremendous']);
 
     process.env.REWARDS_GIFT_CARD_PROVIDER = 'reloadly';
-    expect(resolveGiftCatalogProviders('NG')).toEqual(['reloadly']);
-    expect(resolveGiftCatalogProviders('GB')).toEqual(['reloadly']);
+    expect(resolveGiftCatalogProviders('NG')).toEqual(['tremendous']);
+    expect(resolveGiftCatalogProviders('GB')).toEqual(['tremendous']);
   });
 });
 
 describe('resolveGiftCardProvider', () => {
-  it('ignores tenant selection and reads env', () => {
+  it('ignores tenant selection and always returns the default provider', () => {
     const original = process.env.REWARDS_GIFT_CARD_PROVIDER;
     process.env.REWARDS_GIFT_CARD_PROVIDER = 'reloadly';
-    expect(resolveGiftCardProvider('tremendous')).toBe('reloadly');
+    expect(resolveGiftCardProvider('tremendous')).toBe('tremendous');
     if (original === undefined) {
       delete process.env.REWARDS_GIFT_CARD_PROVIDER;
     } else {

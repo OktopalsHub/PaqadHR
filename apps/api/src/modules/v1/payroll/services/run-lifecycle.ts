@@ -120,7 +120,12 @@ export class RunLifecycle {
       relations: ['items', 'items.employee', 'createdBy', 'tenant'],
     });
     if (!run) return null;
-    return this.healMisclassifiedApprovedRun(run);
+    // This path loads items, so derive the same count shape the list query uses.
+    const counts: Record<string, number> = {};
+    for (const item of run.items ?? []) {
+      counts[item.status] = (counts[item.status] ?? 0) + 1;
+    }
+    return this.healMisclassifiedApprovedRun(run, counts);
   }
 
   async getPayrollRuns(tenantId: string, limit = 20, offset = 0) {
@@ -131,8 +136,44 @@ export class RunLifecycle {
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
-    const healed = await Promise.all(runs.map((run) => this.healMisclassifiedApprovedRun(run)));
-    return { runs: healed, total };
+    return this.withItemCounts(runs, tenantId, total, true);
+  }
+
+  /**
+   * Heal legacy runs and attach per-status item counts so the list can tell "approved and
+   * unpaid" from "already paid / payout in flight".
+   *
+   * Counts are fetched for healing on both paths (the list queries do not load items), but
+   * only exposed to admins. A manager's list spans whole runs that include employees outside
+   * their reports, so returning per-status counts there would disclose other employees' pay
+   * state. Managers still get correctly healed runs; the UI reads no action without counts.
+   */
+  private async withItemCounts(
+    runs: PayrollRun[],
+    tenantId: string,
+    total: number,
+    includeCounts: boolean,
+  ) {
+    const rows = await this.payrollItemRepository.countByRunIds(
+      runs.map((run) => run.id),
+      tenantId,
+    );
+    const byRun = new Map<string, Record<string, number>>();
+    for (const row of rows) {
+      const bucket = byRun.get(row.payrollRunId) ?? {};
+      bucket[row.status] = (bucket[row.status] ?? 0) + row.count;
+      byRun.set(row.payrollRunId, bucket);
+    }
+
+    const healed = await Promise.all(
+      runs.map((run) => this.healMisclassifiedApprovedRun(run, byRun.get(run.id) ?? {})),
+    );
+
+    if (!includeCounts) return { runs: healed, total };
+    return {
+      runs: healed.map((run) => ({ ...run, itemCounts: byRun.get(run.id) ?? {} })),
+      total,
+    };
   }
   async getPayrollRunsForRequester(
     tenantId: string,
@@ -154,13 +195,14 @@ export class RunLifecycle {
     });
     const runIds = [...new Set(items.map((i) => i.payrollRunId))];
     if (runIds.length === 0) return { runs: [], total: 0 };
-    return this.payrollRunRepository.paginate({
+    const { data: runs, total } = await this.payrollRunRepository.paginate({
       where: { tenantId, id: In(runIds) },
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
+    return this.withItemCounts(runs, tenantId, total, false);
   }
   async getPayrollRunForRequester(
     id: string,
@@ -411,8 +453,15 @@ export class RunLifecycle {
   /**
    * Older payout reconciliation set approved runs back to `processing`, which resurfaces Approve.
    * Heal on read using approvedAt + item statuses.
+   *
+   * Item statuses come from `counts` (the grouped page query), not `run.items`: the list
+   * queries deliberately do not load the items relation, and treating an unloaded relation
+   * as "no items" would stamp APPROVED on a run whose employees have all been paid.
    */
-  private async healMisclassifiedApprovedRun(run: PayrollRun): Promise<PayrollRun> {
+  private async healMisclassifiedApprovedRun(
+    run: PayrollRun,
+    counts: Record<string, number>,
+  ): Promise<PayrollRun> {
     const approvedAt = run.metadata?.approvedAt;
     if (
       run.status !== PayrollStatus.PROCESSING ||
@@ -422,45 +471,18 @@ export class RunLifecycle {
       return run;
     }
 
-    const items = run.items;
-    if (!items || items.length === 0) {
+    const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+    if (total === 0) {
       run.status = PayrollStatus.APPROVED;
       return this.payrollRunRepository.save(run);
     }
 
-    let pending = 0;
-    let processing = 0;
-    let paid = 0;
-    let failed = 0;
-    let cancelled = 0;
-    for (const item of items) {
-      switch (item.status) {
-        case PayrollItemStatus.PENDING:
-          pending += 1;
-          break;
-        case PayrollItemStatus.PROCESSING:
-          processing += 1;
-          break;
-        case PayrollItemStatus.PAID:
-          paid += 1;
-          break;
-        case PayrollItemStatus.FAILED:
-          failed += 1;
-          break;
-        case PayrollItemStatus.CANCELLED:
-          cancelled += 1;
-          break;
-        default:
-          break;
-      }
-    }
-
     const next = resolvePostApprovalPayrollStatus({
-      pending,
-      processing,
-      paid,
-      failed,
-      active: items.length - cancelled,
+      pending: counts[PayrollItemStatus.PENDING] ?? 0,
+      processing: counts[PayrollItemStatus.PROCESSING] ?? 0,
+      paid: counts[PayrollItemStatus.PAID] ?? 0,
+      failed: counts[PayrollItemStatus.FAILED] ?? 0,
+      active: total - (counts[PayrollItemStatus.CANCELLED] ?? 0),
     });
     if (next === run.status) return run;
     run.status = next;

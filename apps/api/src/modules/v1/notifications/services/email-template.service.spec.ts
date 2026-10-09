@@ -25,9 +25,10 @@ describe('EmailTemplateService', () => {
       resetLink: 'https://paqadhr.com/reset-password?token=abc',
     });
 
-    expect(rendered.subject).toBe('Reset your PaqadHR password');
+    expect(rendered.subject).toBe('Reset your Paqad password');
     expect(rendered.html).toContain('logo-lockup-light.png');
-    expect(rendered.html).toContain('Daniel');
+    // The founder sign-off was rebranded to "The Paqad Team".
+    expect(rendered.html).toContain('The Paqad Team');
   });
 
   it('throws for unknown template keys', () => {

@@ -51,6 +51,8 @@ describe('TenantSettingsService rewards validation', () => {
         tenantCountryCode: 'US',
         rewardsCurrency: 'USD',
       }),
+      // SettingsWriterService re-hydrates defaults after a write.
+      hydrateTenantSettings: jest.fn((settings) => settings),
     } as unknown as SettingsReaderService;
 
     writer = new SettingsWriterService(

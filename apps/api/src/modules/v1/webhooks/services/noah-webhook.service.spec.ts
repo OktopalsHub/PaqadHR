@@ -12,10 +12,14 @@ describe('NoahWebhookService', () => {
   const walletTopupService = {
     completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
   };
+  const payrollFloatTopupService = {
+    completeFloatTopup: jest.fn().mockResolvedValue({ received: true }),
+  };
 
   const service = new NoahWebhookService(
     noahApi as never,
     payrollPayoutService as never,
+    payrollFloatTopupService as never,
     walletTopupService as never,
   );
 
@@ -52,6 +56,33 @@ describe('NoahWebhookService', () => {
       expect.objectContaining({ tenantId: 'tenant-1' }),
       PaymentProvider.NOAH,
     );
+  });
+
+  // Payroll float funding and wallet top-up share a provider, so both routes are asserted:
+  // a payroll float checkout must not be mistaken for a wallet credit.
+  it('routes a payroll float top-up checkout to the float service', async () => {
+    const payload = {
+      event_type: 'payment_success',
+      data: {
+        externalID: 'noah-float-1',
+        amount: 250000,
+        meta: {
+          tenantId: 'tenant-1',
+          billingType: 'payroll_float_topup',
+          payrollRunId: '33333333-3333-4333-8333-333333333333',
+        },
+      },
+    };
+
+    await service.dispatch(JSON.stringify(payload), 'sig');
+
+    expect(payrollFloatTopupService.completeFloatTopup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        payrollRunId: '33333333-3333-4333-8333-333333333333',
+      }),
+    );
+    expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
   });
 
   it('ignores subscription checkout events (handled by Bachs/Polar/Nomba)', async () => {

@@ -1,4 +1,6 @@
 import { DataSource } from 'typeorm';
+import { fulfillNombaTopup } from './claim-fulfillment-handlers';
+import { ClaimVerificationService } from './claim-verification.service';
 import { RewardsService } from './rewards.service';
 
 describe('RewardsService Nomba topup', () => {
@@ -30,22 +32,22 @@ describe('RewardsService Nomba topup', () => {
       { amount: 2000, plan: '2GB' },
     ]);
 
-    // Positional args: index 0 = dataSource, index 6 = nombaBillApi,
-    // index 7 = monnifyBillApi.
-    const ctorArgs: any[] = Array(15).fill({});
+    // Positional args: index 0 = dataSource, index 4 = nombaBillApi,
+    // index 5 = monnifyBillApi.
+    const ctorArgs: any[] = Array(7).fill({});
     ctorArgs[0] = {
       getRepository: jest.fn(() => ({
         findOne: jest.fn(),
         update: jest.fn(),
       })),
     } as unknown as DataSource;
-    ctorArgs[6] = {
+    ctorArgs[4] = {
       isConfigured: jest.fn().mockReturnValue(true),
       purchaseAirtime,
       purchaseDataBundle,
       listDataPlans,
     };
-    ctorArgs[7] = {
+    ctorArgs[5] = {
       isConfigured: jest.fn().mockReturnValue(false),
       purchaseAirtime: jest.fn(),
       purchaseDataBundle: jest.fn(),
@@ -73,8 +75,15 @@ describe('RewardsService Nomba topup', () => {
     process.env.MONNIFY_API_KEY = 'key';
     process.env.MONNIFY_SECRET_KEY = 'secret';
     process.env.MONNIFY_CONTRACT_CODE = 'contract';
+    // assertNgNombaRouting moved to ClaimVerificationService during the rewards refactor.
+    const verificationService = new ClaimVerificationService(
+      {} as never,
+      { isConfigured: () => true } as never,
+      { isConfigured: () => false } as never,
+      {} as never,
+    );
     expect(() =>
-      (service as any).assertNgNombaRouting(
+      verificationService.assertNgNombaRouting(
         {
           rewardType: 'NOMBA_AIRTIME',
           currencyCode: 'NGN',
@@ -84,7 +93,14 @@ describe('RewardsService Nomba topup', () => {
           recipientPhone: '08021234567',
           airtimeNetwork: 'MTN',
         },
-        { rewardsCurrency: 'NGN' },
+        {
+          rewardsCurrency: 'NGN',
+          enabled: true,
+          pointsExchangeRate: 1.02,
+          catalogCountries: ['NG'],
+          airtimeEnabled: true,
+          customRewardsEnabled: false,
+        },
       ),
     ).toThrow(/temporarily unavailable/);
   });
@@ -107,28 +123,29 @@ describe('RewardsService provider-pending topups', () => {
     process.env = originalEnv;
   });
 
-  function makeService(purchaseResult: {
+  // fulfillNombaTopup moved out of RewardsService into an exported handler during the
+  // rewards refactor, so drive the handler directly with the same deps.
+  function makeDeps(purchaseResult: {
     success: boolean;
     transactionId: string | null;
     status: string;
-  }): RewardsService {
+  }) {
     updateMock = jest.fn().mockResolvedValue({});
     purchaseAirtime = jest.fn().mockResolvedValue(purchaseResult);
     const dataSource = {
       getRepository: jest.fn(() => ({ update: updateMock })),
     } as unknown as DataSource;
 
-    // Positional args: index 6 = nombaBillApi, index 7 = monnifyBillApi.
-    const ctorArgs: any[] = Array(15).fill({});
-    ctorArgs[0] = dataSource;
-    ctorArgs[6] = { isConfigured: () => false };
-    ctorArgs[7] = {
-      isConfigured: () => true,
-      purchaseAirtime,
-      purchaseDataBundle: jest.fn(),
-      listDataPlans: jest.fn(),
+    return {
+      dataSource,
+      nombaBillApi: { isConfigured: () => false } as never,
+      monnifyBillApi: {
+        isConfigured: () => true,
+        purchaseAirtime,
+        purchaseDataBundle: jest.fn(),
+        listDataPlans: jest.fn(),
+      } as never,
     };
-    return new RewardsService(...(ctorArgs as ConstructorParameters<typeof RewardsService>));
   }
 
   const redemption = {
@@ -147,9 +164,15 @@ describe('RewardsService provider-pending topups', () => {
   } as any;
 
   it('keeps a provider-pending vend in PROCESSING with a fresh recovery lease', async () => {
-    const service = makeService({ success: false, transactionId: 'mfy-9', status: 'PENDING' });
+    const deps = makeDeps({ success: false, transactionId: 'mfy-9', status: 'PENDING' });
 
-    await (service as any).fulfillNombaTopup(redemption, claimInput);
+    await fulfillNombaTopup(
+      deps.dataSource,
+      deps.nombaBillApi,
+      deps.monnifyBillApi,
+      redemption,
+      claimInput,
+    );
 
     expect(updateMock).toHaveBeenCalledWith(
       'redemption-9',
@@ -161,11 +184,17 @@ describe('RewardsService provider-pending topups', () => {
   });
 
   it('throws for a confirmed failed vend so the caller refunds instead', async () => {
-    const service = makeService({ success: false, transactionId: null, status: 'FAILED' });
+    const deps = makeDeps({ success: false, transactionId: null, status: 'FAILED' });
 
-    await expect((service as any).fulfillNombaTopup(redemption, claimInput)).rejects.toThrow(
-      /purchase failed: status FAILED/i,
-    );
+    await expect(
+      fulfillNombaTopup(
+        deps.dataSource,
+        deps.nombaBillApi,
+        deps.monnifyBillApi,
+        redemption,
+        claimInput,
+      ),
+    ).rejects.toThrow(/purchase failed: status FAILED/i);
     expect(updateMock).not.toHaveBeenCalled();
   });
 
@@ -177,27 +206,26 @@ describe('RewardsService provider-pending topups', () => {
     const dataSource = {
       getRepository: jest.fn(() => ({ update: updateMock })),
     } as unknown as DataSource;
-    const ctorArgs: any[] = Array(15).fill({});
-    ctorArgs[0] = dataSource;
-    ctorArgs[6] = { isConfigured: () => false };
-    ctorArgs[7] = {
-      isConfigured: () => true,
-      purchaseAirtime: jest.fn(),
-      purchaseDataBundle,
-      listDataPlans: jest.fn(),
-    };
-    const service = new RewardsService(
-      ...(ctorArgs as ConstructorParameters<typeof RewardsService>),
+
+    await fulfillNombaTopup(
+      dataSource,
+      { isConfigured: () => false } as never,
+      {
+        isConfigured: () => true,
+        purchaseAirtime: jest.fn(),
+        purchaseDataBundle,
+        listDataPlans: jest.fn(),
+      } as never,
+      redemption,
+      {
+        ...claimInput,
+        topupKind: 'data',
+        dataPlanCode: '19882',
+      },
     );
 
-    await (service as any).fulfillNombaTopup(redemption, {
-      ...claimInput,
-      topupKind: 'data',
-      dataPlanCode: '19882',
-    });
-
     expect(purchaseDataBundle).toHaveBeenCalledWith(
-      expect.objectContaining({ productCode: '19882', merchantTxRef: 'redemption-9' }),
+      expect.objectContaining({ dataPlanCode: '19882', merchantTxRef: 'redemption-9' }),
     );
     expect(updateMock).toHaveBeenCalledWith(
       'redemption-9',
