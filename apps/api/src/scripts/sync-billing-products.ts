@@ -1,12 +1,11 @@
 /**
- * Syncs both Bachs and Polar products onto plan_prices.
+ * Syncs Bachs products onto plan_prices.
  * Usage: pnpm --filter api sync:billing-products
  */
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { isBachsConfigured } from '../common/config/bachs.config';
-import { isPolarConfigured } from '../common/config/polar.config';
 import dataSource from '../common/database/config/data-source';
 import { BillingProductSyncService } from '../modules/v1/subscriptions/services/billing-product-sync.service';
 
@@ -30,13 +29,6 @@ async function syncProducts(): Promise<void> {
       logger.log(`Bachs: ${updated} plan price row(s) updated.`);
     } else {
       logger.warn('Skipping Bachs — BACHS_SECRET_KEY is not set');
-    }
-
-    if (isPolarConfigured()) {
-      const { updated } = await sync.syncPolarProducts();
-      logger.log(`Polar: ${updated} plan price row(s) updated.`);
-    } else {
-      logger.warn('Skipping Polar — POLAR_ACCESS_TOKEN is not set');
     }
   } finally {
     await app.close();

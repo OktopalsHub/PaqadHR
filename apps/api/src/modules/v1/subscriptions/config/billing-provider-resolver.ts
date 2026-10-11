@@ -1,7 +1,6 @@
 import { isBachsConfigured } from 'src/common/config/bachs.config';
 import { isMonnifyConfigured } from 'src/common/config/monnify.config';
 import { isNombaConfigured } from 'src/common/config/nomba.config';
-import { isPolarConfigured } from 'src/common/config/polar.config';
 import { BillingProvider } from '../constants/billing-provider.enum';
 import { BillingRegion } from '../constants/billing-region.enum';
 
@@ -11,20 +10,15 @@ const NG_ALLOWLIST: BillingProvider[] = [
   BillingProvider.MONNIFY,
   BillingProvider.BACHS,
 ];
-/** Global: Nomba default for now; Bachs/Polar when explicitly configured. */
-const GLOBAL_ALLOWLIST: BillingProvider[] = [
-  BillingProvider.NOMBA,
-  BillingProvider.BACHS,
-  BillingProvider.POLAR,
-];
+/** Global: Nomba default for now; Bachs when explicitly configured. */
+const GLOBAL_ALLOWLIST: BillingProvider[] = [BillingProvider.NOMBA, BillingProvider.BACHS];
 
 function parseProvider(value: string | undefined): BillingProvider | null {
   const normalized = value?.trim().toLowerCase();
   if (
     normalized === BillingProvider.NOMBA ||
     normalized === BillingProvider.MONNIFY ||
-    normalized === BillingProvider.BACHS ||
-    normalized === BillingProvider.POLAR
+    normalized === BillingProvider.BACHS
   ) {
     return normalized;
   }
@@ -47,8 +41,6 @@ export function isBillingProviderConfigured(provider: BillingProvider): boolean 
       return isNombaConfigured();
     case BillingProvider.MONNIFY:
       return isMonnifyConfigured();
-    case BillingProvider.POLAR:
-      return isPolarConfigured();
     default:
       return false;
   }
@@ -82,5 +74,5 @@ export function resolveBillingProviderForCountry(
 }
 
 export function isAnyBillingProviderConfigured(): boolean {
-  return isNombaConfigured() || isMonnifyConfigured() || isBachsConfigured() || isPolarConfigured();
+  return isNombaConfigured() || isMonnifyConfigured() || isBachsConfigured();
 }

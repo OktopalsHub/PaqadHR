@@ -26,9 +26,11 @@ export function resolvePaymentProvider(
 
   if (isCryptoCurrency(code) || paymentMethodType === PaymentMethodType.CRYPTO) {
     // Bachs is the only rail that delivers USDT on TRC20/BEP20 — route those there
-    // unconditionally so a payout can never settle on a different chain. If Bachs is
-    // not configured the item fails loudly instead of moving funds.
-    if (code === 'USDT' && normalizeBachsUsdtNetwork(cryptoNetwork)) {
+    // unconditionally so a payout can never settle on a different chain. Other USDT
+    // networks (ERC20/SOL) are not Bachs rails and stay on the Noah/Fincra path. If
+    // Bachs is not configured the item fails loudly instead of moving funds.
+    const bachsNetwork = normalizeBachsUsdtNetwork(cryptoNetwork);
+    if (code === 'USDT' && (bachsNetwork === 'TRC20' || bachsNetwork === 'BEP20')) {
       return PaymentProvider.BACHS;
     }
     return resolveIntlCryptoPaymentProvider();

@@ -33,7 +33,6 @@ function createFacade() {
       handleNombaWebhook: jest.fn(),
       processNombaPayload: jest.fn(),
       processBachsPayload: jest.fn(),
-      processPolarPayload: jest.fn(),
       processMonnifyPayload: jest.fn(),
     },
     renewalProcessor: {
@@ -114,8 +113,8 @@ describe('SubscriptionBillingService cancellation lifecycle', () => {
     const subscription = {
       tenantId: 'tenant-1',
       status: SubscriptionStatus.ACTIVE,
-      billingProvider: BillingProvider.POLAR,
-      externalSubscriptionId: 'sub_polar_1',
+      billingProvider: BillingProvider.BACHS,
+      externalSubscriptionId: 'sub_bachs_1',
       cancelAtPeriodEnd: true,
       paymentMethodId: 'pm_1',
       currentPeriodEnd: new Date(Date.now() + 86_400_000),
@@ -125,8 +124,8 @@ describe('SubscriptionBillingService cancellation lifecycle', () => {
     await service.resumeSubscription('tenant-1');
 
     expect(billingProviderFactory.resumeExternalSubscription).toHaveBeenCalledWith(
-      BillingProvider.POLAR,
-      'sub_polar_1',
+      BillingProvider.BACHS,
+      'sub_bachs_1',
     );
     expect(subscription.cancelAtPeriodEnd).toBe(false);
     expect(subscriptionRepo.save).toHaveBeenCalled();
@@ -180,17 +179,14 @@ describe('SubscriptionBillingService delegation', () => {
   it('routes provider webhooks through the dispatcher with the right provider', async () => {
     const { service, collaborators } = createFacade();
     collaborators.webhookDispatcher.processBachsPayload.mockResolvedValue({ received: true });
-    collaborators.webhookDispatcher.processPolarPayload.mockResolvedValue({ received: true });
     collaborators.webhookDispatcher.processMonnifyPayload.mockResolvedValue({ received: true });
     collaborators.webhookDispatcher.processNombaPayload.mockResolvedValue({ received: true });
 
     await service.processBachsPayload({});
-    await service.processPolarPayload({});
     await service.processMonnifyPayload({});
     await service.processNombaPayload({});
 
     expect(collaborators.webhookDispatcher.processBachsPayload).toHaveBeenCalledWith({});
-    expect(collaborators.webhookDispatcher.processPolarPayload).toHaveBeenCalledWith({});
     expect(collaborators.webhookDispatcher.processMonnifyPayload).toHaveBeenCalledWith({});
     expect(collaborators.webhookDispatcher.processNombaPayload).toHaveBeenCalledWith({});
   });

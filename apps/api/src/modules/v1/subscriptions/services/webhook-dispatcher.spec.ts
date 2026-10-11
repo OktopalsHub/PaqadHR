@@ -239,7 +239,7 @@ describe('WebhookDispatcher routing', () => {
     withSubscription(ctx, {
       tenantId: TENANT_ID,
       status: SubscriptionStatus.TRIAL,
-      billingProvider: BillingProvider.POLAR,
+      billingProvider: BillingProvider.MONNIFY,
       billingHistory: [],
     });
     ctx.eventResolver.isStaleProviderWebhook.mockReturnValue(true);

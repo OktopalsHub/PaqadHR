@@ -189,8 +189,8 @@ export class PaymentMethodService {
     });
   }
 
-  async recordPaymentMethodUsage(paymentMethodId: string): Promise<void> {
-    await this.repo.update({ id: paymentMethodId }, { lastUsedAt: new Date() });
+  async recordPaymentMethodUsage(paymentMethodId: string, tenantId: string): Promise<void> {
+    await this.repo.update({ id: paymentMethodId, tenantId }, { lastUsedAt: new Date() });
   }
 
   /** Persist provider metadata while serializing concurrent read-modify-write updates. */

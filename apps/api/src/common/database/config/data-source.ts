@@ -104,6 +104,7 @@ const AppDataSource = {
     Migrations.PaymentMethodSubmittedAtAndSecurityBackfill1787870704946,
     Migrations.AddPositionDeletedAt1788205216357,
     Migrations.AddLeaveBalanceDeletedAt1788205216358,
+    Migrations.DropPlanPricePolarProductId1791581394524,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

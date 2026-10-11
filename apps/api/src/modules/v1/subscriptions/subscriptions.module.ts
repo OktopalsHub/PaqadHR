@@ -22,7 +22,6 @@ import { SubscriptionBillingListener } from './listeners/subscription-billing.li
 import { BachsSubscriptionProvider } from './providers/bachs-subscription.provider';
 import { MonnifySubscriptionProvider } from './providers/monnify-subscription.provider';
 import { NombaSubscriptionProvider } from './providers/nomba-subscription.provider';
-import { PolarSubscriptionProvider } from './providers/polar-subscription.provider';
 import { BachsProductSyncService } from './services/bachs-product-sync.service';
 import { BillingCronService } from './services/billing-cron.service';
 import { BillingEventStore } from './services/billing-event-store';
@@ -32,7 +31,6 @@ import { BillingProviderFactoryService } from './services/billing-provider-facto
 import { NombaApiService } from './services/nomba-api.service';
 import { PaymentSuccessHandlers } from './services/payment-success-handlers';
 import { PaymentVerifier } from './services/payment-verifier';
-import { PolarProductSyncService } from './services/polar-product-sync.service';
 import { RenewalLifecycleService } from './services/renewal-lifecycle.service';
 import { RenewalProcessor } from './services/renewal-processor';
 import { RenewalSuccessApplicator } from './services/renewal-success-applicator';
@@ -89,13 +87,11 @@ import { WebhookEventResolver } from './services/webhook-event-resolver';
     BillingCronService,
     BillingProductSyncService,
     BachsProductSyncService,
-    PolarProductSyncService,
     SubscriptionBillingListener,
     NombaApiService,
     NombaSubscriptionProvider,
     MonnifySubscriptionProvider,
     BachsSubscriptionProvider,
-    PolarSubscriptionProvider,
     BillingProviderFactoryService,
     BillingGatewayGuard,
     FeatureAccessGuard,
@@ -121,7 +117,6 @@ import { WebhookEventResolver } from './services/webhook-event-resolver';
     NombaSubscriptionProvider,
     MonnifySubscriptionProvider,
     BachsSubscriptionProvider,
-    PolarSubscriptionProvider,
     BillingProviderFactoryService,
     NombaApiService,
     FeatureAccessGuard,

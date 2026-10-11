@@ -1,6 +1,40 @@
-/** Payout-rail helpers for the Bachs provider (NGN/USD/EUR/GBP bank + USDT crypto). */
+/** Payout-rail helpers for the Bachs provider (NGN/USD/EUR/GBP bank + USDT/USDC crypto). */
 
-export type BachsCryptoDestinationCurrency = 'USDT_TRC20' | 'USDT_BEP20';
+/** Stablecoins Bachs delivers as a payroll payout destination. */
+export type BachsCryptoAsset = 'USDT' | 'USDC';
+
+/** Chains Bachs delivers our stablecoins on. */
+export type BachsCryptoNetwork = 'TRC20' | 'BEP20' | 'ERC20' | 'SOL' | 'BASE';
+
+/**
+ * Bachs crypto destination currencies we can pay. Bachs publishes USDT on TRC20/BEP20/ERC20/SOL
+ * and USDC on BEP20/ERC20/SOL/BASE.
+ */
+export type BachsCryptoDestinationCurrency =
+  | 'USDT_TRC20'
+  | 'USDT_BEP20'
+  | 'USDT_ERC20'
+  | 'USDT_SOL'
+  | 'USDC_BEP20'
+  | 'USDC_ERC20'
+  | 'USDC_SOL'
+  | 'USDC_BASE';
+
+/** Stablecoins Bachs pays out. */
+export const BACHS_CRYPTO_ASSETS = ['USDT', 'USDC'] as const;
+
+/** Chains Bachs delivers each stablecoin on. */
+export const BACHS_CRYPTO_NETWORKS_BY_ASSET: Record<
+  BachsCryptoAsset,
+  readonly BachsCryptoNetwork[]
+> = {
+  USDT: ['TRC20', 'BEP20', 'ERC20', 'SOL'],
+  USDC: ['BEP20', 'ERC20', 'SOL', 'BASE'],
+};
+
+export function isBachsCryptoAsset(currency: string): currency is BachsCryptoAsset {
+  return (BACHS_CRYPTO_ASSETS as readonly string[]).includes(currency.toUpperCase());
+}
 
 /** Fiat bank currencies Bachs delivers internationally (funded from the USD balance). */
 export const BACHS_INTL_BANK_CURRENCIES = ['USD', 'EUR', 'GBP'] as const;
@@ -29,27 +63,91 @@ export function parseBachsUkIban(
 
 /**
  * Map a Paqad crypto network label to a Bachs crypto destination currency.
- * Bachs only delivers USDT on TRC20 and BEP20 — other networks (e.g. Ethereum)
- * must stay on Noah/Fincra so funds are never sent to a wallet on the wrong chain.
+ * Bachs delivers USDT on TRC20/BEP20/ERC20/SOL and USDC on BEP20/ERC20/SOL/BASE.
+ * Other networks must stay on Noah/Fincra so funds are never sent to a wallet on the wrong chain.
+ *
+ * Pass `asset` whenever the caller knows which stablecoin the employee is being paid in.
+ * Without it a bare network silently picks a default asset, so `USDT` on Base becomes
+ * `USDC_BASE` and the employee is paid a different coin on a different chain than they chose.
+ * With it, an asset/chain pair Bachs cannot deliver returns null and the payout fails loudly.
  */
 export function mapBachsCryptoDestinationCurrency(
   network?: string | null,
+  asset?: string | null,
 ): BachsCryptoDestinationCurrency | null {
-  const raw = (network ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_-]+/g, '');
-  // Accept Bachs' own destination currency codes (USDT_TRC20 / USDT_BEP20) as input too.
-  const normalized = raw.startsWith('usdt') ? raw.slice(4) : raw;
-  if (normalized === 'trc20' || normalized === 'tron') return 'USDT_TRC20';
-  if (normalized === 'bep20' || normalized === 'bsc' || normalized === 'bnbsmartchain') {
-    return 'USDT_BEP20';
+  const raw = (network ?? '').trim();
+  if (!raw) return null;
+
+  const requestedAsset = asset?.trim().toUpperCase() || null;
+  const lower = raw.toLowerCase().replace(/[\s_-]+/g, '');
+  // Accept Bachs' own destination currency codes (USDT_TRC20 / USDT_BEP20, etc.) as input too.
+  const parts = raw.toLowerCase().split('_');
+  const hasUnderscore = parts.length > 1;
+  const [rawAsset, net] = parts;
+  const normalizedAsset = rawAsset ? rawAsset.replace(/[\s_-]+/g, '') : lower;
+  const normalizedNet = net ? net.replace(/[\s_-]+/g, '') : lower;
+
+  /** Resolve `asset on net`, honouring the caller's asset and Bachs' delivery matrix. */
+  const destination = (
+    candidateAsset: string,
+    candidateNet: string,
+  ): BachsCryptoDestinationCurrency | null => {
+    const upperAsset = candidateAsset.toUpperCase();
+    const upperNet = candidateNet.toUpperCase();
+    if (requestedAsset && requestedAsset !== upperAsset) return null;
+    if (!BACHS_CRYPTO_NETWORKS_BY_ASSET[upperAsset]?.includes(upperNet)) return null;
+    return `${upperAsset}_${upperNet}` as BachsCryptoDestinationCurrency;
+  };
+
+  /**
+   * Resolve a bare network label. BEP20/ERC20/SOL carry both stablecoins, so honour the
+   * caller's asset when given and fall back to the documented default otherwise. The matrix
+   * check inside `destination` still rejects pairs Bachs cannot deliver (e.g. USDT on Base).
+   */
+  const byNetwork = (defaultAsset: string, net: string) =>
+    destination(requestedAsset ?? defaultAsset, net);
+
+  // Handle network-only input (e.g., 'TRC20' without asset prefix)
+  if (!hasUnderscore) {
+    if (lower === 'trc20' || lower === 'tron') return byNetwork('USDT', 'TRC20');
+    if (lower === 'bep20' || lower === 'bsc' || lower === 'bnbsmartchain') {
+      return byNetwork('USDT', 'BEP20');
+    }
+    if (lower === 'erc20' || lower === 'ethereum' || lower === 'eth') {
+      return byNetwork('USDT', 'ERC20');
+    }
+    if (lower === 'sol' || lower === 'solana') return byNetwork('USDT', 'SOL');
+    if (lower === 'base' || lower === 'basechain') return byNetwork('USDC', 'BASE');
   }
+
+  if (normalizedAsset === 'usdt') {
+    if (normalizedNet === 'trc20' || normalizedNet === 'tron') return destination('USDT', 'TRC20');
+    if (normalizedNet === 'bep20' || normalizedNet === 'bsc' || normalizedNet === 'bnbsmartchain') {
+      return destination('USDT', 'BEP20');
+    }
+    if (normalizedNet === 'erc20' || normalizedNet === 'ethereum' || normalizedNet === 'eth') {
+      return destination('USDT', 'ERC20');
+    }
+    if (normalizedNet === 'sol' || normalizedNet === 'solana') return destination('USDT', 'SOL');
+  }
+
+  if (normalizedAsset === 'usdc') {
+    if (normalizedNet === 'bep20' || normalizedNet === 'bsc' || normalizedNet === 'bnbsmartchain') {
+      return destination('USDC', 'BEP20');
+    }
+    if (normalizedNet === 'erc20' || normalizedNet === 'ethereum' || normalizedNet === 'eth') {
+      return destination('USDC', 'ERC20');
+    }
+    if (normalizedNet === 'sol' || normalizedNet === 'solana') return destination('USDC', 'SOL');
+    if (normalizedNet === 'base' || normalizedNet === 'basechain')
+      return destination('USDC', 'BASE');
+  }
+
   return null;
 }
 
 /** Canonical Paqad network labels for the networks Bachs delivers USDT on. */
-export const BACHS_USDT_NETWORKS = ['TRC20', 'BEP20'] as const;
+export const BACHS_USDT_NETWORKS = ['TRC20', 'BEP20', 'ERC20', 'SOL'] as const;
 
 export type BachsUsdtNetwork = (typeof BACHS_USDT_NETWORKS)[number];
 
@@ -57,7 +155,11 @@ export type BachsUsdtNetwork = (typeof BACHS_USDT_NETWORKS)[number];
 export function normalizeBachsUsdtNetwork(network?: string | null): BachsUsdtNetwork | null {
   const destination = mapBachsCryptoDestinationCurrency(network);
   if (!destination) return null;
-  return destination === 'USDT_TRC20' ? 'TRC20' : 'BEP20';
+  if (destination === 'USDT_TRC20') return 'TRC20';
+  if (destination === 'USDT_BEP20') return 'BEP20';
+  if (destination === 'USDT_ERC20') return 'ERC20';
+  if (destination === 'USDT_SOL') return 'SOL';
+  return null;
 }
 
 export interface BachsPayoutWebhookEvent {

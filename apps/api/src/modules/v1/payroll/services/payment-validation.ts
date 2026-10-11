@@ -3,6 +3,7 @@ import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.
 import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import { updatePayrollItemScoped } from '../repositories/payroll-item-write.util';
 
 interface PaymentSummary {
   bankSuccess: number;
@@ -52,7 +53,7 @@ export class PaymentValidation {
     };
   }
 
-  async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
+  async resetItemsForRetry(items: PayrollItem[], tenantId: string): Promise<void> {
     for (const item of items) {
       const priorRetry =
         typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
@@ -63,7 +64,7 @@ export class PaymentValidation {
       item.paymentProvider = null;
       item.paidAt = null;
       item.metadata = metadata;
-      await this.payrollItemRepository.update(item.id, {
+      await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
         status: PayrollItemStatus.PENDING,
         failureReason: null,
         transactionId: null,

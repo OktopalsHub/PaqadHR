@@ -91,10 +91,24 @@ export interface BachsPayoutDestinationInput {
 
 export interface BachsPayoutDestination {
   id: string;
-  status?: 'pending_review' | 'approved' | 'rejected';
-  is_usable?: boolean;
+  name: string;
+  type: 'bank_account' | 'mobile_money' | 'crypto_wallet';
+  currency: string;
+  status: 'pending_review' | 'approved' | 'rejected';
+  status_reason?: string | null;
+  is_usable: boolean;
+  is_default: boolean;
+  account_number?: string | null;
   account_name?: string | null;
+  bank_code?: string | null;
   bank_name?: string | null;
+  phone_number?: string | null;
+  mobile_provider?: string | null;
+  wallet_address?: string | null;
+  network?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BachsPayoutQuote {
@@ -537,6 +551,160 @@ export class BachsApiService {
       }
       throw error;
     }
+  }
+
+  /** List banks available for payout destinations in a country. */
+  async listBanks(
+    country: string,
+  ): Promise<{ country: string; banks: Array<{ name: string; code: string }> }> {
+    const params = new URLSearchParams({ country });
+    return this.request<{ country: string; banks: Array<{ name: string; code: string }> }>(
+      `/v1/reference/banks?${params.toString()}`,
+    );
+  }
+
+  /** Resolve a bank account number and bank code to the account holder's name. */
+  async resolveBankAccount(input: {
+    accountNumber: string;
+    bankCode: string;
+    country?: string;
+  }): Promise<{
+    resolved: boolean;
+    accountName: string | null;
+    accountNumber: string | null;
+    message: string | null;
+  }> {
+    const body: Record<string, unknown> = {
+      account_number: input.accountNumber,
+      bank_code: input.bankCode,
+    };
+    if (input.country) body.country = input.country;
+    const payload = await this.request<{
+      resolved: boolean;
+      account_name?: string | null;
+      account_number?: string | null;
+      message?: string | null;
+    }>('/v1/misc/bank-accounts/resolve', { method: 'POST', body });
+    return {
+      resolved: payload.resolved,
+      accountName: payload.account_name ?? null,
+      accountNumber: payload.account_number ?? null,
+      message: payload.message ?? null,
+    };
+  }
+
+  /** List mobile money providers available in a country. */
+  async listMobileMoneyProviders(
+    country: string,
+  ): Promise<{ country: string; providers: string[] }> {
+    const params = new URLSearchParams({ country });
+    return this.request<{ country: string; providers: string[] }>(
+      `/v1/reference/momo?${params.toString()}`,
+    );
+  }
+
+  /** List payout destinations with optional filters. */
+  async listPayoutDestinations(filters?: {
+    currency?: string;
+    status?: 'pending_review' | 'approved' | 'rejected';
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    destinations: BachsPayoutDestination[];
+    total: number;
+    limit: number;
+    offset: number;
+  }> {
+    const params = new URLSearchParams();
+    if (filters?.currency) params.set('currency', filters.currency);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.limit) params.set('limit', String(filters.limit));
+    if (filters?.offset) params.set('offset', String(filters.offset));
+    const query = params.toString();
+    return this.request<{
+      destinations: BachsPayoutDestination[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/v1/payouts/destinations${query ? `?${query}` : ''}`);
+  }
+
+  /** Get a single payout destination by ID. */
+  async getPayoutDestination(destinationId: string): Promise<BachsPayoutDestination> {
+    return this.request<BachsPayoutDestination>(
+      `/v1/payouts/destinations/${encodeURIComponent(destinationId)}`,
+    );
+  }
+
+  /** Update a payout destination (rename, set default, or restate routing details). */
+  async updatePayoutDestination(
+    destinationId: string,
+    updates: {
+      name?: string;
+      is_default?: boolean;
+      currency?: string;
+      type?: string;
+      account_number?: string;
+      bank_code?: string;
+      account_name?: string;
+      bank_name?: string;
+      phone_number?: string;
+      mobile_provider?: string;
+      wallet_address?: string;
+      network?: string;
+    },
+  ): Promise<BachsPayoutDestination> {
+    const body: Record<string, unknown> = {};
+    if (updates.name !== undefined) body.name = updates.name;
+    if (updates.is_default !== undefined) body.is_default = updates.is_default;
+    if (updates.currency !== undefined) body.currency = updates.currency;
+    if (updates.type !== undefined) body.type = updates.type;
+    if (updates.account_number !== undefined) body.account_number = updates.account_number;
+    if (updates.bank_code !== undefined) body.bank_code = updates.bank_code;
+    if (updates.account_name !== undefined) body.account_name = updates.account_name;
+    if (updates.bank_name !== undefined) body.bank_name = updates.bank_name;
+    if (updates.phone_number !== undefined) body.phone_number = updates.phone_number;
+    if (updates.mobile_provider !== undefined) body.mobile_provider = updates.mobile_provider;
+    if (updates.wallet_address !== undefined) body.wallet_address = updates.wallet_address;
+    if (updates.network !== undefined) body.network = updates.network;
+    return this.request<BachsPayoutDestination>(
+      `/v1/payouts/destinations/${encodeURIComponent(destinationId)}`,
+      {
+        method: 'PATCH',
+        body,
+      },
+    );
+  }
+
+  /** Delete a payout destination (deactivates it). */
+  async deletePayoutDestination(destinationId: string): Promise<{ id: string; deleted: boolean }> {
+    return this.request<{ id: string; deleted: boolean }>(
+      `/v1/payouts/destinations/${encodeURIComponent(destinationId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  /** List payouts with optional status filter. */
+  async listPayouts(filters?: {
+    limit?: number;
+    offset?: number;
+    status_filter?:
+      | 'requested'
+      | 'pending'
+      | 'processing'
+      | 'approved'
+      | 'rejected'
+      | 'completed'
+      | 'failed';
+  }): Promise<{ total: number; items: BachsPayoutResult[] }> {
+    const params = new URLSearchParams();
+    if (filters?.limit) params.set('limit', String(filters.limit));
+    if (filters?.offset) params.set('offset', String(filters.offset));
+    if (filters?.status_filter) params.set('status_filter', filters.status_filter);
+    const query = params.toString();
+    return this.request<{ total: number; items: BachsPayoutResult[] }>(
+      `/v1/payouts${query ? `?${query}` : ''}`,
+    );
   }
 
   private async request<T>(

@@ -306,26 +306,40 @@ export class TenantWalletTopupService {
       return { received: true, matched: false };
     }
 
-    const matches = await this.subscriptionRepository
-      .createQueryBuilder('sub')
-      .where(`sub.usage_metrics->>'bachsCustomerId' = :customerId`, { customerId })
-      .getMany();
-
     const scopedTenantId = input.tenantId?.trim();
-    let sub: TenantSubscription | undefined;
-    if (scopedTenantId) {
-      sub = matches.find((row) => row.tenantId === scopedTenantId);
-    } else if (matches.length > 1) {
+    if (!scopedTenantId) {
       this.logger.warn(
-        `Refusing Bachs payment_method.saved for customer ${customerId}: ${matches.length} tenants share this customer id`,
+        `Refusing Bachs payment_method.saved for customer ${customerId}: tenantId missing from webhook metadata`,
       );
       return { received: true, matched: false };
-    } else {
-      sub = matches[0];
     }
 
+    const sub = await this.subscriptionRepository.findOne({
+      where: {
+        tenantId: scopedTenantId,
+      },
+    });
+
     if (!sub) {
-      this.logger.debug(`No subscription for Bachs customer ${customerId}`);
+      this.logger.debug(`No subscription for tenant ${scopedTenantId}`);
+      return { received: true, matched: false };
+    }
+
+    const storedCustomerId = sub.usageMetrics?.bachsCustomerId?.trim();
+    // Fail closed: the customer id is written when the tenant starts a checkout, so a tenant
+    // that has one must always have it stored. An unset id means this webhook did not come
+    // from a checkout we started, and binding its card here would let it overwrite the
+    // tenant's real saved card.
+    if (!storedCustomerId) {
+      this.logger.warn(
+        `Refusing Bachs payment_method.saved for tenant ${scopedTenantId}: no stored customer id to match webhook customer ${customerId}`,
+      );
+      return { received: true, matched: false };
+    }
+    if (storedCustomerId !== customerId) {
+      this.logger.warn(
+        `Refusing Bachs payment_method.saved for tenant ${scopedTenantId}: stored customer ${storedCustomerId} does not match webhook customer ${customerId}`,
+      );
       return { received: true, matched: false };
     }
 

@@ -5,7 +5,6 @@ import { FincraWebhookService } from '../services/fincra-webhook.service';
 import { MonnifyWebhookService } from '../services/monnify-webhook.service';
 import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
-import { PolarWebhookService } from '../services/polar-webhook.service';
 import { TremendousWebhookService } from '../services/tremendous-webhook.service';
 import { WebhooksController } from './webhooks.controller';
 
@@ -20,7 +19,6 @@ describe('WebhooksController', () => {
   let mockNoahWebhookService: jest.Mocked<Pick<NoahWebhookService, 'dispatch'>>;
   let mockFincraWebhookService: jest.Mocked<Pick<FincraWebhookService, 'dispatch'>>;
   let mockBachsWebhookService: jest.Mocked<Pick<BachsWebhookService, 'dispatch'>>;
-  let mockPolarWebhookService: jest.Mocked<Pick<PolarWebhookService, 'dispatch'>>;
   let mockTremendousWebhookService: jest.Mocked<Pick<TremendousWebhookService, 'dispatch'>>;
   let mockSlackWebhookService: jest.Mocked<Pick<SlackWebhookService, 'verifySlackSignature'>>;
 
@@ -30,7 +28,6 @@ describe('WebhooksController', () => {
     mockNoahWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockFincraWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockBachsWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
-    mockPolarWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockTremendousWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockSlackWebhookService = { verifySlackSignature: jest.fn() };
 
@@ -40,7 +37,6 @@ describe('WebhooksController', () => {
       mockNoahWebhookService as unknown as NoahWebhookService,
       mockFincraWebhookService as unknown as FincraWebhookService,
       mockBachsWebhookService as unknown as BachsWebhookService,
-      mockPolarWebhookService as unknown as PolarWebhookService,
       mockSlackWebhookService as unknown as SlackWebhookService,
       mockTremendousWebhookService as unknown as TremendousWebhookService,
       { capture: jest.fn() } as never,

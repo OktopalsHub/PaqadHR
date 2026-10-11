@@ -85,7 +85,7 @@ describe('NoahWebhookService', () => {
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
   });
 
-  it('ignores subscription checkout events (handled by Bachs/Polar/Nomba)', async () => {
+  it('ignores subscription checkout events (handled by Bachs/Nomba)', async () => {
     const payload = {
       event_type: 'payment_success',
       data: {

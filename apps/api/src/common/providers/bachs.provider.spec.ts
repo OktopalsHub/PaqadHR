@@ -7,9 +7,24 @@ describe('BachsProvider', () => {
   const makeApi = () => ({
     createPayoutDestination: jest.fn().mockResolvedValue({
       id: 'pd_dest1',
+      name: 'Test Destination',
+      type: 'bank_account',
+      currency: 'NGN',
       status: 'approved',
+      status_reason: null,
       is_usable: true,
+      is_default: false,
+      account_number: '0123456789',
       account_name: 'ADA OKAFOR',
+      bank_code: '058',
+      bank_name: 'GTBank',
+      phone_number: null,
+      mobile_provider: null,
+      wallet_address: null,
+      network: null,
+      reviewed_at: null,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
     }),
     createPayoutQuote: jest.fn().mockResolvedValue({
       quote_id: 'qt_1',
@@ -143,8 +158,10 @@ describe('BachsProvider', () => {
       merchantTxRef: 'pi_usdt',
       metadata: { payrollItemId: 'item-2', walletAddress: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb' },
       network: 'TRC20',
+      accountNumber: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
     } as never);
 
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalled();
     expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith({
       currency: 'USDT_TRC20',
       type: 'crypto_wallet',
@@ -160,7 +177,7 @@ describe('BachsProvider', () => {
       amount: 100,
       currency: 'USDT',
       description: 'Payroll',
-      metadata: { walletAddress: '0xabc', cryptoNetwork: 'Ethereum' },
+      metadata: { walletAddress: '0xabc', cryptoNetwork: 'POLYGON' },
     } as never);
 
     expect(result.success).toBe(false);
@@ -356,6 +373,7 @@ describe('BachsProvider', () => {
       description: 'Payroll',
       merchantTxRef: 'pi_usd',
       network: 'TRC20',
+      accountNumber: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
       metadata: {
         payrollItemId: 'item-3',
         walletAddress: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
@@ -387,6 +405,7 @@ describe('BachsProvider', () => {
       description: 'Payroll',
       merchantTxRef: 'pi_usdt_salary',
       network: 'TRC20',
+      accountNumber: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
       metadata: {
         payrollItemId: 'item-4',
         walletAddress: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
@@ -461,6 +480,52 @@ describe('BachsProvider', () => {
     const result = await provider.createPayment(ngnData as never);
 
     expect(result.success).toBe(false);
+    expect(result.retryable).toBe(true);
+  });
+
+  it('marks a pre-payout destination rejection as non-retryable', async () => {
+    // A bank-coverage rejection happens before any payout exists, so there is nothing
+    // for reconciliation to requery — parking the item in PROCESSING zombifies it.
+    bachsApi.createPayoutDestination.mockRejectedValue(
+      new BachsApiError('Withdrawals to this bank are currently unavailable.', undefined, 400),
+    );
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+    expect(result.transactionId).toBeUndefined();
+  });
+
+  it('marks an unknown pre-payout quote failure as non-retryable', async () => {
+    bachsApi.createPayoutQuote.mockRejectedValue(
+      new BachsApiError('Upstream quote service hiccup', 'SOME_UNKNOWN_CODE', 503),
+    );
+    const result = await provider.createPayment({
+      amount: 250,
+      currency: 'EUR',
+      description: 'Payroll',
+      accountNumber: 'DE89370400440532013000',
+      bankCode: 'COBADEFFXXX',
+      accountName: 'Ada Okafor',
+      bankName: 'Commerzbank',
+      merchantTxRef: 'pi_eur',
+      metadata: { payrollItemId: 'item-eur' },
+    } as never);
+
+    expect(bachsApi.createPayoutQuote).toHaveBeenCalled();
+    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+    expect(result.retryable).toBe(false);
+  });
+
+  it('still retries an unknown failure thrown by createPayout itself', async () => {
+    // Post-submission failures may have created a payout, so requery must still run.
+    bachsApi.createPayout.mockRejectedValue(
+      new BachsApiError('Request timeout', 'SOME_UNKNOWN_CODE', 500),
+    );
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(bachsApi.createPayout).toHaveBeenCalled();
     expect(result.retryable).toBe(true);
   });
 

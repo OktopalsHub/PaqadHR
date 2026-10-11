@@ -20,7 +20,7 @@ export function isBillingGatewayEnabledForCountry(countryCode: string | null | u
 export function assertBillingGatewayAllowed(countryCode?: string | null): void {
   if (!isBillingGatewayEnabledForCountry(countryCode ?? 'GLOBAL')) {
     throw new Error(
-      'Billing is not configured for this region. Set provider credentials (Nomba, Bachs, or Polar).',
+      'Billing is not configured for this region. Set provider credentials (Nomba, Bachs, or Monnify).',
     );
   }
 }

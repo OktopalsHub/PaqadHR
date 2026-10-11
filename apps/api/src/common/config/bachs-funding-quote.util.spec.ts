@@ -6,6 +6,7 @@ import {
   sourceAmountForBachsFundingItem,
   sumBachsFundingSourceAmount,
 } from './bachs-funding-quote.util';
+import { mapBachsCryptoDestinationCurrency } from './bachs-payout.util';
 
 describe('bachs-funding-quote.util', () => {
   describe('pickBachsFundingCurrency', () => {
@@ -27,7 +28,47 @@ describe('bachs-funding-quote.util', () => {
   describe('resolveBachsQuoteDestinationCurrency', () => {
     it('maps USDT networks', () => {
       expect(resolveBachsQuoteDestinationCurrency('USDT', 'TRC20')).toBe('USDT_TRC20');
-      expect(resolveBachsQuoteDestinationCurrency('USDT', null)).toBe('USDT_TRC20');
+      expect(resolveBachsQuoteDestinationCurrency('USDT', 'BEP20')).toBe('USDT_BEP20');
+    });
+
+    it('maps USDC networks', () => {
+      expect(resolveBachsQuoteDestinationCurrency('USDC', 'Base')).toBe('USDC_BASE');
+    });
+
+    it('refuses to default a missing or unsupported USDT network to TRC20', () => {
+      // The provider throws for these, so quoting them would size a checkout for a rail
+      // that can never pay out.
+      expect(resolveBachsQuoteDestinationCurrency('USDT', null)).toBeNull();
+      expect(resolveBachsQuoteDestinationCurrency('USDT', undefined)).toBeNull();
+      expect(resolveBachsQuoteDestinationCurrency('USDT', 'Polygon')).toBeNull();
+    });
+
+    it('never swaps USDT for USDC on Base', () => {
+      expect(resolveBachsQuoteDestinationCurrency('USDT', 'Base')).toBeNull();
+    });
+  });
+
+  describe('funding and payout agree on the destination', () => {
+    // The funding value sizes the checkout the tenant pays; the payout value decides where
+    // the money lands. If they disagree, either we charge for a rail that cannot pay out or
+    // we pay on a rail the tenant was not quoted for.
+    const cases: Array<[string, string | null | undefined]> = [
+      ['USDT', 'TRC20'],
+      ['USDT', 'BEP20'],
+      ['USDT', 'ERC20'],
+      ['USDT', 'SOL'],
+      ['USDT', 'Base'],
+      ['USDT', 'Polygon'],
+      ['USDT', null],
+      ['USDC', 'Base'],
+      ['USDC', 'BEP20'],
+      ['USDC', 'TRC20'],
+    ];
+
+    it.each(cases)('%s on %s resolves identically in both layers', (currency, network) => {
+      expect(resolveBachsQuoteDestinationCurrency(currency, network)).toBe(
+        mapBachsCryptoDestinationCurrency(network, currency),
+      );
     });
   });
 

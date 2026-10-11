@@ -33,14 +33,12 @@ export function buildProviderDoubles() {
     status === 'active' ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INACTIVE,
   );
   const bachsProvider = { parseWebhook: jest.fn(), mapStatus, createCheckout: jest.fn() };
-  const polarProvider = { parseWebhook: jest.fn(), mapStatus };
   const monnifyProvider = { parseWebhook: jest.fn(), mapStatus };
 
   const billingProviderFactory = {
     getNombaProvider: () => nombaProvider,
     getProviderByEnum: jest.fn((provider: BillingProvider) => {
       if (provider === BillingProvider.BACHS) return bachsProvider;
-      if (provider === BillingProvider.POLAR) return polarProvider;
       if (provider === BillingProvider.MONNIFY) return monnifyProvider;
       return nombaProvider;
     }),
@@ -55,7 +53,6 @@ export function buildProviderDoubles() {
   return {
     nombaProvider,
     bachsProvider,
-    polarProvider,
     monnifyProvider,
     billingProviderFactory,
   };

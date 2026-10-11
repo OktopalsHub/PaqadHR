@@ -129,11 +129,7 @@ export class RenewalLifecycleService {
     const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     const stale = await this.subscriptionRepo.find({
       where: {
-        billingProvider: In([
-          BillingProvider.BACHS,
-          BillingProvider.POLAR,
-          BillingProvider.MONNIFY,
-        ]),
+        billingProvider: In([BillingProvider.BACHS, BillingProvider.MONNIFY]),
         status: SubscriptionStatus.ACTIVE,
         nextBillingDate: LessThanOrEqual(cutoff),
       },

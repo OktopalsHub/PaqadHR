@@ -32,7 +32,7 @@ export class BillingCronService {
   }
 
   /**
-   * Managed (Bachs/Polar) and checkout-only (Monnify) renewals are not cron-charged.
+   * Managed (Bachs) and checkout-only (Monnify) renewals are not cron-charged.
    * If nextBillingDate drifts past a 3-day grace window, mark PAST_DUE so the gate kicks in.
    */
   @Cron(CronExpression.EVERY_DAY_AT_NOON)

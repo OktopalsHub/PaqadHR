@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { RateLimit, RateLimitPresets } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
@@ -46,6 +47,7 @@ export class SubscriptionBillingController {
   @Post('tenant/:tenantId/checkout')
   @UseGuards(TenantMemberGuard, TenantRoleGuard, BillingGatewayGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @ApiOperation({ summary: 'Start Nomba checkout (server resolves price and seat count)' })
   createCheckout(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
@@ -76,6 +78,7 @@ export class SubscriptionBillingController {
   @Post('tenant/:tenantId/update-payment-method')
   @UseGuards(TenantMemberGuard, TenantRoleGuard, BillingGatewayGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @ApiOperation({ summary: 'Start Nomba checkout to update saved card' })
   updatePaymentMethod(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,

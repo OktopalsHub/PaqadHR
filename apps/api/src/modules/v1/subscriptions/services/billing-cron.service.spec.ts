@@ -11,7 +11,6 @@ describe('BillingCronService', () => {
     MONNIFY_SECRET_KEY: process.env.MONNIFY_SECRET_KEY,
     MONNIFY_CONTRACT_CODE: process.env.MONNIFY_CONTRACT_CODE,
     BACHS_SECRET_KEY: process.env.BACHS_SECRET_KEY,
-    POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN,
   };
 
   const createService = () => {
@@ -45,7 +44,6 @@ describe('BillingCronService', () => {
     delete process.env.MONNIFY_SECRET_KEY;
     delete process.env.MONNIFY_CONTRACT_CODE;
     delete process.env.BACHS_SECRET_KEY;
-    delete process.env.POLAR_ACCESS_TOKEN;
     const { cronService, billingService } = createService();
 
     await cronService.processSubscriptionRenewals();
@@ -92,7 +90,6 @@ describe('BillingCronService', () => {
     const { cronService, productSync } = createService();
     (productSync.healMissingProductIds as jest.Mock).mockResolvedValue({
       bachsUpdated: 1,
-      polarUpdated: 0,
     });
 
     await cronService.healMissingBillingProducts();

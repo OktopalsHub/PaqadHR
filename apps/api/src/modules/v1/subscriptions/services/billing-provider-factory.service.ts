@@ -7,7 +7,6 @@ import { BillingProvider } from '../constants/billing-provider.enum';
 import { BachsSubscriptionProvider } from '../providers/bachs-subscription.provider';
 import { MonnifySubscriptionProvider } from '../providers/monnify-subscription.provider';
 import { NombaSubscriptionProvider } from '../providers/nomba-subscription.provider';
-import { PolarSubscriptionProvider } from '../providers/polar-subscription.provider';
 import type { ISubscriptionBillingProvider } from '../providers/subscription-billing-provider.interface';
 
 @Injectable()
@@ -16,7 +15,6 @@ export class BillingProviderFactoryService {
     private readonly nombaProvider: NombaSubscriptionProvider,
     private readonly monnifyProvider: MonnifySubscriptionProvider,
     private readonly bachsProvider: BachsSubscriptionProvider,
-    private readonly polarProvider: PolarSubscriptionProvider,
   ) {}
 
   resolveBillingProvider(countryCode: string | null | undefined): BillingProvider {
@@ -35,8 +33,6 @@ export class BillingProviderFactoryService {
         return this.monnifyProvider;
       case BillingProvider.BACHS:
         return this.bachsProvider;
-      case BillingProvider.POLAR:
-        return this.polarProvider;
       default:
         return this.nombaProvider;
     }

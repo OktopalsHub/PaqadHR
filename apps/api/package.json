@@ -30,7 +30,6 @@
     "smoke:wallet": "ts-node -r tsconfig-paths/register src/scripts/wallet-smoke-checklist.ts",
     "sync:bachs-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-products.ts",
     "sync:bachs-wallet-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-wallet-products.ts",
-    "sync:polar-products": "ts-node -r tsconfig-paths/register src/scripts/sync-polar-products.ts",
     "sync:billing-products": "ts-node -r tsconfig-paths/register src/scripts/sync-billing-products.ts"
   },
   "dependencies": {
@@ -66,7 +65,7 @@
     "helmet": "^8.2.0",
     "helmet-csp": "^4.0.0",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.11.0",
+    "morgan": "^1.12.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",

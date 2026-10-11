@@ -11,7 +11,6 @@ import { FincraWebhookService } from './services/fincra-webhook.service';
 import { MonnifyWebhookService } from './services/monnify-webhook.service';
 import { NoahWebhookService } from './services/noah-webhook.service';
 import { NombaWebhookService } from './services/nomba-webhook.service';
-import { PolarWebhookService } from './services/polar-webhook.service';
 import { TremendousWebhookService } from './services/tremendous-webhook.service';
 
 @Module({
@@ -30,7 +29,6 @@ import { TremendousWebhookService } from './services/tremendous-webhook.service'
     NoahWebhookService,
     FincraWebhookService,
     BachsWebhookService,
-    PolarWebhookService,
     TremendousWebhookService,
   ],
 })

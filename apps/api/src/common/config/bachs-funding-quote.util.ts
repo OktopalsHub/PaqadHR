@@ -1,5 +1,6 @@
 import {
   BACHS_INTL_BANK_SOURCE_CURRENCY,
+  isBachsCryptoAsset,
   isBachsIntlBankCurrency,
   mapBachsCryptoDestinationCurrency,
 } from './bachs-payout.util';
@@ -47,16 +48,22 @@ export function pickBachsFundingCurrency(
   return needsUsd ? 'USD' : 'NGN';
 }
 
-/** Bachs destination currency code for quotes (USDT_TRC20, GBP, …). */
+/**
+ * Bachs destination currency code for quotes (USDT_TRC20, GBP, …).
+ *
+ * Must agree exactly with what `BachsProvider` will actually pay out, because the value here
+ * sizes the checkout we charge the tenant while the provider value decides where the money
+ * lands. So it resolves the same asset+network rules and returns null on anything unfundable
+ * rather than defaulting: a guessed USDT_TRC20 would let preflight quote a checkout for a rail
+ * the payout would then refuse.
+ */
 export function resolveBachsQuoteDestinationCurrency(
   paymentCurrency: string,
   cryptoNetwork?: string | null,
 ): string | null {
   const code = paymentCurrency.toUpperCase();
   if (code === 'NGN' || isBachsIntlBankCurrency(code)) return code;
-  if (code === 'USDT') {
-    return mapBachsCryptoDestinationCurrency(cryptoNetwork) ?? 'USDT_TRC20';
-  }
+  if (isBachsCryptoAsset(code)) return mapBachsCryptoDestinationCurrency(cryptoNetwork, code);
   return null;
 }
 
@@ -136,7 +143,9 @@ export async function sourceAmountForBachsFundingItem(params: {
   }
 
   const destinationBase = destination.split('_')[0];
-  const bankMethod = destinationBase === 'USDT' ? undefined : ('BANK_TRANSFER' as const);
+  // Stablecoin rails are crypto, not bank rails — same rule the provider applies.
+  const isCryptoDestination = destinationBase === 'USDT' || destinationBase === 'USDC';
+  const bankMethod = isCryptoDestination ? undefined : ('BANK_TRANSFER' as const);
 
   // Amount already in the funding balance currency (incl. FX-at-payout salary in USD).
   if (amountCurrency === fundingCurrency) {

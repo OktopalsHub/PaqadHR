@@ -29,23 +29,58 @@ describe('parseBachsUkIban', () => {
 describe('mapBachsCryptoDestinationCurrency', () => {
   it('maps TRC20 aliases to USDT_TRC20', () => {
     expect(mapBachsCryptoDestinationCurrency('TRC20')).toBe('USDT_TRC20');
-    expect(mapBachsCryptoDestinationCurrency('trc-20')).toBe('USDT_TRC20');
     expect(mapBachsCryptoDestinationCurrency('Tron')).toBe('USDT_TRC20');
   });
 
   it('maps BEP20 aliases to USDT_BEP20', () => {
     expect(mapBachsCryptoDestinationCurrency('BEP20')).toBe('USDT_BEP20');
-    expect(mapBachsCryptoDestinationCurrency('bep_20')).toBe('USDT_BEP20');
     expect(mapBachsCryptoDestinationCurrency('BSC')).toBe('USDT_BEP20');
   });
 
+  it('maps ERC20 aliases to USDT_ERC20', () => {
+    expect(mapBachsCryptoDestinationCurrency('Ethereum')).toBe('USDT_ERC20');
+    expect(mapBachsCryptoDestinationCurrency('eth')).toBe('USDT_ERC20');
+  });
+
+  it('maps SOL aliases to USDT_SOL', () => {
+    expect(mapBachsCryptoDestinationCurrency('Solana')).toBe('USDT_SOL');
+    expect(mapBachsCryptoDestinationCurrency('SOL')).toBe('USDT_SOL');
+    expect(mapBachsCryptoDestinationCurrency('sol')).toBe('USDT_SOL');
+  });
+
   it('returns null for networks Bachs does not deliver', () => {
-    expect(mapBachsCryptoDestinationCurrency('Ethereum')).toBeNull();
-    expect(mapBachsCryptoDestinationCurrency('ERC20')).toBeNull();
     expect(mapBachsCryptoDestinationCurrency('Bitcoin')).toBeNull();
     expect(mapBachsCryptoDestinationCurrency('')).toBeNull();
     expect(mapBachsCryptoDestinationCurrency(null)).toBeNull();
     expect(mapBachsCryptoDestinationCurrency(undefined)).toBeNull();
+  });
+
+  describe('with an explicit asset', () => {
+    it('keeps a valid asset/network pair', () => {
+      expect(mapBachsCryptoDestinationCurrency('TRC20', 'USDT')).toBe('USDT_TRC20');
+      expect(mapBachsCryptoDestinationCurrency('BEP20', 'USDT')).toBe('USDT_BEP20');
+      expect(mapBachsCryptoDestinationCurrency('Base', 'USDC')).toBe('USDC_BASE');
+      expect(mapBachsCryptoDestinationCurrency('BEP20', 'USDC')).toBe('USDC_BEP20');
+    });
+
+    it('refuses to swap USDT for USDC on Base', () => {
+      // Without the asset, a bare "Base" resolves to USDC_BASE — paying a USDT salary in USDC
+      // to a chain the employee never picked. Refuse instead of silently substituting.
+      expect(mapBachsCryptoDestinationCurrency('Base')).toBe('USDC_BASE');
+      expect(mapBachsCryptoDestinationCurrency('Base', 'USDT')).toBeNull();
+    });
+
+    it('refuses networks Bachs cannot deliver for that asset', () => {
+      expect(mapBachsCryptoDestinationCurrency('TRC20', 'USDC')).toBeNull();
+      expect(mapBachsCryptoDestinationCurrency('Base', 'USDT')).toBeNull();
+      expect(mapBachsCryptoDestinationCurrency('USDT_Base', 'USDT')).toBeNull();
+    });
+
+    it('ignores the asset prefix in a fully-qualified code', () => {
+      expect(mapBachsCryptoDestinationCurrency('USDT_TRC20', 'USDT')).toBe('USDT_TRC20');
+      expect(mapBachsCryptoDestinationCurrency('USDC_BASE', 'USDC')).toBe('USDC_BASE');
+      expect(mapBachsCryptoDestinationCurrency('USDC_BASE', 'USDT')).toBeNull();
+    });
   });
 });
 
@@ -54,12 +89,13 @@ describe('normalizeBachsUsdtNetwork', () => {
     expect(normalizeBachsUsdtNetwork('trc20')).toBe('TRC20');
     expect(normalizeBachsUsdtNetwork('Tron')).toBe('TRC20');
     expect(normalizeBachsUsdtNetwork('BEP20')).toBe('BEP20');
-    expect(normalizeBachsUsdtNetwork('USDT_BEP20')).toBe('BEP20');
+    expect(normalizeBachsUsdtNetwork('Ethereum')).toBe('ERC20');
+    expect(normalizeBachsUsdtNetwork('Solana')).toBe('SOL');
   });
 
   it('returns null for networks Bachs cannot deliver', () => {
-    expect(normalizeBachsUsdtNetwork('Ethereum')).toBeNull();
-    expect(normalizeBachsUsdtNetwork('Solana')).toBeNull();
+    expect(normalizeBachsUsdtNetwork('Bitcoin')).toBeNull();
+    expect(normalizeBachsUsdtNetwork('Polygon')).toBeNull();
     expect(normalizeBachsUsdtNetwork(undefined)).toBeNull();
     expect(normalizeBachsUsdtNetwork('')).toBeNull();
   });

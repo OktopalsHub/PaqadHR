@@ -152,9 +152,6 @@ export class SubscriptionBillingService {
   processBachsPayload(payload: unknown) {
     return this.webhookDispatcher.processBachsPayload(payload);
   }
-  processPolarPayload(payload: unknown) {
-    return this.webhookDispatcher.processPolarPayload(payload);
-  }
   processMonnifyPayload(payload: unknown) {
     return this.webhookDispatcher.processMonnifyPayload(payload);
   }

@@ -57,9 +57,14 @@ export class WebhookEventResolver {
         : event.kind === 'subscription.created' || event.kind === 'subscription.cancelled'
           ? event.externalSubscriptionId?.trim()
           : undefined;
-    return externalId
-      ? this.subscriptionRepo.findOne({ where: { externalSubscriptionId: externalId } })
-      : null;
+    if (!externalId) return null;
+    const whereClause: { externalSubscriptionId: string; tenantId?: string } = {
+      externalSubscriptionId: externalId,
+    };
+    if (tenantId && isValidUuid(tenantId)) {
+      whereClause.tenantId = tenantId;
+    }
+    return this.subscriptionRepo.findOne({ where: whereClause });
   }
 
   enrichPaymentFromSubscription(

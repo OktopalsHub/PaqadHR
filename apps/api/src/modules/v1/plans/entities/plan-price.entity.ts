@@ -51,13 +51,6 @@ export class PlanPrice extends BaseEntity {
     nullable: true,
   })
   bachsProductId: string | null;
-  @Column({
-    name: 'polar_product_id',
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-  })
-  polarProductId: string | null;
   @Column({ name: 'regional_config', type: 'jsonb', default: {} })
   regionalConfig: PlanRegionalConfig;
   @Column({ name: 'is_active', default: true })

@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Logger, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { RequireFeatures } from 'src/common/decorators';
+import { RateLimit, RateLimitPresets, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from '../../../../common/enums';
 import { FeatureAccess } from '../../../../common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-role.guard';
@@ -24,6 +24,7 @@ export class PayrollPayoutController {
   ) {}
 
   @Post('runs/:id/disburse')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async disbursePayroll(
@@ -62,6 +63,7 @@ export class PayrollPayoutController {
   }
 
   @Post('runs/:id/fund-and-pay')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async fundAndPay(
@@ -92,6 +94,7 @@ export class PayrollPayoutController {
   }
 
   @Post('runs/:id/pay-now')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async payNow(
@@ -117,6 +120,7 @@ export class PayrollPayoutController {
   }
 
   @Post('runs/:id/schedule')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async schedulePayout(
@@ -152,6 +156,7 @@ export class PayrollPayoutController {
   }
 
   @Post('runs/:id/process-multi-payment')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async processMultiPaymentPayroll(
@@ -185,6 +190,7 @@ export class PayrollPayoutController {
   }
 
   @Post('runs/:id/retry-failed-payments')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async retryFailedPayments(

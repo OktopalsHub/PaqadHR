@@ -1,7 +1,6 @@
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isBachsConfigured } from 'src/common/config/bachs.config';
-import { isPolarConfigured } from 'src/common/config/polar.config';
 import { IsNull, Repository } from 'typeorm';
 import { PlanPrice } from '../../plans/entities/plan-price.entity';
 import {
@@ -10,7 +9,6 @@ import {
 } from '../config/billing-provider-resolver';
 import { BillingProvider } from '../constants/billing-provider.enum';
 import { BachsProductSyncService } from './bachs-product-sync.service';
-import { PolarProductSyncService } from './polar-product-sync.service';
 
 @Injectable()
 export class BillingProductSyncService implements OnApplicationBootstrap {
@@ -20,7 +18,6 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
     @InjectRepository(PlanPrice)
     private readonly priceRepo: Repository<PlanPrice>,
     private readonly bachsSync: BachsProductSyncService,
-    private readonly polarSync: PolarProductSyncService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -54,35 +51,14 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
         );
       }
     }
-
-    if (preferred.has(BillingProvider.POLAR) && isPolarConfigured()) {
-      const missing = await this.priceRepo.count({
-        where: {
-          countryCode: 'GLOBAL',
-          currency: 'USD',
-          polarProductId: IsNull(),
-          isActive: true,
-        },
-      });
-      if (missing > 0) {
-        this.logger.warn(
-          `${missing} GLOBAL/USD plan_prices row(s) missing polar_product_id. Run: pnpm --filter api sync:polar-products`,
-        );
-      }
-    }
   }
 
   async syncBachsProducts(): Promise<{ updated: number }> {
     return this.bachsSync.syncBachsProducts();
   }
 
-  async syncPolarProducts(): Promise<{ updated: number }> {
-    return this.polarSync.syncPolarProducts();
-  }
-
-  async healMissingProductIds(): Promise<{ bachsUpdated: number; polarUpdated: number }> {
+  async healMissingProductIds(): Promise<{ bachsUpdated: number }> {
     let bachsUpdated = 0;
-    let polarUpdated = 0;
 
     if (isBachsConfigured()) {
       const missing = await this.priceRepo.count({
@@ -96,20 +72,6 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
       }
     }
 
-    if (isPolarConfigured()) {
-      const missing = await this.priceRepo.count({
-        where: {
-          countryCode: 'GLOBAL',
-          currency: 'USD',
-          polarProductId: IsNull(),
-          isActive: true,
-        },
-      });
-      if (missing > 0) {
-        polarUpdated = (await this.polarSync.syncPolarProducts()).updated;
-      }
-    }
-
-    return { bachsUpdated, polarUpdated };
+    return { bachsUpdated };
   }
 }

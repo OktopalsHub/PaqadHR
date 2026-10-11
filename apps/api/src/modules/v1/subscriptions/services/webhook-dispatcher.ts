@@ -110,9 +110,6 @@ export class WebhookDispatcher {
   processBachsPayload(payload: unknown) {
     return this.processBillingPayload(payload, BillingProvider.BACHS);
   }
-  processPolarPayload(payload: unknown) {
-    return this.processBillingPayload(payload, BillingProvider.POLAR);
-  }
   processMonnifyPayload(payload: unknown) {
     return this.processBillingPayload(payload, BillingProvider.MONNIFY);
   }
@@ -222,10 +219,15 @@ export class WebhookDispatcher {
       event.tenantId && isValidUuid(event.tenantId)
         ? await this.subscriptionRepo.findOne({ where: { tenantId: event.tenantId } })
         : null;
-    if (!sub && event.externalSubscriptionId?.trim())
-      sub = await this.subscriptionRepo.findOne({
-        where: { externalSubscriptionId: event.externalSubscriptionId.trim() },
-      });
+    if (!sub && event.externalSubscriptionId?.trim()) {
+      const whereClause: { externalSubscriptionId: string; tenantId?: string } = {
+        externalSubscriptionId: event.externalSubscriptionId.trim(),
+      };
+      if (event.tenantId && isValidUuid(event.tenantId)) {
+        whereClause.tenantId = event.tenantId;
+      }
+      sub = await this.subscriptionRepo.findOne({ where: whereClause });
+    }
     if (!sub || sub.billingProvider !== provider) return;
     sub.status = SubscriptionStatus.CANCELLED;
     sub.cancelledAt = new Date();

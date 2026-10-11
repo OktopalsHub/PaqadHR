@@ -42,6 +42,44 @@ describe('MultiPaymentService', () => {
       createQueryBuilder: jest.fn(),
     } as unknown as PayrollItemRepository;
 
+    // Item status writes go through a tenant-scoped query builder rather than repo.update(),
+    // so record every builder and expose the id -> patch pairs the service actually issued.
+    const itemQbs: Array<Record<string, jest.Mock>> = [];
+    const makeItemQb = (execute: (qb: Record<string, jest.Mock>) => Promise<unknown>) => {
+      const qb: Record<string, jest.Mock> = {};
+      qb.innerJoin = jest.fn().mockReturnValue(qb);
+      qb.update = jest.fn().mockReturnValue(qb);
+      qb.set = jest.fn().mockReturnValue(qb);
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.andWhere = jest.fn().mockReturnValue(qb);
+      qb.returning = jest.fn().mockReturnValue(qb);
+      qb.execute = jest.fn(() => execute(qb));
+      itemQbs.push(qb);
+      return qb;
+    };
+    const itemWrites = () =>
+      itemQbs
+        .filter((qb) => qb.set.mock.calls.length > 0)
+        .flatMap((qb) => {
+          const patch = qb.set.mock.calls[0][0] as Record<string, unknown>;
+          return qb.where.mock.calls.flatMap(([, params]) => {
+            const scoped = params as
+              | {
+                  id?: string;
+                  itemId?: string;
+                  ids?: string[];
+                  itemIds?: string[];
+                }
+              | undefined;
+            const single = scoped?.itemId ?? scoped?.id;
+            const ids = scoped?.itemIds ?? scoped?.ids ?? (single ? [single] : []);
+            return ids.map((id) => ({ id, patch }));
+          });
+        });
+    (payrollItemRepository.createQueryBuilder as jest.Mock).mockImplementation(() =>
+      makeItemQb(async () => ({ affected: 1 })),
+    );
+
     const paymentMethodService = {
       assessPayrollReadiness: jest.fn(),
       findById: jest.fn(),
@@ -78,24 +116,18 @@ describe('MultiPaymentService', () => {
     } as unknown as PayrollPayoutService;
 
     const claimIds: string[] = [];
-    (payrollItemRepository.createQueryBuilder as jest.Mock).mockImplementation(() => {
-      const qb: Record<string, jest.Mock> = {};
-      qb.update = jest.fn().mockReturnValue(qb);
-      qb.set = jest.fn().mockReturnValue(qb);
-      qb.where = jest.fn((_clause: string, params?: { ids?: string[] }) => {
-        if (params?.ids) {
+    (payrollItemRepository.createQueryBuilder as jest.Mock).mockImplementation(() =>
+      makeItemQb(async (qb) => {
+        const ids = qb.where.mock.calls
+          .map(([, params]) => (params as { itemIds?: string[] } | undefined)?.itemIds)
+          .find((value) => Array.isArray(value) && value.length > 0);
+        if (ids) {
           claimIds.length = 0;
-          claimIds.push(...params.ids);
+          claimIds.push(...ids);
         }
-        return qb;
-      });
-      qb.andWhere = jest.fn().mockReturnValue(qb);
-      qb.returning = jest.fn().mockReturnValue(qb);
-      qb.execute = jest.fn(async () => ({
-        raw: claimIds.map((id) => ({ id })),
-      }));
-      return qb;
-    });
+        return { raw: claimIds.map((id) => ({ id })) };
+      }),
+    );
 
     const service = new MultiPaymentService(
       payrollRunRepository,
@@ -109,6 +141,8 @@ describe('MultiPaymentService', () => {
       service,
       payrollRunRepository,
       payrollItemRepository,
+      itemWrites,
+      makeItemQb,
       paymentMethodService,
       paymentProvider,
       paymentProviderFactory,
@@ -229,7 +263,7 @@ describe('MultiPaymentService', () => {
     const {
       service,
       payrollRunRepository,
-      payrollItemRepository,
+      itemWrites,
       paymentMethodService,
       paymentProvider,
       payrollPayoutService,
@@ -289,9 +323,10 @@ describe('MultiPaymentService', () => {
       'run-1',
       'tenant-1',
     );
-    expect(payrollItemRepository.update).toHaveBeenCalledWith(
-      'item-1',
-      expect.objectContaining({ status: PayrollItemStatus.PROCESSING }),
+    expect(itemWrites()).toEqual(
+      expect.arrayContaining([
+        { id: 'item-1', patch: expect.objectContaining({ status: PayrollItemStatus.PROCESSING }) },
+      ]),
     );
   });
 
@@ -303,7 +338,7 @@ describe('MultiPaymentService', () => {
     const {
       service,
       payrollRunRepository,
-      payrollItemRepository,
+      itemWrites,
       paymentMethodService,
       paymentProvider,
       payrollPayoutService,
@@ -376,13 +411,11 @@ describe('MultiPaymentService', () => {
     expect(paymentProvider.createBulkTransfer.mock.calls[0][0]).toHaveLength(2);
     expect(paymentProvider.createPayment).not.toHaveBeenCalled();
     expect(result.totalItems).toBe(2);
-    expect(payrollItemRepository.update).toHaveBeenCalledWith(
-      itemA.id,
-      expect.objectContaining({ status: PayrollItemStatus.PAID }),
-    );
-    expect(payrollItemRepository.update).toHaveBeenCalledWith(
-      itemB.id,
-      expect.objectContaining({ status: PayrollItemStatus.FAILED }),
+    expect(itemWrites()).toEqual(
+      expect.arrayContaining([
+        { id: itemA.id, patch: expect.objectContaining({ status: PayrollItemStatus.PAID }) },
+        { id: itemB.id, patch: expect.objectContaining({ status: PayrollItemStatus.FAILED }) },
+      ]),
     );
   });
 
@@ -394,7 +427,7 @@ describe('MultiPaymentService', () => {
     const {
       service,
       payrollRunRepository,
-      payrollItemRepository,
+      itemWrites,
       paymentMethodService,
       paymentProvider,
       payrollPayoutService,
@@ -469,16 +502,17 @@ describe('MultiPaymentService', () => {
       userId: 'u1',
     } as never);
 
-    expect(payrollItemRepository.update).toHaveBeenCalledWith(
-      itemA.id,
-      expect.objectContaining({
-        status: PayrollItemStatus.FAILED,
-        failureReason: expect.stringContaining('Missing bulk transfer result'),
-      }),
-    );
-    expect(payrollItemRepository.update).toHaveBeenCalledWith(
-      itemB.id,
-      expect.objectContaining({ status: PayrollItemStatus.PAID }),
+    expect(itemWrites()).toEqual(
+      expect.arrayContaining([
+        {
+          id: itemA.id,
+          patch: expect.objectContaining({
+            status: PayrollItemStatus.FAILED,
+            failureReason: expect.stringContaining('Missing bulk transfer result'),
+          }),
+        },
+        { id: itemB.id, patch: expect.objectContaining({ status: PayrollItemStatus.PAID }) },
+      ]),
     );
   });
 
@@ -487,13 +521,8 @@ describe('MultiPaymentService', () => {
     process.env.NOMBA_CLIENT_SECRET = 'secret';
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
 
-    const {
-      service,
-      payrollRunRepository,
-      payrollItemRepository,
-      paymentMethodService,
-      paymentProvider,
-    } = createService();
+    const { service, payrollRunRepository, itemWrites, paymentMethodService, paymentProvider } =
+      createService();
 
     const pendingItem = {
       id: 'item-pending',
@@ -552,11 +581,18 @@ describe('MultiPaymentService', () => {
 
     expect(result.totalItems).toBe(2);
     expect(paymentProvider.createPayment).toHaveBeenCalledTimes(1);
-    expect(payrollItemRepository.update).toHaveBeenCalledWith(
-      'item-pending',
-      expect.objectContaining({ status: PayrollItemStatus.PROCESSING }),
+    expect(itemWrites()).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'item-pending',
+          patch: expect.objectContaining({ status: PayrollItemStatus.PROCESSING }),
+        },
+      ]),
     );
-    expect(payrollItemRepository.update).not.toHaveBeenCalledWith('item-paid', expect.anything());
+    // The already-PAID item must never be written again.
+    expect(itemWrites()).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'item-paid' })]),
+    );
   });
 
   it('retries failed items after resetting in-memory status', async () => {
@@ -636,13 +672,8 @@ describe('MultiPaymentService', () => {
     process.env.NOMBA_CLIENT_ID = 'id';
     process.env.NOMBA_CLIENT_SECRET = 'secret';
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
-    const {
-      service,
-      payrollRunRepository,
-      payrollItemRepository,
-      paymentMethodService,
-      paymentProvider,
-    } = createService();
+    const { service, payrollRunRepository, itemWrites, paymentMethodService, paymentProvider } =
+      createService();
 
     const item = {
       id: 'item-huge',
@@ -679,12 +710,16 @@ describe('MultiPaymentService', () => {
     await service.processMultiPaymentPayroll('run-1', 'tenant-1', { userId: 'u1' } as never);
 
     expect(paymentProvider.createPayment).not.toHaveBeenCalled();
-    expect(payrollItemRepository.update).toHaveBeenCalledWith(
-      'item-huge',
-      expect.objectContaining({
-        status: PayrollItemStatus.FAILED,
-        failureReason: expect.stringContaining('maximum limit'),
-      }),
+    expect(itemWrites()).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'item-huge',
+          patch: expect.objectContaining({
+            status: PayrollItemStatus.FAILED,
+            failureReason: expect.stringContaining('maximum limit'),
+          }),
+        },
+      ]),
     );
   });
 
@@ -695,6 +730,7 @@ describe('MultiPaymentService', () => {
     const {
       service,
       payrollRunRepository,
+      makeItemQb,
       payrollItemRepository,
       paymentMethodService,
       paymentProvider,
@@ -723,16 +759,9 @@ describe('MultiPaymentService', () => {
       paymentMethodId: 'pm-1',
     });
     // Concurrent worker already claimed: claim UPDATE returns no rows.
-    (payrollItemRepository.createQueryBuilder as jest.Mock).mockImplementation(() => {
-      const qb: Record<string, jest.Mock> = {};
-      qb.update = jest.fn().mockReturnValue(qb);
-      qb.set = jest.fn().mockReturnValue(qb);
-      qb.where = jest.fn().mockReturnValue(qb);
-      qb.andWhere = jest.fn().mockReturnValue(qb);
-      qb.returning = jest.fn().mockReturnValue(qb);
-      qb.execute = jest.fn(async () => ({ raw: [] }));
-      return qb;
-    });
+    (payrollItemRepository.createQueryBuilder as jest.Mock).mockImplementation(() =>
+      makeItemQb(async () => ({ raw: [] })),
+    );
 
     const result = await service.processMultiPaymentPayroll('run-1', 'tenant-1', {
       userId: 'u1',

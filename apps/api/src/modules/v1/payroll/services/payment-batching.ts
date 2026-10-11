@@ -17,6 +17,10 @@ import { PaymentMethodService } from '../../payment-method/services/payment-meth
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import {
+  claimPayrollItemsScoped,
+  updatePayrollItemScoped,
+} from '../repositories/payroll-item-write.util';
 import { buildPayrollPaymentData, resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
 import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
@@ -72,7 +76,7 @@ export class PaymentBatching {
       );
       if (!readiness.ready) {
         skipped.push(item);
-        await this.payrollItemRepository.update(item.id, {
+        await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
           status: PayrollItemStatus.FAILED,
           failureReason: readiness.message,
         });
@@ -95,20 +99,15 @@ export class PaymentBatching {
     return { bankPayments, cryptoPayments };
   }
 
-  async claimItemsForPayout(itemIds: string[]): Promise<Set<string>> {
-    if (itemIds.length === 0) {
-      return new Set();
-    }
-    const result = await this.payrollItemRepository
-      .createQueryBuilder()
-      .update()
-      .set({ status: PayrollItemStatus.PROCESSING })
-      .where('id IN (:...ids)', { ids: itemIds })
-      .andWhere('status = :pending', { pending: PayrollItemStatus.PENDING })
-      .returning('id')
-      .execute();
-    const rows = result.raw as Array<{ id: string }>;
-    return new Set(rows.map((row) => row.id));
+  async claimItemsForPayout(itemIds: string[], tenantId: string): Promise<Set<string>> {
+    const claimed = await claimPayrollItemsScoped(
+      this.payrollItemRepository,
+      itemIds,
+      tenantId,
+      PayrollItemStatus.PENDING,
+      { status: PayrollItemStatus.PROCESSING },
+    );
+    return new Set(claimed);
   }
 
   async processPayouts(
@@ -148,7 +147,10 @@ export class PaymentBatching {
     bachsSourceCurrency?: string,
   ): Promise<PaymentResult[]> {
     const results: PaymentResult[] = [];
-    const claimedIds = await this.claimItemsForPayout(items.map((item) => item.id));
+    const claimedIds = await this.claimItemsForPayout(
+      items.map((item) => item.id),
+      tenantId,
+    );
     const prepared: PreparedPayout[] = [];
 
     for (const item of items) {
@@ -326,7 +328,7 @@ export class PaymentBatching {
     const { item, paymentMethod, providerName, rail } = entry;
     try {
       if (result.success) {
-        await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
+        await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id, tenantId);
         const bachsDestinationId =
           typeof result.metadata?.bachsDestinationId === 'string'
             ? result.metadata.bachsDestinationId
@@ -349,7 +351,7 @@ export class PaymentBatching {
               ? PayrollItemStatus.FAILED
               : PayrollItemStatus.PROCESSING;
 
-        await this.payrollItemRepository.update(item.id, {
+        await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
           status: itemStatus,
           transactionId: result.transactionId,
           paymentProvider: providerName,
@@ -420,12 +422,19 @@ export class PaymentBatching {
       }
 
       if (result.retryable) {
-        await this.payrollItemRepository.update(item.id, {
+        // A retryable failure that still carries the merchant reference means the payout was
+        // submitted and we simply never saw the response. Record that, so reconciliation
+        // does not mistake it for "never submitted" and fail an item that is already paid.
+        const submissionUnknown = !result.transactionId && Boolean(result.reference);
+        await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
           status: PayrollItemStatus.PROCESSING,
           transactionId: result.transactionId ?? null,
           paymentProvider: providerName,
           paymentMethodId: paymentMethod.id,
           failureReason: result.error || `${providerName} payout pending verification`,
+          ...(submissionUnknown
+            ? { metadata: { ...(item.metadata ?? {}), payoutSubmissionPending: true } }
+            : {}),
         });
         return {
           success: false,
@@ -467,12 +476,12 @@ export class PaymentBatching {
       lower.includes('abort') ||
       lower.includes('timeout');
     if (retryable) {
-      await this.payrollItemRepository.update(item.id, {
+      await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
         status: PayrollItemStatus.PROCESSING,
         failureReason: message,
       });
     } else {
-      await this.payrollItemRepository.update(item.id, {
+      await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
         status: PayrollItemStatus.FAILED,
         failureReason: message,
       });

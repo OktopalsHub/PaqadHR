@@ -27,7 +27,6 @@ import { FincraWebhookService } from '../services/fincra-webhook.service';
 import { MonnifyWebhookService } from '../services/monnify-webhook.service';
 import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
-import { PolarWebhookService } from '../services/polar-webhook.service';
 import { TremendousWebhookService } from '../services/tremendous-webhook.service';
 import {
   getNombaRawBody,
@@ -49,7 +48,6 @@ export class WebhooksController {
     private readonly noahWebhookService: NoahWebhookService,
     private readonly fincraWebhookService: FincraWebhookService,
     private readonly bachsWebhookService: BachsWebhookService,
-    private readonly polarWebhookService: PolarWebhookService,
     private readonly slackWebhookService: SlackWebhookService,
     private readonly tremendousWebhookService: TremendousWebhookService,
     private readonly productAnalytics: ProductAnalyticsService,
@@ -156,18 +154,6 @@ export class WebhooksController {
         headers['x-bachs-timestamp'] ?? headers['X-Bachs-Timestamp'] ?? '',
       ),
     );
-  }
-
-  @Post('polar')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Polar billing webhook (subscriptions)' })
-  handlePolarWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
-    const rawBody = getNombaRawBody(req);
-    if (!rawBody) {
-      throw new UnauthorizedException('Missing raw webhook body');
-    }
-    return this.trackWebhook('polar', this.polarWebhookService.dispatch(rawBody, headers));
   }
 
   @Post('slack/events')

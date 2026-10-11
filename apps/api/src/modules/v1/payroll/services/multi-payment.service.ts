@@ -203,7 +203,7 @@ export class MultiPaymentService {
       if (retriableItems.length === 0) {
         throw new BadRequestException('No failed payments found to retry');
       }
-      await this.validation.resetItemsForRetry(retriableItems);
+      await this.validation.resetItemsForRetry(retriableItems, tenantId);
       const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
       const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
       if (payable.length === 0) {

@@ -10,6 +10,7 @@ import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
+import { updatePayrollItemScoped } from '../repositories/payroll-item-write.util';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   buildPayrollMerchantRef,
@@ -18,6 +19,11 @@ import {
 import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 const PAYROLL_AMOUNT_TOLERANCE = 1;
+
+/** How long a PROCESSING item with no provider transaction id may stay unqueried before
+ * reconciliation declares it failed. Nothing was ever submitted for these, so the only
+ * reason to wait is to let a slow provider error land first. */
+const NULL_TRANSACTION_STUCK_GRACE_MS = 60 * 60 * 1000;
 
 const SUCCESS_STATUSES = new Set([
   'SUCCESS',
@@ -90,7 +96,15 @@ export class PayoutReconciliation {
     let updated = 0;
     for (const item of stuckItems) {
       const reference = item.transactionId;
-      if (!reference) continue;
+      if (!reference) {
+        // No provider reference means no payout was ever submitted, so no status query and
+        // no webhook can ever move this item. Left alone it traps the run in APPROVED
+        // forever, so fail it once the grace window has passed.
+        if (await this.failNullTransactionStuckItem(item)) {
+          updated += 1;
+        }
+        continue;
+      }
 
       const tenantId = item.payrollRun?.tenantId ?? (await this.resolveTenantId(item.payrollRunId));
       if (!tenantId) continue;
@@ -129,6 +143,63 @@ export class PayoutReconciliation {
     }
 
     return { checked: stuckItems.length, updated };
+  }
+
+  /**
+   * A PROCESSING item with no provider transaction id cannot be requeried, so after the
+   * grace window we fail it so the run can leave APPROVED and the admin sees the rejection.
+   *
+   * "No transaction id" does NOT prove "never submitted": a provider can accept the payout
+   * and lose the response. Such items are flagged with `payoutSubmissionPending`, and they
+   * are left in PROCESSING on purpose — failing one makes it retryable, and the retry mints a
+   * fresh merchant reference (and therefore a fresh idempotency key), which the provider
+   * cannot dedupe. Waiting for the payout webhook is the only safe terminal signal.
+   *
+   * Returns true when the item transitioned.
+   */
+  private async failNullTransactionStuckItem(item: PayrollItem): Promise<boolean> {
+    if (item.metadata?.payoutSubmissionPending === true) {
+      this.logger.warn(
+        `Payroll item ${item.id} has an unknown payout submission outcome; leaving it PROCESSING for webhook resolution`,
+      );
+      return false;
+    }
+
+    const graceCutoff = new Date(Date.now() - NULL_TRANSACTION_STUCK_GRACE_MS);
+    if (!item.updatedAt || item.updatedAt >= graceCutoff) return false;
+
+    const tenantId = item.payrollRun?.tenantId ?? (await this.resolveTenantId(item.payrollRunId));
+    if (!tenantId) return false;
+
+    const reason =
+      item.failureReason?.trim() || 'Payout was never submitted to the payment provider';
+    await updatePayrollItemScoped(this.payrollItemRepo, item.id, tenantId, {
+      status: PayrollItemStatus.FAILED,
+      failureReason: reason,
+    });
+    this.logger.warn(
+      `Payroll item ${item.id} stuck in PROCESSING with no provider payout; failing it`,
+    );
+
+    item.status = PayrollItemStatus.FAILED;
+    item.failureReason = reason;
+    if (this.lifecycleNotify) {
+      await this.lifecycleNotify.onItemFailed({
+        tenantId,
+        item,
+        run: item.payrollRun,
+        reason,
+        auditContext: {
+          tenantId,
+          payrollRunId: item.payrollRunId,
+          performedById: item.payrollRun?.createdById ?? item.memberId,
+          memberId: item.memberId,
+        },
+      });
+    }
+
+    await this.reconcilePayrollRunStatus(item.payrollRunId, tenantId);
+    return true;
   }
 
   async reconcileFailedItemBeforeRetry(item: PayrollItem, tenantId: string): Promise<boolean> {
@@ -171,6 +242,15 @@ export class PayoutReconciliation {
 
     const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
     const reference = item.transactionId?.trim();
+    // A retry mints a new merchant reference, so anything already submitted under the
+    // previous one stays a live payout. Items whose submission outcome we never learned
+    // must not be retried blind — that is how an employee gets paid twice.
+    if (!reference && item.metadata?.payoutSubmissionPending === true) {
+      throw new BadRequestException(
+        `Cannot retry payroll item ${item.id}: its payout submission outcome is still unknown. ` +
+          'Wait for the provider to confirm the payout before retrying.',
+      );
+    }
     if (!reference) return true;
 
     const querier = this.factory.resolvePayoutQuerier(provider);

@@ -97,13 +97,13 @@ export class BachsProvider extends BasePaymentProvider {
   }
 
   protected initializeCurrencyConfigs(): void {
-    for (const code of ['NGN', 'USD', 'EUR', 'GBP', 'USDT']) {
+    for (const code of ['NGN', 'USD', 'EUR', 'GBP', 'USDT', 'USDC']) {
       this.currencyConfigs.set(code, {
         code,
         name: code,
         symbol: code,
         decimals: 2,
-        type: code === 'USDT' ? 'crypto' : 'fiat',
+        type: code === 'USDT' || code === 'USDC' ? 'crypto' : 'fiat',
         isActive: true,
       });
     }
@@ -123,6 +123,7 @@ export class BachsProvider extends BasePaymentProvider {
         `PAYROLL_${(data.metadata?.payrollItemId as string | undefined) ?? ''}`,
       );
 
+    let payoutSubmitted = false;
     try {
       const destinationInput = this.resolveDestinationInput(data, currency);
       const destinationCurrency = destinationInput.currency;
@@ -159,8 +160,10 @@ export class BachsProvider extends BasePaymentProvider {
       const sourceCurrency = intlBank
         ? BACHS_INTL_BANK_SOURCE_CURRENCY
         : (declaredSource ?? amountCurrency);
-      const bankMethod =
-        destinationBaseCurrency === 'USDT' ? undefined : ('BANK_TRANSFER' as const);
+      // Stablecoin destinations are crypto rails, not bank rails — never tag them BANK_TRANSFER.
+      const isCryptoDestination =
+        destinationBaseCurrency === 'USDT' || destinationBaseCurrency === 'USDC';
+      const bankMethod = isCryptoDestination ? undefined : ('BANK_TRANSFER' as const);
 
       let amount: string | undefined;
       let quoteId: string | undefined;
@@ -235,6 +238,7 @@ export class BachsProvider extends BasePaymentProvider {
           : '';
       const destinationId =
         cachedDestinationId || (await this.resolveDestinationId(destinationInput));
+      payoutSubmitted = true;
       const payout = await this.bachsApi.createPayout({
         destination: destinationId,
         amount,
@@ -262,21 +266,33 @@ export class BachsProvider extends BasePaymentProvider {
         transactionId: payout.id,
         reference: merchantTxRef,
         providerStatus: status,
-        rail: destinationCurrency.startsWith('USDT') ? 'crypto' : 'bank',
+        rail:
+          destinationCurrency.startsWith('USDT') || destinationCurrency.startsWith('USDC')
+            ? 'crypto'
+            : 'bank',
         metadata: { bachsDestinationId: destinationId },
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Bachs payout failed: ${message}`);
       const errorCode = error instanceof BachsApiError ? error.errorCode : undefined;
-      const retryable =
-        error instanceof PaymentProviderError
+      // A throw before createPayout means no payout exists anywhere, so there is nothing for
+      // reconciliation or a webhook to ever resolve. Banking that on "retryable" parks the
+      // payroll item in PROCESSING with no transaction id forever — fail fast instead so the
+      // admin sees the rejection and can retry the item with corrected details.
+      const retryable = !payoutSubmitted
+        ? false
+        : error instanceof PaymentProviderError
           ? error.retryable
           : !(errorCode && NON_RETRYABLE_ERROR_CODES.has(errorCode));
       return {
         success: false,
         error: message,
         retryable,
+        // The payout may exist at Bachs even though we never saw the response. Keep the
+        // reference so reconciliation can prove whether one was created before anyone
+        // treats this item as safe to retry.
+        ...(payoutSubmitted ? { reference: merchantTxRef } : {}),
       };
     }
   }
@@ -296,7 +312,7 @@ export class BachsProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['NGN', 'USD', 'EUR', 'GBP', 'USDT'];
+    return ['NGN', 'USD', 'EUR', 'GBP', 'USDT', 'USDC'];
   }
 
   /** Bachs signatures need the timestamp header; verification happens in BachsWebhookService. */
@@ -345,9 +361,9 @@ export class BachsProvider extends BasePaymentProvider {
     }
 
     if (isCryptoCurrency(currency)) {
-      if (currency !== 'USDT') {
+      if (currency !== 'USDT' && currency !== 'USDC') {
         throw new PaymentProviderError(
-          `Bachs only supports USDT crypto payouts, not ${currency}`,
+          `Bachs only supports USDT and USDC crypto payouts, not ${currency}`,
           'VALIDATION_ERROR',
           false,
         );
@@ -359,7 +375,7 @@ export class BachsProvider extends BasePaymentProvider {
           : '');
       if (!walletAddress) {
         throw new PaymentProviderError(
-          'Crypto wallet address is required for USDT payouts',
+          `Crypto wallet address is required for ${currency} payouts`,
           'VALIDATION_ERROR',
           false,
         );
@@ -369,10 +385,10 @@ export class BachsProvider extends BasePaymentProvider {
         (typeof data.metadata?.cryptoNetwork === 'string'
           ? data.metadata.cryptoNetwork
           : undefined);
-      const destinationCurrency = mapBachsCryptoDestinationCurrency(network);
+      const destinationCurrency = mapBachsCryptoDestinationCurrency(network, currency);
       if (!destinationCurrency) {
         throw new PaymentProviderError(
-          'Bachs USDT payouts require an explicit TRC20 or BEP20 network',
+          `Bachs ${currency} payouts require an explicit network (TRC20/BEP20/ERC20/SOL for USDT, BEP20/ERC20/SOL/BASE for USDC)`,
           'VALIDATION_ERROR',
           false,
         );
@@ -386,7 +402,7 @@ export class BachsProvider extends BasePaymentProvider {
     }
 
     throw new PaymentProviderError(
-      `Bachs does not support ${currency} payouts; supported: NGN/USD/EUR/GBP bank and USDT (TRC20/BEP20)`,
+      `Bachs does not support ${currency} payouts; supported: NGN/USD/EUR/GBP bank and USDT/USDC (TRC20/BEP20/ERC20/SOL/BASE)`,
       'VALIDATION_ERROR',
       false,
     );

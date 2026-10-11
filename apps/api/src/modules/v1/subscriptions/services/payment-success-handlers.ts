@@ -79,11 +79,15 @@ export class PaymentSuccessHandlers {
       payment.quantity ?? (await this.seatPricing.getTenantSeatCount(payment.tenantId)),
     );
     const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
-    const _normalizedPaid = normalizeWebhookAmount(
-      payment.amount,
-      expectedAmount,
-      payment.currency,
-    );
+    // The provider does not always verify the amount for us (Bachs does not), so compare the
+    // settled figure against what this tenant owes before activating anything. Discarding it
+    // would let an understated-but-validly-signed webhook activate a full-price plan.
+    const normalizedPaid = normalizeWebhookAmount(payment.amount, expectedAmount, payment.currency);
+    if (
+      !Number.isFinite(normalizedPaid) ||
+      !isAmountWithinTolerance(normalizedPaid, expectedAmount)
+    )
+      throw new BadRequestException('Subscription amount mismatch');
 
     if (
       existing &&

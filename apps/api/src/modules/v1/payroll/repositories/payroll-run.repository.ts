@@ -83,9 +83,13 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     const entity = super.create(data);
     return this.save(entity);
   }
-  async updateAndReturn(id: string, data: DeepPartial<PayrollRun>): Promise<PayrollRun | null> {
-    await super.update(id, data as Parameters<Repository<PayrollRun>['update']>[1]);
-    return this.findById(id);
+  async updateAndReturn(
+    id: string,
+    tenantId: string,
+    data: DeepPartial<PayrollRun>,
+  ): Promise<PayrollRun | null> {
+    await super.update({ id, tenantId }, data as Parameters<Repository<PayrollRun>['update']>[1]);
+    return this.findByIdWithItems(id, tenantId);
   }
   async findAllPaginated(
     page: number,

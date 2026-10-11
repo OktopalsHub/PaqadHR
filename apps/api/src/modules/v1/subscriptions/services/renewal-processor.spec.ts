@@ -264,7 +264,7 @@ describe('RenewalProcessor.buildNombaRenewalOrderReference', () => {
 
 describe('RenewalLifecycleService.lapseStaleSubscriptions', () => {
   // RenewalProcessor.lapseStaleSubscriptions is a pass-through to this service.
-  it('lapses stale Polar and Monnify subscriptions past grace', async () => {
+  it('lapses stale Bachs and Monnify subscriptions past grace', async () => {
     const repos = buildRepositoryDoubles();
     const lifecycle = new RenewalLifecycleService(
       repos.subscriptionRepo as never,
@@ -273,12 +273,12 @@ describe('RenewalLifecycleService.lapseStaleSubscriptions', () => {
       { hasProcessedEvent: jest.fn(), record: jest.fn() } as never,
     );
     const staleDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
-    const polarSub = {
-      id: 'polar-1',
+    const bachsSub = {
+      id: 'bachs-1',
       tenantId: 't1',
-      billingProvider: BillingProvider.POLAR,
+      billingProvider: BillingProvider.BACHS,
       status: SubscriptionStatus.ACTIVE,
-      externalSubscriptionId: 'pol_1',
+      externalSubscriptionId: 'ba_1',
       nextBillingDate: staleDate,
     };
     const monnifySub = {
@@ -288,10 +288,10 @@ describe('RenewalLifecycleService.lapseStaleSubscriptions', () => {
       status: SubscriptionStatus.ACTIVE,
       nextBillingDate: staleDate,
     };
-    repos.subscriptionRepo.find.mockResolvedValue([polarSub, monnifySub]);
+    repos.subscriptionRepo.find.mockResolvedValue([bachsSub, monnifySub]);
 
     await expect(lifecycle.lapseStaleSubscriptions()).resolves.toEqual({ lapsed: 2 });
-    expect(polarSub.status).toBe(SubscriptionStatus.PAST_DUE);
+    expect(bachsSub.status).toBe(SubscriptionStatus.PAST_DUE);
     expect(monnifySub.status).toBe(SubscriptionStatus.PAST_DUE);
   });
 });
@@ -400,7 +400,7 @@ describe('RenewalSuccessApplicator.applyRenewalSuccess', () => {
   it('ignores a renewal for a subscription already billed under another provider', async () => {
     const { applicator, repos } = createApplicator();
     repos.subscriptionRepo.findOne.mockResolvedValue(
-      dueSubscription({ billingProvider: BillingProvider.POLAR }),
+      dueSubscription({ billingProvider: BillingProvider.BACHS }),
     );
 
     await applicator.applyRenewalSuccess(TENANT_ID, renewalPayment(), BillingProvider.NOMBA);

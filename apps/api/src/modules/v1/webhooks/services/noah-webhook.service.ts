@@ -58,7 +58,7 @@ export class NoahWebhookService {
         return this.walletTopupService.completeCheckoutTopup(walletTopup, PaymentProvider.NOAH);
       }
       this.logger.debug(
-        `Ignoring Noah checkout event (subscriptions use Bachs/Polar/Nomba): ${eventType}`,
+        `Ignoring Noah checkout event (subscriptions use Bachs/Nomba): ${eventType}`,
       );
     }
 
