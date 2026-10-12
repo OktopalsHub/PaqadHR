@@ -20,7 +20,8 @@ export class FincraProvider extends BasePaymentProvider {
   }
 
   protected initializeCurrencyConfigs(): void {
-    for (const code of ['NGN', 'USD', 'EUR', 'GBP', 'USDC', 'USDT', 'BTC', 'ETH']) {
+    // Stablecoins only — matches SUPPORTED_CRYPTO_CURRENCIES. BTC/ETH are not payroll currencies.
+    for (const code of ['NGN', 'USD', 'EUR', 'GBP', 'USDC', 'USDT']) {
       this.currencyConfigs.set(code, {
         code,
         name: code,
@@ -165,7 +166,7 @@ export class FincraProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['NGN', 'USD', 'EUR', 'GBP', 'USDC', 'USDT', 'BTC', 'ETH'];
+    return ['NGN', 'USD', 'EUR', 'GBP', 'USDC', 'USDT'];
   }
 
   validateSignature(payload: unknown, signature: string): boolean {

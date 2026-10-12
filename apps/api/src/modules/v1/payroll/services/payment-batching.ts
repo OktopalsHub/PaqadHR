@@ -68,6 +68,19 @@ export class PaymentBatching {
       const payoutCurrency = (item.paymentCurrency ?? '').toUpperCase();
       const itemIsCrypto = isCryptoCurrency(payoutCurrency);
 
+      // An item with nothing to pay can never produce a payout, so reject it here — before
+      // the claim moves it to PROCESSING. Claiming first would leave a PROCESSING row with
+      // no provider payout and no amount, which reconciliation can never resolve.
+      if (resolvePayrollPayoutAmount(item) < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT) {
+        skipped.push(item);
+        await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
+          status: PayrollItemStatus.FAILED,
+          failureReason:
+            `Payroll item has no payable amount (expected at least ${PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT} ${payoutCurrency || ''}`.trim(),
+        });
+        continue;
+      }
+
       const readiness = await this.paymentMethodService.assessPayrollReadiness(
         tenantId,
         item.memberId,
@@ -299,9 +312,11 @@ export class PaymentBatching {
       cryptoNetwork,
     );
     const providerName = paymentProviderLabel(resolvedProvider);
+    // Provider-side narration/bank details: a raw member UUID must never reach the provider or a
+    // bank statement, so fall back to a neutral label rather than the id.
     const employeeName = item.employee
       ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
-      : item.memberId;
+      : 'Employee';
     const paymentData = buildPayrollPaymentData(
       item,
       paymentMethod,

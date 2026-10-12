@@ -67,12 +67,9 @@ describe('NoahProvider', () => {
     );
   });
 
-  it('creates crypto payout for ETH payroll', async () => {
-    noahApi.createCryptoPayout.mockResolvedValue({
-      status: 'Pending',
-      transactionId: 'txn-eth-1',
-    });
-
+  it('refuses a native-asset crypto payout instead of falling through to the fiat rail', async () => {
+    // ETH/SOL/BTC are not payroll currencies. Falling through would build a bank payout
+    // for a currency Noah cannot deliver.
     const result = await provider.createPayment({
       amount: 0.01,
       currency: 'ETH',
@@ -82,14 +79,10 @@ describe('NoahProvider', () => {
       description: 'Payroll',
     });
 
-    expect(result.success).toBe(true);
-    expect(noahApi.createCryptoPayout).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cryptoCurrency: 'ETH',
-        walletAddress: '0xabc',
-        network: 'Ethereum',
-      }),
-    );
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/not supported/);
+    expect(noahApi.createCryptoPayout).not.toHaveBeenCalled();
+    expect(noahApi.createFiatPayout).not.toHaveBeenCalled();
   });
 
   it('creates fiat payout for USD payroll', async () => {

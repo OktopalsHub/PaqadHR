@@ -31,6 +31,32 @@ export async function updatePayrollItemScoped(
 }
 
 /**
+ * Tenant-scoped write that only applies while the item is still in `expectedStatus`.
+ *
+ * Returns true when this caller won the transition. Reconciliation sweeps and the synchronous
+ * payout path can both decide to fail the same item; guarding on the current status means
+ * exactly one of them writes and only that one may emit a notification.
+ */
+export async function updatePayrollItemScopedIfStatus(
+  repo: Repository<PayrollItem>,
+  itemId: string,
+  tenantId: string,
+  expectedStatus: PayrollItemStatus,
+  patch: QueryDeepPartialEntity<PayrollItem>,
+): Promise<boolean> {
+  const result = await repo
+    .createQueryBuilder('item')
+    .update()
+    .set(patch)
+    .where('id = :itemId', { itemId })
+    .andWhere('status = :expectedStatus', { expectedStatus })
+    .andWhere(SCOPED_TO_TENANT_SQL, { tenantId })
+    .execute();
+
+  return (result.affected ?? 0) > 0;
+}
+
+/**
  * Conditionally claim items for payout and return the ids this caller actually won.
  * Tenant-scoped and guarded by `expectedStatus`, so two concurrent workers cannot both win.
  */

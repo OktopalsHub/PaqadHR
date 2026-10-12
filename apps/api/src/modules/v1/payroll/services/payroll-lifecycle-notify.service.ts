@@ -228,10 +228,15 @@ export class PayrollLifecycleNotifyService {
     }
   }
 
+  /**
+   * Employee name for notification copy. Never returns a raw member UUID — ids are internal
+   * identifiers and leak implementation detail into user-facing email. Callers that can load
+   * the `employee` relation should do so; this is the last-resort wording for when they did not.
+   */
   private employeeName(item: PayrollItem): string {
     const employee = item.employee;
-    if (!employee) return item.memberId;
-    return `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || item.memberId;
+    if (!employee) return 'an employee';
+    return `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || 'an employee';
   }
 
   private periodLabel(run?: RunNotifyContext | null): string {

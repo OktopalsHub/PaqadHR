@@ -16,7 +16,16 @@ describe('assertAndCanonicalizeCryptoNetwork', () => {
   it('canonicalizes Noah network names', () => {
     expect(assertAndCanonicalizeCryptoNetwork('USDT', 'ethereum')).toBe('Ethereum');
     expect(assertAndCanonicalizeCryptoNetwork('USDC', 'base')).toBe('Base');
-    expect(assertAndCanonicalizeCryptoNetwork('BTC', 'bitcoin')).toBe('Bitcoin');
+  });
+
+  it('rejects native assets that are no longer supported crypto currencies', () => {
+    // Stablecoins only — a BTC/SOL payment method must not be accepted.
+    expect(() => assertAndCanonicalizeCryptoNetwork('BTC', 'bitcoin')).toThrow(
+      /Unsupported network for BTC/,
+    );
+    expect(() => assertAndCanonicalizeCryptoNetwork('SOL', 'solana')).toThrow(
+      /Unsupported network for SOL/,
+    );
   });
 
   it('requires a network', () => {

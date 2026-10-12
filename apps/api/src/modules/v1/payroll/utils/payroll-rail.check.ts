@@ -14,6 +14,16 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
 
+/** Native assets must be refused at routing time rather than sent to a provider that cannot pay them. */
+function throwsUnsupported(run: () => unknown): boolean {
+  try {
+    run();
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 function railOk(runCurrency: string, methodType: PaymentMethodType): boolean {
   const cryptoRun = isCryptoCurrency(runCurrency);
   const cryptoMethod = methodType === PaymentMethodType.CRYPTO;
@@ -29,7 +39,17 @@ assert(railOk('USDC', PaymentMethodType.CRYPTO), 'USDC crypto ok');
 assert(!railOk('USD', PaymentMethodType.CRYPTO), 'USD crypto not ok');
 assert(paymentProviderLabel(PaymentProvider.NOMBA).includes('Local bank'), 'Nomba label');
 assert(paymentProviderLabel(PaymentProvider.NOAH).includes('International'), 'Noah label');
-assert(isCryptoCurrency('SOL'), 'SOL is supported crypto');
-assert(isCryptoCurrency('BTC'), 'BTC is supported crypto');
-assert(isCryptoCurrency('ETH'), 'ETH is supported crypto');
+assert(isCryptoCurrency('USDT'), 'USDT is supported crypto');
+assert(isCryptoCurrency('USDC'), 'USDC is supported crypto');
+assert(isCryptoCurrency('SOL') === false, 'SOL is no longer a supported crypto currency');
+assert(isCryptoCurrency('BTC') === false, 'BTC is no longer a supported crypto currency');
+assert(isCryptoCurrency('ETH') === false, 'ETH is no longer a supported crypto currency');
 assert(isCryptoCurrency('GBP') === false, 'GBP is fiat not crypto');
+assert(
+  throwsUnsupported(() => resolvePaymentProvider('SOL')),
+  'SOL → rejected at routing',
+);
+assert(
+  throwsUnsupported(() => resolvePaymentProvider('BTC')),
+  'BTC → rejected at routing',
+);

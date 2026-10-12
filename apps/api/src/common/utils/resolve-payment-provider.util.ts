@@ -1,5 +1,5 @@
+import { BadRequestException } from '@nestjs/common';
 import { normalizeBachsUsdtNetwork } from '../config/bachs-payout.util';
-import { isNoahConfigured } from '../config/noah.config';
 import {
   isCryptoCurrency,
   isNoahNativeCryptoCurrency,
@@ -19,15 +19,19 @@ export function resolvePaymentProvider(
 ): PaymentProvider {
   const code = currency.toUpperCase();
 
-  // BTC / ETH / SOL are Noah withdraw rails when Noah is configured.
-  if (isNoahNativeCryptoCurrency(code) && isNoahConfigured()) {
-    return PaymentProvider.NOAH;
+  // Stablecoins only. A native asset (BTC/ETH/SOL) is not a payable currency — Bachs cannot
+  // deliver it and Noah is no longer a payroll rail for it. Fail loudly at routing time
+  // instead of constructing a payout that can only 402 at the provider.
+  if (isNoahNativeCryptoCurrency(code)) {
+    throw new BadRequestException(
+      `${code} payouts are not supported. Pay employees in USDT or USDC instead.`,
+    );
   }
 
   if (isCryptoCurrency(code) || paymentMethodType === PaymentMethodType.CRYPTO) {
     // Bachs is the only rail that delivers USDT on TRC20/BEP20 — route those there
     // unconditionally so a payout can never settle on a different chain. Other USDT
-    // networks (ERC20/SOL) are not Bachs rails and stay on the Noah/Fincra path. If
+    // networks (ERC20) are not Bachs rails and stay on the Noah/Fincra path. If
     // Bachs is not configured the item fails loudly instead of moving funds.
     const bachsNetwork = normalizeBachsUsdtNetwork(cryptoNetwork);
     if (code === 'USDT' && (bachsNetwork === 'TRC20' || bachsNetwork === 'BEP20')) {

@@ -8,6 +8,7 @@ import {
   In,
   Repository,
 } from 'typeorm';
+import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import { PayrollRun } from '../entities/payroll-run.entity';
 
@@ -91,6 +92,25 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     await super.update({ id, tenantId }, data as Parameters<Repository<PayrollRun>['update']>[1]);
     return this.findByIdWithItems(id, tenantId);
   }
+  /**
+   * Tenant ids owning at least one PROCESSING item last touched before `cutoff`.
+   *
+   * Backs the reconciliation sweep. Resolving the owning tenants first lets the sweep query
+   * per tenant with an explicit predicate, instead of selecting PROCESSING items across every
+   * tenant in the instance. Distinct ids only, so one query covers a tenant's whole backlog.
+   */
+  async findDistinctTenantIdsWithProcessingItems(cutoff: Date): Promise<string[]> {
+    const rows = await this.createQueryBuilder('run')
+      .select('DISTINCT run.tenant_id', 'tenantId')
+      .innerJoin('run.items', 'item', 'item.status = :status', {
+        status: PayrollItemStatus.PROCESSING,
+      })
+      .andWhere('item.updated_at < :cutoff', { cutoff })
+      .getRawMany<{ tenantId: string }>();
+
+    return rows.map((row) => row.tenantId).filter((tenantId): tenantId is string => !!tenantId);
+  }
+
   async findAllPaginated(
     page: number,
     limit: number,

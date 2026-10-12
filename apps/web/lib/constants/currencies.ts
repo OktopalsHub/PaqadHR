@@ -1,5 +1,6 @@
 export const SUPPORTED_FIAT_CURRENCIES = ['NGN', 'USD', 'EUR', 'GBP'] as const;
-export const SUPPORTED_CRYPTO_CURRENCIES = ['USDT', 'USDC', 'BTC', 'ETH', 'SOL'] as const;
+/** Stablecoins only — Bachs is the sole crypto rail and delivers USDT/USDC. */
+export const SUPPORTED_CRYPTO_CURRENCIES = ['USDT', 'USDC'] as const;
 export const SUPPORTED_PAYROLL_CURRENCIES = [
   ...SUPPORTED_FIAT_CURRENCIES,
   ...SUPPORTED_CRYPTO_CURRENCIES,
@@ -8,14 +9,11 @@ export const SUPPORTED_PAYROLL_CURRENCIES = [
 export type SupportedFiatCurrency = (typeof SUPPORTED_FIAT_CURRENCIES)[number];
 export type SupportedCryptoCurrency = (typeof SUPPORTED_CRYPTO_CURRENCIES)[number];
 
-/** Noah production network names allowed per currency, plus the Bachs USDT rails. */
+/** Bachs delivery networks per stablecoin (USDT on TRC20/BEP20/ERC20/SOL, USDC on BEP20/ERC20/SOL/BASE). */
 export const CRYPTO_NETWORKS_BY_CURRENCY: Record<SupportedCryptoCurrency, readonly string[]> = {
   USDC: ['Ethereum', 'Base', 'PolygonPos', 'Solana', 'Celo', 'Gnosis', 'FlowEvm'],
   // TRC20/BEP20 are delivered by Bachs and only accepted when the Bachs USDT rail is enabled.
   USDT: ['Ethereum', 'TRC20', 'BEP20'],
-  BTC: ['Bitcoin'],
-  ETH: ['Ethereum'],
-  SOL: ['Solana'],
 };
 
 export function isCryptoCurrency(code: string): boolean {

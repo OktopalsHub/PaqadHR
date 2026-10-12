@@ -10,7 +10,7 @@ import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
-import { updatePayrollItemScoped } from '../repositories/payroll-item-write.util';
+import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   buildPayrollMerchantRef,
@@ -85,64 +85,83 @@ export class PayoutReconciliation {
 
   async requeryStuckPayouts(): Promise<{ checked: number; updated: number }> {
     const cutoff = new Date(Date.now() - 15 * 60 * 1000);
-    const stuckItems = await this.payrollItemRepo.find({
-      where: {
-        status: PayrollItemStatus.PROCESSING,
-        updatedAt: LessThan(cutoff),
-      },
-      take: 50,
-    });
+
+    // Sweep tenant-by-tenant rather than selecting every PROCESSING row in the instance.
+    // A bare status+updatedAt filter has no tenant predicate, so it reads (and can notify
+    // about) payroll items belonging to any tenant on this instance — a cross-tenant data
+    // exposure. Each tenant is resolved from its own runs, then queried with an explicit
+    // tenant_id predicate so no item is ever loaded outside its owner.
+    const tenantIds =
+      await this.payrollRunRepository.findDistinctTenantIdsWithProcessingItems(cutoff);
 
     let updated = 0;
-    for (const item of stuckItems) {
-      const reference = item.transactionId;
-      if (!reference) {
-        // No provider reference means no payout was ever submitted, so no status query and
-        // no webhook can ever move this item. Left alone it traps the run in APPROVED
-        // forever, so fail it once the grace window has passed.
-        if (await this.failNullTransactionStuckItem(item)) {
-          updated += 1;
-        }
-        continue;
-      }
+    let checked = 0;
 
-      const tenantId = item.payrollRun?.tenantId ?? (await this.resolveTenantId(item.payrollRunId));
-      if (!tenantId) continue;
+    for (const tenantId of tenantIds) {
+      const stuckItems = await this.payrollItemRepo.find({
+        where: {
+          status: PayrollItemStatus.PROCESSING,
+          updatedAt: LessThan(cutoff),
+          payrollRun: { tenantId },
+        },
+        // Load the relations the failure notification reads: without `employee` the email falls
+        // back to a raw member UUID, and without `payrollRun` every item costs an extra
+        // resolveTenantId round trip.
+        relations: ['employee', 'payrollRun'],
+        take: 50,
+      });
+      checked += stuckItems.length;
 
-      const retryAttempt =
-        typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
-      const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
-      const provider = this.resolveStoredProvider(item.paymentProvider);
-      const querier = this.factory.resolvePayoutQuerier(provider);
-
-      let status: string | null = null;
-      let amount: number | undefined;
-
-      if (querier) {
-        const result = await querier.queryStatus(reference, merchantRef);
-        if (result) {
-          status = result.status;
-          amount = result.amount;
-        }
-      }
-
-      if (!status) continue;
-
-      const changed = await this.applyTransferStatus(
-        merchantRef,
-        status,
-        reference,
-        provider,
-        tenantId,
-        amount,
-      );
-      if (changed) {
-        updated += 1;
-        await this.reconcilePayrollRunStatus(item.payrollRunId, tenantId);
+      for (const item of stuckItems) {
+        const changed = await this.reconcileStuckItem(item, tenantId);
+        if (changed) updated += 1;
       }
     }
 
-    return { checked: stuckItems.length, updated };
+    return { checked, updated };
+  }
+
+  /** Reconcile one stuck item inside its own tenant scope. Returns true when it transitioned. */
+  private async reconcileStuckItem(item: PayrollItem, tenantId: string): Promise<boolean> {
+    const reference = item.transactionId;
+    if (!reference) {
+      // No provider reference means no payout was ever submitted, so no status query and
+      // no webhook can ever move this item. Left alone it traps the run in APPROVED
+      // forever, so fail it once the grace window has passed.
+      return this.failNullTransactionStuckItem(item);
+    }
+
+    const retryAttempt =
+      typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
+    const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
+    const provider = this.resolveStoredProvider(item.paymentProvider);
+    const querier = this.factory.resolvePayoutQuerier(provider);
+
+    let status: string | null = null;
+    let amount: number | undefined;
+
+    if (querier) {
+      const result = await querier.queryStatus(reference, merchantRef);
+      if (result) {
+        status = result.status;
+        amount = result.amount;
+      }
+    }
+
+    if (!status) return false;
+
+    const changed = await this.applyTransferStatus(
+      merchantRef,
+      status,
+      reference,
+      provider,
+      tenantId,
+      amount,
+    );
+    if (changed) {
+      await this.reconcilePayrollRunStatus(item.payrollRunId, tenantId);
+    }
+    return changed;
   }
 
   /**
@@ -173,10 +192,27 @@ export class PayoutReconciliation {
 
     const reason =
       item.failureReason?.trim() || 'Payout was never submitted to the payment provider';
-    await updatePayrollItemScoped(this.payrollItemRepo, item.id, tenantId, {
-      status: PayrollItemStatus.FAILED,
-      failureReason: reason,
-    });
+
+    // Fail only if the row is still PROCESSING. The synchronous payout path can mark the item
+    // FAILED (and notify) while this sweep is between its SELECT and this UPDATE, so an
+    // unconditional write would send a second failure email for the same item.
+    const failed = await updatePayrollItemScopedIfStatus(
+      this.payrollItemRepo,
+      item.id,
+      tenantId,
+      PayrollItemStatus.PROCESSING,
+      {
+        status: PayrollItemStatus.FAILED,
+        failureReason: reason,
+      },
+    );
+    if (!failed) {
+      this.logger.warn(
+        `Payroll item ${item.id} was already resolved before the reconciliation sweep could fail it`,
+      );
+      return false;
+    }
+
     this.logger.warn(
       `Payroll item ${item.id} stuck in PROCESSING with no provider payout; failing it`,
     );

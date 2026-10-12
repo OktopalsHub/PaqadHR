@@ -35,6 +35,11 @@ export type BachsFundingItem = {
 /**
  * Bachs holds USD + NGN. Any international / stablecoin destination must be funded in USD.
  * All-NGN runs fund in NGN unless the env forces USD-sourced NGN payouts.
+ *
+ * This is what makes an NGN salary payable in USDT: the run is funded from the USD balance,
+ * so the NGN net is converted to its USD equivalent before sizing the checkout. Funding such
+ * a run from the NGN balance would treat the NGN figure as USD (see
+ * sourceAmountForBachsFundingItem) and mis-size the checkout.
  */
 export function pickBachsFundingCurrency(
   items: Array<Pick<BachsFundingItem, 'paymentCurrency'>>,
@@ -150,6 +155,11 @@ export async function sourceAmountForBachsFundingItem(params: {
   // Amount already in the funding balance currency (incl. FX-at-payout salary in USD).
   if (amountCurrency === fundingCurrency) {
     if (destinationBase === fundingCurrency || paymentCurrency === 'USDT') {
+      // Stablecoins settle ~1:1 against USD, so no chain quote is needed here. This assumes
+      // `amountCurrency` is already USD — see pickBachsFundingCurrency: Bachs holds USD + NGN
+      // and any non-NGN destination is funded in USD. An NGN-denominated amount reaching this
+      // branch would be treated as USD and under/over-fund the checkout, so callers must fund
+      // cross-currency runs in USD (BACHS_PAYOUT_SOURCE_CURRENCY=USD) rather than in NGN.
       return Math.round(amount * 100) / 100;
     }
     const quote = await createQuote({

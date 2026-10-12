@@ -97,38 +97,27 @@ function validateNoahFormAgainstSchema(
 function resolveNoahCryptoAsset(code: string): string {
   const upper = code.toUpperCase();
   if (getNoahEnvironment() === 'production') {
+    // Stablecoins only, so no native-asset production mapping remains.
     if (upper.endsWith('_TEST') || upper.includes('_TEST_')) {
       return upper.replace(/_TEST(_SEPOLIA)?$/i, '').replace(/_TEST_/i, '_');
     }
-    if (upper === 'ETH_TEST_SEPOLIA') return 'ETH';
     return upper;
   }
   if (upper === 'USDC' || upper === 'USDC_TEST') return 'USDC_TEST';
   if (upper === 'USDT' || upper === 'USDT_TEST') return 'USDT_TEST';
-  if (upper === 'BTC' || upper === 'BTC_TEST') return 'BTC_TEST';
-  if (upper === 'ETH' || upper === 'ETH_TEST' || upper === 'ETH_TEST_SEPOLIA') {
-    return 'ETH_TEST_SEPOLIA';
-  }
-  if (upper === 'SOL' || upper === 'SOL_TEST') return 'SOL_TEST';
   return upper.endsWith('_TEST') || upper.includes('_TEST') ? upper : `${upper}_TEST`;
 }
 
 function resolveNoahNetwork(currency: string, network?: string): string {
   const normalized = network ? normalizeCryptoNetwork(currency, network) : null;
   const isSandbox = getNoahEnvironment() !== 'production';
-  const base =
-    normalized ??
-    (currency.toUpperCase() === 'BTC'
-      ? 'Bitcoin'
-      : currency.toUpperCase() === 'SOL'
-        ? 'Solana'
-        : 'Ethereum');
+  // Stablecoins only — USDC/USDT default to Ethereum unless the caller names a network.
+  const base = normalized ?? 'Ethereum';
   if (!isSandbox) return base === 'PolygonPos' ? 'PolygonPos' : base;
   if (base === 'Ethereum') return 'EthereumTestSepolia';
   if (base === 'Base') return 'BaseTestSepolia';
   if (base === 'PolygonPos' || base === 'Polygon') return 'PolygonTestAmoy';
   if (base === 'Solana') return 'SolanaDevnet';
-  if (base === 'Bitcoin') return 'BitcoinTest';
   return base;
 }
 

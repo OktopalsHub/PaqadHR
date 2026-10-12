@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { isNoahConfigured } from '../config/noah.config';
 import { isNoahOperationSuccessful, isNoahTerminalFailure } from '../config/noah-api.util';
-import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
+import {
+  isCryptoCurrency,
+  isNoahNativeCryptoCurrency,
+} from '../constants/crypto-currencies.constant';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';
@@ -26,13 +29,14 @@ export class NoahProvider extends BasePaymentProvider {
   }
 
   protected initializeCurrencyConfigs(): void {
-    for (const code of ['USD', 'EUR', 'GBP', 'USDC', 'USDT', 'BTC', 'ETH', 'SOL']) {
+    // Stablecoins only — native assets (BTC/ETH/SOL) are not payroll currencies.
+    for (const code of ['USD', 'EUR', 'GBP', 'USDC', 'USDT']) {
       this.currencyConfigs.set(code, {
         code,
         name: code,
         symbol: code,
-        decimals: code === 'BTC' || code === 'ETH' || code === 'SOL' ? 8 : 2,
-        type: ['USDC', 'USDT', 'BTC', 'ETH', 'SOL'].includes(code) ? 'crypto' : 'fiat',
+        decimals: 2,
+        type: ['USDC', 'USDT'].includes(code) ? 'crypto' : 'fiat',
         isActive: true,
       });
     }
@@ -57,6 +61,16 @@ export class NoahProvider extends BasePaymentProvider {
       );
 
     try {
+      // Stablecoins only. A native asset must not fall through to the fiat branch below,
+      // which would build a bank payout for a currency Noah cannot deliver.
+      if (isNoahNativeCryptoCurrency(currency)) {
+        return {
+          success: false,
+          error: `${currency} payouts are not supported. Pay employees in USDT or USDC instead.`,
+          retryable: false,
+        };
+      }
+
       if (isCryptoCurrency(currency)) {
         const walletAddress = data.accountNumber?.trim() || data.metadata?.walletAddress;
         if (!walletAddress || typeof walletAddress !== 'string') {
@@ -179,7 +193,7 @@ export class NoahProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['USD', 'EUR', 'GBP', 'USDC', 'USDT', 'BTC', 'ETH', 'SOL'];
+    return ['USD', 'EUR', 'GBP', 'USDC', 'USDT'];
   }
 
   validateSignature(payload: unknown, signature: string): boolean {

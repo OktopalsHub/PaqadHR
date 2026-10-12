@@ -1,5 +1,10 @@
-/** Crypto currencies for intl payroll (Noah; Fincra where schemes exist). */
-export const SUPPORTED_CRYPTO_CURRENCIES = ['USDT', 'USDC', 'BTC', 'ETH', 'SOL'] as const;
+/**
+ * Crypto currencies for intl payroll.
+ *
+ * Stablecoins only. Bachs is the sole crypto rail, and it delivers USDT/USDC — native assets
+ * (BTC/ETH/SOL) are not offered, so they are not routable and must not reach a payout path.
+ */
+export const SUPPORTED_CRYPTO_CURRENCIES = ['USDT', 'USDC'] as const;
 
 export type SupportedCryptoCurrency = (typeof SUPPORTED_CRYPTO_CURRENCIES)[number];
 
@@ -7,9 +12,6 @@ export type SupportedCryptoCurrency = (typeof SUPPORTED_CRYPTO_CURRENCIES)[numbe
 export const CRYPTO_NETWORKS_BY_CURRENCY: Record<SupportedCryptoCurrency, readonly string[]> = {
   USDC: ['Ethereum', 'Base', 'PolygonPos', 'Solana', 'Celo', 'Gnosis', 'FlowEvm'],
   USDT: ['Ethereum'],
-  BTC: ['Bitcoin'],
-  ETH: ['Ethereum'],
-  SOL: ['Solana'],
 };
 
 /** Map common UI aliases → canonical network names. */
@@ -35,7 +37,11 @@ export function isCryptoCurrency(value: string): boolean {
   return SUPPORTED_CRYPTO_CURRENCIES.includes(value.toUpperCase() as SupportedCryptoCurrency);
 }
 
-/** Native L1 assets that Noah withdraws (prefer Noah over Fincra). */
+/**
+ * Native L1 assets that Noah withdraws. None are supported any more — stablecoins only.
+ * Retained as an explicit predicate so the provider-routing call sites stay total and any
+ * future native-asset support has one obvious place to opt back in.
+ */
 export function isNoahNativeCryptoCurrency(value: string): boolean {
   const code = value.toUpperCase();
   return code === 'BTC' || code === 'ETH' || code === 'SOL';

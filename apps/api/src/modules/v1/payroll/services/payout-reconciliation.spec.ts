@@ -144,7 +144,7 @@ describe('PayoutReconciliation', () => {
 
   const buildRequeryService = (
     stuckItems: PayrollItem[],
-    overrides?: { resolveTenantId?: string | undefined; queryStatus?: jest.Mock },
+    overrides?: { resolveTenantId?: string | null; queryStatus?: jest.Mock },
   ) => {
     const savedItem = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -171,7 +171,7 @@ describe('PayoutReconciliation', () => {
       set: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      execute: jest.fn().mockResolvedValue(undefined),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     const payrollItemRepo = {
       find: jest.fn().mockResolvedValue(stuckItems),
@@ -193,6 +193,9 @@ describe('PayoutReconciliation', () => {
               : null
             : { tenantId: 'tenant-1' },
         ),
+      findDistinctTenantIdsWithProcessingItems: jest
+        .fn()
+        .mockResolvedValue(overrides?.resolveTenantId === null ? [] : ['tenant-1']),
       findByIdWithItems: jest.fn().mockResolvedValue({
         id: 'run-1',
         tenantId: 'tenant-1',
@@ -255,9 +258,71 @@ describe('PayoutReconciliation', () => {
       expect.stringContaining('payroll_runs'),
       { tenantId: 'tenant-1' },
     );
+    // ...and must only apply while the row is still PROCESSING, so a concurrent
+    // synchronous failure cannot produce a second notification for the same item.
+    expect(itemQueryBuilder.andWhere).toHaveBeenCalledWith('status = :expectedStatus', {
+      expectedStatus: PayrollItemStatus.PROCESSING,
+    });
     expect(itemQueryBuilder.execute).toHaveBeenCalledTimes(1);
     expect(lifecycleNotify.onItemFailed).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ checked: 1, updated: 1 });
+  });
+
+  it('does not notify when the item was already failed by the synchronous payout path', async () => {
+    // The sweep reads PROCESSING, then the payout path fails the item and notifies. The
+    // conditional UPDATE must affect 0 rows so this sweep stays silent instead of
+    // emailing the admin a second time for the same failure.
+    const { service, itemQueryBuilder, lifecycleNotify } = buildRequeryService([
+      stuckProcessingItem(),
+    ]);
+    itemQueryBuilder.execute.mockResolvedValue({ affected: 0 });
+
+    const result = await service.requeryStuckPayouts();
+
+    expect(lifecycleNotify.onItemFailed).not.toHaveBeenCalled();
+    expect(result).toEqual({ checked: 1, updated: 0 });
+  });
+
+  it('loads the employee relation so failure emails carry a name, not a member UUID', async () => {
+    const { service, payrollItemRepo } = buildRequeryService([stuckProcessingItem()]);
+
+    await service.requeryStuckPayouts();
+
+    // payroll-lifecycle-notify resolves the employee name from this relation; without it the
+    // notification copy falls back to the raw member id.
+    expect(payrollItemRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({ relations: ['employee', 'payrollRun'] }),
+    );
+  });
+
+  it('scopes the sweep query to the owning tenant instead of every PROCESSING row', async () => {
+    // A bare status+updatedAt filter reads items from every tenant on the instance. The sweep
+    // must resolve owning tenants first and query each with an explicit tenant predicate.
+    const { service, payrollItemRepo } = buildRequeryService([stuckProcessingItem()]);
+
+    await service.requeryStuckPayouts();
+
+    expect(payrollItemRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: PayrollItemStatus.PROCESSING,
+          payrollRun: { tenantId: 'tenant-1' },
+        }),
+      }),
+    );
+  });
+
+  it('skips the sweep entirely when no tenant owns a stuck item', async () => {
+    const { service, payrollItemRepo, lifecycleNotify } = buildRequeryService(
+      [stuckProcessingItem()],
+      { resolveTenantId: null },
+    );
+
+    const result = await service.requeryStuckPayouts();
+
+    expect(payrollItemRepo.find).not.toHaveBeenCalled();
+    expect(lifecycleNotify.onItemFailed).not.toHaveBeenCalled();
+    expect(result).toEqual({ checked: 0, updated: 0 });
   });
 
   it('never auto-fails an item whose payout submission outcome is unknown', async () => {

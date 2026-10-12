@@ -723,6 +723,59 @@ describe('MultiPaymentService', () => {
     );
   });
 
+  it('rejects a zero-amount item before it is claimed as PROCESSING', async () => {
+    // A row with nothing to pay can never produce a provider payout. Claiming it first would
+    // strand it in PROCESSING with no transaction id and no amount — a state reconciliation
+    // can never resolve. It must be failed up front instead.
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
+    const { service, payrollRunRepository, itemWrites, paymentMethodService, paymentProvider } =
+      createService();
+
+    const item = {
+      id: 'item-zero',
+      memberId: 'member-1',
+      paymentCurrency: 'NGN',
+      paymentAmount: 0,
+      netAmount: 0,
+      status: PayrollItemStatus.PENDING,
+      employee: { firstName: 'Ada', lastName: 'Lovelace' },
+      metadata: {},
+    } as unknown as PayrollItem;
+
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-1',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      items: [item],
+      tenant: { name: 'Acme' },
+    });
+    (paymentMethodService.assessPayrollReadiness as jest.Mock).mockResolvedValue({
+      ready: true,
+      paymentMethodId: 'pm-1',
+    });
+
+    await expect(
+      service.processMultiPaymentPayroll('run-1', 'tenant-1', { userId: 'u1' } as never),
+    ).rejects.toThrow();
+
+    expect(paymentProvider.createPayment).not.toHaveBeenCalled();
+    expect(paymentProvider.createBulkTransfer).not.toHaveBeenCalled();
+    expect(itemWrites()).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'item-zero',
+          patch: expect.objectContaining({
+            status: PayrollItemStatus.FAILED,
+            failureReason: expect.stringContaining('no payable amount'),
+          }),
+        },
+      ]),
+    );
+  });
+
   it('does not initiate payout when claim loses the race', async () => {
     process.env.NOMBA_CLIENT_ID = 'id';
     process.env.NOMBA_CLIENT_SECRET = 'secret';

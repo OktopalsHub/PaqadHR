@@ -29,10 +29,12 @@ describe('resolvePaymentProvider', () => {
     expect(resolvePaymentProvider('USDT')).toBe(PaymentProvider.NOAH);
   });
 
-  it('routes BTC ETH SOL to Noah when configured', () => {
-    expect(resolvePaymentProvider('BTC')).toBe(PaymentProvider.NOAH);
-    expect(resolvePaymentProvider('ETH')).toBe(PaymentProvider.NOAH);
-    expect(resolvePaymentProvider('SOL')).toBe(PaymentProvider.NOAH);
+  it('refuses native assets instead of routing them to a provider that cannot pay them', () => {
+    // Stablecoins only. Routing these to Noah built a payout that could only fail at the
+    // provider, so they must be rejected at routing time.
+    expect(() => resolvePaymentProvider('BTC')).toThrow(/not supported/);
+    expect(() => resolvePaymentProvider('ETH')).toThrow(/not supported/);
+    expect(() => resolvePaymentProvider('SOL')).toThrow(/not supported/);
   });
 
   it('routes CRYPTO method type to intl provider even for NG tenant currency', () => {

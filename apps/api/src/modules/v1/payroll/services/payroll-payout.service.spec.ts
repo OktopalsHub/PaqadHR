@@ -87,6 +87,8 @@ describe('PayrollPayoutService', () => {
     const payrollRunRepository = {
       findOne: jest.fn(),
       save: jest.fn(),
+      // The sweep resolves owning tenants first so it never reads items across tenants.
+      findDistinctTenantIdsWithProcessingItems: jest.fn().mockResolvedValue(['tenant-1']),
       findByIdWithItems: jest.fn().mockResolvedValue({
         id: RUN_ID,
         tenantId: 'tenant-1',
@@ -432,26 +434,30 @@ describe('PayrollPayoutService', () => {
       );
     });
 
-    it('resolves tenantId via payrollRunId when payrollRun relation is not loaded', async () => {
+    it('uses the owning tenant resolved up front, never a per-item lookup', async () => {
+      // The sweep resolves owning tenants before querying, so an item is always reconciled
+      // against a tenant it provably belongs to. No per-item tenantId lookup is needed —
+      // that fallback existed only because the old query had no tenant predicate.
       const { service, nombaTransferApi, payrollItemRepo, payrollRunRepository } = createService();
       const stuckItem = {
         ...baseItem(),
         transactionId: 'txn-stuck',
         updatedAt: new Date(Date.now() - 20 * 60 * 1000),
         payrollRunId: RUN_ID,
+        // deliberately no `payrollRun` relation loaded
       };
       (payrollItemRepo.find as jest.Mock).mockResolvedValue([stuckItem]);
-      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
       (nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue('SUCCESS');
       const applySpy = spyOnReconciliation(service, 'applyTransferStatus').mockResolvedValue(true);
 
       const result = await service.requeryStuckPayouts();
 
       expect(result).toEqual({ checked: 1, updated: 1 });
-      expect(payrollRunRepository.findOne).toHaveBeenCalledWith({
-        where: { id: RUN_ID },
-        select: ['tenantId'],
-      });
+      expect(payrollRunRepository.findDistinctTenantIdsWithProcessingItems).toHaveBeenCalledTimes(
+        1,
+      );
+      // Reconciled with the tenant from the owning-tenant query, with no extra lookup.
+      expect(payrollRunRepository.findOne).not.toHaveBeenCalled();
       expect(applySpy).toHaveBeenCalledWith(
         MERCHANT_REF,
         'SUCCESS',

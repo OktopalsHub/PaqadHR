@@ -75,9 +75,10 @@ describe('fincra-api.util', () => {
       expect(resolveFincraPaymentScheme('USDT', 'TRC20')).toBe('usdt_trc20');
     });
 
-    it('maps BTC and ETH to Fincra crypto schemes', () => {
-      expect(resolveFincraPaymentScheme('BTC', 'Bitcoin')).toBe('btc_mainnet');
-      expect(resolveFincraPaymentScheme('ETH', 'Ethereum')).toBe('eth');
+    it('has no scheme for native assets, which are no longer payroll currencies', () => {
+      // Stablecoins only — BTC/ETH must not resolve to a payout scheme.
+      expect(resolveFincraPaymentScheme('BTC', 'Bitcoin')).toBeUndefined();
+      expect(resolveFincraPaymentScheme('ETH', 'Ethereum')).toBeUndefined();
     });
   });
 });
