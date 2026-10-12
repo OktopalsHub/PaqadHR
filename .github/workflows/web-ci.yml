@@ -6,6 +6,8 @@ on:
     paths:
       - 'apps/web/**'
       - 'constants/**'
+      - '.github/scripts/**'
+      - 'patches/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -16,6 +18,8 @@ on:
     paths:
       - 'apps/web/**'
       - 'constants/**'
+      - '.github/scripts/**'
+      - 'patches/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -54,6 +58,9 @@ jobs:
 
       # - name: Audit dependencies
       #   run: pnpm audit --audit-level=high
+
+      - name: Check braces patch (CVE-2026-93687)
+        run: pnpm check:patches
 
       - name: Lint web
         run: pnpm --filter web check

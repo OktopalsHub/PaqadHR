@@ -1,0 +1,52 @@
+diff --git a/lib/constants.js b/lib/constants.js
+index 2bb3b8840382c56700869b3a9e1f958fcce01efd..97d30327c158fd4ab71eeea2abce62037c2576cc 100644
+--- a/lib/constants.js
++++ b/lib/constants.js
+@@ -3,6 +3,13 @@
+ module.exports = {
+   MAX_LENGTH: 10000,
+ 
++  // Maximum brace nesting depth. `MAX_LENGTH` only bounds the character
++  // count, so a short input can still nest thousands of braces. Every
++  // downstream AST walker (compile, expand, stringify) recurses once per
++  // nesting level, which exhausts the call stack long before the character
++  // cap is reached. CWE-674 / CVE-2026-93687.
++  MAX_DEPTH: 100,
++
+   // Digits
+   CHAR_0: '0', /* 0 */
+   CHAR_9: '9', /* 9 */
+diff --git a/lib/parse.js b/lib/parse.js
+index 3a6988e629f52aee6609dc5ec290a5e9ff47cecb..3a594c43d3b7363af77dffaa8e364ed496cc5165 100644
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -8,6 +8,7 @@ const stringify = require('./stringify');
+ 
+ const {
+   MAX_LENGTH,
++  MAX_DEPTH,
+   CHAR_BACKSLASH, /* \ */
+   CHAR_BACKTICK, /* ` */
+   CHAR_COMMA, /* , */
+@@ -39,6 +40,10 @@ const parse = (input, options = {}) => {
+     throw new SyntaxError(`Input length (${input.length}), exceeds max characters (${max})`);
+   }
+ 
++  const maxDepth = typeof opts.maxDepth === 'number'
++    ? Math.min(MAX_DEPTH, opts.maxDepth)
++    : MAX_DEPTH;
++
+   const ast = { type: 'root', input, nodes: [] };
+   const stack = [ast];
+   let block = ast;
+@@ -197,6 +202,10 @@ const parse = (input, options = {}) => {
+     if (value === CHAR_LEFT_CURLY_BRACE) {
+       depth++;
+ 
++      if (depth > maxDepth) {
++        throw new SyntaxError(`Input depth (${depth}), exceeds max depth (${maxDepth})`);
++      }
++
+       const dollar = prev.value && prev.value.slice(-1) === '$' || block.dollar === true;
+       const brace = {
+         type: 'brace',

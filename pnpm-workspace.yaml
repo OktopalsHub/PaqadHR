@@ -50,3 +50,10 @@ overrides:
   baseline-browser-mapping: ">=2.11.0 <3"
   "@xhmikosr/decompress": ">=11.1.4 <12"
   "fflate@>=0.6.0 <0.6.11": ">=0.6.11 <0.7"
+
+# No fixed braces release exists (Dependabot #133, CVE-2026-93687 / GHSA-vfj7-8cjw-p6xm,
+# fixed in micromatch/braces#70). The patch adds the max-depth guard the upstream issue
+# recommends, so the vulnerable AST walkers can no longer be driven into stack exhaustion.
+# Drop this block once braces ships a release outside the "<= 3.0.3" range.
+patchedDependencies:
+  braces@3.0.3: patches/braces@3.0.3.patch
