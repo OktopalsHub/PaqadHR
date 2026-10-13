@@ -57,8 +57,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # - name: Audit dependencies
-      #   run: pnpm audit --audit-level=high
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high --ignore GHSA-vfj7-8cjw-p6xm
 
       - name: Check braces patch (CVE-2026-93687)
         run: pnpm check:patches

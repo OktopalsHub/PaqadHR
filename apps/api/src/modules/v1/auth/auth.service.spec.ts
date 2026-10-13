@@ -452,11 +452,14 @@ describe('AuthService', () => {
       // The locked lookup misses (token no longer current) ...
       sessionRepository.findOne.mockResolvedValueOnce(null);
       // ... but the reuse check still finds another live session.
-      sessionRepository.findOne.mockResolvedValueOnce({
-        id: 'session-2',
-        userId: 'user-1',
-        expiresAt: new Date(Date.now() + 3_600_000),
-      });
+      sessionRepository.find.mockResolvedValue([
+        {
+          id: 'session-2',
+          userId: 'user-1',
+          updatedAt: new Date(Date.now() - 3_600_000),
+          expiresAt: new Date(Date.now() + 3_600_000),
+        },
+      ]);
 
       await expect(authService.refreshToken('replayed-refresh')).rejects.toThrow(
         UnauthorizedException,
@@ -475,7 +478,7 @@ describe('AuthService', () => {
       expect(sessionRepository.delete).not.toHaveBeenCalled();
     });
 
-    it('revokes all sessions on a repeated refresh attempt after rotation', async () => {
+    it('does not revoke sessions when a second tab races the rotation', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'old-session' });
       userRepository.findUser.mockResolvedValue(mockUser);
 
@@ -483,11 +486,11 @@ describe('AuthService', () => {
         token: 'old-session',
         userId: 'user-1',
         createdAt: new Date(Date.now() - 3_600_000),
+        updatedAt: new Date(Date.now() - 3_600_000),
         expiresAt: new Date(Date.now() + 60_000),
       };
 
-      // Two query shapes reach findOne: the row lock (array of {token,userId} pairs) and
-      // the reuse check ({userId, expiresAt}, no token).
+      // Only the row-lock lookup reaches findOne; the race check lists live sessions.
       sessionRepository.findOne.mockImplementation(async ({ where }) => {
         const candidates = Array.isArray(where) ? where : [where];
         const matchesUser = candidates.some((entry) => entry?.userId === activeSession.userId);
@@ -498,11 +501,15 @@ describe('AuthService', () => {
           ? activeSession
           : null;
       });
+      sessionRepository.find.mockImplementation(async () => [
+        { ...activeSession, updatedAt: new Date() },
+      ]);
       sessionRepository.save.mockImplementation(async (session) => {
         activeSession = {
           token: session.token,
           userId: session.userId,
           createdAt: session.createdAt,
+          updatedAt: new Date(),
           expiresAt: session.expiresAt,
         };
         return activeSession;
@@ -514,7 +521,7 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
       expect(activeSession.token).not.toBe('old-session');
-      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+      expect(sessionRepository.delete).not.toHaveBeenCalled();
     });
   });
 

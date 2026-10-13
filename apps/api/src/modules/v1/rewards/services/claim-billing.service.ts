@@ -89,6 +89,24 @@ export class ClaimBillingService {
           memberId,
           manager,
         );
+      await manager.getRepository(RewardRedemption).save(
+        manager.getRepository(RewardRedemption).create({
+          id: redemptionId,
+          tenantId,
+          memberId,
+          rewardType: input.rewardType,
+          rewardId: input.rewardId,
+          rewardName: input.rewardName,
+          pointsSpent: pointsCost,
+          currencyValue: input.currencyValue,
+          currencyCode,
+          status: 'PENDING' as RedemptionStatus,
+          recipient: {
+            email: input.recipientEmail ?? undefined,
+            phone: input.recipientPhone ?? undefined,
+          },
+        }),
+      );
     });
   }
 

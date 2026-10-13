@@ -85,7 +85,8 @@ export function middleware(request: NextRequest) {
 
       const alreadyPrefixed =
         pathname === `/${slugFromHost}` || pathname.startsWith(`/${slugFromHost}/`);
-      if (!alreadyPrefixed) {
+      const isTenantAgnosticFile = pathname === '/version.json';
+      if (!alreadyPrefixed && !isTenantAgnosticFile) {
         const internalPath = pathname === '/' ? `/${slugFromHost}` : `/${slugFromHost}${pathname}`;
         const rewriteHeaders = createRenderRequestHeaders(request, requestHost, nonce);
         const rewrite = NextResponse.rewrite(new URL(internalPath, request.url), {

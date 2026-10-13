@@ -2,8 +2,6 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class DropPayrollAuditLogsCreateTenantActivities1783160913090 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS payroll_audit_logs;`);
-
     await queryRunner.query(`
       CREATE TABLE tenant_activities (
         id UUID NOT NULL DEFAULT uuid_generate_v4(),
@@ -34,6 +32,41 @@ export class DropPayrollAuditLogsCreateTenantActivities1783160913090 implements 
       CREATE INDEX idx_tenant_activities_tenant_action
         ON tenant_activities(tenant_id, action);
     `);
+
+    await queryRunner.query(`
+      INSERT INTO tenant_activities (
+        id, tenant_id, actor_member_id, action, resource_type, resource_id,
+        description, status, severity, ip_address, user_agent, metadata,
+        created_at, updated_at
+      )
+      SELECT
+        p.id,
+        COALESCE(r.tenant_id, m.tenant_id, pb.tenant_id),
+        COALESCE(p.performed_by, p.member_id),
+        p.event_type,
+        CASE WHEN p.payroll_run_id IS NOT NULL THEN 'payroll' END,
+        p.payroll_run_id::text,
+        p.description,
+        CASE WHEN p.event_type LIKE '%failed%' THEN 'FAILED' ELSE 'SUCCESS' END,
+        CASE WHEN p.event_type LIKE '%failed%' THEN 'HIGH' ELSE 'LOW' END,
+        p.ip_address,
+        p.user_agent,
+        jsonb_build_object(
+          'memberId', to_jsonb(p.member_id),
+          'sessionId', to_jsonb(p.session_id),
+          'beforeData', p.before_data::jsonb,
+          'afterData', p.after_data::jsonb
+        ),
+        p.created_at,
+        p.updated_at
+      FROM payroll_audit_logs p
+      LEFT JOIN payroll_runs r ON r.id = p.payroll_run_id
+      LEFT JOIN tenant_members m ON m.id = p.member_id
+      LEFT JOIN tenant_members pb ON pb.id = p.performed_by
+      WHERE COALESCE(r.tenant_id, m.tenant_id, pb.tenant_id) IS NOT NULL;
+    `);
+
+    await queryRunner.query(`DROP TABLE IF EXISTS payroll_audit_logs;`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
