@@ -66,4 +66,35 @@ describe('assertAndCanonicalizeCryptoNetwork', () => {
       /Unsupported network for USDT/i,
     );
   });
+
+  it('accepts every USDC network the Bachs rail delivers', () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.INTL_PAYROLL_PROVIDER = 'bachs';
+
+    // Chains the UI already stores keep their canonical label; Bachs-only chains get the
+    // Bachs label the provider resolves the destination from.
+    expect(assertAndCanonicalizeCryptoNetwork('USDC', 'base')).toBe('Base');
+    expect(assertAndCanonicalizeCryptoNetwork('USDC', 'ethereum')).toBe('Ethereum');
+    expect(assertAndCanonicalizeCryptoNetwork('USDC', 'solana')).toBe('Solana');
+    expect(assertAndCanonicalizeCryptoNetwork('USDC', 'BEP20')).toBe('BEP20');
+  });
+
+  it('rejects a USDC chain Bachs cannot deliver instead of storing an unpayable wallet', () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.INTL_PAYROLL_PROVIDER = 'bachs';
+
+    expect(() => assertAndCanonicalizeCryptoNetwork('USDC', 'polygon')).toThrow(
+      /Bachs payout rail delivers USDC on BEP20\/ERC20\/SOL\/BASE/,
+    );
+  });
+
+  it('rejects an asset/network pair outside the Bachs delivery matrix', () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.INTL_PAYROLL_PROVIDER = 'bachs';
+
+    // Bachs has no USDT on Base, so the wallet must not be stored.
+    expect(() => assertAndCanonicalizeCryptoNetwork('USDT', 'Base')).toThrow(
+      /Unsupported network for USDT/i,
+    );
+  });
 });

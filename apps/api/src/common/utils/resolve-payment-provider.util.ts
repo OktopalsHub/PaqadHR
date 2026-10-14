@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import { normalizeBachsUsdtNetwork } from '../config/bachs-payout.util';
+import { isBachsConfigured } from '../config/bachs.config';
+import { mapBachsCryptoDestinationCurrency } from '../config/bachs-payout.util';
 import {
   isCryptoCurrency,
   isNoahNativeCryptoCurrency,
@@ -30,11 +31,13 @@ export function resolvePaymentProvider(
 
   if (isCryptoCurrency(code) || paymentMethodType === PaymentMethodType.CRYPTO) {
     // Bachs is the only rail that delivers USDT on TRC20/BEP20 — route those there
-    // unconditionally so a payout can never settle on a different chain. Other USDT
-    // networks (ERC20) are not Bachs rails and stay on the Noah/Fincra path. If
-    // Bachs is not configured the item fails loudly instead of moving funds.
-    const bachsNetwork = normalizeBachsUsdtNetwork(cryptoNetwork);
-    if (code === 'USDT' && (bachsNetwork === 'TRC20' || bachsNetwork === 'BEP20')) {
+    // unconditionally so a payout can never settle on a different chain. Every other pair
+    // Bachs delivers (USDT on ERC20/SOL, USDC on BEP20/ERC20/SOL/BASE) goes there too once Bachs
+    // is configured. Pairs outside its matrix stay on the Noah/Fincra path and fail loudly
+    // there rather than being sent on a chain the rail cannot honour.
+    const bachsDestination = mapBachsCryptoDestinationCurrency(cryptoNetwork, code);
+    const bachsOnlyChain = bachsDestination === 'USDT_TRC20' || bachsDestination === 'USDT_BEP20';
+    if (bachsDestination && (bachsOnlyChain || isBachsConfigured())) {
       return PaymentProvider.BACHS;
     }
     return resolveIntlCryptoPaymentProvider();

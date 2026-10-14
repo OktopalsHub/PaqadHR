@@ -1,6 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import { isBachsUsdtPayoutRailEnabled } from 'src/common/config/bachs.config';
-import { normalizeBachsUsdtNetwork } from 'src/common/config/bachs-payout.util';
+import {
+  BACHS_CRYPTO_NETWORKS_BY_ASSET,
+  isBachsCryptoAsset,
+  mapBachsCryptoDestinationCurrency,
+  normalizeBachsUsdtNetwork,
+} from 'src/common/config/bachs-payout.util';
 import {
   isCryptoCurrency,
   normalizeCryptoNetwork,
@@ -56,13 +61,29 @@ export function validatePaymentMethodData(dto: CreatePaymentMethodDto): void {
 export function assertAndCanonicalizeCryptoNetwork(currency: string, network: unknown): string {
   if (typeof network !== 'string' || !network.trim())
     throw new BadRequestException('Crypto requires a network');
-  const canonical = normalizeCryptoNetwork(currency, network);
+  const raw = network.trim();
+  const asset = currency.toUpperCase();
+  const canonical = normalizeCryptoNetwork(currency, raw);
+
+  // Bachs delivers USDT and USDC on a fixed set of chains. While that rail is enabled it is the
+  // authority on deliverable pairs, so no wallet is stored that Bachs could never pay.
+  if (isBachsCryptoAsset(asset) && isBachsUsdtPayoutRailEnabled()) {
+    const destination = mapBachsCryptoDestinationCurrency(raw, asset);
+    if (!destination)
+      throw new BadRequestException(
+        `Unsupported network for ${asset}: ${raw}. The Bachs payout rail delivers ${asset} on ` +
+          `${BACHS_CRYPTO_NETWORKS_BY_ASSET[asset].join('/')}.`,
+      );
+    // Keep the stored label the caller already uses when it is canonical (e.g. 'Ethereum'),
+    // otherwise store the Bachs chain label so the provider resolves the same destination.
+    return canonical ?? destination.split('_')[1];
+  }
+
   if (canonical) return canonical;
 
   // USDT on TRC20/BEP20 is delivered by Bachs, so it is only storable where that
   // rail is enabled — otherwise the wallet could never be paid.
-  const bachsNetwork =
-    currency.toUpperCase() === 'USDT' ? normalizeBachsUsdtNetwork(network) : null;
+  const bachsNetwork = asset === 'USDT' ? normalizeBachsUsdtNetwork(raw) : null;
   if (bachsNetwork) {
     if (!isBachsUsdtPayoutRailEnabled())
       throw new BadRequestException(
@@ -72,9 +93,7 @@ export function assertAndCanonicalizeCryptoNetwork(currency: string, network: un
     return bachsNetwork;
   }
 
-  throw new BadRequestException(
-    `Unsupported network for ${currency.toUpperCase()}: ${network.trim()}`,
-  );
+  throw new BadRequestException(`Unsupported network for ${asset}: ${raw}`);
 }
 
 export function resolveUpdatedMetadata(

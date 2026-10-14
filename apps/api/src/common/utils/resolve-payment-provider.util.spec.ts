@@ -66,9 +66,43 @@ describe('resolvePaymentProvider', () => {
     expect(resolvePaymentProvider('USD')).toBe(PaymentProvider.BACHS);
     expect(resolvePaymentProvider('EUR')).toBe(PaymentProvider.BACHS);
     expect(resolvePaymentProvider('GBP')).toBe(PaymentProvider.BACHS);
-    // Ethereum USDT is not a Bachs rail — stays on the Noah/Fincra fallback path.
-    expect(resolvePaymentProvider('USDT', undefined, 'Ethereum')).toBe(PaymentProvider.NOAH);
+    // No network on the method — the asset cannot be routed, so it stays on the fallback path.
     expect(resolvePaymentProvider('USDT')).toBe(PaymentProvider.NOAH);
+  });
+
+  it('routes every stablecoin/network pair Bachs delivers to Bachs', () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.NOAH_API_KEY = 'test-key';
+    process.env.INTL_PAYROLL_PROVIDER = 'bachs';
+
+    // Bachs delivers USDT on TRC20/BEP20/ERC20/SOL and USDC on BEP20/ERC20/SOL/BASE.
+    for (const network of ['TRC20', 'BEP20', 'Ethereum', 'Solana']) {
+      expect(resolvePaymentProvider('USDT', undefined, network)).toBe(PaymentProvider.BACHS);
+    }
+    for (const network of ['BEP20', 'Ethereum', 'Solana', 'Base']) {
+      expect(resolvePaymentProvider('USDC', undefined, network)).toBe(PaymentProvider.BACHS);
+    }
+  });
+
+  it('keeps stablecoin pairs outside the Bachs matrix on the Noah/Fincra path', () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.NOAH_API_KEY = 'test-key';
+    process.env.INTL_PAYROLL_PROVIDER = 'bachs';
+
+    // TRC20 carries USDT only, and Polygon is not a Bachs chain at all.
+    expect(resolvePaymentProvider('USDC', undefined, 'TRC20')).toBe(PaymentProvider.NOAH);
+    expect(resolvePaymentProvider('USDC', undefined, 'PolygonPos')).toBe(PaymentProvider.NOAH);
+    expect(resolvePaymentProvider('USDT', undefined, 'Base')).toBe(PaymentProvider.NOAH);
+  });
+
+  it('keeps non-exclusive crypto pairs on the peer rail when Bachs is not configured', () => {
+    // A Noah/Fincra-only deployment must keep working; only the Bachs-exclusive chains
+    // (USDT on TRC20/BEP20) route to Bachs without credentials.
+    delete process.env.BACHS_SECRET_KEY;
+
+    expect(resolvePaymentProvider('USDC', undefined, 'Base')).toBe(PaymentProvider.NOAH);
+    expect(resolvePaymentProvider('USDT', undefined, 'Ethereum')).toBe(PaymentProvider.NOAH);
+    expect(resolvePaymentProvider('USDT', undefined, 'TRC20')).toBe(PaymentProvider.BACHS);
   });
 
   it('labels providers', () => {
