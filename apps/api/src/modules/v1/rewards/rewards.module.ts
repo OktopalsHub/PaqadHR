@@ -6,6 +6,8 @@ import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.serv
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
 import { ActivitiesModule } from '../activities/activities.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { Employment } from '../employment/entities/employment.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
@@ -64,6 +66,7 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     TenantMembersModule,
     ActivitiesModule,
     TenantsModule,
+    AuditLogsModule,
   ],
   controllers: [RewardsController],
   providers: [
@@ -92,4 +95,8 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
   ],
   exports: [RewardsService, ClaimBillingService, TenantWalletService, TenantWalletTopupService],
 })
-export class RewardsModule {}
+export class RewardsModule {
+  constructor(private readonly tremendousApi: TremendousApiService, private readonly auditLogs: AuditLogsService) {
+    this.tremendousApi.setAuditLogCallback((payload) => this.auditLogs.queueAuditLog(payload));
+  }
+}

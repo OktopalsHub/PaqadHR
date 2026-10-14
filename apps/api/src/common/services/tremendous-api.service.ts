@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import type { CreateAuditLogPayload } from '../interfaces/create-audit-log-payload.interface';
+import { AuditAction, AuditSeverity, AuditStatus } from '../enums/audit-action.enum';
 import {
   getTremendousApiKey,
   getTremendousBaseUrl,
@@ -49,14 +51,35 @@ export interface TremendousCreateOrderParams {
 @Injectable()
 export class TremendousApiService {
   private readonly logger = new Logger(TremendousApiService.name);
+  private auditLogCallback?: (payload: CreateAuditLogPayload) => void;
 
   isConfigured(): boolean {
     return isTremendousConfigured();
   }
 
+  setAuditLogCallback(callback: (payload: CreateAuditLogPayload) => void): void {
+    this.auditLogCallback = callback;
+  }
+
+  private queueAuditLog(payload: CreateAuditLogPayload): void {
+    if (this.auditLogCallback) {
+      this.auditLogCallback(payload);
+    }
+  }
+
   private ensureConfigured(): void {
     if (!this.isConfigured()) {
-      throw new BadRequestException('Tremendous gift card API is not configured');
+      this.queueAuditLog({
+        action: AuditAction.INTEGRATION_ERROR,
+        description: 'Tremendous gift card API is not configured',
+        severity: AuditSeverity.HIGH,
+        status: AuditStatus.FAILED,
+        resourceType: 'tremendous',
+        resourceId: null,
+      });
+      throw new BadRequestException(
+        'Gift cards are not available. Please contact info@paqadhr.com for assistance.',
+      );
     }
   }
 
@@ -99,6 +122,23 @@ export class TremendousApiService {
           message = nested;
         }
       } catch {}
+
+      if (response.status === 401) {
+        this.queueAuditLog({
+          action: AuditAction.INTEGRATION_ERROR,
+          description: 'Tremendous API token expired or invalid',
+          severity: AuditSeverity.HIGH,
+          status: AuditStatus.FAILED,
+          resourceType: 'tremendous',
+          resourceId: null,
+          metadata: { endpoint: path, status: response.status },
+        });
+        this.logger.error(`Tremendous ${method} ${path} failed: token expired or invalid`);
+        throw new BadRequestException(
+          'Gift cards are not available. Please contact info@paqadhr.com for assistance.',
+        );
+      }
+
       this.logger.error(`Tremendous ${method} ${path} failed: ${message}`);
       throw new BadRequestException(`Tremendous error: ${message}`);
     }
