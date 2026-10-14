@@ -295,7 +295,7 @@ export function SettingsWorkspaceTab() {
           <SettingsFieldHint
             label="Crypto payroll"
             className="lg:col-span-2"
-            hint="USDT and USDC on TRC20, BEP20, ERC20, Solana and Base."
+            hint="USDT on Ethereum (ERC20), TRC20, BEP20 and Solana; USDC on Ethereum (ERC20), BEP20, Solana and Base."
           >
             <div className="flex items-center gap-3">
               <Switch

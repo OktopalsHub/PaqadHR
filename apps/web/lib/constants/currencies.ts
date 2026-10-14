@@ -9,11 +9,15 @@ export const SUPPORTED_PAYROLL_CURRENCIES = [
 export type SupportedFiatCurrency = (typeof SUPPORTED_FIAT_CURRENCIES)[number];
 export type SupportedCryptoCurrency = (typeof SUPPORTED_CRYPTO_CURRENCIES)[number];
 
-/** Bachs delivery networks per stablecoin (USDT on TRC20/BEP20/ERC20/SOL, USDC on BEP20/ERC20/SOL/BASE). */
+/**
+ * Bachs delivery networks per stablecoin (USDT on TRC20/BEP20/ERC20/SOL, USDC on
+ * BEP20/ERC20/SOL/BASE). Mirrors BACHS_CRYPTO_NETWORKS_BY_ASSET in apps/api — the API rejects a
+ * chain it cannot deliver when a wallet is saved, so it must never be offered here.
+ * TRC20 carries USDT only; Base carries USDC only.
+ */
 export const CRYPTO_NETWORKS_BY_CURRENCY: Record<SupportedCryptoCurrency, readonly string[]> = {
-  USDC: ['Ethereum', 'Base', 'PolygonPos', 'Solana', 'Celo', 'Gnosis', 'FlowEvm'],
-  // TRC20/BEP20 are delivered by Bachs and only accepted when the Bachs USDT rail is enabled.
-  USDT: ['Ethereum', 'TRC20', 'BEP20'],
+  USDC: ['Ethereum', 'BEP20', 'Solana', 'Base'],
+  USDT: ['Ethereum', 'TRC20', 'BEP20', 'Solana'],
 };
 
 export function isCryptoCurrency(code: string): boolean {
