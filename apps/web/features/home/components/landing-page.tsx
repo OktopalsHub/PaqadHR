@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { ForceLightTheme } from '@/providers/force-light-theme';
-import { LandingLogoStrip } from './sections/landing-logo-strip';
+// import { LandingLogoStrip } from './sections/landing-logo-strip';
 import { LandingNav } from './sections/landing-nav';
 
 function SectionFallback() {
@@ -42,7 +42,7 @@ export const LandingPage = () => {
       <LandingNav />
       <main>
         <LandingHero />
-        <LandingLogoStrip />
+        {/* <LandingLogoStrip /> */}
         <LandingShowcase />
         <LandingFeaturesSection />
         {/* Temporarily removed — the "Trusted by people teams." testimonials section.
