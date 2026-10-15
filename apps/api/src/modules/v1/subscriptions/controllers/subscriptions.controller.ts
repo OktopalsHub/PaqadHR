@@ -33,7 +33,12 @@ export class SubscriptionsController {
   @ApiOperation({ summary: 'Landing page pricing currency from visitor IP' })
   async getLandingPricing(@Req() req: Request) {
     const ip = this.getClientIP(req);
-    const countryCode = await GeoLocationHelper.getCountryCode(ip);
+    // Mirror onboarding detection (edge header -> IP geo) so the marketing page
+    // shows the same currency as the workspace the visitor goes on to create.
+    const { countryCode } = await GeoLocationHelper.resolveDetectedCountry({
+      ip,
+      headers: req.headers,
+    });
     const currency = countryCode === 'NG' ? 'NGN' : 'USD';
     return { countryCode, currency };
   }

@@ -21,10 +21,12 @@ const LandingShowcase = dynamic(
   () => import('./sections/landing-showcase').then((m) => m.LandingShowcase),
   { ssr: false, loading: SectionFallback },
 );
-const LandingTestimonials = dynamic(
-  () => import('./sections/landing-testimonials-row').then((m) => m.LandingTestimonials),
-  { ssr: false, loading: SectionFallback },
-);
+// Temporarily removed — the "Trusted by people teams." testimonials section.
+// Restore the dynamic import and the <LandingTestimonials /> usage in the page below.
+// const LandingTestimonials = dynamic(
+//   () => import('./sections/landing-testimonials-row').then((m) => m.LandingTestimonials),
+//   { ssr: false, loading: SectionFallback },
+// );
 const LandingCta = dynamic(() => import('./sections/landing-cta').then((m) => m.LandingCta), {
   ssr: false,
   loading: SectionFallback,
@@ -43,7 +45,9 @@ export const LandingPage = () => {
         <LandingLogoStrip />
         <LandingShowcase />
         <LandingFeaturesSection />
+        {/* Temporarily removed — the "Trusted by people teams." testimonials section.
         <LandingTestimonials />
+        */}
         <LandingCta />
       </main>
       <LandingFooter />
