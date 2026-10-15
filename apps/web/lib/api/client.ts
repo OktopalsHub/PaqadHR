@@ -179,8 +179,9 @@ async function parseAxiosErrorPayload(response: AxiosResponse): Promise<ErrorPay
   }
 }
 
+/** Axios instance WITHOUT baseURL — we prepend the dynamic API base per-request. */
 const http = axios.create({
-  baseURL: resolveApiV1Base(),
+  baseURL: '',
   timeout: API_REQUEST_TIMEOUT_MS,
   withCredentials: true,
 });
@@ -282,8 +283,14 @@ export async function apiClient<T>(
   const finishActivity = beginNetworkActivity();
   const headers = prepareApiRequestHeaders(init?.headers, init?.body);
 
+  // Prepend dynamic API base (resolves hostname at request time, not module load time)
+  const apiBase = getApiV1Base();
+  const fullUrl = path.startsWith('http')
+    ? path
+    : `${apiBase}${path.startsWith('/') ? '' : '/'}${path}`;
+
   const config: ApiRequestConfig = {
-    url: path,
+    url: fullUrl,
     method: init?.method ?? 'GET',
     data: init?.body ?? init?.data,
     params: init?.params,
