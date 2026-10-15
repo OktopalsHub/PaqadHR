@@ -20,6 +20,20 @@ test('resolves every env-driven value when provided', () => {
   assert.deepEqual(config.routes, [{ pattern: 'paqadhr.com', custom_domain: true }]);
 });
 
+test('defaults the worker per branch (main -> paqadhr, dev -> paqadhr-dev)', () => {
+  assert.equal(resolveWorkerConfig({ WORKERS_CI_BRANCH: 'main' }).name, 'paqadhr');
+  assert.equal(resolveWorkerConfig({ GITHUB_REF_NAME: 'main' }).name, 'paqadhr');
+  assert.equal(resolveWorkerConfig({ WORKERS_CI_BRANCH: 'dev' }).name, 'paqadhr-dev');
+  assert.equal(resolveWorkerConfig({ WORKERS_CI_BRANCH: 'feature/x' }).name, 'paqadhr-dev');
+});
+
+test('CF_WORKER_NAME overrides the branch default', () => {
+  assert.equal(
+    resolveWorkerConfig({ WORKERS_CI_BRANCH: 'main', CF_WORKER_NAME: 'paqadhr-preview' }).name,
+    'paqadhr-preview',
+  );
+});
+
 test('falls back to the dev worker and no routes', () => {
   const config = resolveWorkerConfig({});
 

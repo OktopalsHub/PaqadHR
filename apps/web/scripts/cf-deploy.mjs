@@ -7,15 +7,9 @@ import { resolveWorkerConfig } from './cf-config.mjs';
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const branch = process.env.WORKERS_CI_BRANCH ?? process.env.GITHUB_REF_NAME ?? 'dev';
 
-// A main build must never silently fall back to the dev worker: the target
-// worker, its vars and its routes all come from the build environment.
-if (branch === 'main' && !process.env.CF_WORKER_NAME?.trim()) {
-  console.error(
-    '[cf-deploy] CF_WORKER_NAME is required for main builds — set it in the build environment variables.',
-  );
-  process.exit(1);
-}
-
+// The target worker resolves from CF_WORKER_NAME, else the branch default
+// (main -> paqadhr, dev/previews -> paqadhr-dev) inside resolveWorkerConfig,
+// so a main build can never silently land on the dev worker.
 const config = resolveWorkerConfig();
 
 // wrangler only auto-detects wrangler.json(c)/toml, so the env-resolved
