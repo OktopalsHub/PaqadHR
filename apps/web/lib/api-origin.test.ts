@@ -27,7 +27,10 @@ test('known deployment host overrides a stale explicit URL', () => {
 
 test('explicit URL is used for unknown deployment hosts', () => {
   assert.equal(
-    resolveApiBaseUrl({ envUrl: 'https://custom-api.example.com/', requestHost: 'preview.example.com' }),
+    resolveApiBaseUrl({
+      envUrl: 'https://custom-api.example.com/',
+      requestHost: 'preview.example.com',
+    }),
     'https://custom-api.example.com',
   );
 });

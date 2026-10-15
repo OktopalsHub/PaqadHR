@@ -91,15 +91,15 @@ export function AppVersionWatcher() {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [initialBuildId]);
+  }, []);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') return;
 
     const handleChunkFailure = (error: unknown) => {
       if (!isStaleChunkError(error)) return;
-      if (!shouldReloadForChunkError(initialBuildId)) return;
-      reloadIfMarked(() => markChunkReloadAttempted(initialBuildId));
+      if (!shouldReloadForChunkError(APP_BUILD_ID)) return;
+      reloadIfMarked(() => markChunkReloadAttempted(APP_BUILD_ID));
     };
 
     const onError = (event: ErrorEvent) => {
@@ -117,7 +117,7 @@ export function AppVersionWatcher() {
       window.removeEventListener('error', onError);
       window.removeEventListener('unhandledrejection', onRejection);
     };
-  }, [initialBuildId]);
+  }, []);
 
   return null;
 }
