@@ -19,6 +19,13 @@ function siblingCurrency(primary: string): 'NGN' | 'USD' | null {
   return null;
 }
 
+/**
+ * Product `price.currency_options` is a LIST of {currency, amount} (unlike the checkout
+ * `pricing.currency_options` map). Sending an object is rejected with
+ * "price.currency_options: Input should be a valid list".
+ */
+type BachsCurrencyOption = { currency: string; amount: string };
+
 @Injectable()
 export class BachsProductSyncService {
   private readonly logger = new Logger(BachsProductSyncService.name);
@@ -179,19 +186,19 @@ export class BachsProductSyncService {
     slug: string,
     primaryCurrency: string,
     bySlugCurrency: Map<string, PlanPrice>,
-  ): Record<string, string> | null {
+  ): BachsCurrencyOption[] | null {
     const sibling = siblingCurrency(primaryCurrency);
     if (!sibling) return null;
     const siblingRow = bySlugCurrency.get(`${slug}:${sibling}`);
     if (!siblingRow) return null;
-    return { [sibling]: formatAmount(planPriceAmount(siblingRow)) };
+    return [{ currency: sibling, amount: formatAmount(planPriceAmount(siblingRow)) }];
   }
 
   private async syncBachsProductCurrencyOptions(
     productId: string,
     currency: string,
     amount: number,
-    currencyOptions: Record<string, string> | null,
+    currencyOptions: BachsCurrencyOption[] | null,
   ): Promise<void> {
     try {
       await this.bachsRequest(`/v1/products/${productId}`, {

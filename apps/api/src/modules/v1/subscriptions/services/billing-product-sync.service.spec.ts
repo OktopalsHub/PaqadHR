@@ -18,18 +18,18 @@ describe('BachsProductSyncService currency_options', () => {
     ]);
 
     const options = (service as any).buildBachsCurrencyOptions('scale', 'USD', bySlugCurrency);
-    expect(options).toEqual({ NGN: '75000.00' });
+    expect(options).toEqual([{ currency: 'NGN', amount: '75000.00' }]);
 
     const reverse = (service as any).buildBachsCurrencyOptions('scale', 'NGN', bySlugCurrency);
-    expect(reverse).toEqual({ USD: '99.00' });
+    expect(reverse).toEqual([{ currency: 'USD', amount: '99.00' }]);
   });
 
   it('syncBachsProductCurrencyOptions PATCHes currency_options on Bachs product', async () => {
     const bachsRequest = jest.spyOn(service as any, 'bachsRequest').mockResolvedValue({});
 
-    await (service as any).syncBachsProductCurrencyOptions('prod_1', 'USD', 99, {
-      NGN: '75000.00',
-    });
+    await (service as any).syncBachsProductCurrencyOptions('prod_1', 'USD', 99, [
+      { currency: 'NGN', amount: '75000.00' },
+    ]);
 
     expect(bachsRequest).toHaveBeenCalledWith(
       '/v1/products/prod_1',
@@ -37,11 +37,12 @@ describe('BachsProductSyncService currency_options', () => {
     );
     const patchInit = bachsRequest.mock.calls[0][1] as { body: string };
     const body = JSON.parse(patchInit.body);
+    // Bachs product price.currency_options is a list, not the checkout object map.
     expect(body.price).toEqual({
       price_type: 'fixed',
       currency: 'USD',
       amount: '99.00',
-      currency_options: { NGN: '75000.00' },
+      currency_options: [{ currency: 'NGN', amount: '75000.00' }],
     });
   });
 });
