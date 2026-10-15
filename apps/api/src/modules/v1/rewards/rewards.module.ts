@@ -96,7 +96,10 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
   exports: [RewardsService, ClaimBillingService, TenantWalletService, TenantWalletTopupService],
 })
 export class RewardsModule {
-  constructor(private readonly tremendousApi: TremendousApiService, private readonly auditLogs: AuditLogsService) {
+  constructor(
+    private readonly tremendousApi: TremendousApiService,
+    private readonly auditLogs: AuditLogsService,
+  ) {
     this.tremendousApi.setAuditLogCallback((payload) => this.auditLogs.queueAuditLog(payload));
   }
 }

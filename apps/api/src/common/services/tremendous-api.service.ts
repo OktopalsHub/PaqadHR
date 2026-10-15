@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { CreateAuditLogPayload } from '../interfaces/create-audit-log-payload.interface';
-import { AuditAction, AuditSeverity, AuditStatus } from '../enums/audit-action.enum';
 import {
   getTremendousApiKey,
   getTremendousBaseUrl,
   getTremendousFundingSourceId,
   isTremendousConfigured,
 } from '../config/tremendous.config';
+import { AuditAction, AuditSeverity, AuditStatus } from '../enums/audit-action.enum';
+import type { CreateAuditLogPayload } from '../interfaces/create-audit-log-payload.interface';
 
 export interface TremendousProductSku {
   min: number;
