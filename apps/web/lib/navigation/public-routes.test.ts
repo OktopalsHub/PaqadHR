@@ -24,6 +24,7 @@ test('marks landing and credential pages as public for soft refresh expiry', () 
   assert.equal(isPublicAuthOrMarketingPath('/signin'), true);
   assert.equal(isPublicAuthOrMarketingPath('/signup'), true);
   assert.equal(isPublicAuthOrMarketingPath('/terms'), true);
+  assert.equal(isPublicAuthOrMarketingPath('/cookies'), true);
   assert.equal(isPublicAuthOrMarketingPath('/acme/employees'), false);
   assert.equal(isPublicAuthOrMarketingPath('/onboarding'), false);
 });

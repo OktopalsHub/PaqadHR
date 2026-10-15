@@ -65,7 +65,7 @@ export function PrivacyConsentGate() {
             </Link>{' '}
             and{' '}
             <Link href="/terms" className="text-primary hover:underline" target="_blank">
-              Terms of Service
+              Terms of Use
             </Link>
             .
           </Label>

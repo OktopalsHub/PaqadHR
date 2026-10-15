@@ -16,6 +16,7 @@ export function isPublicAuthOrMarketingPath(pathname: string): boolean {
     pathname === '/privacy' ||
     pathname === '/contact' ||
     pathname === '/dpa' ||
+    pathname === '/cookies' ||
     pathname === '/google/complete' ||
     pathname === '/signin' ||
     pathname === '/signup' ||
@@ -36,6 +37,7 @@ export function skipsSessionBootstrap(pathname: string): boolean {
     pathname === '/privacy' ||
     pathname === '/contact' ||
     pathname === '/dpa' ||
+    pathname === '/cookies' ||
     pathname === '/google/complete' ||
     pathname === '/signup' ||
     pathname === '/reset-password' ||
