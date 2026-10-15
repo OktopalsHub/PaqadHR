@@ -62,6 +62,8 @@ function loadBachsSdk(): Promise<BachsSdk> {
   loadPromise = new Promise((resolve, reject) => {
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${BACHS_SCRIPT_SRC}"]`);
     if (existing) {
+      const nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce;
+      if (nonce && !existing.nonce) existing.nonce = nonce;
       existing.addEventListener('load', () => {
         if (window.Bachs) resolve(window.Bachs);
         else failSdkLoad(existing, reject);
@@ -74,6 +76,10 @@ function loadBachsSdk(): Promise<BachsSdk> {
     const script = document.createElement('script');
     script.src = BACHS_SCRIPT_SRC;
     script.async = true;
+    // Carry Next.js's request nonce onto the third-party loader so SDKs that
+    // create follow-up scripts can inherit the page's nonce-based CSP policy.
+    const nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce;
+    if (nonce) script.nonce = nonce;
     script.onload = () => {
       if (window.Bachs) resolve(window.Bachs);
       else failSdkLoad(script, reject);
