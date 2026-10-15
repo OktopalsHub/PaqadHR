@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { clearAccessCookie, login as loginRequest } from '@/lib/api/auth';
 import { pauseAuthRefresh, resumeAuthRefresh, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { bootstrapCsrf } from '@/lib/api/client';
-import { getGoogleAuthUrl, prepareGoogleAuthConsent } from '@/lib/api/google-auth';
+import { getGoogleAuthUrl } from '@/lib/api/google-auth';
 import {
   clearIdleLock,
   type IdleLockState,
@@ -101,14 +101,8 @@ export function IdleLockGate({ monitor, email, hasPassword, onUnlocked }: IdleLo
 
   const unlockWithGoogle = async () => {
     if (googleStarting) return;
-    try {
-      setGoogleStarting(true);
-      await prepareGoogleAuthConsent();
-      window.location.assign(getGoogleAuthUrl());
-    } catch (error) {
-      setGoogleStarting(false);
-      toast.error(error instanceof Error ? error.message : 'Could not start Google unlock');
-    }
+    setGoogleStarting(true);
+    window.location.assign(getGoogleAuthUrl());
   };
 
   if (!lock) return null;
