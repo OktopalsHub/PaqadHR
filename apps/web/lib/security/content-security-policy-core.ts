@@ -1,5 +1,7 @@
 type ContentSecurityPolicyOptions = {
   apiOrigin: string;
+  /** Extra API origins to allow, e.g. the host-derived origin when it differs from the env one. */
+  additionalApiOrigins?: string[];
   brandOrigin: string;
   isDevelopment: boolean;
   r2PublicOrigin?: string;
@@ -29,6 +31,7 @@ export function buildContentSecurityPolicyFromSources(
   const connectSources = [
     "'self'",
     options.apiOrigin,
+    ...(options.additionalApiOrigins ?? []),
     'https://challenges.cloudflare.com',
     'https://cloudflareinsights.com',
     'https://*.r2.cloudflarestorage.com',

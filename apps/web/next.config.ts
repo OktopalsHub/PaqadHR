@@ -45,7 +45,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'paqadhr.com',
+        hostname: 'cdn.paqadhr.com',
         pathname: '/logo-*.png',
       },
       {

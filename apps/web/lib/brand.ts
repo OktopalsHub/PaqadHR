@@ -1,4 +1,4 @@
-export const BRAND_ORIGIN = 'https://paqadhr.com';
+export const BRAND_ORIGIN = 'https://cdn.paqadhr.com';
 
 export type BrandMode = 'light' | 'dark';
 export type BrandVariant = 'icon' | 'lockup';
