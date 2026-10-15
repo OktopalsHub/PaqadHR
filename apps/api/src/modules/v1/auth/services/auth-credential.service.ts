@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   Logger,
   UnauthorizedException,
   UnprocessableEntityException,
@@ -121,6 +122,8 @@ export class AuthCredentialService {
     if (!user.isActive) throw new UnauthorizedException('User account is inactive');
     if (!user.emailVerified)
       throw new UnauthorizedException('Verify your email address before signing in');
+    // Submitting the sign-in form is acceptance of the linked current Terms and Privacy Policy.
+    await this.stampConsentMetadata(user);
     const ip = GeoLocationHelper.resolveClientIp(geo.headers ?? {}, undefined, geo.ip);
     if (!user.countryCode && !GeoLocationHelper.isLocalhost(ip)) {
       const stored = await GeoLocationHelper.resolveUserCountryCode(geo);
@@ -288,7 +291,7 @@ export class AuthCredentialService {
         error instanceof UnauthorizedException
       )
         throw error;
-      throw new UnprocessableEntityException('Registration failed. Please try again.');
+      throw new InternalServerErrorException('Registration failed. Please try again.');
     }
   }
 }
