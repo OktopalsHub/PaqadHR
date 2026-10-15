@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { APP_BUILD_ID } from '@/lib/app-version/build-id.generated';
 import {
   isStaleChunkError,
   markChunkReloadAttempted,
@@ -16,10 +17,6 @@ import {
 
 const POLL_MS = 5 * 60_000;
 const UPDATE_TOAST_ID = 'paqadhr-new-version';
-
-function getInitialBuildId(): string {
-  return process.env.NEXT_PUBLIC_APP_BUILD_ID?.trim() || 'dev';
-}
 
 async function fetchRemoteBuildId(): Promise<string | null> {
   try {
@@ -50,7 +47,7 @@ function showUpdatePrompt(): void {
 }
 
 export function AppVersionWatcher() {
-  const initialBuildId = getInitialBuildId();
+  const initialBuildId = APP_BUILD_ID;
   const promptedBuildIdRef = useRef<string | null>(null);
 
   useEffect(() => {

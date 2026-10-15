@@ -33,10 +33,16 @@ export function normalizeApiV1Base(url: string): string {
 }
 
 export function resolveApiBaseUrl(options?: { envUrl?: string; requestHost?: string }): string {
+  // On known PaqadHR domains, the hostname is authoritative. This prevents a
+  // stale Cloudflare Worker NEXT_PUBLIC_API_URL (preserved by --keep-vars)
+  // from sending production users to the development API or vice versa.
+  const hostBaseUrl = resolveHostApiBaseUrl(options?.requestHost);
+  if (hostBaseUrl) return hostBaseUrl;
+
   const fromEnv = options?.envUrl?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, '');
 
-  return resolveHostApiBaseUrl(options?.requestHost) ?? DEFAULT_LOCAL_API_URL;
+  return DEFAULT_LOCAL_API_URL;
 }
 
 /**
