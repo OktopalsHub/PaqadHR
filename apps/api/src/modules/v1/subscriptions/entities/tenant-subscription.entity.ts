@@ -4,6 +4,7 @@ import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Plan } from '../../plans/entities/plan.entity';
 import { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { BillingProvider } from '../constants/billing-provider.enum';
 
 @Entity({ name: 'tenant_subscriptions' })
 @Index(['tenantId'], { unique: true })
@@ -40,8 +41,39 @@ export class TenantSubscription extends BaseEntity {
   nextBillingDate: Date;
   @Column({ name: 'nomba_subscription_id', type: 'varchar', length: 100, nullable: true })
   nombaSubscriptionId: string | null;
+  @Column({
+    name: 'billing_provider',
+    type: 'varchar',
+    length: 16,
+    default: BillingProvider.NOMBA,
+  })
+  billingProvider: BillingProvider;
+  @Column({ name: 'external_subscription_id', type: 'varchar', length: 100, nullable: true })
+  externalSubscriptionId: string | null;
+  @Column({ name: 'noah_customer_id', type: 'varchar', length: 100, nullable: true })
+  noahCustomerId: string | null;
   @Column({ name: 'payment_method_id', type: 'varchar', length: 100, nullable: true })
   paymentMethodId: string | null;
+  @Column({ name: 'cancel_at_period_end', type: 'boolean', default: false })
+  cancelAtPeriodEnd: boolean;
+  @Column({ name: 'cancelled_at', type: 'timestamp', nullable: true })
+  cancelledAt: Date | null;
+  @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
+  cancellationReason: string | null;
+  @Column({ name: 'paused_at', type: 'timestamp', nullable: true })
+  pausedAt: Date | null;
+  @Column({ name: 'dunning_attempt_count', type: 'integer', default: 0 })
+  dunningAttemptCount: number;
+  @Column({ name: 'dunning_next_retry_at', type: 'timestamp', nullable: true })
+  dunningNextRetryAt: Date | null;
+  @Column({ name: 'last_payment_failure_reason', type: 'varchar', nullable: true })
+  lastPaymentFailureReason: string | null;
+  @Column({ name: 'last_payment_failure_detail', type: 'text', nullable: true })
+  lastPaymentFailureDetail: string | null;
+  @Column({ name: 'payment_method_brand', type: 'varchar', nullable: true })
+  paymentMethodBrand: string | null;
+  @Column({ name: 'payment_method_last_four', type: 'varchar', length: 4, nullable: true })
+  paymentMethodLastFour: string | null;
   @Column({ name: 'usage_metrics', type: 'jsonb', nullable: true })
   usageMetrics: {
     activeJobs?: number;
@@ -50,6 +82,17 @@ export class TenantSubscription extends BaseEntity {
     storageUsed?: number;
     integrationsUsed?: number;
     pendingSeatCount?: number;
+    pendingExtraSeats?: number;
+    pendingChargeAmount?: number;
+    pendingSeatChargedAt?: string;
+    monnifyWalletCardToken?: string;
+    monnifyWalletCardEmail?: string;
+    /** Bachs `cust_…` used for saved-card wallet top-ups. */
+    bachsCustomerId?: string;
+    /** Bachs `pm_…` for wallet top-ups only — never overwrite subscription billing cards. */
+    bachsPaymentMethodId?: string;
+    /** In-flight Bachs saved-card charge reference — reuse until webhook settles. */
+    bachsPendingWalletChargeRef?: string;
   } | null;
   @Column({ name: 'billing_history', type: 'jsonb', nullable: true })
   billingHistory: Array<{
@@ -58,6 +101,7 @@ export class TenantSubscription extends BaseEntity {
     currency: string;
     status: 'paid' | 'pending' | 'failed';
     invoiceId?: string;
+    failureReason?: string;
   }> | null;
   get isActive(): boolean {
     return this.status === SubscriptionStatus.ACTIVE;

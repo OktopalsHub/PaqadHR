@@ -9,6 +9,7 @@ export const memberPointsBalanceSchema = z.object({
   monthlyReceived: z.number(),
   monthlyAllowance: z.number(),
   remainingAllowance: z.number(),
+  allowancePeriod: z.string().optional(),
   lastResetDate: z.string().or(z.date()),
 });
 

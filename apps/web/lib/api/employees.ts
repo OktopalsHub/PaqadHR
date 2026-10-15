@@ -9,30 +9,41 @@ import {
 import { type Employee, employeeListSchema, employeeSchema } from '@/lib/schemas/employee';
 
 export type UpdateEmployeeInput = {
-  firstName?: string;
-  lastName?: string;
-  preferredName?: string;
-  phone?: string;
-  dateOfBirth?: string;
-  gender?: string;
-  departmentId?: string;
-  reportsToId?: string;
-  avatarKey?: string;
+  role?: string;
+  departmentId?: string | null;
+  reportsToId?: string | null;
 };
 
 export type CreateEmployeeInviteInput = {
-  firstName: string;
-  lastName: string;
   email: string;
   role: string;
   departmentId?: string;
-  jobTitle?: string;
+  positionId?: string;
+};
+
+export type CreateEmployeeInviteResponse = {
+  id: string;
+  email: string;
+  emailSent?: boolean;
+  emailError?: string;
 };
 
 export async function fetchTenantMembers(): Promise<ApiTenantMember[]> {
   const tenantId = await resolveTenantId();
   const members = await apiClient<ApiTenantMember[]>(tenantPath(tenantId, 'members'));
   return Array.isArray(members) ? members.map(formatApiTenantMember) : [];
+}
+
+export type EmployeeSummary = {
+  activeEmployees: number;
+  departments: number;
+};
+
+export async function fetchEmployeeSummary(tenantIdOverride?: string): Promise<EmployeeSummary> {
+  // Use the tenantId from the query key when provided so the response always
+  // matches the workspace the dashboard card was requested for.
+  const tenantId = tenantIdOverride ?? (await resolveTenantId());
+  return apiClient<EmployeeSummary>(tenantPath(tenantId, 'members/summary'));
 }
 
 export async function fetchEmployees(): Promise<Employee[]> {
@@ -61,9 +72,20 @@ export async function updateEmployee(id: string, input: UpdateEmployeeInput): Pr
   return employeeSchema.parse(mapTenantMemberToEmployee(formatApiTenantMember(member)));
 }
 
-export async function createEmployeeInvite(input: CreateEmployeeInviteInput): Promise<unknown> {
+export async function updateEmployeeMemberStatus(id: string, isActive: boolean): Promise<Employee> {
   const tenantId = await resolveTenantId();
-  return apiClient<unknown>(tenantPath(tenantId, 'invites'), {
+  const member = await apiClient<ApiTenantMember>(tenantPath(tenantId, `members/${id}/status`), {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+  return employeeSchema.parse(mapTenantMemberToEmployee(formatApiTenantMember(member)));
+}
+
+export async function createEmployeeInvite(
+  input: CreateEmployeeInviteInput,
+): Promise<CreateEmployeeInviteResponse> {
+  const tenantId = await resolveTenantId();
+  return apiClient<CreateEmployeeInviteResponse>(tenantPath(tenantId, 'invites'), {
     method: 'POST',
     body: JSON.stringify(input),
   });

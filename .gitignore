@@ -2,8 +2,14 @@
 node_modules
 .pnp
 .pnp.js
-!README.md
+
 *.md
+!README.md
+!AGENTS.md
+!SECURITY.md
+!PERFORMANCE.md
+!apps/api/README.md
+!apps/web/README.md
 
 # turbo
 .turbo
@@ -20,6 +26,7 @@ coverage
 .env
 .env.*
 !.env.example
+.env.local.example
 
 # logs
 *.log
@@ -44,3 +51,10 @@ next-env.d.ts
 # misc
 .vercel
 .pnpm-store
+*.pem
+*.pem
+.cursor
+.cursorrules
+brag-output/
+mcp
+audits/

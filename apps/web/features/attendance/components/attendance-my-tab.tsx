@@ -6,15 +6,18 @@ import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { AttendanceDateFilters } from '@/features/attendance/components/attendance-date-filters';
 import {
+  attendanceStatusDotClass,
+  attendanceStatusPillClass,
   type DateRangePreset,
   formatRecordDate,
   formatTimeOnly,
@@ -23,40 +26,6 @@ import {
   summarizeAttendanceRecords,
 } from '@/features/attendance/lib/attendance-utils';
 import { useMyAttendanceRecords } from '@/hooks/queries/use-attendance';
-
-function getAttendanceStatusStyles(status: string) {
-  const key = status.toUpperCase();
-  switch (key) {
-    case 'PRESENT':
-      return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900';
-    case 'LATE':
-      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900';
-    case 'ABSENT':
-      return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-450 dark:border-red-900';
-    case 'ON_LEAVE':
-      return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900';
-    case 'WEEKEND':
-      return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
-    default:
-      return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
-  }
-}
-
-function getAttendanceStatusDotClass(status: string) {
-  const key = status.toUpperCase();
-  switch (key) {
-    case 'PRESENT':
-      return 'bg-green-500';
-    case 'LATE':
-      return 'bg-amber-500';
-    case 'ABSENT':
-      return 'bg-red-500';
-    case 'ON_LEAVE':
-      return 'bg-blue-500';
-    default:
-      return 'bg-gray-400 dark:bg-gray-500';
-  }
-}
 
 export function AttendanceMyTab() {
   const [preset, setPreset] = useState<DateRangePreset>('30d');
@@ -86,10 +55,8 @@ export function AttendanceMyTab() {
     <div className="space-y-5">
       <ContentCard
         title="Timesheet"
-        description="Filter and review your clock entries"
-        bodyClassName="p-0"
-      >
-        <div className="border-b border-border/60 px-4 py-3">
+        className="dashboard-panel rounded-[8px]"
+        action={
           <AttendanceDateFilters
             preset={preset}
             from={range.from}
@@ -98,20 +65,35 @@ export function AttendanceMyTab() {
             onFromChange={setCustomFrom}
             onToChange={setCustomTo}
           />
-        </div>
+        }
+        headerClassName="gap-4 sm:items-start"
+        bodyClassName="p-0"
+      >
         {!isLoading && sortedRecords.length > 0 ? (
-          <div className="grid grid-cols-3 gap-px border-b border-border/60 bg-border/60 text-center sm:grid-cols-3">
-            <div className="bg-background px-4 py-3">
-              <p className="text-xs text-muted-foreground">Sessions</p>
-              <p className="text-lg font-semibold tabular-nums">{totals.sessionCount}</p>
+          <div className="grid grid-cols-1 gap-px border-b border-border/60 bg-border/60 sm:grid-cols-3">
+            <div className="dashboard-soft-tile rounded-none border-0 px-5 py-4 text-center">
+              <p className="dashboard-outline-label text-xs font-semibold uppercase tracking-[0.08em]">
+                Sessions
+              </p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
+                {totals.sessionCount}
+              </p>
             </div>
-            <div className="bg-background px-4 py-3">
-              <p className="text-xs text-muted-foreground">Total hours</p>
-              <p className="text-lg font-semibold tabular-nums">{totals.formattedHours}</p>
+            <div className="dashboard-soft-tile rounded-none border-0 px-5 py-4 text-center">
+              <p className="dashboard-outline-label text-xs font-semibold uppercase tracking-[0.08em]">
+                Total hours
+              </p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
+                {totals.formattedHours}
+              </p>
             </div>
-            <div className="bg-background px-4 py-3">
-              <p className="text-xs text-muted-foreground">Days worked</p>
-              <p className="text-lg font-semibold tabular-nums">{totals.daysWithSessions}</p>
+            <div className="dashboard-soft-tile rounded-none border-0 px-5 py-4 text-center">
+              <p className="dashboard-outline-label text-xs font-semibold uppercase tracking-[0.08em]">
+                Days worked
+              </p>
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
+                {totals.daysWithSessions}
+              </p>
             </div>
           </div>
         ) : null}
@@ -125,46 +107,47 @@ export function AttendanceMyTab() {
               icon={Clock}
               title="No entries in this range"
               description="Adjust the date filter or clock in from the header."
+              className="min-h-[360px] sm:min-h-[460px]"
             />
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Session</TableHead>
-                <TableHead>Clock in</TableHead>
-                <TableHead>Clock out</TableHead>
-                <TableHead>Hours</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <AppTable className="min-w-[760px]">
+            <AppTableHeaderSection>
+              <AppTableHeaderRow>
+                <AppTableHeadCell>Date</AppTableHeadCell>
+                <AppTableHeadCell>Session</AppTableHeadCell>
+                <AppTableHeadCell>Clock in</AppTableHeadCell>
+                <AppTableHeadCell>Clock out</AppTableHeadCell>
+                <AppTableHeadCell>Hours</AppTableHeadCell>
+                <AppTableHeadCell>Status</AppTableHeadCell>
+              </AppTableHeaderRow>
+            </AppTableHeaderSection>
+            <AppTableBodySection>
               {sortedRecords.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell>{formatRecordDate(record.date)}</TableCell>
-                  <TableCell>#{record.sessionNumber}</TableCell>
-                  <TableCell>{formatTimeOnly(record.clockIn)}</TableCell>
-                  <TableCell>{formatTimeOnly(record.clockOut)}</TableCell>
-                  <TableCell>{record.workHours ?? '—'}</TableCell>
-                  <TableCell>
+                <AppTableBodyRow key={record.id}>
+                  <AppTableCell>{formatRecordDate(record.date)}</AppTableCell>
+                  <AppTableCell>#{record.sessionNumber}</AppTableCell>
+                  <AppTableCell>{formatTimeOnly(record.clockIn)}</AppTableCell>
+                  <AppTableCell>{formatTimeOnly(record.clockOut)}</AppTableCell>
+                  <AppTableCell>{record.workHours ?? '—'}</AppTableCell>
+                  <AppTableCell>
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getAttendanceStatusStyles(
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${attendanceStatusPillClass(
                         record.status,
                       )}`}
                     >
                       <span
-                        className={`size-1.5 rounded-full ${getAttendanceStatusDotClass(
+                        className={`size-1.5 rounded-full ${attendanceStatusDotClass(
                           record.status,
                         )}`}
                       />
                       {statusLabel(record.status)}
                     </span>
-                  </TableCell>
-                </TableRow>
+                  </AppTableCell>
+                </AppTableBodyRow>
               ))}
-            </TableBody>
-          </Table>
+            </AppTableBodySection>
+          </AppTable>
         )}
       </ContentCard>
     </div>

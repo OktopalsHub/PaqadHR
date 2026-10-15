@@ -25,7 +25,7 @@ export class SlackClient implements IPlatformClient {
           };
         }) || [],
       );
-      return members.filter((u) => u.email);
+      return members.filter((u) => u.id && !u.username?.startsWith('bot.'));
     } catch (_error) {
       return [];
     }
@@ -35,14 +35,14 @@ export class SlackClient implements IPlatformClient {
       const res = await this.client.users.list({ limit: 200 });
       return (
         res.members
+          ?.filter((u) => !u.is_bot && !u.deleted && u.id)
           ?.map((u) => ({
             id: u.id ?? '',
             username: u.name ?? '',
-            displayName: u.real_name ?? '',
+            displayName: u.real_name ?? u.profile?.real_name ?? '',
             email: u.profile?.email,
             avatarUrl: u.profile?.image_192,
-          }))
-          .filter((u) => !u.username?.startsWith('bot.') && u.email) || []
+          })) ?? []
       );
     } catch (_error) {
       return [];

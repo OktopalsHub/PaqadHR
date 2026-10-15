@@ -51,7 +51,6 @@ type CreateJobDialogProps = {
 export function CreateJobDialog({ open, onOpenChange: setOpen }: CreateJobDialogProps) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState('');
-  const [position, setPosition] = useState('');
   const [employmentType, setEmploymentType] = useState<string>('FULL_TIME');
   const [experienceLevel, setExperienceLevel] = useState('Mid-Level');
   const [description, setDescription] = useState('');
@@ -70,7 +69,6 @@ export function CreateJobDialog({ open, onOpenChange: setOpen }: CreateJobDialog
   const resetForm = () => {
     setStep(0);
     setTitle('');
-    setPosition('');
     setEmploymentType('FULL_TIME');
     setExperienceLevel('Mid-Level');
     setDescription('');
@@ -87,7 +85,7 @@ export function CreateJobDialog({ open, onOpenChange: setOpen }: CreateJobDialog
 
   const canContinue =
     step === 0
-      ? title.trim().length >= 2 && position.trim().length >= 1
+      ? title.trim().length >= 2
       : step === 1
         ? description.trim().length >= 10 && linesToArray(requirementsText).length >= 1
         : true;
@@ -96,7 +94,9 @@ export function CreateJobDialog({ open, onOpenChange: setOpen }: CreateJobDialog
     try {
       await createJob.mutateAsync({
         title: title.trim(),
-        position: position.trim(),
+        // The API stores both fields; the position mirrors the job title so
+        // users only fill in one.
+        position: title.trim(),
         employmentType: employmentType as 'FULL_TIME',
         experienceLevel,
         location: {
@@ -179,15 +179,6 @@ export function CreateJobDialog({ open, onOpenChange: setOpen }: CreateJobDialog
                 placeholder="Senior Product Designer"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="job-position">Position</Label>
-              <Input
-                id="job-position"
-                placeholder="Product Designer"
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

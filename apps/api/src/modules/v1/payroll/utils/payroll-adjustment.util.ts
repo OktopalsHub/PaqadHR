@@ -73,3 +73,33 @@ export function collectAdjustmentsForEmployee(
   }
   return (itemMetadata?.adjustmentLines as PayrollAdjustmentDto[] | undefined) ?? [];
 }
+
+export function computePayrollItemAmounts(
+  baseSalary: number,
+  lines: PayrollAdjustmentDto[],
+): {
+  baseSalary: number;
+  grossAmount: number;
+  adjustments: number;
+  deductions: number;
+  netAmount: number;
+  paymentAmount: number;
+} {
+  const base = Number(baseSalary);
+  if (!Number.isFinite(base) || !(base > 0)) {
+    throw new Error('Employee pay rate must be greater than zero');
+  }
+  const { adjustments, deductions } = aggregateAdjustments(lines, base);
+  const netAmount = Math.round((base + adjustments - deductions) * 100) / 100;
+  if (netAmount < 0) {
+    throw new Error('Net pay cannot be negative after deductions');
+  }
+  return {
+    baseSalary: base,
+    grossAmount: base,
+    adjustments,
+    deductions,
+    netAmount,
+    paymentAmount: netAmount,
+  };
+}

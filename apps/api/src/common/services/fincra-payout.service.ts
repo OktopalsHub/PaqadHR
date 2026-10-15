@@ -1,0 +1,289 @@
+import { Injectable } from '@nestjs/common';
+import {
+  defaultFincraBeneficiaryCountry,
+  isFincraOperationPending,
+  isFincraOperationSuccessful,
+  isFincraPayoutNotFound,
+  isFincraPayoutTerminalFailure,
+  normalizeFincraPayoutStatus,
+  resolveFincraFiatPaymentScheme,
+  resolveFincraPaymentScheme,
+} from '../config/fincra-api.util';
+import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
+import { FincraAuthService } from './fincra-auth.service';
+
+export interface FincraQuoteResult {
+  reference: string;
+  sourceAmount: number;
+  destinationAmount: number;
+  amountToCharge?: number;
+}
+
+export interface FincraInitiatePayoutInput {
+  amount: number;
+  destinationCurrency: string;
+  customerReference: string;
+  description?: string;
+  accountNumber?: string;
+  accountName?: string;
+  bankCode?: string;
+  bankName?: string;
+  countryCode?: string;
+  walletAddress?: string;
+  cryptoNetwork?: string;
+  sourceCurrency?: string;
+  sortCode?: string;
+  bankSwiftCode?: string;
+  paymentScheme?: string;
+  customerEmail?: string;
+  /** Supporting document URL required for USD (and some cross-border) payouts. */
+  documentUrl?: string;
+  /** When set, quote uses send (salary debit) instead of receive (payout credit). */
+  quoteAction?: 'send' | 'receive';
+  /** Salary currency for cross-currency payroll (send-side quote). */
+  salaryCurrency?: string;
+}
+
+@Injectable()
+export class FincraPayoutService {
+  constructor(private readonly auth: FincraAuthService) {}
+
+  async generateQuote(input: {
+    sourceCurrency: string;
+    destinationCurrency: string;
+    amount: number;
+    paymentDestination: 'bank_account' | 'crypto_wallet';
+    paymentScheme?: string;
+    action?: 'send' | 'receive';
+  }): Promise<FincraQuoteResult | null> {
+    const businessId = await this.auth.resolveBusinessId();
+    const quoteAction = input.action ?? 'receive';
+    const body: Record<string, unknown> = {
+      sourceCurrency: input.sourceCurrency.toUpperCase(),
+      destinationCurrency: input.destinationCurrency.toUpperCase(),
+      amount: String(input.amount),
+      action: quoteAction,
+      transactionType: 'disbursement',
+      business: businessId,
+      paymentDestination: input.paymentDestination,
+      beneficiaryType: 'individual',
+      feeBearer: 'business',
+    };
+    if (input.paymentScheme) body.paymentScheme = input.paymentScheme;
+
+    const { parsed: response } = await this.auth.request<{
+      reference?: string;
+      sourceAmount?: number;
+      destinationAmount?: number;
+      amountToCharge?: number;
+    }>('POST', '/quotes/generate', body);
+
+    const data = response.data;
+    if (!data?.reference) return null;
+
+    return {
+      reference: data.reference,
+      sourceAmount: Number(data.sourceAmount ?? data.amountToCharge ?? input.amount),
+      destinationAmount: Number(data.destinationAmount ?? input.amount),
+      amountToCharge: data.amountToCharge != null ? Number(data.amountToCharge) : undefined,
+    };
+  }
+
+  async initiatePayout(input: FincraInitiatePayoutInput): Promise<{
+    success: boolean;
+    reference?: string;
+    status?: string;
+    message?: string;
+    sourceAmount?: number;
+    destinationAmount?: number;
+  }> {
+    const existing = await this.getPayoutStatus(input.customerReference);
+    if (existing?.status) {
+      const normalized = normalizeFincraPayoutStatus(existing.status);
+      if (isFincraOperationSuccessful(normalized) || isFincraOperationPending(normalized)) {
+        return {
+          success: true,
+          reference: existing.reference ?? input.customerReference,
+          status: normalized,
+          destinationAmount: input.amount,
+        };
+      }
+      if (isFincraPayoutTerminalFailure(normalized)) {
+        return {
+          success: false,
+          reference: existing.reference ?? input.customerReference,
+          status: normalized,
+          message:
+            'Customer reference already used for a terminal payout; submit a retry reference suffix',
+        };
+      }
+    }
+
+    const destinationCurrency = input.destinationCurrency.toUpperCase();
+    const sourceCurrency = (
+      input.salaryCurrency ??
+      input.sourceCurrency ??
+      (await this.auth.resolvePayoutSourceCurrency())
+    ).toUpperCase();
+    const isCrypto = isCryptoCurrency(destinationCurrency);
+    const paymentDestination = isCrypto ? 'crypto_wallet' : 'bank_account';
+    const country = input.countryCode ?? defaultFincraBeneficiaryCountry(destinationCurrency);
+    const paymentScheme =
+      input.paymentScheme ??
+      (isCrypto
+        ? resolveFincraPaymentScheme(destinationCurrency, input.cryptoNetwork)
+        : resolveFincraFiatPaymentScheme(destinationCurrency, country));
+
+    let quoteReference: string | undefined;
+    let payoutAmount = input.amount;
+    let quotedSourceAmount: number | undefined;
+    let quotedDestinationAmount: number | undefined;
+
+    if (sourceCurrency !== destinationCurrency) {
+      const quoteAction = input.quoteAction ?? (input.salaryCurrency ? 'send' : 'receive');
+      const quote = await this.generateQuote({
+        sourceCurrency,
+        destinationCurrency,
+        amount: input.amount,
+        paymentDestination,
+        paymentScheme,
+        action: quoteAction,
+      });
+      if (!quote) return { success: false, message: 'Failed to generate Fincra quote' };
+      quoteReference = quote.reference;
+      if (quoteAction === 'send') {
+        payoutAmount = quote.sourceAmount;
+        quotedSourceAmount = quote.sourceAmount;
+        quotedDestinationAmount = quote.destinationAmount;
+      } else {
+        payoutAmount = quote.sourceAmount;
+        quotedSourceAmount = quote.sourceAmount;
+        quotedDestinationAmount = quote.destinationAmount;
+      }
+    }
+
+    const [firstName, ...restName] = (input.accountName ?? 'Payroll Recipient').trim().split(/\s+/);
+    const lastName = restName.join(' ') || firstName;
+
+    const beneficiary: Record<string, unknown> = isCrypto
+      ? {
+          walletAddress: input.walletAddress,
+          accountHolderName: input.accountName ?? 'Payroll Recipient',
+          type: 'individual',
+        }
+      : {
+          firstName,
+          lastName,
+          accountHolderName: input.accountName ?? `${firstName} ${lastName}`.trim(),
+          type: 'individual',
+          country,
+          accountNumber: input.accountNumber,
+          // Fincra rejects invalid emails (e.g. *.local); omit when unset is also accepted for NGN.
+          ...(input.customerEmail ? { email: input.customerEmail } : {}),
+        };
+
+    if (!isCrypto) {
+      if (destinationCurrency === 'GBP') {
+        if (input.sortCode) beneficiary.sortCode = input.sortCode;
+        else if (input.bankCode) beneficiary.sortCode = input.bankCode;
+      } else if (destinationCurrency === 'EUR') {
+        if (input.bankSwiftCode) beneficiary.bankSwiftCode = input.bankSwiftCode;
+        else if (input.bankCode) beneficiary.bankSwiftCode = input.bankCode;
+      } else if (destinationCurrency === 'USD') {
+        if (input.bankCode) beneficiary.bankCode = input.bankCode;
+        if (input.bankSwiftCode) beneficiary.bankSwiftCode = input.bankSwiftCode;
+        if (input.bankName) beneficiary.bankName = input.bankName;
+      } else if (input.bankCode) {
+        beneficiary.bankCode = input.bankCode;
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      business: await this.auth.resolveBusinessId(),
+      sourceCurrency,
+      destinationCurrency,
+      amount: payoutAmount,
+      description: input.description ?? 'Payroll disbursement',
+      paymentDestination,
+      customerReference: input.customerReference,
+      customerName: input.accountName ?? 'Paqad Payroll',
+      beneficiary,
+    };
+    if (quoteReference) payload.quoteReference = quoteReference;
+    if (paymentScheme) payload.paymentScheme = paymentScheme;
+    const documentUrl = input.documentUrl?.trim() || process.env.FINCRA_PAYOUT_DOCUMENT_URL?.trim();
+    if (documentUrl && (destinationCurrency === 'USD' || sourceCurrency !== destinationCurrency)) {
+      payload.files = documentUrl;
+    }
+
+    const { parsed: response } = await this.auth.request<{
+      reference?: string;
+      status?: string;
+      customerReference?: string;
+    }>('POST', '/disbursements/payouts', payload);
+
+    const data = response.data;
+    const status = normalizeFincraPayoutStatus(data?.status);
+    const accepted = response.success === true || response.status === true;
+    return {
+      success: accepted && !status.includes('FAILED'),
+      reference: data?.reference ?? input.customerReference,
+      status,
+      message: response.message,
+      sourceAmount: quotedSourceAmount,
+      destinationAmount: quotedDestinationAmount ?? input.amount,
+    };
+  }
+
+  async getPayoutStatus(customerReference: string): Promise<{
+    status: string;
+    reference?: string;
+    amount?: number;
+  } | null> {
+    const encoded = encodeURIComponent(customerReference);
+    const { parsed: response, httpStatus } = await this.auth.request<{
+      status?: string;
+      reference?: string;
+      amountReceived?: number;
+      customerReference?: string;
+    }>('GET', `/disbursements/payouts/customer-reference/${encoded}`);
+
+    const data = response.data;
+    if (data) {
+      return {
+        status: normalizeFincraPayoutStatus(data.status),
+        reference: data.reference,
+        amount: data.amountReceived,
+      };
+    }
+
+    if (isFincraPayoutNotFound(httpStatus, response)) return null;
+
+    const detail = response.message ?? `HTTP ${httpStatus}`;
+    throw new Error(`Fincra payout status lookup failed: ${detail}`);
+  }
+
+  async lookupBankAccount(input: {
+    accountNumber: string;
+    bankCode: string;
+  }): Promise<{ accountName?: string } | null> {
+    const { parsed: response } = await this.auth.request<{
+      accountName?: string;
+      accountNumber?: string;
+    }>('POST', '/core/accounts/resolve', {
+      accountNumber: input.accountNumber,
+      bankCode: input.bankCode,
+      type: 'nuban',
+    });
+    if (!response.success && response.status !== true) return null;
+    return { accountName: response.data?.accountName };
+  }
+
+  isOperationSuccessful(status?: string | null): boolean {
+    return isFincraOperationSuccessful(status);
+  }
+
+  isOperationPending(status?: string | null): boolean {
+    return isFincraOperationPending(status);
+  }
+}

@@ -12,4 +12,6 @@ export interface PaymentMethodSummary {
   canReceivePayments: boolean;
   lastUsedAt: Date | null;
   createdAt: Date;
+  verificationNotes?: string | null;
+  submittedAt?: Date | null;
 }

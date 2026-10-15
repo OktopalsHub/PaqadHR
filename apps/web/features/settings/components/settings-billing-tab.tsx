@@ -26,7 +26,7 @@ export function SettingsBillingTab() {
 
   return (
     <div className="space-y-5">
-      <ContentCard title="Billing" description="Your workspace plan and subscription">
+      <ContentCard title="Billing">
         <BillingSection />
       </ContentCard>
     </div>

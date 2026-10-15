@@ -1,44 +1,43 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AuditEventType } from '../../../../common/enums/audit-event-type.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { AuditLogEntry } from '../../../../common/interfaces/audit-log-entry.interface';
-import { PayrollAuditLog } from '../entities/payroll-audit.entity';
+import { AuditReportService } from './audit-report.service';
 
 @Injectable()
-export class AuditService {
+export class AuditService extends AuditReportService {
   private readonly logger = new Logger(AuditService.name);
-  constructor(
-    @InjectRepository(PayrollAuditLog)
-    private auditLogRepository: Repository<PayrollAuditLog>,
-  ) {}
-  async logEvent(context: AuditContext, entry: AuditLogEntry): Promise<PayrollAuditLog> {
-    try {
-      const auditLog = this.auditLogRepository.create({
-        payrollRunId: context.payrollRunId || null,
-        memberId: context.memberId || null,
-        performedById: context.performedById || null,
-        eventType: entry.eventType,
-        description: entry.description,
-        beforeData: entry.beforeData || null,
-        afterData: entry.afterData || null,
-        ipAddress: context.ipAddress || null,
-        userAgent: context.userAgent || null,
-        sessionId: context.sessionId || null,
-        metadata: entry.metadata || null,
-      });
-      const savedLog = await this.auditLogRepository.save(auditLog);
-      this.logger.log(`Audit event logged: ${entry.eventType} - ${entry.description}`);
-      return savedLog;
-    } catch (error) {
-      this.logger.error('Failed to log audit event:', error);
-      throw error;
+
+  async logEvent(context: AuditContext, entry: AuditLogEntry): Promise<void> {
+    if (!context.tenantId) {
+      this.logger.warn(`Skipping activity log (missing tenantId): ${entry.eventType}`);
+      return;
     }
+
+    await this.activitiesService.queueActivity({
+      tenantId: context.tenantId,
+      actorMemberId: context.performedById.trim(),
+      action: entry.eventType,
+      resourceType: 'payroll',
+      resourceId: context.payrollRunId ?? null,
+      description: entry.description,
+      status: entry.eventType.includes('failed') ? 'FAILED' : 'SUCCESS',
+      severity: entry.eventType.includes('failed') ? 'HIGH' : 'LOW',
+      ipAddress: context.ipAddress ?? null,
+      userAgent: context.userAgent ?? null,
+      metadata: {
+        ...(entry.metadata ?? {}),
+        memberId: context.memberId ?? null,
+        sessionId: context.sessionId ?? null,
+        beforeData: entry.beforeData ?? null,
+        afterData: entry.afterData ?? null,
+      },
+    });
   }
+
   async logPayrollCreated(
     context: AuditContext,
-    payrollRunData: Record<string, any>,
+    payrollRunData: Record<string, unknown>,
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYROLL_CREATED,
@@ -51,9 +50,10 @@ export class AuditService {
       },
     });
   }
+
   async logPayrollApproved(
     context: AuditContext,
-    payrollRunData: Record<string, any>,
+    payrollRunData: Record<string, unknown>,
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYROLL_APPROVED,
@@ -68,13 +68,16 @@ export class AuditService {
     });
   }
 
-  async logManualDisbursement(context: AuditContext, results: Record<string, any>): Promise<void> {
+  async logManualDisbursement(
+    context: AuditContext,
+    results: Record<string, unknown>,
+  ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYROLL_DISBURSED_MANUAL,
       description: `Payroll manually disbursed: ${results.title}`,
       beforeData: { status: 'approved' },
       afterData: {
-        status: results.failedCount > 0 ? 'completed_with_failures' : 'completed',
+        status: Number(results.failedCount) > 0 ? 'completed_with_failures' : 'completed',
         ...results,
       },
       metadata: {
@@ -86,7 +89,10 @@ export class AuditService {
     });
   }
 
-  async logPayrollExported(context: AuditContext, exportData: Record<string, any>): Promise<void> {
+  async logPayrollExported(
+    context: AuditContext,
+    exportData: Record<string, unknown>,
+  ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYROLL_EXPORTED,
       description: `Payroll export generated: ${exportData.exportType}`,
@@ -121,10 +127,40 @@ export class AuditService {
     });
   }
 
+  async logPaymentSetupNotified(
+    context: AuditContext,
+    data: { memberId: string; employeeName: string },
+  ): Promise<void> {
+    await this.logEvent(context, {
+      eventType: AuditEventType.PAYROLL_PAYMENT_SETUP_NOTIFIED,
+      description: `Notified ${data.employeeName} to complete payment settings`,
+      afterData: data,
+      metadata: {
+        memberId: data.memberId,
+        notifiedAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  async logPayrollScheduled(
+    context: AuditContext,
+    data: { title: string; paymentDate: string },
+  ): Promise<void> {
+    await this.logEvent(context, {
+      eventType: AuditEventType.PAYROLL_SCHEDULED,
+      description: `Payroll scheduled: ${data.title} for ${data.paymentDate}`,
+      afterData: data,
+      metadata: {
+        paymentDate: data.paymentDate,
+        scheduledAt: new Date().toISOString(),
+      },
+    });
+  }
+
   async logPayrollProcessed(
     context: AuditContext,
-    payrollRunData: Record<string, any>,
-    processingResults: Record<string, any>,
+    payrollRunData: Record<string, unknown>,
+    processingResults: Record<string, unknown>,
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYROLL_PROCESSED,
@@ -139,10 +175,11 @@ export class AuditService {
       },
     });
   }
-  async logPaymentSent(context: AuditContext, paymentData: Record<string, any>): Promise<void> {
+
+  async logPaymentSent(context: AuditContext, paymentData: Record<string, unknown>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYMENT_SENT,
-      description: `Payment sent to employee ${context.memberId}`,
+      description: `Payment sent to employee ${context.memberId ?? paymentData.employeeName ?? paymentData.memberName ?? 'employee'}`,
       afterData: paymentData,
       metadata: {
         amount: paymentData.paymentAmount,
@@ -152,14 +189,15 @@ export class AuditService {
       },
     });
   }
+
   async logPaymentFailed(
     context: AuditContext,
-    paymentData: Record<string, any>,
+    paymentData: Record<string, unknown>,
     failureReason: string,
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYMENT_FAILED,
-      description: `Payment failed for employee ${context.memberId}: ${failureReason}`,
+      description: `Payment failed for employee ${context.memberId ?? paymentData.employeeName ?? paymentData.memberName ?? 'employee'}: ${failureReason}`,
       afterData: paymentData,
       metadata: {
         amount: paymentData.paymentAmount,
@@ -169,7 +207,8 @@ export class AuditService {
       },
     });
   }
-  async logTaxCalculated(context: AuditContext, taxData: Record<string, any>): Promise<void> {
+
+  async logTaxCalculated(context: AuditContext, taxData: Record<string, unknown>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.TAX_CALCULATED,
       description: `Tax calculated for employee ${context.memberId}`,
@@ -182,9 +221,10 @@ export class AuditService {
       },
     });
   }
+
   async logComplianceCheck(
     context: AuditContext,
-    complianceResults: Record<string, any>,
+    complianceResults: Record<string, unknown>,
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.COMPLIANCE_CHECK,
@@ -197,7 +237,11 @@ export class AuditService {
       },
     });
   }
-  async logPaymentAttempt(context: AuditContext, paymentData: Record<string, any>): Promise<void> {
+
+  async logPaymentAttempt(
+    context: AuditContext,
+    paymentData: Record<string, unknown>,
+  ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYMENT_SENT,
       description: `Payment attempt for employee ${context.memberId}`,
@@ -210,9 +254,10 @@ export class AuditService {
       },
     });
   }
+
   async logLargePaymentDetected(
     context: AuditContext,
-    paymentData: Record<string, any>,
+    paymentData: Record<string, unknown>,
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYMENT_SENT,
@@ -227,7 +272,11 @@ export class AuditService {
       },
     });
   }
-  async logSalaryCalculated(context: AuditContext, salaryData: Record<string, any>): Promise<void> {
+
+  async logSalaryCalculated(
+    context: AuditContext,
+    salaryData: Record<string, unknown>,
+  ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.TAX_CALCULATED,
       description: `Salary calculated for employee ${context.memberId}`,
@@ -243,9 +292,10 @@ export class AuditService {
       },
     });
   }
+
   async logAdjustmentCalculated(
     context: AuditContext,
-    adjustmentData: Record<string, any>,
+    adjustmentData: Record<string, unknown>,
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.TAX_CALCULATED,
@@ -261,9 +311,10 @@ export class AuditService {
       },
     });
   }
+
   async logPayrollAdjustmentSummary(
     context: AuditContext,
-    summaryData: Record<string, any>,
+    summaryData: Record<string, unknown>,
   ): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYROLL_PROCESSED,
@@ -277,69 +328,5 @@ export class AuditService {
         adjustmentsByType: summaryData.adjustmentsByType,
       },
     });
-  }
-  async getAuditTrail(
-    payrollRunId?: string,
-    tenantId?: string,
-    memberId?: string,
-    eventType?: AuditEventType,
-    startDate?: Date,
-    endDate?: Date,
-    limit = 100,
-  ): Promise<PayrollAuditLog[]> {
-    const query = this.auditLogRepository
-      .createQueryBuilder('audit')
-      .leftJoinAndSelect('audit.payrollRun', 'payrollRun')
-      .leftJoinAndSelect('audit.employee', 'employee')
-      .leftJoinAndSelect('audit.performedBy', 'performedBy')
-      .orderBy('audit.createdAt', 'DESC')
-      .limit(limit);
-    if (payrollRunId) {
-      query.andWhere('audit.payrollRunId = :payrollRunId', { payrollRunId });
-    }
-    if (tenantId) {
-      query.andWhere('payrollRun.tenantId = :tenantId', { tenantId });
-    }
-    if (memberId) {
-      query.andWhere('audit.memberId = :memberId', { memberId });
-    }
-    if (eventType) {
-      query.andWhere('audit.eventType = :eventType', { eventType });
-    }
-    if (startDate) {
-      query.andWhere('audit.createdAt >= :startDate', { startDate });
-    }
-    if (endDate) {
-      query.andWhere('audit.createdAt <= :endDate', { endDate });
-    }
-    return query.getMany();
-  }
-  async generateAuditReport(payrollRunId: string): Promise<{
-    payrollRunId: string;
-    totalEvents: number;
-    eventsByType: Record<string, number>;
-    timeline: PayrollAuditLog[];
-    generatedAt: Date;
-  }> {
-    const auditLogs = await this.getAuditTrail(
-      payrollRunId,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      1000,
-    );
-    const eventsByType: Record<string, number> = {};
-    for (const log of auditLogs) {
-      eventsByType[log.eventType] = (eventsByType[log.eventType] || 0) + 1;
-    }
-    return {
-      payrollRunId,
-      totalEvents: auditLogs.length,
-      eventsByType,
-      timeline: auditLogs,
-      generatedAt: new Date(),
-    };
   }
 }

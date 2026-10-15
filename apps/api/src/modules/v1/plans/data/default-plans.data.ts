@@ -75,9 +75,8 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
       [FeatureAccess.BASIC_HR]: true,
       [FeatureAccess.LEAVE_MANAGEMENT]: true,
       [FeatureAccess.EMPLOYEE_SELF_SERVICE]: true,
-      [FeatureAccess.ATTENDANCE]: true,
       [FeatureAccess.PAYROLL]: true,
-      [FeatureAccess.RECRUITMENT]: true,
+      [FeatureAccess.MULTI_CURRENCY]: true,
     },
     limits: { maxEmployees: 25 },
     prices: [
@@ -109,6 +108,7 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
       [FeatureAccess.ATTENDANCE]: true,
       [FeatureAccess.PAYROLL]: true,
       [FeatureAccess.RECRUITMENT]: true,
+      [FeatureAccess.MULTI_CURRENCY]: true,
       [FeatureAccess.INTEGRATIONS]: true,
       [FeatureAccess.ADVANCED_REPORTING]: true,
     },
@@ -147,9 +147,13 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
       [FeatureAccess.PERFORMANCE_MANAGEMENT]: true,
       [FeatureAccess.INTEGRATIONS]: true,
       [FeatureAccess.API_ACCESS]: true,
+      [FeatureAccess.MULTI_CURRENCY]: true,
       [FeatureAccess.MULTI_LOCATION]: true,
       [FeatureAccess.ADVANCED_REPORTING]: true,
       [FeatureAccess.COMPLIANCE_REPORTING]: true,
+      [FeatureAccess.LEARNING_DEVELOPMENT]: true,
+      [FeatureAccess.CUSTOM_WORKFLOWS]: true,
+      [FeatureAccess.WHITE_LABEL]: true,
     },
     limits: { maxEmployees: 500 },
     prices: [
@@ -170,3 +174,11 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
     ],
   },
 ];
+
+for (const plan of DEFAULT_PLANS) {
+  if (!plan.features[FeatureAccess.PAYROLL]) {
+    throw new Error(
+      `Plan "${plan.slug}" must include FeatureAccess.PAYROLL — payroll is a core revenue feature on all tiers.`,
+    );
+  }
+}

@@ -20,7 +20,7 @@ export interface IPaymentProvider {
     data: CreateSubscriptionPayload,
   ): Promise<CreateSubscriptionResponse>;
   cancelSubscription(subscriptionId: string): Promise<void>;
-  getSubscription(subscriptionId: string): Promise<any | null>;
+  getSubscription(subscriptionId: string): Promise<unknown | null>;
   updateSubscription(subscriptionId: string, updates: unknown): Promise<unknown>;
   processWebhook(payload: unknown, signature: string): Promise<void>;
 }

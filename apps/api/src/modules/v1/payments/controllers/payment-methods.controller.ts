@@ -12,11 +12,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, CurrentUser } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
-import type {
+import {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
   UpdatePaymentMethodDto,
@@ -47,8 +49,8 @@ export class PaymentMethodsController {
         accountName: { type: 'string', example: 'John Doe' },
         accountNumber: { type: 'string', example: '1234567890' },
         country: { type: 'string', example: 'US' },
-        cryptoSymbol: { type: 'string', example: 'BTC' },
-        cryptoNetwork: { type: 'string', example: 'BTC' },
+        cryptoSymbol: { type: 'string', example: 'USDC' },
+        cryptoNetwork: { type: 'string', example: 'ERC20' },
         publicAddress: {
           type: 'string',
           example: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
@@ -67,8 +69,14 @@ export class PaymentMethodsController {
     @Param('tenantId') tenantId: string,
     @Body() dto: CreatePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
+    @CurrentUser() request: { auth?: { principalId?: string } },
   ) {
-    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, dto);
+    return this.paymentMethodService.createPaymentMethod(
+      tenantId,
+      member.id,
+      request.auth?.principalId ?? '',
+      dto,
+    );
   }
   @Get()
   @UseGuards(TenantMemberGuard)
@@ -130,8 +138,15 @@ export class PaymentMethodsController {
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() dto: UpdatePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
+    @CurrentUser() request: { auth?: { principalId?: string } },
   ) {
-    return this.paymentMethodService.updatePaymentMethod(paymentMethodId, tenantId, member.id, dto);
+    return this.paymentMethodService.updatePaymentMethod(
+      paymentMethodId,
+      tenantId,
+      member.id,
+      request.auth?.principalId ?? '',
+      dto,
+    );
   }
   @Put(':paymentMethodId/passcode')
   @UseGuards(TenantMemberGuard)
@@ -204,6 +219,8 @@ export class PaymentMethodsController {
     return this.paymentMethodService.getPasscodeHistory(paymentMethodId, tenantId, member.id);
   }
   @Post(':paymentMethodId/verify')
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Manually verify payment method (Admin only)' })
   @ApiResponse({
     status: 200,
@@ -220,25 +237,46 @@ export class PaymentMethodsController {
     },
   })
   async verifyPaymentMethod(
+    @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { status: string; notes?: string },
+    @CurrentTenantMember() member: MemberContext,
   ) {
     return this.paymentMethodService.verifyPaymentMethod(
       paymentMethodId,
-      body.status as PaymentMethodStatus,
-      body.notes,
+      tenantId,
+      {
+        status: body.status as PaymentMethodStatus,
+        notes: body.notes,
+      },
+      member.id,
     );
   }
   @Get('member/:memberId')
+  @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get payment method by member ID (System use)' })
   @ApiResponse({ status: 200, description: 'Payment method retrieved' })
-  async getPaymentMethodByMember(@Param('memberId') memberId: string) {
-    return this.paymentMethodService.findByMemberId(memberId);
+  async getPaymentMethodByMember(
+    @Param('tenantId') tenantId: string,
+    @Param('memberId') memberId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.paymentMethodService.findByMemberIdForRequester(
+      tenantId,
+      memberId,
+      member.id,
+      member.role,
+    );
   }
   @Get('details/:id')
+  @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get payment method details by ID (System use)' })
   @ApiResponse({ status: 200, description: 'Payment method details retrieved' })
-  async getPaymentMethodDetails(@Param('id') id: string) {
-    return this.paymentMethodService.findById(id);
+  async getPaymentMethodDetails(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.paymentMethodService.findByIdForMember(tenantId, id, member.id, member.role);
   }
 }

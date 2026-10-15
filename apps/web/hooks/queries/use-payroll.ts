@@ -5,29 +5,65 @@ import {
   approvePayrollRun,
   calculatePayrollRun,
   createPayrollRun,
+  deletePayrollRun,
   disbursePayrollRun,
   downloadPayrollBankFile,
+  fetchMemberPublishedPayslips,
   fetchPayrollReadiness,
   fetchPayrollRun,
   fetchPayrollRuns,
+  fetchPayrollSetupSummary,
   fetchRunPayslips,
+  fundAndPayPayroll,
   notifyEmployeePaymentSetup,
+  notifyMemberPaymentSetup,
+  payNowPayroll,
   processPayrollRun,
   publishPayslips,
   removePayrollItem,
+  reopenPayrollRun,
+  retryFailedPayrollPayments,
+  schedulePayrollPayout,
   updatePayrollItem,
+  updatePayrollRun,
+  updatePayrollRunTitle,
 } from '@/lib/api/payroll';
 import { queryKeys } from '@/lib/query/keys';
-import type { CreatePayrollRunInput, PayrollAdjustmentLine } from '@/lib/schemas/payroll';
+import type {
+  CreatePayrollRunInput,
+  PatchPayrollRunInput,
+  PayrollAdjustmentLine,
+} from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function usePayrollRuns() {
+/**
+ * Poll while any run still has items in flight. Bachs payouts settle on `payout.paid`
+ * webhooks, and focus-refresh is disabled here, so without polling a failure would not
+ * surface until the user reloaded — leaving "Payment in progress" spinning forever.
+ */
+const PAYROLL_PAYOUT_POLL_MS = 15_000;
+
+export function usePayrollRuns(enabled = true) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.payroll.all, tenantId],
     queryFn: fetchPayrollRuns,
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: enabled && !tenantLoading && Boolean(tenantId),
+    refetchInterval: (query) =>
+      (query.state.data?.runs ?? []).some((run) => (run.itemCounts?.processing ?? 0) > 0)
+        ? PAYROLL_PAYOUT_POLL_MS
+        : false,
+  });
+}
+
+export function useMemberPublishedPayslips(memberId?: string, enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.payroll.all, tenantId, 'published-payslips', memberId],
+    queryFn: () => fetchMemberPublishedPayslips(memberId!),
+    enabled: enabled && !tenantLoading && Boolean(tenantId && memberId),
   });
 }
 
@@ -38,6 +74,16 @@ export function usePayrollReadiness(runId?: string) {
     queryKey: [...queryKeys.payroll.all, tenantId, 'readiness', runId],
     queryFn: () => fetchPayrollReadiness(runId!),
     enabled: !tenantLoading && Boolean(tenantId && runId),
+  });
+}
+
+export function usePayrollSetupSummary(enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.payroll.all, tenantId, 'setup-summary'],
+    queryFn: fetchPayrollSetupSummary,
+    enabled: enabled && !tenantLoading && Boolean(tenantId),
   });
 }
 
@@ -67,6 +113,21 @@ export function useCreatePayrollRun() {
 
   return useMutation({
     mutationFn: (input: CreatePayrollRunInput) => createPayrollRun(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.payroll.all, tenantId],
+      });
+    },
+  });
+}
+
+export function useUpdatePayrollRun() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchPayrollRunInput }) =>
+      updatePayrollRun(id, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.payroll.all, tenantId],
@@ -126,6 +187,23 @@ export function usePayrollActions() {
       mutationFn: processPayrollRun,
       onSuccess: invalidate,
     }),
+    payNow: useMutation({
+      mutationFn: payNowPayroll,
+      onSuccess: invalidate,
+    }),
+    fundAndPay: useMutation({
+      mutationFn: fundAndPayPayroll,
+      onSuccess: invalidate,
+    }),
+    retryFailed: useMutation({
+      mutationFn: retryFailedPayrollPayments,
+      onSuccess: invalidate,
+    }),
+    schedule: useMutation({
+      mutationFn: ({ id, paymentDate }: { id: string; paymentDate?: string }) =>
+        schedulePayrollPayout(id, paymentDate),
+      onSuccess: invalidate,
+    }),
     exportCsv: useMutation({
       mutationFn: downloadPayrollBankFile,
     }),
@@ -134,9 +212,25 @@ export function usePayrollActions() {
         removePayrollItem(runId, itemId),
       onSuccess: invalidate,
     }),
+    deleteRun: useMutation({
+      mutationFn: deletePayrollRun,
+      onSuccess: invalidate,
+    }),
+    updateTitle: useMutation({
+      mutationFn: ({ id, title }: { id: string; title: string }) =>
+        updatePayrollRunTitle(id, title),
+      onSuccess: invalidate,
+    }),
+    reopen: useMutation({
+      mutationFn: reopenPayrollRun,
+      onSuccess: invalidate,
+    }),
     notifyPaymentSetup: useMutation({
       mutationFn: ({ runId, itemId }: { runId: string; itemId: string }) =>
         notifyEmployeePaymentSetup(runId, itemId),
+    }),
+    notifyMemberPaymentSetup: useMutation({
+      mutationFn: (memberId: string) => notifyMemberPaymentSetup(memberId),
     }),
   };
 }

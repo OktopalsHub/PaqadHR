@@ -5,6 +5,7 @@ export interface OnboardingData {
   industry?: string;
   companySize?: string;
   businessCountry?: string;
+  timezone?: string;
   firstName?: string;
   lastName?: string;
   preferredName?: string;

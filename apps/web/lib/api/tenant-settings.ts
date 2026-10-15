@@ -33,6 +33,7 @@ export interface HolidayItem {
   id: string;
   name: string;
   date: string;
+  type?: 'national' | 'religious' | 'custom';
   recurring?: boolean;
 }
 
@@ -67,15 +68,45 @@ export interface BillingSettings {
   addressLine2?: string;
   city?: string;
   country?: string;
+  identityBvn?: string;
+  identityNin?: string;
+  hasIdentityBvn?: boolean;
+  hasIdentityNin?: boolean;
+}
+
+export interface EmployeeSettings {
+  numberPrefix?: string;
+  numberPadding?: number;
+  requireIdentityForPayroll?: boolean;
 }
 
 export interface RewardsSettings {
   enabled: boolean;
   pointsExchangeRate: number;
   rewardsCurrency: string;
-  catalogCountries: string[];
+  catalogCountries?: string[];
   airtimeEnabled: boolean;
   customRewardsEnabled: boolean;
+  giftCardsEnabled?: boolean;
+  giftCardCategories?: string[];
+  giftCardProvider?: 'tremendous';
+  utilityPaymentsEnabled?: boolean;
+  tremendousProducts?: Array<{
+    productId: string;
+    name: string;
+    pointsCost: number;
+    imageUrl: string | null;
+    countryCode: string;
+    currencyCode: string;
+    minDenomination?: number | null;
+    maxDenomination?: number | null;
+    fixedDenominations?: number[];
+    listTremendousCost?: number | null;
+    listTremendousCostCurrency?: string;
+    wholesaleInRewardsCurrency?: number;
+    category?: string;
+    subcategory?: string;
+  }>;
 }
 
 export interface TenantSettingsData {
@@ -85,6 +116,7 @@ export interface TenantSettingsData {
   notifications?: NotificationSettings;
   attendance?: AttendanceSettings;
   billing?: BillingSettings;
+  employee?: EmployeeSettings;
   general?: GeneralSettings;
   rewards?: RewardsSettings;
 }

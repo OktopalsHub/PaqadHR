@@ -1,10 +1,11 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo } from 'react';
+import { setQueryClientForTenants } from '@/lib/api/tenants';
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
+  const queryClient = useMemo(
     () =>
       new QueryClient({
         defaultOptions: {
@@ -16,7 +17,11 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
           },
         },
       }),
+    [],
   );
+
+  // Wire up the queryClient for tenant caching (synchronous, before any renders)
+  setQueryClientForTenants(queryClient);
 
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }

@@ -1,12 +1,20 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw, UserCheck, UserPlus } from 'lucide-react';
+import { CheckCircle2, Loader2, RefreshCw, UserCheck, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -14,14 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import {
   useBulkInviteUsers,
@@ -30,10 +30,33 @@ import {
   useTriggerUserSync,
   useUnmatchedUsers,
 } from '@/hooks/queries/use-integrations';
+import type { SlackUnmatchedUser } from '@/lib/api/integrations';
+import type { Employee } from '@/lib/schemas/employee';
 
 type SlackUserSyncSectionProps = {
   integrationId: string;
 };
+
+type LastSyncResult = {
+  matched: number;
+  unmatched: number;
+  created: number;
+  errors: number;
+};
+
+function getUnmatchedReason(user: SlackUnmatchedUser, employees: Employee[]): string {
+  const email = user.platformEmail?.trim().toLowerCase();
+  if (!email) {
+    return 'No email on Slack profile — link manually or add email in Slack';
+  }
+  const hasEmployee = employees.some(
+    (emp) => emp.status === 'Active' && emp.email?.trim().toLowerCase() === email,
+  );
+  if (!hasEmployee) {
+    return `No employee with email ${user.platformEmail}`;
+  }
+  return 'Could not auto-match — link manually';
+}
 
 export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProps) {
   const { data: syncStatus, isLoading: isStatusLoading } = useSyncStatus(integrationId);
@@ -46,11 +69,17 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
   const bulkInviteMutation = useBulkInviteUsers();
 
   const [selectedMembers, setSelectedMembers] = useState<Record<string, string>>({});
+  const [lastSyncResult, setLastSyncResult] = useState<LastSyncResult | null>(null);
 
   const handleSync = async () => {
     try {
       const result = await triggerSync.mutateAsync(integrationId);
+      setLastSyncResult(result);
+      const total = result.matched + result.unmatched;
       toast.success(`Sync completed: ${result.matched} matched, ${result.unmatched} unmatched.`);
+      if (total === 0) {
+        toast.message('No Slack users were returned. Reconnect Slack if this persists.');
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Sync failed');
     }
@@ -93,26 +122,20 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
 
   if (isStatusLoading || isUnmatchedLoading || isEmployeesLoading) {
     return (
-      <div className="flex h-32 items-center justify-center space-x-2">
+      <div className="flex h-32 items-center justify-center">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Loading sync status...</span>
       </div>
     );
   }
 
-  // Filter out employees who are already matched to make the dropdown cleaner.
-  // Note: Since we don't have matched ids in syncStatus, we can filter by matching emails or simply list all active employees.
-  // Listing all employees is safer and allows overriding matches.
   const employeeOptions = employees.filter((emp) => emp.status === 'Active');
+  const displayTotal = syncStatus?.total ?? 0;
 
   return (
     <div className="mt-8 space-y-6">
       <div className="flex items-center justify-between border-b pb-4">
         <div>
-          <h2 className="text-lg font-medium text-foreground">User Directory Synchronization</h2>
-          <p className="text-sm text-muted-foreground">
-            Match Slack accounts with HR employee profiles using emails or manual mapping.
-          </p>
+          <h2 className="text-lg font-medium text-foreground">User sync</h2>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={isWorking} onClick={handleSync}>
@@ -121,7 +144,7 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
             ) : (
               <RefreshCw className="mr-2 size-4" />
             )}
-            Sync Roster
+            Sync
           </Button>
           <Button
             size="sm"
@@ -133,90 +156,63 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
             ) : (
               <UserPlus className="mr-2 size-4" />
             )}
-            Invite Unmatched
+            Invite unmatched
           </Button>
         </div>
       </div>
 
-      {syncStatus && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total Slack Users</CardDescription>
-              <CardTitle className="text-2xl">{syncStatus.total}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Matched Profiles</CardDescription>
-              <CardTitle className="text-2xl text-emerald-600 flex items-center gap-1.5">
-                <CheckCircle2 className="size-5 text-emerald-600" />
-                {syncStatus.matched}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Unmatched Profiles</CardDescription>
-              <CardTitle className="text-2xl text-amber-600 flex items-center gap-1.5">
-                <AlertCircle className="size-5 text-amber-600" />
-                {syncStatus.unmatched}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Match Rate</CardDescription>
-              <div className="flex items-baseline justify-between">
-                <CardTitle className="text-2xl">{syncStatus.matchRate}%</CardTitle>
-              </div>
-              <Progress value={syncStatus.matchRate} className="mt-2 h-1.5" />
-            </CardHeader>
-          </Card>
-        </div>
-      )}
+      {syncStatus ? (
+        <p className="text-sm text-muted-foreground">
+          {syncStatus.total} Slack users · {syncStatus.matched} matched · {syncStatus.unmatched}{' '}
+          unmatched · {syncStatus.matchRate}% match rate
+        </p>
+      ) : null}
+
+      {lastSyncResult ? (
+        <p className="text-sm text-muted-foreground">
+          Last sync: {lastSyncResult.matched + lastSyncResult.unmatched} Slack users —{' '}
+          {lastSyncResult.matched} matched, {lastSyncResult.unmatched} unmatched
+          {lastSyncResult.errors > 0 ? `, ${lastSyncResult.errors} errors` : ''}.
+        </p>
+      ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle>Unmatched Slack Users</CardTitle>
-          <CardDescription>
-            These Slack profiles are not connected to any HR employee profile. Map them manually
-            below.
-          </CardDescription>
+          <CardTitle>Unmatched</CardTitle>
         </CardHeader>
         <CardContent>
-          {unmatchedUsers.length === 0 ? (
+          {displayTotal === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <RefreshCw className="size-10 text-muted-foreground mb-2" />
+              <p className="font-medium text-foreground">No Slack users synced yet</p>
+            </div>
+          ) : unmatchedUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <CheckCircle2 className="size-10 text-emerald-500 mb-2" />
-              <p className="font-medium text-foreground">All users synchronized!</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Every active Slack user is matched with a corresponding HR profile.
-              </p>
+              <p className="font-medium text-foreground">All users matched</p>
             </div>
           ) : (
-            <div className="border rounded-md overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Slack Member</TableHead>
-                    <TableHead>Email Address</TableHead>
-                    <TableHead>Link to Employee Profile</TableHead>
-                    <TableHead className="w-[100px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="overflow-x-auto">
+              <AppTable className="min-w-[900px]">
+                <AppTableHeaderSection>
+                  <AppTableHeaderRow>
+                    <AppTableHeadCell>Slack member</AppTableHeadCell>
+                    <AppTableHeadCell>Email</AppTableHeadCell>
+                    <AppTableHeadCell>Reason</AppTableHeadCell>
+                    <AppTableHeadCell>Link to employee</AppTableHeadCell>
+                    <AppTableHeadCell className="w-[100px]" />
+                  </AppTableHeaderRow>
+                </AppTableHeaderSection>
+                <AppTableBodySection>
                   {unmatchedUsers.map((user) => (
-                    <TableRow key={user.platformUserId}>
-                      <TableCell className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarImage
-                            src={user.platformAvatarUrl}
-                            alt={user.platformDisplayName || 'Slack User'}
-                          />
-                          <AvatarFallback className="text-xs">
-                            {(user.platformDisplayName || 'U').substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                    <AppTableBodyRow key={user.platformUserId}>
+                      <AppTableCell className="flex items-center gap-3">
+                        <PersonAvatar
+                          src={user.platformAvatarUrl}
+                          name={user.platformDisplayName || user.platformUsername || 'Slack user'}
+                          className="size-8"
+                          fallbackClassName="text-xs"
+                        />
                         <div>
                           <p className="text-sm font-medium leading-none">
                             {user.platformDisplayName || user.platformUsername}
@@ -225,13 +221,16 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                             @{user.platformUsername}
                           </p>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
+                      </AppTableCell>
+                      <AppTableCell>
                         {user.platformEmail || (
                           <span className="text-muted-foreground italic">No email</span>
                         )}
-                      </TableCell>
-                      <TableCell>
+                      </AppTableCell>
+                      <AppTableCell className="max-w-[220px] text-muted-foreground">
+                        {getUnmatchedReason(user, employees)}
+                      </AppTableCell>
+                      <AppTableCell>
                         <Select
                           value={selectedMembers[user.platformUserId] || ''}
                           onValueChange={(val) =>
@@ -242,7 +241,7 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                           }
                         >
                           <SelectTrigger className="w-[240px] h-9">
-                            <SelectValue placeholder="Select HR Employee..." />
+                            <SelectValue placeholder="Select employee…" />
                           </SelectTrigger>
                           <SelectContent>
                             {employeeOptions.map((emp) => (
@@ -252,8 +251,8 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                             ))}
                           </SelectContent>
                         </Select>
-                      </TableCell>
-                      <TableCell>
+                      </AppTableCell>
+                      <AppTableCell>
                         <Button
                           size="sm"
                           variant="outline"
@@ -270,11 +269,11 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                             </>
                           )}
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </AppTableCell>
+                    </AppTableBodyRow>
                   ))}
-                </TableBody>
-              </Table>
+                </AppTableBodySection>
+              </AppTable>
             </div>
           )}
         </CardContent>

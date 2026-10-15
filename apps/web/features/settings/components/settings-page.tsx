@@ -1,190 +1,146 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { FeatureGate } from '@/features/billing/components/feature-gate';
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
 import { SettingsBillingTab } from '@/features/settings/components/settings-billing-tab';
 import { SettingsHolidaysTab } from '@/features/settings/components/settings-holidays-tab';
+import { SettingsIntegrationsTab } from '@/features/settings/components/settings-integrations-tab';
 import { SettingsLeaveTab } from '@/features/settings/components/settings-leave-tab';
-import { SettingsNotificationsTab } from '@/features/settings/components/settings-notifications-tab';
 import { SettingsProfileTab } from '@/features/settings/components/settings-profile-tab';
 import { SettingsRewardsTab } from '@/features/settings/components/settings-rewards-tab';
 import { SettingsShoutoutsTab } from '@/features/settings/components/settings-shoutouts-tab';
 import { SettingsWorkspaceTab } from '@/features/settings/components/settings-workspace-tab';
+// import { SettingsNotificationsTab } from '@/features/settings/components/settings-notifications-tab';
 import {
-  ADMIN_SETTINGS_TABS,
+  getVisibleSettingsTabs,
   isSettingsTab,
-  type SettingsTab,
+  resolveSettingsTab,
+  SETTINGS_TAB_LABELS,
 } from '@/features/settings/lib/settings-tabs';
-import { buildTabUrl } from '@/lib/navigation/tab-query';
+import { useUrlTab } from '@/hooks/use-url-tab';
+import { FeatureAccess } from '@/lib/constants/feature-access';
+import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
 import { useTenant } from '@/providers/tenant-provider';
 
-function SettingsPageContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+export function SettingsPage() {
   const { tenant } = useTenant();
+  const [activeTab, setTab] = useUrlTab(isSettingsTab, 'profile');
 
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
-
-  const tabParam = searchParams.get('tab');
-  const activeTab: SettingsTab = isSettingsTab(tabParam) ? tabParam : 'profile';
+  const visibleTab = resolveSettingsTab(activeTab, isAdmin);
 
   useEffect(() => {
-    if (!isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab)) {
-      router.replace(buildTabUrl(pathname, searchParams, 'profile'));
+    if (activeTab !== visibleTab) {
+      setTab(visibleTab);
     }
-  }, [activeTab, isAdmin, pathname, router, searchParams]);
+  }, [activeTab, setTab, visibleTab]);
 
-  const setTab = (tab: SettingsTab) => {
-    router.replace(buildTabUrl(pathname, searchParams, tab), { scroll: false });
-  };
-
-  const visibleTab = !isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab) ? 'profile' : activeTab;
+  const visibleTabs = getVisibleSettingsTabs(isAdmin);
+  useBreadcrumbTail(SETTINGS_TAB_LABELS[visibleTab]);
 
   return (
-    <AppPage className="space-y-5">
-      <div>
-        <h1 className="text-lg font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your account and workspace</p>
-      </div>
-
-      <Tabs value={visibleTab} onValueChange={(value) => setTab(value as SettingsTab)}>
-        <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
-          <TabsTrigger
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-            value="profile"
-          >
-            Profile
-          </TabsTrigger>
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="workspace"
-            >
-              Workspace
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="leave"
-            >
-              Leave
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="shoutouts"
-            >
-              Shoutouts
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="rewards"
-            >
-              Rewards
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="holidays"
-            >
-              Holidays
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="notifications"
-            >
-              Notifications
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="attendance"
-            >
-              Attendance
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="billing"
-            >
-              Billing
-            </TabsTrigger>
-          ) : null}
-        </TabsList>
-
-        <TabsContent value="profile" className="mt-5">
-          <SettingsProfileTab />
+    <AppPage className="space-y-6">
+      <Tabs value={visibleTab} className="space-y-5">
+        <TabsContent value="profile" className="mt-0 data-[state=inactive]:hidden">
+          {visibleTab === 'profile' && (
+            <Suspense fallback={<LoadingBlock />}>
+              <SettingsProfileTab />
+            </Suspense>
+          )}
         </TabsContent>
-        {isAdmin ? (
-          <TabsContent value="workspace" className="mt-5">
-            <SettingsWorkspaceTab />
+        {visibleTabs.includes('workspace') ? (
+          <TabsContent value="workspace" className="mt-0 data-[state=inactive]:hidden">
+            {visibleTab === 'workspace' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <SettingsWorkspaceTab />
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
-        {isAdmin ? (
-          <TabsContent value="leave" className="mt-5">
-            <SettingsLeaveTab />
+        {visibleTabs.includes('leave') ? (
+          <TabsContent value="leave" className="mt-0 data-[state=inactive]:hidden">
+            {visibleTab === 'leave' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <SettingsLeaveTab />
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
-        {isAdmin ? (
-          <TabsContent value="shoutouts" className="mt-5">
-            <SettingsShoutoutsTab />
+        {visibleTabs.includes('shoutouts') ? (
+          <TabsContent value="shoutouts" className="mt-0 data-[state=inactive]:hidden">
+            {visibleTab === 'shoutouts' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+                  <SettingsShoutoutsTab />
+                </FeatureGate>
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
-        {isAdmin ? (
-          <TabsContent value="rewards" className="mt-5">
-            <SettingsRewardsTab />
+        {visibleTabs.includes('rewards') ? (
+          <TabsContent value="rewards" className="mt-0 data-[state=inactive]:hidden">
+            {visibleTab === 'rewards' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+                  <SettingsRewardsTab />
+                </FeatureGate>
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
-        {isAdmin ? (
-          <TabsContent value="holidays" className="mt-5">
-            <SettingsHolidaysTab />
+        {visibleTabs.includes('holidays') ? (
+          <TabsContent value="holidays" className="mt-0 data-[state=inactive]:hidden">
+            {visibleTab === 'holidays' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <SettingsHolidaysTab />
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
-        {isAdmin ? (
-          <TabsContent value="notifications" className="mt-5">
+        {/* Notifications tab temporarily hidden from settings
+        {visibleTabs.includes('notifications') ? (
+          <TabsContent value="notifications" className="mt-0 data-[state=inactive]:hidden">
             <SettingsNotificationsTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
-          <TabsContent value="attendance" className="mt-5">
-            <SettingsAttendanceTab />
+        */}
+        {visibleTabs.includes('attendance') ? (
+          <TabsContent value="attendance" className="mt-0 data-[state=inactive]:hidden">
+            {visibleTab === 'attendance' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <FeatureGate feature={FeatureAccess.ATTENDANCE}>
+                  <SettingsAttendanceTab />
+                </FeatureGate>
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
-        {isAdmin ? (
-          <TabsContent value="billing" className="mt-5">
-            <SettingsBillingTab />
+        {visibleTabs.includes('billing') ? (
+          <TabsContent value="billing" className="mt-0 data-[state=inactive]:hidden">
+            {visibleTab === 'billing' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <SettingsBillingTab />
+              </Suspense>
+            )}
+          </TabsContent>
+        ) : null}
+        {visibleTabs.includes('integrations') ? (
+          <TabsContent value="integrations" className="mt-0 data-[state=inactive]:hidden">
+            {visibleTab === 'integrations' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+                  <SettingsIntegrationsTab />
+                </FeatureGate>
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
       </Tabs>
     </AppPage>
-  );
-}
-
-export function SettingsPage() {
-  return (
-    <Suspense
-      fallback={
-        <AppPage>
-          <LoadingBlock />
-        </AppPage>
-      }
-    >
-      <SettingsPageContent />
-    </Suspense>
   );
 }

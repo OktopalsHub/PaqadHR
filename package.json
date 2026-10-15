@@ -9,26 +9,26 @@
     "build": "turbo build",
     "check": "biome check .",
     "check:fix": "biome check --write .",
+    "check:unsafe": "biome check --write --unsafe .",
+    "check:patches": "node .github/scripts/check-braces-patch.mjs",
     "dev": "turbo dev",
     "format": "biome check --write .",
     "lint": "biome check .",
     "start": "turbo start",
-    "test": "turbo test"
+    "test": "turbo test",
+    "deploy": "pnpm --filter web deploy",
+    "cf-deploy": "pnpm --filter web cf-deploy",
+    "cf-typegen": "pnpm --filter web cf-typegen",
+    "db:up": "docker compose up -d db",
+    "db:status": "docker compose ps",
+    "db:logs": "docker compose logs -f db",
+    "db:down": "docker compose down"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
     "turbo": "^2.9.16"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "argon2"
-    ],
-    "overrides": {
-      "flatted": ">=3.4.2",
-      "tar": ">=7.5.16",
-      "postcss": ">=8.5.15",
-      "picomatch": ">=4.0.4",
-      "js-yaml": ">=4.2.0"
-    }
+  "dependencies": {
+    "zeptomail": "^8.0.1"
   }
 }

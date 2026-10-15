@@ -1,8 +1,13 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { Public } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
+import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { StartTrialDto } from '../dto/start-trial.dto';
 import { SubscriptionsService } from '../services/subscriptions.service';
 
 class SetTenantRegionDto {
@@ -22,14 +27,47 @@ export class SubscriptionsController {
   getSupportedCountries() {
     return this.subscriptionsService.getSupportedCountries();
   }
+
+  @Get('landing-pricing')
+  @Public()
+  @ApiOperation({ summary: 'Landing page pricing currency from visitor IP' })
+  async getLandingPricing(@Req() req: Request) {
+    const ip = this.getClientIP(req);
+    const countryCode = await GeoLocationHelper.getCountryCode(ip);
+    const currency = countryCode === 'NG' ? 'NGN' : 'USD';
+    return { countryCode, currency };
+  }
+
+  @Post('tenant/:tenantId/start-trial')
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @ApiOperation({ summary: 'Start or update a 14-day workspace trial on the selected plan' })
+  startTrial(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: StartTrialDto,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const clientIp = GeoLocationHelper.resolveClientIp(
+      req.headers,
+      req.socket.remoteAddress,
+      req.ip,
+    );
+    return this.subscriptionsService.startTrial(tenantId, dto.planSlug, {
+      clientIp,
+      headers: req.headers,
+      userId: req.auth?.principalId,
+    });
+  }
   @Post('tenant/:tenantId/set-region')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Lock tenant billing country (once)' })
   setTenantRegion(@Param('tenantId') tenantId: string, @Body() dto: SetTenantRegionDto) {
     return this.subscriptionsService.setTenantRegion(tenantId, dto);
   }
   @Post('tenant/:tenantId/onboarding-region')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Set tenant region during onboarding' })
   setOnboardingRegion(
     @Param('tenantId') tenantId: string,
@@ -40,6 +78,7 @@ export class SubscriptionsController {
       tenantId,
       this.getClientIP(req),
       dto.userSelectedCountry,
+      { headers: req.headers },
     );
   }
   @Get('tenant/:tenantId')

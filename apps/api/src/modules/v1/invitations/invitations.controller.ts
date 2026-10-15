@@ -12,15 +12,18 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from '../../../common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateInvitationDto } from './dto/index';
-import type { UpdateInvitationDto } from './dto/update-invitation.dto';
+import { CreateInvitationDto } from './dto/index';
+import { UpdateInvitationDto } from './dto/update-invitation.dto';
 import { InvitationsService } from './invitations.service';
 
 @ApiTags('Invitations')
 @Controller('tenants/:tenantId/invites')
-@UseGuards(TenantMemberGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard)
+@Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
 export class InvitationsController {
   constructor(private readonly invitationsService: InvitationsService) {}
   @Get()

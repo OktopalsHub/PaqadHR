@@ -1,0 +1,26 @@
+---
+description: Mandatory API security mandate — OWASP-aligned rules for all code generation and review.
+globs:
+alwaysApply: true
+---
+
+# Security Mandate (Always Apply)
+
+Before writing or reviewing backend API or frontend/client code, read and follow **[SECURITY.md](../../SECURITY.md)** in full.
+
+## Non-negotiable rules
+
+1. **Zero-trust auth** — global JWT guard; only `@Public()` routes skip authentication.
+2. **BOLA/IDOR** — verify resource ownership and `tenantId` scope on every read/write by ID.
+3. **Strict validation** — DTO + `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`, `transform`); reject unknown fields.
+4. **Secure tokens** — httpOnly cookies only; no JWT in `localStorage`; rotate refresh tokens; revoke all sessions on reuse.
+5. **Rate limits** — protect login, OTP, public forms, uploads, webhooks.
+6. **No PII in logs** — never log passwords, tokens, OTP, API keys, identity numbers.
+7. **Webhooks** — signature verify on raw body; idempotency on money paths.
+8. **No shadow APIs** — no unauthenticated or undocumented endpoints.
+
+## Before finishing any task
+
+Complete the checklist in SECURITY.md §12. Fix issues at the shared guard/service layer. Do not leave known vulnerabilities in the diff.
+
+Also follow [PERFORMANCE.md](../../PERFORMANCE.md) for query and pagination rules.

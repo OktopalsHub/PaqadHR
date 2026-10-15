@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { IntegrationType } from 'src/common/enums';
 import type { IPlatformUser } from 'src/common/interfaces';
 import { IsNull } from 'typeorm';
+import { InvitationsService } from '../../../modules/v1/invitations/invitations.service';
 import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
@@ -15,6 +16,7 @@ export class UserSyncService {
   private readonly logger = new Logger(UserSyncService.name);
   constructor(
     private readonly tenantMembersService: TenantMembersService,
+    private readonly invitationsService: InvitationsService,
     private readonly platformUserRepo: PlatformUserRepository,
     private readonly integrationRepo: PlatformIntegrationRepository,
   ) {}
@@ -25,7 +27,6 @@ export class UserSyncService {
     platform: IntegrationType;
   }) {
     try {
-      this.logger.log(`Auto-syncing users for integration: ${payload.integrationId}`);
       await this.syncAllUsers(payload.integrationId, payload.tenantId);
     } catch (error) {
       this.logger.error(
@@ -68,7 +69,6 @@ export class UserSyncService {
         syncResults.errors++;
       }
     }
-    this.logger.log(`User sync completed for integration ${integrationId}:`, syncResults);
     return syncResults;
   }
   async manualUserMatch(integrationId: string, platformUserId: string, tenantMemberId: string) {
@@ -125,7 +125,7 @@ export class UserSyncService {
     for (const platformUser of unmatchedUsers) {
       try {
         if (platformUser.platformEmail) {
-          await this.tenantMembersService.inviteMember(
+          await this.invitationsService.inviteMember(
             tenantId,
             {
               email: platformUser.platformEmail,
@@ -136,14 +136,13 @@ export class UserSyncService {
             invitedBy,
           );
           inviteResults.sent++;
-          this.logger.log(`Invitation sent to ${platformUser.platformEmail}`);
         }
       } catch (error) {
         inviteResults.failed++;
         inviteResults.errors.push(
           `${platformUser.platformEmail}: ${error instanceof Error ? error.message : String(error)}`,
         );
-        this.logger.error(`Failed to invite ${platformUser.platformEmail}:`, error);
+        this.logger.error(`Failed to invite platform user ${platformUser.id}:`, error);
       }
     }
     return inviteResults;
@@ -186,6 +185,6 @@ export class UserSyncService {
       await this.platformUserRepo.update(existingUser.id, userData);
       return this.platformUserRepo.findOne({ where: { id: existingUser.id } });
     }
-    return this.platformUserRepo.create(userData);
+    return this.platformUserRepo.save(userData);
   }
 }

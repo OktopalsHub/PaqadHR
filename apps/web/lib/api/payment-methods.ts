@@ -6,6 +6,7 @@ import type {
   PaymentMethodSummary,
   supportedCurrenciesSchema,
 } from '@/lib/schemas/payment-method';
+import { isCryptoCurrency } from '@/lib/schemas/payment-method';
 
 export async function fetchPaymentMethods(): Promise<PaymentMethodSummary[]> {
   const tenantId = await resolveTenantId();
@@ -23,9 +24,16 @@ export async function createPaymentMethod(
   input: CreatePaymentMethodInput,
 ): Promise<PaymentMethodSummary> {
   const tenantId = await resolveTenantId();
+  const isCrypto = input.type === 'crypto' || isCryptoCurrency(input.currency);
+  const body = {
+    ...input,
+    type: input.type ?? (isCrypto ? 'crypto' : 'bank'),
+    isPrimary: input.isPrimary === true,
+    accountNumber: input.accountNumber ?? input.walletAddress,
+  };
   return apiClient<PaymentMethodSummary>(tenantPath(tenantId, 'payment-methods'), {
     method: 'POST',
-    body: JSON.stringify({ ...input, type: 'BANK', isPrimary: input.isPrimary ?? true }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -35,8 +43,14 @@ export interface PendingPaymentMethod {
   employeeName: string;
   currency: string;
   displayInfo: string;
+  bankName?: string;
+  accountName?: string;
+  institutionCode?: string;
+  accountLast4?: string;
+  isPrimary: boolean;
   status: string;
   createdAt: string;
+  submittedAt: string | null;
 }
 
 export async function fetchPendingPaymentMethods(): Promise<PendingPaymentMethod[]> {
@@ -47,15 +61,34 @@ export async function fetchPendingPaymentMethods(): Promise<PendingPaymentMethod
 export async function verifyPaymentMethod(
   paymentMethodId: string,
   status: 'verified' | 'rejected',
+  notes?: string,
 ): Promise<void> {
   const tenantId = await resolveTenantId();
+  const body: { status: 'verified' | 'rejected'; notes?: string } = { status };
+  const trimmedNotes = notes?.trim();
+  if (trimmedNotes) body.notes = trimmedNotes;
   await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}/verify`), {
     method: 'POST',
-    body: JSON.stringify({ status: status.toUpperCase() }),
+    body: JSON.stringify(body),
   });
 }
 
-export type NigerianBank = { code: string; name: string };
+export async function submitPaymentMethodForVerification(
+  paymentMethodId: string,
+  passcode: string,
+  otpProof: string,
+): Promise<PaymentMethodSummary> {
+  const tenantId = await resolveTenantId();
+  return apiClient(
+    tenantPath(tenantId, `payment-methods/${paymentMethodId}/submit-for-verification`),
+    {
+      method: 'POST',
+      body: JSON.stringify({ passcode, otpProof }),
+    },
+  );
+}
+
+export type NigerianBank = { code: string; name: string; logoUrl?: string | null };
 
 export async function fetchNigerianBanks(): Promise<NigerianBank[]> {
   const tenantId = await resolveTenantId();
@@ -65,15 +98,19 @@ export async function fetchNigerianBanks(): Promise<NigerianBank[]> {
   return result.banks;
 }
 
-export async function lookupNigerianBankAccount(input: {
-  accountNumber: string;
-  bankCode: string;
-  bankName?: string;
-}): Promise<{ accountNumber: string; accountName: string; bankCode: string; bankName: string }> {
+export async function lookupNigerianBankAccount(
+  input: {
+    accountNumber: string;
+    bankCode: string;
+    bankName?: string;
+  },
+  signal?: AbortSignal,
+): Promise<{ accountNumber: string; accountName: string; bankCode: string; bankName: string }> {
   const tenantId = await resolveTenantId();
   return apiClient(tenantPath(tenantId, 'payment-methods/bank-lookup'), {
     method: 'POST',
     body: JSON.stringify(input),
+    signal,
   });
 }
 
@@ -85,7 +122,7 @@ export type UpdatePaymentMethodInput = {
   accountNumber?: string;
   country?: string;
   currentPasscode: string;
-  newPasscode?: string;
+  otpProof: string;
   isPrimary?: boolean;
 };
 
@@ -114,14 +151,13 @@ export async function deletePaymentMethod(
   });
 }
 
-export async function changePaymentMethodPasscode(
+export async function setPrimaryPaymentMethod(
   paymentMethodId: string,
-  currentPasscode: string,
-  newPasscode: string,
+  passcode: string,
 ): Promise<void> {
   const tenantId = await resolveTenantId();
-  await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}/passcode`), {
-    method: 'PUT',
-    body: JSON.stringify({ currentPasscode, newPasscode }),
+  await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}/primary`), {
+    method: 'POST',
+    body: JSON.stringify({ passcode }),
   });
 }

@@ -16,6 +16,7 @@ function labelForSegment(segment: string): string {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TAB_BREADCRUMB_SEGMENTS = new Set(['settings']);
 
 export function getBreadcrumbs(pathname: string, tailLabel?: string | null): BreadcrumbSegment[] {
   const tenantSlug = getTenantSlugFromPath(pathname);
@@ -23,6 +24,11 @@ export function getBreadcrumbs(pathname: string, tailLabel?: string | null): Bre
 
   const parts = pathname.split('/').filter(Boolean);
   if (parts.length <= 1) return [];
+
+  // Integrations live under Settings; do not show Dashboard / Integrations / …
+  if (parts[1] === 'integrations') {
+    return [];
+  }
 
   const segments: BreadcrumbSegment[] = [
     {
@@ -35,7 +41,7 @@ export function getBreadcrumbs(pathname: string, tailLabel?: string | null): Bre
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
     const isLast = i === parts.length - 1;
-    const isDynamic = UUID_RE.test(part) || (isLast && i > 1);
+    const isDynamic = UUID_RE.test(part);
 
     if (isDynamic) {
       if (isLast) {
@@ -45,10 +51,25 @@ export function getBreadcrumbs(pathname: string, tailLabel?: string | null): Bre
     }
 
     currentPath += `/${part}`;
-    segments.push({
-      label: labelForSegment(part),
-      href: isLast ? undefined : currentPath,
-    });
+    segments.push(
+      isLast
+        ? { label: labelForSegment(part) }
+        : { label: labelForSegment(part), href: currentPath },
+    );
+  }
+
+  const trimmedTailLabel = tailLabel?.trim();
+  const lastPart = parts[parts.length - 1];
+  const lastSegment = segments[segments.length - 1];
+  if (
+    trimmedTailLabel &&
+    lastPart &&
+    lastSegment &&
+    TAB_BREADCRUMB_SEGMENTS.has(lastPart) &&
+    trimmedTailLabel.toLowerCase() !== lastSegment.label.toLowerCase()
+  ) {
+    lastSegment.href = currentPath;
+    segments.push({ label: trimmedTailLabel });
   }
 
   return segments;

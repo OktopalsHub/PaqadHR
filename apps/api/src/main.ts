@@ -1,14 +1,16 @@
-import { Logger, RequestMethod, VersioningType } from '@nestjs/common';
+import './instrument';
+
+import { Logger, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import { EnvironmentValidationService } from './common/config/environment-validation.service';
 import { ExpressSetup } from './common/config/express.config';
 import { setupSwagger } from './common/config/swagger.config';
+import { validateEnvAtBoot } from './common/config/validate-env-at-boot';
 import { waitForDatabase } from './common/database/config/data-source';
 
 async function bootstrap() {
-  new EnvironmentValidationService().validateEnvironment();
+  validateEnvAtBoot();
   await waitForDatabase();
 
   const isProduction = process.env.NODE_ENV === 'production';
@@ -18,6 +20,14 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: isProduction ? ['error', 'warn', 'log'] : ['log', 'error', 'warn', 'debug', 'verbose'],
   });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   ExpressSetup(app);
   if (!isProduction) {
@@ -44,7 +54,7 @@ async function bootstrap() {
     logger.log(`Environment: ${process.env.NODE_ENV}`);
     logger.log(`API Documentation: http://localhost:${port}/docs`);
   } else {
-    logger.log(`Application is running on port ${port}`);
+    logger.log(`Application is running on port: ${port}`);
   }
 }
 bootstrap();

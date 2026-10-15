@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -8,19 +9,27 @@ import {
   IsUUID,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
-export class CreateShoutoutDto {
-  @ApiProperty({ type: [String] })
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsUUID('4', { each: true })
-  recipientIds: string[];
+export class ShoutoutRecipientInputDto {
+  @ApiProperty({ description: 'Tenant member id of the recipient' })
+  @IsUUID('4')
+  recipientId: string;
 
-  @ApiProperty({ example: 10 })
+  @ApiProperty({ example: 10, description: 'Points awarded to this recipient' })
   @IsInt()
   @Min(1)
-  pointsPerRecipient: number;
+  points: number;
+}
+
+export class CreateShoutoutDto {
+  @ApiProperty({ type: [ShoutoutRecipientInputDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ShoutoutRecipientInputDto)
+  recipients: ShoutoutRecipientInputDto[];
 
   @ApiProperty({ example: 'Great work on the launch!' })
   @IsString()

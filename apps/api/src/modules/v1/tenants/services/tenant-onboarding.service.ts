@@ -1,19 +1,19 @@
 import { randomBytes } from 'node:crypto';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { StringUtility } from 'src/common/utils/string.util';
 import { Repository } from 'typeorm';
-import { RESERVED_TENANT_SLUGS } from '../../../../common/constants/reserved-tenant-slugs';
+import { isReservedTenantSlug } from '../../../../common/constants/reserved-tenant-slugs';
 import type { OnboardingData } from '../../../../common/interfaces/onboarding-data.interface';
 import type { OnboardingResult } from '../../../../common/interfaces/onboarding-result.interface';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
 import { PlansService } from '../../plans/services/plans.service';
 import { PositionService } from '../../position/services/position.service';
 import { PositionMemberService } from '../../position/services/position-member.service';
-import type { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
@@ -32,8 +32,6 @@ export type SlugAvailabilityResult = {
 
 @Injectable()
 export class TenantOnboardingService {
-  private readonly logger = new Logger(TenantOnboardingService.name);
-
   constructor(
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
@@ -44,14 +42,17 @@ export class TenantOnboardingService {
     private positionService: PositionService,
     private positionMemberService: PositionMemberService,
     private eventEmitter: EventEmitter2,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
   async completeTenantOnboarding(
     data: OnboardingData,
     userIpAddress: string,
+    options?: {
+      headers?: Record<string, string | string[] | undefined>;
+      timezone?: string | null;
+    },
   ): Promise<OnboardingResult> {
-    this.logger.log(`Starting onboarding for tenant: ${data.name}`);
-
     const tenant = await this.createTenant(data);
     const user = await this.usersService.getUser(data.createdBy!);
     const { firstName, lastName } = this.resolveMemberNames(data, user);
@@ -72,15 +73,29 @@ export class TenantOnboardingService {
       tenant.id,
       userIpAddress,
       data.businessCountry,
-    );
-    const subscription = await this.subscriptionsService.createTrialSubscription(
-      pricingResult.tenant.id,
-      { planSlug: data.planSlug ?? 'starter' },
+      {
+        headers: options?.headers,
+        timezone: options?.timezone ?? data.timezone,
+      },
     );
 
-    this.logger.log(
-      `Onboarding completed for ${data.name} — locked to ${pricingResult.lockedRegion} (${pricingResult.detectionMethod})`,
-    );
+    const planSlug = data.planSlug?.trim().toLowerCase() || 'growth';
+    const trial = await this.subscriptionsService.startTrial(pricingResult.tenant.id, planSlug, {
+      clientIp: userIpAddress,
+      headers: options?.headers,
+      userId: data.createdBy,
+    });
+
+    this.productAnalytics.capture(data.createdBy!, 'onboarding_completed', {
+      userId: data.createdBy!,
+      tenantId: pricingResult.tenant.id,
+      plan: trial.plan?.slug ?? planSlug,
+    });
+    this.productAnalytics.capture(data.createdBy!, 'workspace_activated', {
+      userId: data.createdBy!,
+      tenantId: pricingResult.tenant.id,
+      plan: trial.plan?.slug ?? planSlug,
+    });
 
     const defaults = GeoLocationHelper.getCountryDefaults(pricingResult.lockedRegion);
 
@@ -93,7 +108,11 @@ export class TenantOnboardingService {
         detectionMethod: pricingResult.detectionMethod,
         isLocked: pricingResult.tenant.pricingLocked,
       },
-      subscription: this.mapSubscriptionSummary(pricingResult.tenant, subscription),
+      subscription: {
+        plan: trial.plan?.slug ?? planSlug,
+        status: trial.status,
+        trialEndsAt: trial.trialEndsAt?.toISOString() ?? null,
+      },
     };
   }
 
@@ -180,7 +199,7 @@ export class TenantOnboardingService {
       return { slug, available: false, reason: 'invalid' };
     }
 
-    if (this.isSlugReserved(slug)) {
+    if (isReservedTenantSlug(slug)) {
       return { slug, available: false, reason: 'reserved' };
     }
 
@@ -202,32 +221,12 @@ export class TenantOnboardingService {
       slug,
       industry: data.industry,
       companySize: data.companySize,
-      inviteCode: this.generateInviteCode(),
+      inviteCode: StringUtility.generateInviteCode(),
       employeeCode,
       createdBy: { id: data.createdBy } as Tenant['createdBy'],
     });
     const saved = await this.tenantRepository.save(tenant);
     return Array.isArray(saved) ? saved[0] : saved;
-  }
-
-  private mapSubscriptionSummary(
-    tenant: Tenant,
-    subscription: TenantSubscription,
-  ): {
-    plan: string;
-    status: string;
-    currency: string;
-    trialEndsAt: Date | null;
-    pricingLocked: boolean;
-  } {
-    const defaults = GeoLocationHelper.getCountryDefaults(tenant.countryCode || 'GLOBAL');
-    return {
-      plan: subscription.plan?.slug ?? subscription.plan?.name ?? 'starter',
-      status: subscription.status,
-      currency: tenant.preferredCurrency || defaults.currency,
-      trialEndsAt: subscription.trialEndsAt,
-      pricingLocked: tenant.pricingLocked,
-    };
   }
 
   private emitTenantSetupEvents(tenant: Tenant, member: TenantMember, companyName: string): void {
@@ -268,21 +267,6 @@ export class TenantOnboardingService {
     return StringUtility.slugify(rawSlug).slice(0, SLUG_MAX_LENGTH).replace(/-+$/, '');
   }
 
-  private isSlugReserved(slug: string): boolean {
-    if (RESERVED_TENANT_SLUGS.has(slug)) {
-      return true;
-    }
-    const excluded = (
-      process.env.TENANT_EXCLUDED_SUBDOMAINS ||
-      process.env.EXCLUDED_SUBDOMAINS ||
-      ''
-    )
-      .split(',')
-      .map((item) => item.trim().toLowerCase())
-      .filter(Boolean);
-    return excluded.includes(slug);
-  }
-
   private generateSlug(name: string): string {
     const suffix = randomBytes(3).toString('hex');
     const maxBaseLength = 25 - 1 - suffix.length;
@@ -291,10 +275,6 @@ export class TenantOnboardingService {
       base = 't';
     }
     return `${base}-${suffix}`;
-  }
-
-  private generateInviteCode(): string {
-    return randomBytes(3).toString('hex').toUpperCase();
   }
 
   private resolveMemberNames(

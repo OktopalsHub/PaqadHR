@@ -3,6 +3,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
+  type PutObjectCommandInput,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -37,10 +38,8 @@ export class CloudflareR2Service {
         this.customDomain.startsWith('http://') || this.customDomain.startsWith('https://')
           ? this.customDomain
           : `https://${this.customDomain}`;
-      this.logger.log(`Using custom domain: ${this.publicUrl}`);
     } else if (this.publicId) {
       this.publicUrl = `https://pub-${this.publicId}.r2.dev`;
-      this.logger.log(`Using R2.dev public URL: ${this.publicUrl}`);
     } else {
       this.publicUrl = null;
       this.logger.warn(
@@ -63,7 +62,6 @@ export class CloudflareR2Service {
       },
       forcePathStyle: true,
     });
-    this.logger.log('Cloudflare R2 service initialized');
   }
   private getClient(): S3Client {
     if (!this.s3Client) {
@@ -86,12 +84,18 @@ export class CloudflareR2Service {
     options: PresignedUrlOptions,
   ): Promise<{ uploadUrl: string; fileKey: string }> {
     const fileKey = this.generateFileKey(options.tenantId, options.location, options.fileName);
-    const command = new PutObjectCommand({
+    const commandInput: PutObjectCommandInput = {
       Bucket: this.bucketName,
       Key: fileKey,
       ContentType: options.contentType,
-      ACL: 'public-read',
-    });
+    };
+    if (options.contentLength !== undefined) {
+      commandInput.ContentLength = options.contentLength;
+    }
+    if (options.public === true) {
+      commandInput.ACL = 'public-read';
+    }
+    const command = new PutObjectCommand(commandInput);
     try {
       const uploadUrl = await getSignedUrl(this.getClient(), command, {
         expiresIn: options.expiresIn || this.presignedUrlExpires,

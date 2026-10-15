@@ -8,7 +8,12 @@ export const queryKeys = {
   },
   employees: {
     all: ['employees'] as const,
+    summary: ['employees', 'summary'] as const,
     detail: (id: string) => ['employees', id] as const,
+  },
+  invitations: {
+    all: ['invitations'] as const,
+    detail: (token: string, email: string) => ['invitations', 'detail', token, email] as const,
   },
   positions: {
     all: ['positions'] as const,
@@ -16,6 +21,7 @@ export const queryKeys = {
   leaves: {
     all: ['leaves'] as const,
     balances: ['leaves', 'balances'] as const,
+    assignments: ['leaves', 'assignments'] as const,
   },
   departments: {
     all: ['departments'] as const,
@@ -26,6 +32,13 @@ export const queryKeys = {
     myRecords: ['attendance', 'my-records'] as const,
     teamRecords: ['attendance', 'team-records'] as const,
     monthly: ['attendance', 'monthly'] as const,
+    today: ['attendance', 'today'] as const,
+    stats: ['attendance', 'stats'] as const,
+    exceptions: ['attendance', 'exceptions'] as const,
+    dailyReport: ['attendance', 'daily-report'] as const,
+    monthlyReport: ['attendance', 'monthly-report'] as const,
+    sessionLimit: ['attendance', 'session-limit'] as const,
+    sessionCount: ['attendance', 'session-count'] as const,
   },
   calendar: {
     events: ['calendar', 'events'] as const,
@@ -62,6 +75,15 @@ export const queryKeys = {
     job: (id: string) => ['recruitment', 'jobs', id] as const,
     candidates: (jobId: string) => ['recruitment', 'candidates', jobId] as const,
     allCandidates: ['recruitment', 'allCandidates'] as const,
+    publicTenant: (slug: string) => ['recruitment', 'public-tenant', slug] as const,
+    publicJobs: (tenantId: string) => ['recruitment', 'public-jobs', tenantId] as const,
+  },
+  plans: {
+    all: ['plans', 'all'] as const,
+    detect: ['plans', 'detect'] as const,
+    country: (code: string) => ['plans', 'country', code] as const,
+    admin: ['plans', 'admin'] as const,
+    prices: (countryCode: string) => ['plans', 'prices', countryCode] as const,
   },
   billing: {
     status: (tenantId: string) => ['billing', tenantId] as const,
@@ -71,7 +93,10 @@ export const queryKeys = {
     all: ['payment-methods'] as const,
     currencies: ['payment-methods', 'currencies'] as const,
     pending: ['payment-methods', 'pending'] as const,
+    passcodeStatus: ['payment-methods', 'passcode-status'] as const,
     banks: (tenantId: string) => ['payment-methods', 'banks', tenantId] as const,
+    // PII-safe + tenant-scoped: accountNumber/bankCode via closure, not key
+    bankLookup: (tenantId: string) => ['payment-methods', 'bank-lookup', tenantId] as const,
   },
   member: {
     profile: (tenantId: string) => ['member', 'profile', tenantId] as const,
@@ -81,17 +106,28 @@ export const queryKeys = {
     slugAvailability: (slug: string) => ['onboarding', 'slug-availability', slug] as const,
   },
   analytics: {
-    overview: ['analytics', 'overview'] as const,
+    overview: (tenantId: string) => ['analytics', 'overview', tenantId] as const,
   },
   notifications: {
     list: ['notifications', 'list'] as const,
     unreadCount: ['notifications', 'unread-count'] as const,
+  },
+  privacy: {
+    consent: (userId: string) => ['privacy', 'consent', userId] as const,
+  },
+  activities: {
+    list: (tenantId: string) => ['activities', 'list', tenantId] as const,
   },
   rewards: {
     catalog: ['rewards', 'catalog'] as const,
     claims: ['rewards', 'claims'] as const,
     allClaims: ['rewards', 'all-claims'] as const,
     wallet: ['rewards', 'wallet'] as const,
+    walletTransactions: ['rewards', 'wallet-transactions'] as const,
     custom: ['rewards', 'custom'] as const,
+    providers: (tenantId: string) => ['rewards', 'providers', tenantId] as const,
+    // Tenant-scoped to prevent cross-tenant cache pollution (SECURITY.md §2)
+    pointsCost: (tenantId: string, type: string, billerId: number | string, amount: number) =>
+      ['rewards', 'points-cost', tenantId, type, String(billerId), amount] as const,
   },
 } as const;

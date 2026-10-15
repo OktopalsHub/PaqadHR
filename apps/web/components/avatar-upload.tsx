@@ -4,7 +4,7 @@ import { Camera, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { IMAGE_ACCEPT, isAcceptedImageFile } from '@/lib/api/files';
+import { IMAGE_ACCEPT, IMAGE_UPLOAD_ERROR, isAcceptedImageFile } from '@/lib/api/files';
 import { cn } from '@/lib/utils';
 
 type AvatarUploadProps = {
@@ -56,7 +56,7 @@ export function AvatarUpload({
     if (!file) return;
 
     if (!isAcceptedImageFile(file)) {
-      onError?.('Choose a JPEG, PNG, WebP, or GIF image');
+      onError?.(IMAGE_UPLOAD_ERROR);
       return;
     }
 

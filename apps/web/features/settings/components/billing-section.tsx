@@ -1,30 +1,34 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, CreditCard, Loader2 } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { AlertTriangle, CheckCircle2, CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
-import { useBillingOverview, useCreateSubscriptionCheckout } from '@/hooks/queries/use-billing';
+import {
+  useBillingOverview,
+  useCancelSubscription,
+  useCreateSubscriptionCheckout,
+  useResumeSubscription,
+  useUpdatePaymentMethod,
+} from '@/hooks/queries/use-billing';
 import { usePatchTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import type { BillingSettings } from '@/lib/api/tenant-settings';
+import { openCheckoutUrl } from '@/lib/bachs-checkout';
+import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { formatDate } from '@/lib/format-date';
+import { formatPlanMoney } from '@/lib/format-plan-money';
+import { subscribePagePath } from '@/lib/navigation/tenant-routes';
+import { useTenant } from '@/providers/tenant-provider';
 
 function formatMoney(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(2)}`;
-  }
+  return formatPlanMoney(amount, currency);
 }
 
 function BillingContactForm({
@@ -44,6 +48,9 @@ function BillingContactForm({
   const [addressLine2, setAddressLine2] = useState(initial.addressLine2 ?? '');
   const [city, setCity] = useState(initial.city ?? '');
   const [country, setCountry] = useState(initial.country ?? '');
+  const [identityBvn, setIdentityBvn] = useState('');
+  const [identityNin, setIdentityNin] = useState('');
+  const [showIdentity, setShowIdentity] = useState(false);
 
   useEffect(() => {
     setContactName(initial.contactName ?? '');
@@ -53,6 +60,8 @@ function BillingContactForm({
     setAddressLine2(initial.addressLine2 ?? '');
     setCity(initial.city ?? '');
     setCountry(initial.country ?? '');
+    setIdentityBvn('');
+    setIdentityNin('');
   }, [initial, ownerEmail]);
 
   const save = async () => {
@@ -70,6 +79,8 @@ function BillingContactForm({
           addressLine2: addressLine2.trim() || undefined,
           city: city.trim() || undefined,
           country: country.trim() || undefined,
+          identityBvn: identityBvn.trim() || undefined,
+          identityNin: identityNin.trim() || undefined,
         },
       });
       toast.success('Billing contact saved');
@@ -98,10 +109,7 @@ function BillingContactForm({
       <SettingsFieldHint label="Contact name">
         <Input value={contactName} onChange={(e) => setContactName(e.target.value)} />
       </SettingsFieldHint>
-      <SettingsFieldHint
-        label="Contact email"
-        hint="Used for invoices and payment notifications. Falls back to workspace owner if unset."
-      >
+      <SettingsFieldHint label="Contact email">
         <Input
           type="email"
           value={contactEmail}
@@ -123,6 +131,58 @@ function BillingContactForm({
       <SettingsFieldHint label="City">
         <Input value={city} onChange={(e) => setCity(e.target.value)} />
       </SettingsFieldHint>
+      <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-muted/20 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-foreground">Identity verification (BVN / NIN)</p>
+          {initial.hasIdentityBvn ? <Badge variant="secondary">BVN stored</Badge> : null}
+          {initial.hasIdentityNin ? <Badge variant="secondary">NIN stored</Badge> : null}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Used for payroll compliance. Leave blank to keep existing values.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <SettingsFieldHint label="BVN">
+            <div className="relative">
+              <Input
+                type={showIdentity ? 'text' : 'password'}
+                inputMode="numeric"
+                maxLength={11}
+                placeholder={initial.hasIdentityBvn ? 'Stored securely' : '11-digit BVN'}
+                value={identityBvn}
+                onChange={(e) => setIdentityBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowIdentity(!showIdentity)}
+                className="absolute right-0 top-0 flex h-full cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground"
+              >
+                {showIdentity ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          </SettingsFieldHint>
+          <SettingsFieldHint label="NIN">
+            <div className="relative">
+              <Input
+                type={showIdentity ? 'text' : 'password'}
+                inputMode="numeric"
+                maxLength={11}
+                placeholder={initial.hasIdentityNin ? 'Stored securely' : '11-digit NIN'}
+                value={identityNin}
+                onChange={(e) => setIdentityNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowIdentity(!showIdentity)}
+                className="absolute right-0 top-0 flex h-full cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground"
+              >
+                {showIdentity ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          </SettingsFieldHint>
+        </div>
+      </div>
       <div className="sm:col-span-2">
         <SettingsFormActions onSave={save} isPending={patchSettings.isPending} />
       </div>
@@ -131,23 +191,34 @@ function BillingContactForm({
 }
 
 export function BillingSection() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { tenant } = useTenant();
   const { data: overview, isLoading, isError, error } = useBillingOverview();
   const checkout = useCreateSubscriptionCheckout();
+  const updateCard = useUpdatePaymentMethod();
+  const cancelSub = useCancelSubscription();
+  const resumeSub = useResumeSubscription();
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const currentPlanSlug = overview?.subscription?.plan?.toLowerCase();
 
   useEffect(() => {
     if (searchParams.get('billing') === 'success') {
       setSuccessMessage('Payment received. Your plan will update shortly.');
     }
+    if (searchParams.get('billing') === 'card-updated') {
+      setSuccessMessage('Payment method updated successfully.');
+    }
   }, [searchParams]);
 
-  const sortedPlans = useMemo(() => overview?.plans ?? [], [overview?.plans]);
-  const billingHistory = overview?.billingHistory ?? [];
-  const payNowPlanSlug = currentPlanSlug ?? sortedPlans[0]?.slug ?? 'starter';
+  const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
+  const billingHistory = useMemo(
+    () =>
+      (overview?.billingHistory ?? []).filter(
+        (e) => !(e.status === 'paid' && Number(e.amount) === 0),
+      ),
+    [overview?.billingHistory],
+  );
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading billing details…</p>;
@@ -168,14 +239,47 @@ export function BillingSection() {
     return null;
   }
 
+  const currentPlanSlug = overview.subscription?.plan?.toLowerCase();
+  const payNowPlanSlug = currentPlanSlug ?? sortedPlans[0]?.slug ?? 'starter';
+  const subStatus = overview.subscription?.status;
+  const isPastDue = subStatus === 'PAST_DUE';
+  const isActive =
+    subStatus === 'ACTIVE' ||
+    subStatus === 'PAUSED' ||
+    (subStatus === 'TRIAL' && Boolean(overview.hasPaymentMethodOnFile));
+  const isCancelledOrExpired =
+    subStatus === 'CANCELLED' || subStatus === 'EXPIRED' || subStatus === 'SUSPENDED';
+  const supportsCardUpdate = overview.supportsCardUpdate !== false;
+  const canManageSub =
+    overview.canManageBilling &&
+    overview.paymentsEnabled &&
+    Boolean(overview.subscription) &&
+    subStatus !== 'CANCELLED';
+
+  const paymentMethodLabel =
+    overview.paymentMethodBrand && overview.paymentMethodLastFour
+      ? `${overview.paymentMethodBrand} •••• ${overview.paymentMethodLastFour}`
+      : overview.hasPaymentMethodOnFile
+        ? 'Card on file'
+        : 'None on file';
+
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);
     try {
-      const result = await checkout.mutateAsync(planSlug);
-      window.location.assign(result.checkoutUrl);
+      const result = await checkout.mutateAsync({ planSlug });
+      if (result.checkoutUrl) {
+        await openCheckoutUrl(result.checkoutUrl);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start checkout');
     } finally {
       setCheckoutPlan(null);
     }
+  };
+
+  const goToSubscribe = () => {
+    if (!tenant?.slug) return;
+    router.push(subscribePagePath({ workspace: tenant.slug }));
   };
 
   return (
@@ -187,30 +291,114 @@ export function BillingSection() {
         </Alert>
       ) : null}
 
-      {overview.needsPayment && overview.paymentsEnabled ? (
+      {overview.pricingMismatch ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Billing currency mismatch</AlertTitle>
+          <AlertDescription>{overview.pricingMismatch.message}</AlertDescription>
+        </Alert>
+      ) : isPastDue && overview.lastPaymentFailureReason ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Payment failed</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{overview.lastPaymentFailureReason}</p>
+            {overview.dunningNextRetryAt ? (
+              <p className="text-xs">Retry on {formatDate(overview.dunningNextRetryAt)}.</p>
+            ) : null}
+            {overview.canManageBilling ? (
+              <div className="flex flex-wrap gap-2">
+                {supportsCardUpdate ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={updateCard.isPending}
+                    onClick={() => updateCard.mutate()}
+                  >
+                    {updateCard.isPending ? (
+                      <>
+                        <Loader2 className="mr-1 size-4 animate-spin" />
+                        Redirecting…
+                      </>
+                    ) : (
+                      'Update card'
+                    )}
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  disabled={checkout.isPending}
+                  onClick={() => handleCheckout(payNowPlanSlug)}
+                >
+                  Retry payment
+                </Button>
+              </div>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : overview.needsPayment && overview.paymentsEnabled ? (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertTitle>Payment required</AlertTitle>
           <AlertDescription className="space-y-3">
-            <p>Your workspace needs an active subscription to continue without interruption.</p>
+            <p>Subscribe to keep access.</p>
             {overview.canManageBilling ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={checkout.isPending}
+                  onClick={() => handleCheckout(payNowPlanSlug)}
+                >
+                  {checkout.isPending ? (
+                    <>
+                      <Loader2 className="mr-1 size-4 animate-spin" />
+                      Redirecting…
+                    </>
+                  ) : (
+                    'Pay now'
+                  )}
+                </Button>
+                {isCancelledOrExpired || !overview.subscription ? (
+                  <Button size="sm" variant="outline" onClick={goToSubscribe}>
+                    Choose a plan
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-xs">Ask an admin to pay.</p>
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : overview.cancelAtPeriodEnd && overview.subscription?.currentPeriodEnd ? (
+        <Alert>
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Cancellation scheduled</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>Access until {formatDate(overview.subscription.currentPeriodEnd)}.</p>
+            {canManageSub ? (
               <Button
                 size="sm"
-                disabled={checkout.isPending}
-                onClick={() => handleCheckout(payNowPlanSlug)}
+                disabled={resumeSub.isPending}
+                onClick={() =>
+                  resumeSub.mutate(undefined, {
+                    onSuccess: () => toast.success('Cancellation undone'),
+                    onError: (err) =>
+                      toast.error(
+                        err instanceof Error ? err.message : 'Failed to undo cancellation',
+                      ),
+                  })
+                }
               >
-                {checkout.isPending ? (
+                {resumeSub.isPending ? (
                   <>
                     <Loader2 className="mr-1 size-4 animate-spin" />
-                    Redirecting…
+                    Undoing…
                   </>
                 ) : (
-                  'Pay now'
+                  'Undo cancellation'
                 )}
               </Button>
-            ) : (
-              <p className="text-xs">Ask a workspace admin to complete payment.</p>
-            )}
+            ) : null}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -218,32 +406,83 @@ export function BillingSection() {
       <div className="rounded-lg border border-border/60 p-4">
         <p className="text-sm font-medium">Current subscription</p>
         {overview.subscription ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-medium capitalize">{overview.subscription.plan}</span>
-            <Badge variant="secondary" className="capitalize">
-              {overview.subscription.status}
-            </Badge>
-            {overview.subscription.daysRemaining != null ? (
-              <span className="text-muted-foreground">
-                · {overview.subscription.daysRemaining} trial days left
-              </span>
-            ) : null}
-            {overview.subscription.currentPeriodEnd ? (
-              <span className="text-muted-foreground">
-                · Period ends {formatDate(overview.subscription.currentPeriodEnd)}
-              </span>
-            ) : null}
+          <div className="mt-2 space-y-1 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium capitalize">{overview.subscription.plan}</span>
+              <Badge variant="secondary" className="capitalize">
+                {overview.cancelAtPeriodEnd
+                  ? 'Cancelling'
+                  : overview.hasPaymentMethodOnFile && subStatus === 'TRIAL'
+                    ? 'Active'
+                    : overview.subscription.status}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground">
+              {overview.cancelAtPeriodEnd && overview.subscription.currentPeriodEnd
+                ? `Ends ${formatDate(overview.subscription.currentPeriodEnd)}`
+                : overview.hasPaymentMethodOnFile &&
+                    subStatus === 'TRIAL' &&
+                    overview.subscription.currentPeriodEnd
+                  ? `First charge ${formatDate(overview.subscription.currentPeriodEnd)}`
+                  : subStatus === 'TRIAL' &&
+                      overview.subscription.daysRemaining != null &&
+                      !overview.hasPaymentMethodOnFile
+                    ? `${overview.subscription.daysRemaining} trial days left`
+                    : overview.subscription.currentPeriodEnd
+                      ? `Period ends ${formatDate(overview.subscription.currentPeriodEnd)}`
+                      : null}
+            </p>
           </div>
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">No active subscription.</p>
         )}
+        {canManageSub ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(isActive || isPastDue) && !overview.cancelAtPeriodEnd ? (
+              <>
+                {supportsCardUpdate && !isPastDue ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={updateCard.isPending}
+                    onClick={() => updateCard.mutate()}
+                  >
+                    {updateCard.isPending ? (
+                      <>
+                        <Loader2 className="mr-1 size-4 animate-spin" />
+                        Redirecting…
+                      </>
+                    ) : (
+                      'Update card'
+                    )}
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={cancelSub.isPending}
+                  onClick={() =>
+                    cancelSub.mutate(
+                      { atPeriodEnd: true },
+                      {
+                        onSuccess: () => toast.success('Subscription will cancel at period end'),
+                        onError: (err) =>
+                          toast.error(err instanceof Error ? err.message : 'Failed to cancel'),
+                      },
+                    )
+                  }
+                >
+                  Cancel subscription
+                </Button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-lg border border-border/60 p-4">
         <p className="text-sm font-medium">Billing contact</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Who receives invoices and billing correspondence for this workspace.
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">Invoices and billing notices.</p>
         <BillingContactForm
           initial={overview.billingContact ?? {}}
           ownerEmail={overview.ownerEmail}
@@ -284,9 +523,7 @@ export function BillingSection() {
           </div>
           <div>
             <dt className="text-muted-foreground">Payment method</dt>
-            <dd className="font-medium">
-              {overview.hasPaymentMethodOnFile ? 'Card on file' : 'None on file'}
-            </dd>
+            <dd className="font-medium">{paymentMethodLabel}</dd>
           </div>
         </dl>
       </div>
@@ -295,9 +532,9 @@ export function BillingSection() {
         <div className="rounded-lg border border-border/60">
           <p className="border-b border-border/60 px-4 py-3 text-sm font-medium">Invoices</p>
           <div className="divide-y divide-border/60">
-            {billingHistory.map((entry, index) => (
+            {billingHistory.map((entry) => (
               <div
-                key={`${entry.invoiceId ?? entry.date}-${index}`}
+                key={entry.invoiceId ?? entry.date}
                 className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
               >
                 <div>
@@ -336,48 +573,46 @@ export function BillingSection() {
             {sortedPlans.map((plan) => {
               const isCurrent = currentPlanSlug === plan.slug;
               const isPending = checkoutPlan === plan.slug && checkout.isPending;
+              const perSeat = plan.breakdown.basePrice / Math.max(1, plan.seatCount);
 
               return (
-                <div
+                <PlanPricingCard
                   key={plan.planPriceId}
-                  className="app-card rounded-xl border p-4 transition-all hover:border-primary/50 hover:shadow-sm"
-                >
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">{plan.name}</p>
-                      {plan.description ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{plan.description}</p>
-                      ) : null}
-                    </div>
-                    {isCurrent ? <Badge variant="secondary">Current</Badge> : null}
-                  </div>
-                  <p className="text-2xl font-bold tracking-tight">
-                    {formatMoney(plan.monthlyTotal, plan.currency)}
-                    <span className="text-sm font-normal text-muted-foreground"> / month</span>
-                  </p>
-                  {overview.canManageBilling ? (
-                    <Button
-                      className="mt-4 w-full"
-                      size="sm"
-                      variant={isCurrent ? 'secondary' : 'default'}
-                      disabled={isCurrent || isPending}
-                      onClick={() => handleCheckout(plan.slug)}
-                    >
-                      {isPending ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Redirecting…
-                        </>
-                      ) : isCurrent ? (
-                        'Current plan'
-                      ) : overview.subscription?.status === 'ACTIVE' ? (
-                        `Switch to ${plan.name}`
-                      ) : (
-                        'Subscribe'
-                      )}
-                    </Button>
-                  ) : null}
-                </div>
+                  slug={plan.slug}
+                  name={plan.name}
+                  description={plan.description}
+                  currency={plan.currency}
+                  pricePerSeat={perSeat}
+                  seatCount={plan.seatCount}
+                  monthlyTotal={plan.monthlyTotal}
+                  maxEmployees={plan.limits.maxEmployees}
+                  isPopular={plan.slug === 'growth'}
+                  isCurrent={isCurrent}
+                  action={
+                    overview.canManageBilling ? (
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        variant={isCurrent ? 'secondary' : 'default'}
+                        disabled={isCurrent || isPending}
+                        onClick={() => handleCheckout(plan.slug)}
+                      >
+                        {isPending ? (
+                          <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Redirecting…
+                          </>
+                        ) : isCurrent ? (
+                          'Current plan'
+                        ) : overview.subscription?.status === 'ACTIVE' ? (
+                          `Switch to ${plan.name}`
+                        ) : (
+                          'Subscribe'
+                        )}
+                      </Button>
+                    ) : null
+                  }
+                />
               );
             })}
           </div>

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { LeavePolicy } from './entities/leave-policy.entity';
@@ -8,7 +9,12 @@ import { LeavePolicyRepository } from './leave-policy.repository';
 import { LeavePolicyService } from './leave-policy.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([LeavePolicy]), TenantsModule, TenantMembersModule],
+  imports: [
+    TypeOrmModule.forFeature([LeavePolicy]),
+    TenantsModule,
+    TenantMembersModule,
+    ActivitiesModule,
+  ],
   controllers: [LeavePolicyController],
   providers: [LeavePolicyService, LeavePolicyRepository],
   exports: [LeavePolicyService],

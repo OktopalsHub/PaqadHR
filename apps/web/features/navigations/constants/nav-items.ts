@@ -3,11 +3,11 @@ import {
   Briefcase,
   Calendar,
   CalendarClock,
-  Clock,
   FileText,
   Heart,
   LayoutDashboard,
   type LucideIcon,
+  ScrollText,
   Settings,
   Users,
 } from 'lucide-react';
@@ -23,13 +23,15 @@ export type NavItem = {
 export const navItemDefs: Omit<NavItem, 'href'>[] = [
   { name: 'Dashboard', segment: '', icon: LayoutDashboard },
   { name: 'Employees', segment: 'employees', icon: Users },
-  { name: 'Recruitment', segment: 'recruitment', icon: Briefcase },
-  { name: 'Schedule', segment: 'schedule', icon: Calendar },
-  { name: 'Attendance', segment: 'attendance', icon: Clock },
+  // Temporarily hidden from the sidebar (route still exists). Re-enable with `Clock` imported from lucide-react.
+  // { name: 'Attendance', segment: 'attendance', icon: Clock },
   { name: 'Leaves', segment: 'leaves', icon: CalendarClock },
+  { name: 'Calendar', segment: 'calendar', icon: Calendar },
   { name: 'Payroll', segment: 'payroll', icon: FileText },
   { name: 'Shoutouts', segment: 'shoutouts', icon: Heart },
+  { name: 'Recruitment', segment: 'recruitment', icon: Briefcase },
   { name: 'Analytics', segment: 'analytics', icon: BarChart2 },
+  { name: 'Logs', segment: 'logs', icon: ScrollText },
   { name: 'Settings', segment: 'settings', icon: Settings },
 ];
 

@@ -8,12 +8,17 @@ export const payrollRunSchema = z.object({
   periodStart: z.string(),
   periodEnd: z.string(),
   paymentDate: z.string().optional(),
+  payoutMode: z.enum(['immediate', 'scheduled']).nullable().optional(),
   baseCurrency: z.string(),
   employeeCount: z.number().optional(),
   totalNetAmount: z.union([z.number(), z.string()]).optional(),
   totalGrossAmount: z.union([z.number(), z.string()]).optional(),
   createdAt: z.string().optional(),
   processedAt: z.string().nullable().optional(),
+  alreadyExists: z.boolean().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  /** Item counts by status, so the list can tell unpaid from paid/in-flight runs. */
+  itemCounts: z.record(z.string(), z.number()).optional(),
 });
 
 export type PayrollRun = z.infer<typeof payrollRunSchema>;
@@ -50,24 +55,52 @@ export const payrollReadinessSchema = z.object({
 
 export type PayrollReadiness = z.infer<typeof payrollReadinessSchema>;
 
+export const payrollSetupSummarySchema = z.object({
+  totalEmployees: z.number(),
+  paymentReadyCount: z.number(),
+  readyMemberIds: z.array(z.string()).optional().default([]),
+  byCurrency: z.array(
+    z.object({
+      currency: z.string(),
+      employeeCount: z.number(),
+      paymentReadyCount: z.number(),
+      readyMemberIds: z.array(z.string()).optional().default([]),
+    }),
+  ),
+});
+
+export type PayrollSetupSummary = z.infer<typeof payrollSetupSummarySchema>;
+
 export const createPayrollRunInputSchema = z.object({
   title: z.string().min(3),
   frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually']),
   periodStart: z.string(),
   periodEnd: z.string(),
-  paymentDate: z.string(),
+  paymentDate: z.string().optional(),
+  payoutMode: z.enum(['immediate', 'scheduled']).default('immediate'),
   baseCurrency: z.string(),
   employeeIds: z.array(z.string()).min(1),
 });
 
 export type CreatePayrollRunInput = z.infer<typeof createPayrollRunInputSchema>;
 
+export const patchPayrollRunInputSchema = z.object({
+  title: z.string().min(3).optional(),
+  frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually']).optional(),
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+  paymentDate: z.string().optional(),
+  employeeIds: z.array(z.string()).min(1).optional(),
+});
+
+export type PatchPayrollRunInput = z.infer<typeof patchPayrollRunInputSchema>;
+
 export const payrollAdjustmentLineSchema = z.object({
   employeeId: z.string(),
   type: z.string(),
   method: z.enum(['fixed_amount', 'percentage']),
   value: z.number(),
-  reason: z.string(),
+  reason: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -78,10 +111,15 @@ export const payrollItemSchema = z.object({
   memberId: z.string(),
   status: z.string(),
   baseSalary: z.union([z.number(), z.string()]).optional(),
+  baseSalaryCurrency: z.string().optional(),
   grossAmount: z.union([z.number(), z.string()]).optional(),
   adjustments: z.union([z.number(), z.string()]).optional(),
   deductions: z.union([z.number(), z.string()]).optional(),
   netAmount: z.union([z.number(), z.string()]).optional(),
+  paymentCurrency: z.string().optional(),
+  paymentAmount: z.union([z.number(), z.string()]).optional(),
+  exchangeRate: z.union([z.number(), z.string()]).optional(),
+  failureReason: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   employee: z
     .object({

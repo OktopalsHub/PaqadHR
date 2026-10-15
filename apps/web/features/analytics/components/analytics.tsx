@@ -2,13 +2,16 @@
 
 import { Briefcase, CalendarClock, Heart, Target, TrendingUp, Users, Wallet } from 'lucide-react';
 import { AppPage } from '@/components/app-page';
-import { LoadingBlock } from '@/components/loading-block';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  isUpgradeRequiredError,
+  UpgradeRequiredPanel,
+} from '@/features/billing/components/upgrade-prompt';
 import { useAnalyticsOverview } from '@/hooks/queries/use-analytics';
+import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatPaqPoints } from '@/lib/constants/paq-points';
-import { formatDate } from '@/lib/format-date';
 import { AnalyticsCharts } from './analytics-charts';
 
 function formatCurrency(amount: number | null, currency: string | null) {
@@ -24,13 +27,46 @@ function formatCurrency(amount: number | null, currency: string | null) {
   }
 }
 
+export function AnalyticsLoadingPanel() {
+  return (
+    <AppPage className="space-y-5" aria-busy="true" aria-label="Loading analytics">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          'workforce',
+          'recruitment',
+          'leave',
+          'payroll',
+          'attendance',
+          'departments',
+          'shoutouts',
+          'runs',
+        ].map((placeholder) => (
+          <div key={placeholder} className="dashboard-panel space-y-4 rounded-[8px] p-5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-9 w-16" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-12">
+        <div className="dashboard-panel h-[280px] rounded-[8px] xl:col-span-7" />
+        <div className="dashboard-panel h-[280px] rounded-[8px] xl:col-span-5" />
+      </div>
+    </AppPage>
+  );
+}
+
 export const Analytics = () => {
   const { data, isLoading, isError, error } = useAnalyticsOverview();
 
   if (isLoading) {
+    return <AnalyticsLoadingPanel />;
+  }
+
+  if (isError && isUpgradeRequiredError(error)) {
     return (
-      <AppPage>
-        <LoadingBlock />
+      <AppPage className="mx-auto w-full max-w-5xl">
+        <UpgradeRequiredPanel feature={FeatureAccess.ADVANCED_REPORTING} />
       </AppPage>
     );
   }
@@ -50,7 +86,7 @@ export const Analytics = () => {
 
   return (
     <AppPage className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">
             Live workforce, hiring, leave, payroll, and recognition insights.
@@ -59,7 +95,7 @@ export const Analytics = () => {
         <Badge variant="outline" className="font-normal">
           Updated {formatDate(data.generatedAt)}
         </Badge>
-      </div>
+      </div> */}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -67,18 +103,21 @@ export const Analytics = () => {
           value={data.workforce.activeEmployees}
           hint={`${data.workforce.totalEmployees} total · ${data.workforce.newHiresLast30Days} new this month`}
           icon={Users}
+          iconClassName="bg-emerald-500/12 text-emerald-700"
         />
         <StatCard
           label="Open roles"
           value={data.recruitment.openRoles}
           hint={`${data.recruitment.totalCandidates} candidates · ${data.recruitment.hired} hired`}
           icon={Briefcase}
+          iconClassName="bg-sky-500/12 text-sky-700"
         />
         <StatCard
           label="Pending leave"
           value={data.leaves.pending}
           hint={`${data.leaves.onLeaveNow} out today`}
           icon={CalendarClock}
+          iconClassName="bg-amber-500/14 text-amber-700"
         />
         <StatCard
           label="Last payroll"
@@ -89,6 +128,7 @@ export const Analytics = () => {
               : `${data.payroll.completedRuns} completed runs`
           }
           icon={Wallet}
+          iconClassName="bg-violet-500/12 text-violet-700"
         />
       </div>
 
@@ -100,25 +140,28 @@ export const Analytics = () => {
           }
           hint={`Last ${data.attendance.periodDays} days`}
           icon={Target}
+          iconClassName="bg-cyan-500/12 text-cyan-700"
         />
         <StatCard
           label="Departments"
           value={data.workforce.departmentCount}
           hint="Organizational units"
           icon={TrendingUp}
+          iconClassName="bg-indigo-500/12 text-indigo-700"
         />
         <StatCard
           label="Shoutouts"
           value={data.recognition.shoutoutsThisMonth}
           hint={`${formatPaqPoints(data.recognition.pointsAwardedThisMonth)} this month`}
           icon={Heart}
+          iconClassName="bg-rose-500/12 text-rose-700"
         />
         <StatCard
           label="Payroll runs"
           value={data.payroll.totalRuns}
           hint={`${data.payroll.completedRuns} completed`}
           icon={Wallet}
-          iconClassName="bg-chart-2/15 text-chart-2"
+          iconClassName="bg-blue-500/12 text-blue-700"
         />
       </div>
 

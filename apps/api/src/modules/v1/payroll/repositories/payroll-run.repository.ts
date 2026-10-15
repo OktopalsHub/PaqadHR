@@ -8,6 +8,7 @@ import {
   In,
   Repository,
 } from 'typeorm';
+import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import { PayrollRun } from '../entities/payroll-run.entity';
 
@@ -23,10 +24,10 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
       payrollRunRepository.queryRunner,
     );
   }
-  async findByIdWithItems(id: string): Promise<PayrollRun | null> {
+  async findByIdWithItems(id: string, tenantId: string): Promise<PayrollRun | null> {
     return this.findOne({
-      where: { id },
-      relations: ['items', 'items.employee', 'items.deductions', 'items.bonuses', 'createdBy'],
+      where: { id, tenantId },
+      relations: ['items', 'items.employee', 'createdBy'],
     });
   }
   async findByTenantId(tenantId: string): Promise<PayrollRun[]> {
@@ -83,10 +84,33 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     const entity = super.create(data);
     return this.save(entity);
   }
-  async updateAndReturn(id: string, data: DeepPartial<PayrollRun>): Promise<PayrollRun | null> {
-    await super.update(id, data as Parameters<Repository<PayrollRun>['update']>[1]);
-    return this.findById(id);
+  async updateAndReturn(
+    id: string,
+    tenantId: string,
+    data: DeepPartial<PayrollRun>,
+  ): Promise<PayrollRun | null> {
+    await super.update({ id, tenantId }, data as Parameters<Repository<PayrollRun>['update']>[1]);
+    return this.findByIdWithItems(id, tenantId);
   }
+  /**
+   * Tenant ids owning at least one PROCESSING item last touched before `cutoff`.
+   *
+   * Backs the reconciliation sweep. Resolving the owning tenants first lets the sweep query
+   * per tenant with an explicit predicate, instead of selecting PROCESSING items across every
+   * tenant in the instance. Distinct ids only, so one query covers a tenant's whole backlog.
+   */
+  async findDistinctTenantIdsWithProcessingItems(cutoff: Date): Promise<string[]> {
+    const rows = await this.createQueryBuilder('run')
+      .select('DISTINCT run.tenant_id', 'tenantId')
+      .innerJoin('run.items', 'item', 'item.status = :status', {
+        status: PayrollItemStatus.PROCESSING,
+      })
+      .andWhere('item.updated_at < :cutoff', { cutoff })
+      .getRawMany<{ tenantId: string }>();
+
+    return rows.map((row) => row.tenantId).filter((tenantId): tenantId is string => !!tenantId);
+  }
+
   async findAllPaginated(
     page: number,
     limit: number,
@@ -118,12 +142,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
   async paginate(
     options: FindManyOptions<PayrollRun>,
   ): Promise<{ data: PayrollRun[]; total: number }> {
-    try {
-      const [data, total] = await this.payrollRunRepository.findAndCount(options);
-      return { data, total };
-    } catch (error) {
-      console.error('Payroll pagination error:', error);
-      throw error;
-    }
+    const [data, total] = await this.payrollRunRepository.findAndCount(options);
+    return { data, total };
   }
 }

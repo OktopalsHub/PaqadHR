@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { JobStatus } from 'src/common/enums';
 import { Repository } from 'typeorm';
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
+import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import { Department } from '../../departments/entities/department.entity';
 import type { CreateJobOpeningDto } from '../dto/index';
 import type { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
@@ -20,6 +22,8 @@ export class JobOpeningService {
     private readonly jobOpeningRepository: JobOpeningRepository,
     @InjectRepository(Department)
     private readonly departmentRepository: Repository<Department>,
+    private readonly activitiesService: ActivitiesService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
   async createJob(
     tenantId: string,
@@ -51,7 +55,24 @@ export class JobOpeningService {
       hiringManagerId: memberId,
       status: JobStatus.DRAFT,
     };
-    return this.jobOpeningRepository.create(jobData);
+    const job = await this.jobOpeningRepository.create(jobData);
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'recruitment.job_created',
+        resourceType: 'job_opening',
+        resourceId: job.id,
+        description: `Job opening "${createJobOpeningDto.title}" created`,
+        metadata: {
+          title: createJobOpeningDto.title,
+          employmentType: createJobOpeningDto.employmentType,
+        },
+      })
+      .catch(() => {});
+
+    return job;
   }
   async getJobsByTenant(
     tenantId: string,
@@ -94,6 +115,18 @@ export class JobOpeningService {
       throw new ForbiddenException('Cannot delete job with existing applications');
     }
     await this.jobOpeningRepository.softDelete(jobId);
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'recruitment.job_deleted',
+        resourceType: 'job_opening',
+        resourceId: jobId,
+        description: `Job opening "${job.title}" deleted`,
+        metadata: { title: job.title },
+      })
+      .catch(() => {});
   }
   async activateJob(jobId: string, tenantId: string, memberId: string): Promise<JobOpening> {
     const job = await this.getJob(jobId, tenantId, memberId);
@@ -113,6 +146,21 @@ export class JobOpeningService {
     if (!updatedJob) {
       throw new NotFoundException('Job not found');
     }
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'recruitment.job_activated',
+        resourceType: 'job_opening',
+        resourceId: jobId,
+        description: `Job opening "${job.title}" activated`,
+        metadata: { title: job.title },
+      })
+      .catch(() => {});
+
+    this.productAnalytics.capture(memberId, 'job_published', { tenantId });
+
     return updatedJob;
   }
   async deactivateJob(jobId: string, tenantId: string, memberId: string): Promise<JobOpening> {
@@ -129,6 +177,19 @@ export class JobOpeningService {
     if (!updatedJob) {
       throw new NotFoundException('Job not found');
     }
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'recruitment.job_deactivated',
+        resourceType: 'job_opening',
+        resourceId: jobId,
+        description: `Job opening "${job.title}" deactivated`,
+        metadata: { title: job.title },
+      })
+      .catch(() => {});
+
     return updatedJob;
   }
   async closeJob(jobId: string, tenantId: string, memberId: string): Promise<JobOpening> {
@@ -149,6 +210,19 @@ export class JobOpeningService {
     if (!updatedJob) {
       throw new NotFoundException('Job not found');
     }
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'recruitment.job_closed',
+        resourceType: 'job_opening',
+        resourceId: jobId,
+        description: `Job opening "${job.title}" closed`,
+        metadata: { title: job.title },
+      })
+      .catch(() => {});
+
     return updatedJob;
   }
   async archiveJob(jobId: string, tenantId: string, memberId: string): Promise<JobOpening> {

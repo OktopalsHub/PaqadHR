@@ -42,16 +42,16 @@ export function useAssignPosition(memberId: string) {
 
   return useMutation({
     mutationFn: (input: AssignPositionInput) => assignPosition(memberId, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'position-history'],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'member'],
-      });
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.employees.all,
-      });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'position-history'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'member'],
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }
@@ -61,8 +61,8 @@ export function useCreatePosition() {
 
   return useMutation({
     mutationFn: (input: CreatePositionInput) => createPosition(input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
     },
   });
 }
@@ -73,8 +73,11 @@ export function useUpdatePosition() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdatePositionInput }) =>
       updatePosition(id, input),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.positions.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }
@@ -84,8 +87,11 @@ export function useDeletePosition() {
 
   return useMutation({
     mutationFn: (id: string) => deletePosition(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.positions.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }
@@ -95,8 +101,11 @@ export function useRestorePosition() {
 
   return useMutation({
     mutationFn: (id: string) => restorePosition(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.positions.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }

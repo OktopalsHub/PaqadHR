@@ -15,6 +15,10 @@ import {
 } from '@/lib/api/tenant-settings';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+import {
+  paymentMethodCurrenciesQueryKey,
+  shouldInvalidatePaymentMethodCurrencies,
+} from './tenant-settings-invalidation';
 
 export function useTenantSettings() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -37,6 +41,11 @@ export function usePatchTenantSettings() {
           queryKey: [...queryKeys.attendance.clockInInfo, tenantId],
         });
       }
+      if (shouldInvalidatePaymentMethodCurrencies(variables)) {
+        void queryClient.invalidateQueries({
+          queryKey: paymentMethodCurrenciesQueryKey(tenantId),
+        });
+      }
     },
   });
 }
@@ -55,6 +64,7 @@ export function useMembersPoints() {
     queryKey: [...queryKeys.settings.membersPoints, tenantId],
     queryFn: fetchMembersPoints,
     enabled: !tenantLoading && Boolean(tenantId),
+    staleTime: 60_000,
   });
 }
 
@@ -69,6 +79,7 @@ export function useAssignPointsToAll() {
         queryKey: [...queryKeys.settings.membersPoints, tenantId],
       });
       void queryClient.invalidateQueries({ queryKey: queryKeys.shoutouts.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.shoutouts.points(tenantId ?? '') });
     },
   });
 }

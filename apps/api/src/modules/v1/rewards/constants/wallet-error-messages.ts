@@ -1,0 +1,17 @@
+export const WALLET_UNAVAILABLE_MEMBER =
+  'Rewards are temporarily unavailable. Please contact your office administrator.';
+
+export const WALLET_NO_BILLING_CARD =
+  'Add a billing card in Settings → Billing before topping up the rewards wallet.';
+
+export const WALLET_CHARGE_FAILED_ADMIN =
+  'Card charge failed. Update your payment method in Settings → Billing.';
+
+export const WALLET_CREDIT_FAILED =
+  'Payment succeeded but wallet credit failed. Please contact support.';
+
+export const WALLET_SAVED_CARD_UNSUPPORTED =
+  'Saved-card top-up is not available for this workspace. Use checkout or bank transfer instead.';
+
+export const WALLET_CHECKOUT_UNAVAILABLE =
+  'Wallet top-up is temporarily unavailable. Please try again later or contact support.';

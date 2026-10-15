@@ -26,20 +26,45 @@ export interface ISubscriptionBillingProvider {
     metadata: SubscriptionBillingMetadata,
   ): Promise<{ orderReference: string }>;
 
-  updateSubscription(
+  chargeSeatAddition(
     subscriptionReference: string,
     planPrice: PlanPrice,
-    quantity: number,
+    amount: number,
+    targetSeatCount: number,
+    extraSeats: number,
     tokenKey: string,
     customerEmail: string,
     metadata?: SubscriptionBillingMetadata,
-  ): Promise<unknown>;
+  ): Promise<{ orderReference: string }>;
 
   getSubscription(subscriptionReference: string): Promise<unknown>;
 
-  verifyWebhookSignature(rawBody: string, signature: string): boolean;
+  createCardUpdateCheckout?(
+    email: string,
+    metadata: SubscriptionBillingMetadata,
+    successUrl: string,
+    currency: string,
+  ): Promise<SubscriptionCheckoutResponse>;
+
+  verifyWebhookSignature?(rawBody: string, signature: string, timestamp?: string): boolean;
 
   parseWebhook(payload: unknown): SubscriptionWebhookEvent | null;
 
   mapStatus(status: string): SubscriptionStatus;
+
+  ensureConfigured?(): void;
+
+  cancelExternalSubscription?(
+    externalSubscriptionId: string,
+    options?: { atPeriodEnd?: boolean },
+  ): Promise<void>;
+
+  /** Undo a scheduled cancel_at_period_end (Bachs when supported). */
+  resumeExternalSubscription?(externalSubscriptionId: string): Promise<void>;
+
+  /**
+   * End provider-side trial immediately (Bachs). Paqad free trial is in-app only;
+   * paid checkout must not leave the external subscription in `trialing`.
+   */
+  endExternalTrial?(externalSubscriptionId: string): Promise<void>;
 }

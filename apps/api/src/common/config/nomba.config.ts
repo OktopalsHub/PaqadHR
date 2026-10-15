@@ -1,5 +1,18 @@
+export const NOMBA_PRODUCTION_BASE_URL = 'https://api.nomba.com';
+export const NOMBA_SANDBOX_BASE_URL = 'https://sandbox.nomba.com';
+
+/**
+ * Nomba API host.
+ * - Production: NOMBA_LIVE=true → https://api.nomba.com
+ * - Staging/dev: NOMBA_LIVE unset/false → https://sandbox.nomba.com
+ * - Optional override: NOMBA_BASE_URL
+ */
 export function getNombaBaseUrl(): string {
-  return (process.env.NOMBA_BASE_URL || 'https://api.nomba.com').replace(/\/$/, '');
+  const explicit = process.env.NOMBA_BASE_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, '');
+  }
+  return (isNombaLive() ? NOMBA_PRODUCTION_BASE_URL : NOMBA_SANDBOX_BASE_URL).replace(/\/$/, '');
 }
 
 export function getNombaClientId(): string {
@@ -10,22 +23,62 @@ export function getNombaClientSecret(): string {
   return (process.env.NOMBA_CLIENT_SECRET || '').trim();
 }
 
+/** Parent (main) account — required in the accountId header for auth and all API calls. */
+export function getNombaParentAccountId(): string {
+  return (process.env.NOMBA_PARENT_ACCOUNT_ID || process.env.NOMBA_ACCOUNT_ID || '').trim();
+}
+
+/** Sub-account — optional; scopes VA creation, payouts, and checkout to this balance. */
+export function getNombaSubAccountId(): string {
+  return (process.env.NOMBA_SUB_ACCOUNT_ID || '').trim();
+}
+
+/** Parent accountId for Nomba auth headers (alias kept for existing call sites). */
 export function getNombaAccountId(): string {
-  return (process.env.NOMBA_ACCOUNT_ID || '').trim();
+  return getNombaParentAccountId();
+}
+
+/** Account Nomba should debit/credit for money movement (sub-account when configured). */
+export function getNombaScopedAccountId(): string {
+  return getNombaSubAccountId() || getNombaParentAccountId();
+}
+
+export function hasNombaSubAccount(): boolean {
+  return !!getNombaSubAccountId();
 }
 
 export function getNombaWebhookSecret(): string {
-  return (process.env.NOMBA_WEBHOOK_SIGNATURE_KEY || getNombaClientSecret()).trim();
+  return (process.env.NOMBA_WEBHOOK_SIGNATURE_KEY || '').trim();
 }
 
 export function getNombaPayoutAuthCode(): string {
   return (process.env.NOMBA_PAYOUT_AUTH_CODE || '').trim();
 }
 
-export function getNombaSenderName(): string {
-  return (process.env.NOMBA_SENDER_NAME || 'PAQAD HR').trim();
+export function isNombaGlobalPayoutEnabled(): boolean {
+  return !!getNombaPayoutAuthCode();
+}
+
+/** Currencies Nomba can disburse payroll to with current env config. */
+export function getNombaPayoutCurrencies(): readonly string[] {
+  return isNombaGlobalPayoutEnabled() ? ['NGN', 'USD', 'EUR', 'GBP'] : ['NGN'];
+}
+
+export function defaultPayrollCurrency(): string {
+  return isNombaGlobalPayoutEnabled() ? 'USD' : 'NGN';
+}
+
+const PLATFORM_NAME = 'PaqadHR';
+
+export function formatNombaSenderName(tenantName?: string | null): string {
+  const name = tenantName?.trim();
+  return name ? `${name} via ${PLATFORM_NAME}` : PLATFORM_NAME;
+}
+
+export function isNombaLive(): boolean {
+  return process.env.NOMBA_LIVE === 'true';
 }
 
 export function isNombaConfigured(): boolean {
-  return !!(getNombaClientId() && getNombaClientSecret() && getNombaAccountId());
+  return !!(getNombaClientId() && getNombaClientSecret() && getNombaParentAccountId());
 }

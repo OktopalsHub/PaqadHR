@@ -1,15 +1,17 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { Loader2, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
+import { SearchSelect } from '@/components/search-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -27,10 +29,15 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { memberFullName } from '@/features/employees/lib/employee-detail-state';
+import { useDepartments } from '@/hooks/queries/use-departments';
 import { useAddCompensation, useEmployments } from '@/hooks/queries/use-employment';
+import { useSupportedPaymentCurrencies } from '@/hooks/queries/use-payment-methods';
 import { useAssignPosition, usePositionHistory, usePositions } from '@/hooks/queries/use-positions';
+import { fetchTenantMembers } from '@/lib/api/employees';
 import { formatDate } from '@/lib/format-date';
 import { numberToWords } from '@/lib/number-to-words';
+import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
@@ -57,6 +64,7 @@ interface EmploymentTabProps {
   form: EmployeeDetailForm;
   memberId: string;
   isAdmin?: boolean;
+  canManageOrganization?: boolean;
   canViewCompensation?: boolean;
 }
 
@@ -64,11 +72,56 @@ export function EmploymentTab({
   form,
   memberId,
   isAdmin = false,
+  canManageOrganization = false,
   canViewCompensation = false,
 }: EmploymentTabProps) {
-  const { employee } = form;
-  const { tenant } = useTenant();
-  const currency = (tenant as { preferredCurrency?: string } | null)?.preferredCurrency ?? 'USD';
+  const { employee, handleInputChange } = form;
+  const { tenant, tenantId } = useTenant();
+  const preferredCurrency = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
+  const { data: supportedCurrencies } = useSupportedPaymentCurrencies();
+  const salaryCurrencyOptions = useMemo(() => {
+    const fiat = supportedCurrencies?.fiat ?? [];
+    const crypto = supportedCurrencies?.crypto ?? [];
+    const merged = [...fiat, ...crypto].map((code) => code.toUpperCase());
+    if (preferredCurrency && !merged.includes(preferredCurrency)) {
+      merged.unshift(preferredCurrency);
+    }
+    return Array.from(new Set(merged.length > 0 ? merged : [preferredCurrency]));
+  }, [supportedCurrencies, preferredCurrency]);
+  const [salaryCurrency, setSalaryCurrency] = useState(preferredCurrency);
+
+  useEffect(() => {
+    setSalaryCurrency((current) =>
+      salaryCurrencyOptions.includes(current) ? current : preferredCurrency,
+    );
+  }, [preferredCurrency, salaryCurrencyOptions]);
+
+  const { data: departments = [], isLoading: departmentsLoading } = useDepartments();
+  const { data: tenantMembers = [] } = useQuery({
+    queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
+    queryFn: fetchTenantMembers,
+    enabled: Boolean(tenantId) && canManageOrganization,
+  });
+
+  const managerOptions = useMemo(
+    () =>
+      tenantMembers
+        .filter((member) => member.id !== memberId && member.isActive)
+        .map((member) => ({
+          value: member.id,
+          label: memberFullName(member) || member.preferredName || 'Member',
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [memberId, tenantMembers],
+  );
+
+  const departmentOptions = useMemo(
+    () => departments.map((dept) => ({ value: dept.id, label: dept.name })),
+    [departments],
+  );
+
+  const noneManagerOption = { value: '', label: 'No manager' };
+  const noneDepartmentOption = { value: '', label: 'No department' };
 
   const {
     data: positionHistory = [],
@@ -107,6 +160,7 @@ export function EmploymentTab({
   const [positionDialogOpen, setPositionDialogOpen] = useState(false);
   const [positionEffectiveDate, setPositionEffectiveDate] = useState('');
   const [positionId, setPositionId] = useState('');
+  const [pendingAction, setPendingAction] = useState<'position' | 'salary' | null>(null);
 
   const resetSalaryDialog = () => {
     setEffectiveDate('');
@@ -114,6 +168,7 @@ export function EmploymentTab({
     setPayType('Salary');
     setPaySchedule('Monthly');
     setComments('');
+    setSalaryCurrency(preferredCurrency);
   };
 
   const resetPositionDialog = () => {
@@ -121,7 +176,7 @@ export function EmploymentTab({
     setPositionId('');
   };
 
-  const handleAddSalary = async () => {
+  const handleAddSalary = () => {
     const rate = Number(payRate);
     if (!effectiveDate) {
       toast.error('Enter an effective date');
@@ -132,15 +187,22 @@ export function EmploymentTab({
       return;
     }
 
+    setPendingAction('salary');
+  };
+
+  const confirmAddSalary = async () => {
+    const rate = Number(payRate);
     try {
       await addCompensation.mutateAsync({
         effectiveDate,
         payRate: rate,
         payType,
         paySchedule,
+        currency: salaryCurrency,
         comments: comments.trim() || undefined,
       });
       toast.success('Salary added');
+      setPendingAction(null);
       setSalaryDialogOpen(false);
       resetSalaryDialog();
     } catch (err) {
@@ -148,7 +210,7 @@ export function EmploymentTab({
     }
   };
 
-  const handleAssignPosition = async () => {
+  const handleAssignPosition = () => {
     if (!positionId) {
       toast.error('Select a position');
       return;
@@ -158,12 +220,17 @@ export function EmploymentTab({
       return;
     }
 
+    setPendingAction('position');
+  };
+
+  const confirmAssignPosition = async () => {
     try {
       await assignPosition.mutateAsync({
         positionId,
         assignedAt: positionEffectiveDate,
       });
       toast.success('Position updated');
+      setPendingAction(null);
       setPositionDialogOpen(false);
       resetPositionDialog();
     } catch (err) {
@@ -172,11 +239,10 @@ export function EmploymentTab({
   };
 
   return (
-    <TabsContent value="employment">
+    <TabsContent value="employment" className="mt-4">
       <Card>
         <CardHeader>
           <CardTitle>Employment Details</CardTitle>
-          <CardDescription>Job information and employment history</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -200,12 +266,52 @@ export function EmploymentTab({
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Current department</Label>
-              <Input
-                id="department"
-                value={displayValue(employee.department)}
-                readOnly
-                className="bg-muted/50"
-              />
+              {canManageOrganization ? (
+                <SearchSelect
+                  options={[noneDepartmentOption, ...departmentOptions]}
+                  value={employee.departmentId}
+                  onValueChange={(value) => {
+                    const department = departmentOptions.find((dept) => dept.value === value);
+                    handleInputChange('departmentId', value);
+                    handleInputChange('department', department?.label ?? '');
+                  }}
+                  placeholder="Select department"
+                  searchPlaceholder="Search departments…"
+                  emptyMessage="No departments found."
+                  disabled={departmentsLoading}
+                />
+              ) : (
+                <Input
+                  id="department"
+                  value={displayValue(employee.department)}
+                  readOnly
+                  className="bg-muted/50"
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manager">Reports to</Label>
+              {canManageOrganization ? (
+                <SearchSelect
+                  options={[noneManagerOption, ...managerOptions]}
+                  value={employee.reportsToId}
+                  onValueChange={(value) => {
+                    const manager = managerOptions.find((member) => member.value === value);
+                    handleInputChange('reportsToId', value);
+                    handleInputChange('manager', manager?.label ?? '');
+                  }}
+                  placeholder="Select manager"
+                  searchPlaceholder="Search people…"
+                  emptyMessage="No people found."
+                />
+              ) : (
+                <Input
+                  id="manager"
+                  value={displayValue(employee.manager)}
+                  readOnly
+                  className="bg-muted/50"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="join-date">Join Date</Label>
@@ -229,7 +335,7 @@ export function EmploymentTab({
                   Role changes over time, separate from salary.
                 </p>
               </div>
-              {isAdmin ? (
+              {canManageOrganization ? (
                 <Dialog
                   open={positionDialogOpen}
                   onOpenChange={(open) => {
@@ -246,9 +352,6 @@ export function EmploymentTab({
                   <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader>
                       <DialogTitle>Change position</DialogTitle>
-                      <DialogDescription>
-                        Record a new role for this employee. Previous positions stay in history.
-                      </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-2">
                       {positionsLoading ? (
@@ -269,7 +372,6 @@ export function EmploymentTab({
                                 {positions.map((position) => (
                                   <SelectItem key={position.id} value={position.id}>
                                     {position.title}
-                                    {position.department ? ` · ${position.department}` : ''}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -292,7 +394,7 @@ export function EmploymentTab({
                         disabled={
                           assignPosition.isPending || positionsLoading || positions.length === 0
                         }
-                        onClick={() => void handleAssignPosition()}
+                        onClick={handleAssignPosition}
                       >
                         {assignPosition.isPending ? (
                           <Loader2 className="mr-2 size-4 animate-spin" />
@@ -315,27 +417,25 @@ export function EmploymentTab({
               <p className="text-sm text-muted-foreground">Loading position history…</p>
             ) : positionHistory.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {isAdmin
+                {canManageOrganization
                   ? 'No position on file yet. Assign the first role for this employee.'
                   : 'No position history on file yet.'}
               </p>
             ) : (
               <div className="rounded-lg border border-border/60">
-                <div className="hidden grid-cols-[1.2fr_1fr_1fr_0.7fr] gap-3 border-b border-border/60 px-4 py-3 text-xs font-medium text-muted-foreground md:grid">
+                <div className="hidden grid-cols-[1.2fr_1fr_0.7fr] gap-3 border-b border-border/60 px-4 py-3 text-xs font-medium text-muted-foreground md:grid">
                   <span>Effective date</span>
                   <span>Title</span>
-                  <span>Department</span>
                   <span>Status</span>
                 </div>
                 <div className="divide-y divide-border/60">
                   {positionHistory.map((record) => (
                     <div
                       key={record.id}
-                      className="flex flex-col gap-2 px-4 py-3 text-sm md:grid md:grid-cols-[1.2fr_1fr_1fr_0.7fr] md:items-center md:gap-3"
+                      className="flex flex-col gap-2 px-4 py-3 text-sm md:grid md:grid-cols-[1.2fr_1fr_0.7fr] md:items-center md:gap-3"
                     >
                       <p className="font-medium">{formatDate(record.assignedAt)}</p>
                       <p className="font-medium">{displayValue(record.position?.title ?? '')}</p>
-                      <p>{displayValue(record.position?.department ?? '')}</p>
                       <div>
                         <Badge variant={record.isCurrent ? 'secondary' : 'outline'}>
                           {record.isCurrent ? 'Current' : 'Ended'}
@@ -377,9 +477,6 @@ export function EmploymentTab({
                       <DialogContent className="sm:max-w-[480px]">
                         <DialogHeader>
                           <DialogTitle>Add salary</DialogTitle>
-                          <DialogDescription>
-                            Record a new salary amount. Previous salaries stay in history.
-                          </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-2">
                           <div className="space-y-2">
@@ -405,6 +502,25 @@ export function EmploymentTab({
                                 {numberToWords(Number(payRate))}
                               </p>
                             ) : null}
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="add-salary-currency">Currency</Label>
+                            <Select value={salaryCurrency} onValueChange={setSalaryCurrency}>
+                              <SelectTrigger id="add-salary-currency">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {salaryCurrencyOptions.map((code) => (
+                                  <SelectItem key={code} value={code}>
+                                    {code}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              Contract / payroll currency. Payout goes to the employee&apos;s
+                              primary payment method; FX applies when they differ.
+                            </p>
                           </div>
                           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
@@ -450,10 +566,7 @@ export function EmploymentTab({
                           </div>
                         </div>
                         <DialogFooter>
-                          <Button
-                            disabled={addCompensation.isPending}
-                            onClick={() => void handleAddSalary()}
-                          >
+                          <Button disabled={addCompensation.isPending} onClick={handleAddSalary}>
                             {addCompensation.isPending ? (
                               <Loader2 className="mr-2 size-4 animate-spin" />
                             ) : null}
@@ -503,7 +616,10 @@ export function EmploymentTab({
                             </div>
                             <p className="font-medium">
                               {Number.isFinite(amount)
-                                ? formatMoney(amount, currency)
+                                ? formatMoney(
+                                    amount,
+                                    (record.currency ?? preferredCurrency).toUpperCase(),
+                                  )
                                 : displayValue(String(record.payRate))}
                             </p>
                             <p className="capitalize">{record.payType}</p>
@@ -524,6 +640,22 @@ export function EmploymentTab({
           ) : null}
         </CardContent>
       </Card>
+      <ConfirmActionDialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => !open && setPendingAction(null)}
+        title={pendingAction === 'position' ? 'Save position change?' : 'Save salary change?'}
+        description={
+          pendingAction === 'position'
+            ? 'This will update the employee position history with the selected effective date.'
+            : 'This will add the salary details to the employee compensation history.'
+        }
+        actionLabel={pendingAction === 'position' ? 'Save position' : 'Save salary'}
+        isPending={assignPosition.isPending || addCompensation.isPending}
+        onConfirm={() => {
+          if (pendingAction === 'position') void confirmAssignPosition();
+          if (pendingAction === 'salary') void confirmAddSalary();
+        }}
+      />
     </TabsContent>
   );
 }

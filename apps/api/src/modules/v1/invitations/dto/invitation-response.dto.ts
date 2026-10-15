@@ -43,10 +43,10 @@ export class InvitationResponseDto {
     example: '2024-01-08T00:00:00.000Z',
   })
   expiresAt: Date;
-  @ApiProperty({ description: 'First name of the invitee', example: 'John' })
-  firstName: string;
-  @ApiProperty({ description: 'Last name of the invitee', example: 'Doe' })
-  lastName: string;
+  @ApiProperty({ description: 'First name of the invitee', example: 'John', required: false })
+  firstName?: string | null;
+  @ApiProperty({ description: 'Last name of the invitee', example: 'Doe', required: false })
+  lastName?: string | null;
   @ApiProperty({ description: 'Middle name of the invitee', example: 'A.' })
   middleName?: string;
   @ApiProperty({

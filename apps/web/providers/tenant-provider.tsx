@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   createContext,
   type ReactNode,
@@ -11,7 +11,14 @@ import {
   useState,
 } from 'react';
 import { useUserTenants } from '@/hooks/queries/use-tenants';
-import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import {
+  getTenantSlugFromHost,
+  getTenantSlugFromPath,
+  goToTenantPath,
+  isOnTenantSubdomain,
+  isSubdomainTenantsEnabled,
+  tenantOrigin,
+} from '@/lib/navigation/tenant-routes';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { persistTenantId, persistTenantSlug, readTenantId } from '@/lib/session';
 import { useAuth } from '@/providers/auth-provider';
@@ -20,6 +27,7 @@ interface TenantContextValue {
   tenants: Tenant[];
   tenant: Tenant | null;
   tenantId: string | null;
+  selectTenantId: (tenantId: string) => void;
   setTenantId: (tenantId: string) => void;
   isLoading: boolean;
   hasResolvedTenants: boolean;
@@ -30,25 +38,57 @@ const TenantContext = createContext<TenantContextValue | null>(null);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const tenantsQuery = useUserTenants({ enabled: isAuthenticated });
-  const tenants = tenantsQuery.data ?? [];
+  const pathname = usePathname();
+  const { workspaces, isAuthenticated, isLoading: authLoading, hasResolvedSession } = useAuth();
+
+  const tenantsQuery = useUserTenants({
+    enabled: false,
+    initialWorkspaces: hasResolvedSession ? workspaces : undefined,
+  });
+  const tenants = hasResolvedSession ? workspaces : (tenantsQuery.data ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     typeof window !== 'undefined' ? readTenantId() : null,
   );
 
+  // The URL (subdomain or first path segment) is the workspace on screen.
+  const workspaceSlug = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return getTenantSlugFromHost(window.location.host) ?? getTenantSlugFromPath(pathname);
+  }, [pathname]);
+
   const tenant = useMemo(() => {
     if (!tenants.length) return null;
+    // Prefer the URL slug over the stored selection so queries never fire for
+    // a different workspace while the selection catches up after login.
+    const fromSlug = workspaceSlug
+      ? tenants.find((item) => item.slug === workspaceSlug)
+      : undefined;
     return (
+      fromSlug ??
       tenants.find((item) => item.id === selectedId) ??
       tenants.find((item) => item.isActive) ??
       tenants[0]
     );
-  }, [tenants, selectedId]);
+  }, [tenants, selectedId, workspaceSlug]);
 
-  const isLoading = authLoading || (isAuthenticated && tenantsQuery.isPending);
-  const hasResolvedTenants = !isAuthenticated || tenantsQuery.isFetched;
-  const isError = isAuthenticated && tenantsQuery.isError;
+  const isLoading = authLoading || (isAuthenticated && !hasResolvedSession);
+  const hasResolvedTenants = !isAuthenticated || hasResolvedSession;
+  const isError = false;
+
+  useEffect(() => {
+    if (!tenants.length) return;
+    const slugFromHost =
+      typeof window !== 'undefined' ? getTenantSlugFromHost(window.location.host) : null;
+    const slugFromPath = getTenantSlugFromPath(pathname);
+    const slug = slugFromHost ?? slugFromPath;
+    if (!slug) return;
+    const match = tenants.find((item) => item.slug === slug);
+    if (match && match.id !== selectedId) {
+      setSelectedId(match.id);
+      persistTenantId(match.id);
+      if (match.slug) persistTenantSlug(match.slug);
+    }
+  }, [tenants, pathname, selectedId]);
 
   useEffect(() => {
     if (!tenant) return;
@@ -56,17 +96,34 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (tenant.slug) persistTenantSlug(tenant.slug);
   }, [tenant]);
 
-  const setTenantId = useCallback(
+  const selectTenantId = useCallback(
     (tenantId: string) => {
       const next = tenants.find((item) => item.id === tenantId);
       persistTenantId(tenantId);
       setSelectedId(tenantId);
-      if (next?.slug) {
-        persistTenantSlug(next.slug);
-        router.push(tenantRoot(next.slug));
-      }
+      if (next?.slug) persistTenantSlug(next.slug);
     },
-    [tenants, router],
+    [tenants],
+  );
+
+  const setTenantId = useCallback(
+    (tenantId: string) => {
+      const next = tenants.find((item) => item.id === tenantId);
+      selectTenantId(tenantId);
+      if (!next?.slug) return;
+
+      const onSubdomain = isOnTenantSubdomain();
+      const hostSlug =
+        typeof window !== 'undefined' ? getTenantSlugFromHost(window.location.host) : null;
+      if (onSubdomain && hostSlug === next.slug) return;
+
+      if (isSubdomainTenantsEnabled()) {
+        window.location.assign(tenantOrigin(next.slug));
+        return;
+      }
+      goToTenantPath(next.slug, router.push);
+    },
+    [tenants, router, selectTenantId],
   );
 
   const value = useMemo<TenantContextValue>(
@@ -74,12 +131,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       tenants,
       tenant,
       tenantId: tenant?.id ?? null,
+      selectTenantId,
       setTenantId,
       isLoading,
       hasResolvedTenants,
       isError,
     }),
-    [tenants, tenant, setTenantId, isLoading, hasResolvedTenants, isError],
+    [tenants, tenant, selectTenantId, setTenantId, isLoading, hasResolvedTenants],
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

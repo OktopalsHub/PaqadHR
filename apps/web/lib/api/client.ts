@@ -1,20 +1,67 @@
-import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
-
-const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001/api/v1';
-
-function normalizeApiV1Base(url: string): string {
-  const trimmed = url.replace(/\/$/, '');
-  if (trimmed.endsWith('/api/v1')) return trimmed;
-  if (trimmed.endsWith('/api')) return `${trimmed}/v1`;
-  return `${trimmed}/api/v1`;
-}
-
-const API_V1_BASE = normalizeApiV1Base(RAW_API_BASE);
+import axios, {
+  type AxiosError,
+  AxiosHeaders,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios';
+import {
+  isAuthRefreshPaused,
+  refreshAccessToken,
+  startProactiveRefresh,
+} from '@/lib/api/auth-refresh';
+import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
+import { beginNetworkActivity } from '@/lib/network-activity';
+import { prepareApiRequestHeaders } from './api-request-headers';
+import { resolveApiErrorMessage } from './client-error-message';
+import {
+  executeFetchWithCsrf,
+  type FetchWithCsrfOptions,
+  isCsrfErrorResponse,
+} from './fetch-with-csrf';
+import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
 const CSRF_HEADER = 'x-csrf-token';
 
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
+
+const LEGACY_ACCESS_TOKEN_KEY = 'paqad_access_token';
+const LEGACY_REFRESH_TOKEN_KEY = 'paqad_refresh_token';
+
+function resolveApiV1Base(): string {
+  return normalizeApiV1Base(
+    resolveApiBaseUrl(
+      typeof window !== 'undefined' ? { requestHost: window.location.hostname } : undefined,
+    ),
+  );
+}
+
+export function clearLegacyAuthTokens(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+  window.localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
+}
+
+/** @deprecated Auth uses httpOnly cookies; kept for call-site compatibility. */
+export function setAccessToken(_token: string | null) {
+  clearLegacyAuthTokens();
+}
+
+/** @deprecated Auth uses httpOnly cookies. */
+export function getAccessToken(): string | null {
+  return null;
+}
+
+/** @deprecated Auth uses httpOnly cookies; kept for call-site compatibility. */
+export function setRefreshToken(_token: string | null) {
+  clearLegacyAuthTokens();
+}
+
+/** @deprecated Auth uses httpOnly cookies. */
+export function getRefreshToken(): string | null {
+  return null;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -27,24 +74,17 @@ export class ApiError extends Error {
   }
 }
 
-export function getApiV1Base() {
-  return API_V1_BASE;
+export function getApiV1Base(): string {
+  return resolveApiV1Base();
 }
 
-export function getApiOrigin() {
-  return API_V1_BASE.replace(/\/api\/v1$/, '');
+export function getApiOrigin(): string {
+  return getApiV1Base().replace(/\/api\/v1$/, '');
 }
 
-export function tenantPath(tenantId: string, path = '') {
+export function tenantPath(tenantId: string, path = ''): string {
   const suffix = path.startsWith('/') ? path : path ? `/${path}` : '';
   return `/tenants/${tenantId}${suffix}`;
-}
-
-function isCsrfError(status: number, payload: unknown): boolean {
-  if (status !== 403) return false;
-  if (!payload || typeof payload !== 'object') return false;
-  const message = String((payload as { message?: string }).message ?? '').toLowerCase();
-  return message.includes('csrf');
 }
 
 export async function ensureCsrfToken(force = false): Promise<string> {
@@ -52,22 +92,21 @@ export async function ensureCsrfToken(force = false): Promise<string> {
   if (!force && csrfTokenPromise) return csrfTokenPromise;
 
   csrfTokenPromise = (async () => {
-    const response = await fetch(`${getApiOrigin()}/csrf/token`, {
-      credentials: 'include',
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new ApiError('Failed to fetch CSRF token', response.status);
+    try {
+      const { data } = await axios.get<{ csrfToken: string }>(`${getApiOrigin()}/csrf/token`, {
+        timeout: API_REQUEST_TIMEOUT_MS,
+        withCredentials: true,
+      });
+      if (!data.csrfToken) {
+        throw new ApiError('CSRF token missing in response', 200);
+      }
+      csrfToken = data.csrfToken;
+      return csrfToken;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const status = (error as AxiosError)?.response?.status ?? 0;
+      throw new ApiError('Failed to fetch CSRF token', status);
     }
-
-    const data = (await response.json()) as { csrfToken: string };
-    if (!data.csrfToken) {
-      throw new ApiError('CSRF token missing in response', response.status);
-    }
-
-    csrfToken = data.csrfToken;
-    return csrfToken;
   })();
 
   try {
@@ -78,9 +117,11 @@ export async function ensureCsrfToken(force = false): Promise<string> {
 }
 
 export async function bootstrapCsrf(): Promise<void> {
+  clearLegacyAuthTokens();
   try {
     await ensureCsrfToken(true);
   } catch {}
+  startProactiveRefresh();
 }
 
 export function clearCsrfToken() {
@@ -88,7 +129,26 @@ export function clearCsrfToken() {
   csrfTokenPromise = null;
 }
 
-type ApiClientOptions = RequestInit & {
+type ErrorPayload = {
+  message?: string | string[];
+  code?: string;
+} | null;
+
+type ApiRequestConfig = AxiosRequestConfig & {
+  skipCsrf?: boolean;
+  _isRetry?: boolean;
+};
+
+type ApiInterceptorConfig = InternalAxiosRequestConfig & {
+  skipCsrf?: boolean;
+  _isRetry?: boolean;
+};
+
+export type ApiClientOptions = Omit<AxiosRequestConfig, 'method' | 'headers' | 'data'> & {
+  method?: string;
+  headers?: HeadersInit;
+  body?: unknown;
+  data?: unknown;
   skipCsrf?: boolean;
 };
 
@@ -96,48 +156,122 @@ const AUTH_PATHS_WITHOUT_REFRESH = [
   '/auth/login',
   '/auth/register',
   '/auth/refresh',
+  '/auth/clear-access',
   '/auth/forgot-password',
+  '/auth/reset-password',
 ];
+
+const REFRESH_RETRY_DELAYS_MS = [500, 1000];
 
 function shouldAttemptAuthRefresh(path: string): boolean {
   return !AUTH_PATHS_WITHOUT_REFRESH.some((prefix) => path.startsWith(prefix));
 }
 
-async function parseErrorPayload(response: Response) {
-  return response.json().catch(() => null);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function fetchWithCsrf(
-  url: string,
-  init?: RequestInit & { skipCsrf?: boolean },
-): Promise<Response> {
-  const method = (init?.method ?? 'GET').toUpperCase();
-  const needsCsrf = !init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+async function parseAxiosErrorPayload(response: AxiosResponse): Promise<ErrorPayload> {
+  try {
+    return response.data as ErrorPayload;
+  } catch {
+    return null;
+  }
+}
 
-  const headers = new Headers(init?.headers);
+const http = axios.create({
+  baseURL: resolveApiV1Base(),
+  timeout: API_REQUEST_TIMEOUT_MS,
+  withCredentials: true,
+});
+
+http.interceptors.request.use(async (config) => {
+  const requestConfig = config as ApiInterceptorConfig;
+  const headers = AxiosHeaders.from(requestConfig.headers ?? {});
+  const method = (requestConfig.method ?? 'get').toUpperCase();
+  const needsCsrf = !requestConfig.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+
   if (needsCsrf) {
     headers.set(CSRF_HEADER, await ensureCsrfToken());
   }
 
-  let response = await fetch(url, {
-    ...init,
-    method,
-    credentials: 'include',
-    headers,
-  });
-
-  if (needsCsrf && isCsrfError(response.status, await parseErrorPayload(response.clone()))) {
-    clearCsrfToken();
-    headers.set(CSRF_HEADER, await ensureCsrfToken(true));
-    response = await fetch(url, {
-      ...init,
-      method,
-      credentials: 'include',
-      headers,
-    });
+  const path = requestConfig.url ?? '';
+  const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
+  if (tenantMatch?.[1]) {
+    headers.set('x-tenant-id', tenantMatch[1]);
   }
 
-  return response;
+  requestConfig.headers = headers;
+  return requestConfig;
+});
+
+http.interceptors.response.use(
+  (response) => {
+    if (isCsrfErrorResponse(response.status, response.data)) {
+      clearCsrfToken();
+    }
+    return response;
+  },
+  async (error: AxiosError) => {
+    const config = error.config;
+    if (!config) return Promise.reject(error);
+    const requestConfig = config as ApiRequestConfig;
+
+    const path = requestConfig.url ?? '';
+    const status = error.response?.status ?? 0;
+    const isRetry = requestConfig._isRetry ?? false;
+
+    if (status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
+      if (isAuthRefreshPaused()) {
+        const payload = error.response ? await parseAxiosErrorPayload(error.response) : null;
+        const message = resolveApiErrorMessage(status, payload);
+        throw new ApiError(message, status, payload?.code);
+      }
+
+      requestConfig._isRetry = true;
+
+      // Session probe: one soft refresh — anonymous users must not burn toward hard logout.
+      const isSessionProbe = path.includes('/auth/session');
+      if (isSessionProbe) {
+        const refreshed = await refreshAccessToken({ softFail: true });
+        if (refreshed) {
+          startProactiveRefresh();
+          return http(requestConfig);
+        }
+      } else {
+        for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+          const refreshed = await refreshAccessToken();
+          if (refreshed) {
+            startProactiveRefresh();
+            return http(requestConfig);
+          }
+          await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+        }
+      }
+    }
+
+    const payload = error.response ? await parseAxiosErrorPayload(error.response) : null;
+    const message = resolveApiErrorMessage(status, payload);
+
+    throw new ApiError(message, status, payload?.code);
+  },
+);
+
+export async function fetchWithCsrf(
+  input: RequestInfo | URL,
+  init?: FetchWithCsrfOptions,
+): Promise<Response> {
+  const finishActivity = beginNetworkActivity();
+  try {
+    return await executeFetchWithCsrf(input, init, {
+      fetchImpl: fetch,
+      ensureCsrfToken,
+      clearCsrfToken,
+      csrfHeader: CSRF_HEADER,
+    });
+  } finally {
+    finishActivity();
+  }
 }
 
 export async function apiClient<T>(
@@ -145,49 +279,35 @@ export async function apiClient<T>(
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
-  const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
-  const headers = new Headers(init?.headers);
-  if (!headers.has('Content-Type') && init?.body) {
-    headers.set('Content-Type', 'application/json');
-  }
-  if (tenantMatch?.[1]) {
-    headers.set('x-tenant-id', tenantMatch[1]);
-  }
+  const finishActivity = beginNetworkActivity();
+  const headers = prepareApiRequestHeaders(init?.headers, init?.body);
 
-  const response = await fetchWithCsrf(`${API_V1_BASE}${path}`, {
-    ...init,
+  const config: ApiRequestConfig = {
+    url: path,
+    method: init?.method ?? 'GET',
+    data: init?.body ?? init?.data,
+    params: init?.params,
+    signal: init?.signal,
+    _isRetry: isRetry,
+    skipCsrf: init?.skipCsrf,
     headers,
-  }).catch((error: unknown) => {
-    if (error instanceof ApiError) throw error;
-    if (error instanceof TypeError) {
-      throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
-    }
-    throw error;
-  });
+  };
 
-  if (!response.ok) {
-    const payload = await parseErrorPayload(response);
-    const message =
-      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
-      `Request failed (${response.status})`;
-
-    if (response.status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return apiClient<T>(path, init, true);
+  try {
+    const response = await http(config).catch((err: unknown) => {
+      if (err instanceof ApiError) throw err;
+      if (err instanceof TypeError) {
+        throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
       }
-      invalidateSession();
+      throw err;
+    });
+
+    if (response.status === 204) {
+      return undefined as T;
     }
 
-    throw new ApiError(message, response.status, payload?.code);
+    return response.data as T;
+  } finally {
+    finishActivity();
   }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  const text = await response.text();
-  if (!text) return undefined as T;
-
-  return JSON.parse(text) as T;
 }

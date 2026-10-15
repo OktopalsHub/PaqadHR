@@ -30,6 +30,15 @@ export class CreateCompensationDto {
   @IsNotEmpty()
   payRate: number;
 
+  @IsOptional()
+  @IsString()
+  @ApiProperty({
+    description: 'ISO 4217 salary currency (defaults to member current or workspace currency)',
+    required: false,
+    example: 'NGN',
+  })
+  currency?: string;
+
   @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(PayType)
   @ApiProperty({

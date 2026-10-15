@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getNombaSenderName, isNombaConfigured } from '../config/nomba.config';
+import {
+  formatNombaSenderName,
+  getNombaBaseUrl,
+  isNombaConfigured,
+  NOMBA_PRODUCTION_BASE_URL,
+} from '../config/nomba.config';
+import { isNombaOperationSuccessful } from '../config/nomba-api.util';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';
@@ -7,33 +13,18 @@ import type { WebhookResult } from '../interfaces/webhook-result.interface';
 import { NombaTransferApiService } from '../services/nomba-transfer-api.service';
 import { BasePaymentProvider } from './base-payment.provider';
 
-const NGN_BANK_CURRENCIES = new Set(['NGN']);
-const GLOBAL_PAYOUT_CURRENCIES = new Set(['USD', 'EUR', 'GBP', 'KES', 'GHS', 'ZAR']);
-
-const DEFAULT_PAYOUT_RAILS: Record<
-  string,
-  { paymentMethod: string; country: string; bankAccountType?: 'CHECKING' | 'SAVINGS' }
-> = {
-  USD: { paymentMethod: 'ACH', country: 'US', bankAccountType: 'CHECKING' },
-  EUR: { paymentMethod: 'SEPA', country: 'DE' },
-  GBP: { paymentMethod: 'FASTER_PAYMENTS', country: 'GB' },
-  KES: { paymentMethod: 'MobileMoney', country: 'KE' },
-  GHS: { paymentMethod: 'MobileMoney', country: 'GH' },
-  ZAR: { paymentMethod: 'BANK', country: 'ZA' },
-};
-
 @Injectable()
 export class NombaProvider extends BasePaymentProvider {
   constructor(private readonly nombaTransferApi: NombaTransferApiService) {
-    super('Nomba', 'https://api.nomba.com', true);
+    super('Nomba', getNombaBaseUrl() || NOMBA_PRODUCTION_BASE_URL, true);
   }
 
   protected getDefaultBaseUrl(): string {
-    return 'https://api.nomba.com';
+    return getNombaBaseUrl();
   }
 
   protected initializeCurrencyConfigs(): void {
-    ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'].forEach((code) => {
+    ['NGN', 'USD', 'GBP', 'EUR'].forEach((code) => {
       this.currencyConfigs.set(code, {
         code,
         name: code,
@@ -72,91 +63,55 @@ export class NombaProvider extends BasePaymentProvider {
       );
 
     try {
-      if (NGN_BANK_CURRENCIES.has(currency)) {
-        if (!data.bankCode?.trim()) {
-          return {
-            success: false,
-            error: 'Bank code is required for NGN payouts',
-            retryable: false,
-          };
-        }
-
-        const response = await this.nombaTransferApi.bankTransfer({
-          amount: data.amount,
-          accountNumber: data.accountNumber,
-          accountName: data.accountName,
-          bankCode: data.bankCode,
-          merchantTxRef,
-          senderName: data.senderName || getNombaSenderName(),
-          narration: data.description,
-        });
-
-        const status = response.data?.status?.toUpperCase();
-        const success =
-          status === 'SUCCESS' || status === 'PENDING_BILLING' || response.code === '00';
-
+      if (currency !== 'NGN') {
         return {
-          success,
-          transactionId: response.data?.id ?? merchantTxRef,
-          reference: merchantTxRef,
-          providerStatus: status,
-          error: success ? undefined : response.description,
-          retryable: !success,
+          success: false,
+          error: `Currency ${currency} is handled by Noah, not Nomba`,
+          retryable: false,
         };
       }
 
-      if (GLOBAL_PAYOUT_CURRENCIES.has(currency)) {
-        const rail = DEFAULT_PAYOUT_RAILS[currency];
-        const destinationCountry = data.countryCode?.toUpperCase() || rail?.country;
-        const paymentMethod = data.paymentRail || rail?.paymentMethod;
-
-        if (!destinationCountry || !paymentMethod) {
-          return {
-            success: false,
-            error: `Unsupported payout currency: ${currency}`,
-            retryable: false,
-          };
-        }
-
-        const response = await this.nombaTransferApi.globalPayout({
-          amount: data.amount,
-          sourceCurrency: currency,
-          destinationCurrency: currency,
-          receiverName: data.accountName,
-          sourceCountryIsoCode: destinationCountry,
-          destinationCountryIsoCode: destinationCountry,
-          paymentMethod,
-          accountNumber: data.accountNumber,
-          institutionCode: data.institutionCode || data.bankCode,
-          institutionName: data.institutionName || data.bankName,
-          accountType: data.accountType ?? 'INDIVIDUAL',
-          bankAccountType: data.bankAccountType ?? rail?.bankAccountType,
-          purposeOfPayment: data.purposeOfPayment ?? 'PAYROLL',
-          narration: data.description,
-          merchantTxRef,
-        });
-
-        const status = response.data?.status?.toUpperCase();
-        const success =
-          status === 'COMPLETED' ||
-          status === 'PROCESSING' ||
-          status === 'PENDING' ||
-          response.code === '00';
-
+      if (!data.bankCode?.trim()) {
         return {
-          success,
-          transactionId: response.data?.id ?? merchantTxRef,
-          reference: merchantTxRef,
-          providerStatus: status,
-          error: success ? undefined : response.description,
-          retryable: !success,
+          success: false,
+          error: 'Bank code is required for NGN payouts',
+          retryable: false,
         };
       }
+
+      const response = await this.nombaTransferApi.bankTransfer({
+        amount: data.amount,
+        accountNumber: data.accountNumber,
+        accountName: data.accountName,
+        bankCode: data.bankCode,
+        merchantTxRef,
+        senderName:
+          data.senderName ||
+          formatNombaSenderName(
+            typeof data.metadata?.tenantName === 'string' ? data.metadata.tenantName : undefined,
+          ),
+        narration: data.description,
+      });
+
+      const status = response.data?.status?.toUpperCase();
+      const success = isNombaOperationSuccessful({ code: response.code, status });
+      const pendingStatuses = new Set([
+        'PENDING',
+        'PENDING_BILLING',
+        'PROCESSING',
+        'NEW',
+        'IN_PROGRESS',
+        'AWAITING_PROCESSING',
+      ]);
 
       return {
-        success: false,
-        error: `Currency ${currency} is not supported for Nomba payroll payouts`,
-        retryable: false,
+        success,
+        transactionId: response.data?.id ?? merchantTxRef,
+        reference: merchantTxRef,
+        providerStatus: status,
+        error: success ? undefined : response.description,
+        // Hard failures (FAILED / REFUND) must not look "in flight" — only uncertain states.
+        retryable: !success && (!status || pendingStatuses.has(status)),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -185,7 +140,7 @@ export class NombaProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'];
+    return ['NGN'];
   }
 
   validateSignature(payload: unknown, signature: string): boolean {

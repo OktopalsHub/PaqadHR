@@ -3,6 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import {
+  type BroadcastNotificationInput,
+  broadcastNotification,
+  deleteNotification,
   fetchNotifications,
   fetchUnreadNotificationCount,
   markAllNotificationsRead,
@@ -10,6 +13,7 @@ import {
   subscribeToNotificationStream,
 } from '@/lib/api/notifications';
 import { queryKeys } from '@/lib/query/keys';
+import { useAuth } from '@/providers/auth-provider';
 import { useTenant } from '@/providers/tenant-provider';
 
 const NOTIFICATIONS_LIMIT = 20;
@@ -22,35 +26,59 @@ function notificationQueryKeys(tenantId: string | null) {
   };
 }
 
-export function useNotifications(options?: { enabled?: boolean }) {
+function notificationsEnabled(
+  tenantId: string | null,
+  tenantLoading: boolean,
+  authLoading: boolean,
+  isAuthenticated: boolean,
+  enabled = true,
+) {
+  return enabled && !tenantLoading && !authLoading && isAuthenticated && Boolean(tenantId);
+}
+
+export function useNotifications(options?: { enabled?: boolean; limit?: number }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const keys = notificationQueryKeys(tenantId);
+  const limit = options?.limit ?? NOTIFICATIONS_LIMIT;
 
   return useQuery({
-    queryKey: keys.list,
-    queryFn: () => fetchNotifications({ limit: NOTIFICATIONS_LIMIT }),
-    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
+    queryKey: [...keys.list, limit] as const,
+    queryFn: () => fetchNotifications(tenantId!, { limit }),
+    enabled: notificationsEnabled(
+      tenantId,
+      tenantLoading,
+      authLoading,
+      isAuthenticated,
+      options?.enabled ?? true,
+    ),
+    refetchOnWindowFocus: true,
+    retry: false,
   });
 }
 
 export function useUnreadNotificationCount() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const keys = notificationQueryKeys(tenantId);
 
   return useQuery({
     queryKey: keys.unreadCount,
-    queryFn: fetchUnreadNotificationCount,
-    enabled: !tenantLoading && Boolean(tenantId),
+    queryFn: () => fetchUnreadNotificationCount(tenantId!),
+    enabled: notificationsEnabled(tenantId, tenantLoading, authLoading, isAuthenticated),
     refetchInterval: UNREAD_POLL_MS,
+    refetchOnWindowFocus: true,
+    retry: false,
   });
 }
 
 export function useNotificationStream() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (!tenantId) return;
+    if (!tenantId || authLoading || !isAuthenticated) return;
 
     const controller = new AbortController();
     const keys = notificationQueryKeys(tenantId);
@@ -65,7 +93,7 @@ export function useNotificationStream() {
     });
 
     return () => controller.abort();
-  }, [queryClient, tenantId]);
+  }, [queryClient, tenantId, isAuthenticated, authLoading]);
 }
 
 export function useMarkNotificationRead() {
@@ -74,7 +102,10 @@ export function useMarkNotificationRead() {
   const keys = notificationQueryKeys(tenantId);
 
   return useMutation({
-    mutationFn: (notificationId: string) => markNotificationRead(notificationId),
+    mutationFn: (notificationId: string) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return markNotificationRead(tenantId, notificationId);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.list });
       void queryClient.invalidateQueries({ queryKey: keys.unreadCount });
@@ -88,7 +119,44 @@ export function useMarkAllNotificationsRead() {
   const keys = notificationQueryKeys(tenantId);
 
   return useMutation({
-    mutationFn: markAllNotificationsRead,
+    mutationFn: () => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return markAllNotificationsRead(tenantId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.list });
+      void queryClient.invalidateQueries({ queryKey: keys.unreadCount });
+    },
+  });
+}
+
+export function useBroadcastNotification() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+  const keys = notificationQueryKeys(tenantId);
+
+  return useMutation({
+    mutationFn: (input: BroadcastNotificationInput) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return broadcastNotification(tenantId, input);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.list });
+      void queryClient.invalidateQueries({ queryKey: keys.unreadCount });
+    },
+  });
+}
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+  const keys = notificationQueryKeys(tenantId);
+
+  return useMutation({
+    mutationFn: (notificationId: string) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return deleteNotification(tenantId, notificationId);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.list });
       void queryClient.invalidateQueries({ queryKey: keys.unreadCount });

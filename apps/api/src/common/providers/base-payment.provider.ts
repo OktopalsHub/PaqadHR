@@ -7,6 +7,7 @@ import type { PaymentProviderInterface } from '../interfaces/payment-provider-in
 import type { PaymentResult } from '../interfaces/payment-result.interface';
 import type { WebhookResult } from '../interfaces/webhook-result.interface';
 import { PaymentProviderError } from './payment-provider.interface';
+import { runConcurrentCreatePayments } from './run-concurrent-create-payments';
 
 export abstract class BasePaymentProvider implements PaymentProviderInterface {
   protected readonly logger: Logger;
@@ -25,6 +26,10 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
     this.initializeCurrencyConfigs();
   }
   abstract createPayment(data: CreatePaymentData): Promise<PaymentResult>;
+  /** Default: concurrent singles. Providers with a real batch API should override. */
+  createBulkTransfer(transfers: CreatePaymentData[]): Promise<PaymentResult[]> {
+    return runConcurrentCreatePayments((data) => this.createPayment(data), transfers, 10);
+  }
   abstract processWebhook(payload: unknown, signature: string): Promise<WebhookResult>;
   abstract getSupportedCurrencies(): Promise<string[]>;
   abstract validateSignature(payload: unknown, signature: string): boolean;
@@ -152,8 +157,8 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }
-  protected sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
-    const sanitized: Record<string, any> = {};
+  protected sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(metadata)) {
       if (this.isSensitiveKey(key)) {
         continue;
@@ -221,8 +226,6 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
     };
     if (error) {
       this.logger.error(`Transaction ${action} failed:`, logData);
-    } else {
-      this.logger.log(`Transaction ${action}:`, logData);
     }
   }
 }

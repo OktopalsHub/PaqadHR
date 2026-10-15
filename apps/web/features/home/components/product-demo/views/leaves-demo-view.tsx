@@ -25,7 +25,12 @@ export function LeavesDemoView({ compact }: LeavesDemoViewProps) {
   const approved = demoLeaveRequests.filter((r) => r.status === 'approved').length;
 
   return (
-    <div className={cn('space-y-4 p-4', compact && 'p-3')}>
+    <div
+      className={cn(
+        'flex h-full flex-col gap-3 bg-[#fbfdfc] p-4 font-montserrat dark:bg-[#0d1e19]',
+        compact && 'p-3',
+      )}
+    >
       {!compact ? (
         <div className="grid gap-2 sm:grid-cols-3">
           <StatCard
@@ -52,11 +57,17 @@ export function LeavesDemoView({ compact }: LeavesDemoViewProps) {
         </div>
       ) : null}
 
-      <ContentCard title="Leave requests" className="p-0">
-        <div className="overflow-x-auto">
+      <ContentCard
+        title="Leave requests"
+        className="min-h-0 flex-1 border-[#e2ebe7] shadow-[0_8px_20px_-18px_rgba(23,60,50,0.5)] dark:border-[#25453a]"
+        titleClassName="text-xs font-semibold"
+        headerClassName="border-[#edf1ef] px-4 py-3 dark:border-[#25453a]"
+        bodyClassName="p-0"
+      >
+        <div className="h-full overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-border/60 text-muted-foreground">
+            <thead className="bg-[#f7faf8] dark:bg-[#173128]">
+              <tr className="border-b border-[#edf1ef] text-muted-foreground dark:border-[#25453a]">
                 <th className="px-4 py-2 font-medium">Employee</th>
                 <th className="px-4 py-2 font-medium">Type</th>
                 <th className="px-4 py-2 font-medium">Dates</th>

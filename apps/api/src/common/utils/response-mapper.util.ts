@@ -23,7 +23,7 @@ export class ResponseMapper {
       totalPages: Math.ceil(data.total / data.limit),
     };
   }
-  static excludeSensitiveFields<T extends Record<string, any>>(
+  static excludeSensitiveFields<T extends Record<string, unknown>>(
     obj: T,
     fieldsToExclude: (keyof T)[],
   ): Omit<T, keyof T> {
@@ -33,7 +33,7 @@ export class ResponseMapper {
     });
     return result;
   }
-  static pickFields<T extends Record<string, any>, K extends keyof T>(
+  static pickFields<T extends Record<string, unknown>, K extends keyof T>(
     obj: T,
     fieldsToPick: K[],
   ): Pick<T, K> {

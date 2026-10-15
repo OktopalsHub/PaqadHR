@@ -26,7 +26,8 @@ export class StringUtility {
   static generateInviteCode(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let result = '';
-    for (let i = 0; i < 8; i++) {
+    // DB column is VARCHAR(6) — keep this in sync with tenants.invite_code
+    for (let i = 0; i < 6; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;

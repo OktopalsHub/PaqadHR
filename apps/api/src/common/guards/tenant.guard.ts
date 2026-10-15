@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { TenantMemberRepository } from '../../modules/v1/tenant-members/repositories/tenant-members.repository';
 import { tenantContext } from '../context/tenant.context';
 import {
   AUTH_ONLY_KEY,
@@ -14,8 +15,12 @@ import {
 } from '../decorators';
 @Injectable()
 export class TenantGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
-  canActivate(context: ExecutionContext): boolean {
+  constructor(
+    private reflector: Reflector,
+    private readonly tenantMemberRepository: TenantMemberRepository,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -36,26 +41,46 @@ export class TenantGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    const requireTenant =
-      this.reflector.getAllAndOverride<boolean>(REQUIRE_TENANT_KEY, [
-        context.getHandler(),
-        context.getClass(),
-      ]) ?? false;
-    if (!requireTenant) {
-      return true;
-    }
-    const tenant = tenantContext.getCurrentTenant();
-    if (tenant?.isActive) {
-      return true;
-    }
+    const explicitRequireTenant = this.reflector.getAllAndOverride<boolean>(REQUIRE_TENANT_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     const request = context.switchToHttp().getRequest();
-    const requestTenant = request.tenant;
-    if (!requestTenant) {
+    const requestedTenantId =
+      request?.params?.tenantId ??
+      request?.headers?.['x-tenant-id'] ??
+      tenantContext.getCurrentTenantId();
+    const requireTenant = explicitRequireTenant ?? Boolean(requestedTenantId);
+    if (!requireTenant) return true;
+
+    if (!request.user) {
+      throw new ForbiddenException('Authentication required');
+    }
+    if (!requestedTenantId || typeof requestedTenantId !== 'string') {
       throw new ForbiddenException('Tenant context is required');
     }
-    if (!requestTenant.isActive) {
+
+    const contextTenantId = tenantContext.getCurrentTenantId();
+    if (contextTenantId && contextTenantId !== requestedTenantId) {
+      throw new ForbiddenException('Tenant access denied');
+    }
+
+    const membership = await this.tenantMemberRepository.findMembershipByUserAndTenant(
+      request.user.principalId,
+      requestedTenantId,
+    );
+    if (!membership?.isActive) {
+      throw new ForbiddenException('Tenant access denied');
+    }
+
+    const tenantMembership = await this.tenantMemberRepository.findOne({
+      where: { id: membership.id, tenantId: requestedTenantId },
+      relations: ['tenant'],
+    });
+    if (!tenantMembership?.tenant?.isActive) {
       throw new ForbiddenException('Tenant is not active');
     }
+
     return true;
   }
 }

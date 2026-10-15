@@ -10,6 +10,7 @@ import {
   updateDepartment,
 } from '@/lib/api/departments';
 import { queryKeys } from '@/lib/query/keys';
+import type { Department } from '@/lib/schemas/department';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function useDepartments() {
@@ -24,13 +25,31 @@ export function useDepartments() {
 
 export function useCreateDepartment() {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
 
   return useMutation({
     mutationFn: (input: CreateDepartmentInput) => createDepartment(input),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.departments.all,
+    onSuccess: async (created, input) => {
+      if (!tenantId) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+        return;
+      }
+      const key = [...queryKeys.departments.all, tenantId] as const;
+      queryClient.setQueryData<Department[]>(key, (current) => {
+        const list = current ?? [];
+        if (list.some((dept) => dept.id === created.id)) return list;
+        return [
+          ...list,
+          {
+            id: created.id,
+            name: input.name,
+            description: input.description ?? undefined,
+            color: input.color ?? '#3b82f6',
+            members: [],
+          },
+        ];
       });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
     },
   });
 }
@@ -42,7 +61,10 @@ export function useUpdateDepartment() {
     mutationFn: ({ id, input }: { id: string; input: UpdateDepartmentInput }) =>
       updateDepartment(id, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.departments.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }
@@ -53,7 +75,10 @@ export function useDeleteDepartment() {
   return useMutation({
     mutationFn: (id: string) => deleteDepartment(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.departments.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }

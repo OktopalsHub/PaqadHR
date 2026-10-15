@@ -4,12 +4,18 @@ import { formatDisplayName } from '@/lib/format-name';
 import { memberProfileSchema } from '@/lib/schemas/member-profile';
 
 function formatMemberProfile<
-  T extends { firstName?: string; lastName?: string; preferredName?: string | null },
+  T extends {
+    firstName?: string;
+    lastName?: string;
+    middleName?: string;
+    preferredName?: string | null;
+  },
 >(profile: T): T {
   return {
     ...profile,
     firstName: profile.firstName ? formatDisplayName(profile.firstName) : profile.firstName,
     lastName: profile.lastName ? formatDisplayName(profile.lastName) : profile.lastName,
+    middleName: profile.middleName ? formatDisplayName(profile.middleName) : profile.middleName,
     preferredName: profile.preferredName
       ? formatDisplayName(profile.preferredName)
       : profile.preferredName,
@@ -25,12 +31,24 @@ export async function fetchMemberProfile() {
 export type UpdateMemberProfileInput = {
   firstName?: string;
   lastName?: string;
+  middleName?: string;
   preferredName?: string;
   phone?: string;
   dateOfBirth?: string;
   gender?: string;
   avatarKey?: string;
+  identityBvn?: string;
+  identityNin?: string;
 };
+
+export async function updateMemberProfileById(memberId: string, input: UpdateMemberProfileInput) {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<unknown>(tenantPath(tenantId, `members/${memberId}/profile`), {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+  return memberProfileSchema.parse(formatMemberProfile(data as object));
+}
 
 export async function updateMemberProfile(input: UpdateMemberProfileInput) {
   const tenantId = await resolveTenantId();

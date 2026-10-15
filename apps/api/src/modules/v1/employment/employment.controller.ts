@@ -12,26 +12,43 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateCompensationDto } from './dto/create-compensation.dto';
-import type { CreateEmploymentDto } from './dto/create-employment.dto';
-import type { UpdateEmploymentDto } from './dto/update-employment.dto';
+import { CreateCompensationDto } from './dto/create-compensation.dto';
+import { CreateEmploymentDto } from './dto/create-employment.dto';
+import { UpdateEmploymentDto } from './dto/update-employment.dto';
 import { EmploymentService } from './employment.service';
 import type { Employment } from './entities/employment.entity';
 
 @ApiTags('Employments')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/')
+@UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.BASIC_HR)
 export class EmploymentController {
   constructor(
     private readonly employmentService: EmploymentService,
     private readonly managerAccessService: ManagerAccessService,
   ) {}
+
+  @Get('compensation/current')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getCurrentCompensation(@Param('tenantId') tenantId: string): Promise<
+    Array<{
+      memberId: string;
+      payRate: number;
+      payType: string;
+      paySchedule: string;
+    }>
+  > {
+    return this.employmentService.getCurrentSalariesForTenant(tenantId);
+  }
 
   @Post('members/:memberId/compensation')
   @UseGuards(TenantRoleGuard)
@@ -102,8 +119,9 @@ export class EmploymentController {
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateEmploymentDto: UpdateEmploymentDto,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<Employment> {
-    return this.employmentService.updateEmployment(id, updateEmploymentDto, tenantId);
+    return this.employmentService.updateEmployment(id, updateEmploymentDto, tenantId, member.id);
   }
   @Delete('employments/:id')
   @UseGuards(TenantRoleGuard)
@@ -112,7 +130,8 @@ export class EmploymentController {
   async deleteEmployment(
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<void> {
-    return this.employmentService.deleteEmployment(id, tenantId);
+    return this.employmentService.deleteEmployment(id, tenantId, member.id);
   }
 }

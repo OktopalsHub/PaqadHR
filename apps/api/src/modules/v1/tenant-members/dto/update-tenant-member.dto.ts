@@ -1,8 +1,18 @@
-import { ApiProperty, PartialType } from '@nestjs/swagger';
-import { IsOptional, IsUUID } from 'class-validator';
-import { CreateTenantMemberDto } from './index';
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { TenantMemberRole } from 'src/common/enums';
 
-export class UpdateTenantMemberDto extends PartialType(CreateTenantMemberDto) {
+export class UpdateTenantMemberDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
+  @IsEnum(TenantMemberRole)
+  @ApiProperty({
+    description: 'workspace role',
+    required: false,
+  })
+  @IsOptional()
+  role?: TenantMemberRole;
+
   @IsUUID()
   @ApiProperty({
     description: 'department id',
@@ -11,6 +21,7 @@ export class UpdateTenantMemberDto extends PartialType(CreateTenantMemberDto) {
   })
   @IsOptional()
   departmentId?: string;
+
   @IsUUID()
   @ApiProperty({
     description: 'reports to id',

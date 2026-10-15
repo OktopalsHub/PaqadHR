@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
+import { ActivitiesService } from '../activities/services/activities.service';
 import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -24,6 +25,7 @@ export class EmploymentService {
     private readonly tenantRepository: Repository<Tenant>,
     private readonly tenantMembersService: TenantMembersService,
     private readonly positionMemberService: PositionMemberService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   async createEmployment(
     tenantId: string,
@@ -34,9 +36,16 @@ export class EmploymentService {
     await this.tenantMembersService.getTenantMember(tenantMemberId, tenantId);
 
     const { positionStartDate: _positionStartDate, ...employmentData } = createEmploymentDto;
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const currency = (
+      (employmentData as { currency?: string }).currency ||
+      tenant?.preferredCurrency ||
+      'USD'
+    ).toUpperCase();
 
     const employment = await this.employmentRepository.createEmployment({
       ...employmentData,
+      currency,
       tenantMemberId,
       tenantId,
       createdBy,
@@ -51,6 +60,20 @@ export class EmploymentService {
       );
     }
 
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: createdBy,
+        action: 'employment.created',
+        resourceType: 'employment',
+        resourceId: employment.id,
+        description: `Employment record created`,
+        metadata: {
+          tenantMemberId,
+        },
+      })
+      .catch(() => {});
+
     return employment;
   }
   async addCompensationRecord(
@@ -61,7 +84,8 @@ export class EmploymentService {
   ): Promise<Employment> {
     await this.tenantMembersService.getTenantMember(tenantMemberId, tenantId);
 
-    const { effectiveDate, payRate, payType, paySchedule, comments } = createCompensationDto;
+    const { effectiveDate, payRate, payType, paySchedule, comments, currency } =
+      createCompensationDto;
     if (payRate <= 0) {
       throw new BadRequestException('Pay rate must be greater than zero');
     }
@@ -70,6 +94,14 @@ export class EmploymentService {
       tenantMemberId,
       tenantId,
     );
+
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const salaryCurrency = (
+      currency ||
+      currentEmployment?.currency ||
+      tenant?.preferredCurrency ||
+      'USD'
+    ).toUpperCase();
 
     const inheritedPositionId: string | null | undefined = currentEmployment?.positionId ?? null;
     if (currentEmployment) {
@@ -80,17 +112,35 @@ export class EmploymentService {
       await this.employmentRepository.endCurrentEmployment(tenantMemberId, endDate, tenantId);
     }
 
-    return this.employmentRepository.createEmployment({
+    const newEmployment = await this.employmentRepository.createEmployment({
       startDate: effectiveDate,
       payRate,
       payType,
       paySchedule,
       comments,
+      currency: salaryCurrency,
       positionId: inheritedPositionId ?? undefined,
       tenantMemberId,
       tenantId,
       createdBy,
     });
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: createdBy,
+        action: 'employment.compensation_updated',
+        resourceType: 'employment',
+        resourceId: newEmployment.id,
+        description: `Compensation record added`,
+        metadata: {
+          tenantMemberId,
+          effectiveDate,
+        },
+      })
+      .catch(() => {});
+
+    return newEmployment;
   }
   async listEmployments(tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.listEmployments(tenantId);
@@ -109,13 +159,47 @@ export class EmploymentService {
     id: string,
     updateEmploymentDto: UpdateEmploymentDto,
     tenantId: string,
+    actorMemberId?: string,
   ): Promise<Employment> {
     await this.getEmployment(id, tenantId);
-    return this.employmentRepository.updateEmployment(id, updateEmploymentDto, tenantId);
+    const updated = await this.employmentRepository.updateEmployment(
+      id,
+      updateEmploymentDto,
+      tenantId,
+    );
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'employment.updated',
+          resourceType: 'employment',
+          resourceId: id,
+          description: `Employment record updated`,
+          metadata: { updatedFields: Object.keys(updateEmploymentDto) },
+        })
+        .catch(() => {});
+    }
+
+    return updated;
   }
-  async deleteEmployment(id: string, tenantId: string): Promise<void> {
+  async deleteEmployment(id: string, tenantId: string, actorMemberId?: string): Promise<void> {
     await this.getEmployment(id, tenantId);
     await this.employmentRepository.deleteEmployment(id, tenantId);
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'employment.deleted',
+          resourceType: 'employment',
+          resourceId: id,
+          description: `Employment record deleted`,
+        })
+        .catch(() => {});
+    }
   }
   async getCurrentEmployment(tenantMemberId: string, tenantId: string): Promise<Employment> {
     const employment = await this.employmentRepository.getCurrentEmployment(
@@ -143,14 +227,24 @@ export class EmploymentService {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
     });
-    const currency = tenant?.preferredCurrency || 'USD';
+    const currency = (employment.currency || tenant?.preferredCurrency || 'USD').toUpperCase();
     return {
       employment,
-      baseSalary: employment.payRate,
+      baseSalary: Number(employment.payRate),
       payType: employment.payType,
       paySchedule: employment.paySchedule,
       currency,
     };
+  }
+
+  async countActiveEmploymentsWithCurrency(tenantId: string, currency: string): Promise<number> {
+    return this.employmentRepository.count({
+      where: {
+        tenantId,
+        currency: currency.toUpperCase(),
+        endDate: IsNull(),
+      },
+    });
   }
   async getBulkEmploymentSalaryInfo(
     tenantMemberIds: string[],
@@ -168,14 +262,47 @@ export class EmploymentService {
     >
   > {
     const salaryMap = new Map();
-    for (const memberId of tenantMemberIds) {
-      try {
-        const salaryInfo = await this.getEmploymentSalaryInfo(memberId, tenantId);
-        salaryMap.set(memberId, salaryInfo);
-      } catch (error) {
-        console.warn(`Could not get salary info for employee ${memberId}:`, error.message);
-      }
+    if (!tenantMemberIds.length) return salaryMap;
+    const [employments, tenant] = await Promise.all([
+      this.employmentRepository.find({
+        where: {
+          tenantMemberId: In(tenantMemberIds),
+          tenantId,
+          endDate: IsNull(),
+        },
+        relations: ['position'],
+      }),
+      this.tenantRepository.findOne({ where: { id: tenantId } }),
+    ]);
+    for (const employment of employments) {
+      const currency = (employment.currency || tenant?.preferredCurrency || 'USD').toUpperCase();
+      salaryMap.set(employment.tenantMemberId, {
+        employment,
+        baseSalary: Number(employment.payRate),
+        payType: employment.payType,
+        paySchedule: employment.paySchedule,
+        currency,
+      });
     }
     return salaryMap;
+  }
+
+  async getCurrentSalariesForTenant(tenantId: string): Promise<
+    Array<{
+      memberId: string;
+      payRate: number;
+      payType: string;
+      paySchedule: string;
+      currency: string;
+    }>
+  > {
+    const employments = await this.employmentRepository.findCurrentEmploymentsByTenantId(tenantId);
+    return employments.map((employment) => ({
+      memberId: employment.tenantMemberId,
+      payRate: Number(employment.payRate),
+      payType: employment.payType,
+      paySchedule: employment.paySchedule,
+      currency: (employment.currency || 'USD').toUpperCase(),
+    }));
   }
 }

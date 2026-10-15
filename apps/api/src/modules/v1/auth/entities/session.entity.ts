@@ -5,6 +5,7 @@ import { User } from '../../users/entities/user.entity';
 @Entity('session')
 @Index(['userId'])
 @Index(['token'], { unique: true })
+@Index(['expiresAt'])
 export class Session extends BaseEntity {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
@@ -12,6 +13,12 @@ export class Session extends BaseEntity {
   @Column({ name: 'expires_at', type: 'timestamp' })
   expiresAt: Date;
 
+  /**
+   * Stores the SHA-256 hash of the session token.
+   *
+   * Existing plaintext tokens are accepted during the transition and are
+   * upgraded to hashes the next time the session is refreshed or validated.
+   */
   @Column({ type: 'text', unique: true })
   token: string;
 

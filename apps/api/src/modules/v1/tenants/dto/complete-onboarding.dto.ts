@@ -42,6 +42,16 @@ export class CompleteOnboardingDto {
   @MaxLength(2)
   businessCountry?: string;
 
+  @ApiProperty({
+    example: 'Africa/Lagos',
+    required: false,
+    description: 'Browser IANA timezone (fallback when IP/country is unavailable)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  timezone?: string;
+
   @ApiProperty({ example: 'Jane', required: false })
   @IsOptional()
   @IsString()

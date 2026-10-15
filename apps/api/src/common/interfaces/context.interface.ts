@@ -7,7 +7,7 @@ export interface TenantContext {
 export interface MemberContext {
   id: string;
   role: string;
-  userId: string;
+  memberId: string;
 }
 export interface RequestContext {
   tenant?: TenantContext;

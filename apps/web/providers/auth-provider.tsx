@@ -1,30 +1,65 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
-import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
+import { IdleLockGate } from '@/features/auth/components/idle-lock-gate';
+import { PrivacyConsentGate } from '@/features/auth/components/privacy-consent-gate';
 import {
   clearSession,
   getSession,
   login as loginRequest,
   logoutRequest,
+  mapSessionUser,
+  type RegistrationResponse,
   register as registerRequest,
+  verifyEmail as verifyEmailRequest,
+  waitForSessionBootstrap,
 } from '@/lib/api/auth';
-import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
-import { fetchUserTenants } from '@/lib/api/tenants';
 import {
-  authDestinationToPath,
-  resolveAuthDestination,
-} from '@/lib/navigation/resolve-auth-destination';
+  resumeAuthRefresh,
+  setRefreshCallbacks,
+  startProactiveRefresh,
+  stopProactiveRefresh,
+} from '@/lib/api/auth-refresh';
+import { bootstrapCsrf } from '@/lib/api/client';
+import { clearIdleLock, touchLastActivity } from '@/lib/auth/idle-lock';
+import {
+  hasResolvedSessionBootstrap,
+  isServerValidatedSession,
+  isSessionBootstrapLoading,
+} from '@/lib/auth/session-state';
+import { cacheKeys, clearAppCache, getCached, MAX_CACHE_TTL, setCached } from '@/lib/cache';
+import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
+import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
+import { authPageUrl } from '@/lib/navigation/tenant-routes';
+import { resetPostHog } from '@/lib/observability/posthog-client';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
+import type { SessionBootstrap } from '@/lib/schemas/session-bootstrap';
+import type { Tenant } from '@/lib/schemas/tenant';
 
 interface AuthContextType {
   user: User | null;
+  workspaces: Tenant[];
+  paymentsEnabled: boolean;
+  featureGatingEnabled: boolean;
+  /** Salted analytics distinct id shared with the API so client and server events merge. */
+  analyticsDistinctId: string | null;
+  hasResolvedSession: boolean;
   login: (input: LoginInput) => Promise<void>;
-  register: (input: SignupInput) => Promise<void>;
+  register: (input: SignupInput) => Promise<RegistrationResponse>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -39,40 +74,93 @@ function readRedirectParam(): string | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const currentPathname = typeof window === 'undefined' ? pathname : window.location.pathname;
+  const sessionBootstrapEnabled = !skipsSessionBootstrap(currentPathname);
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  const cachedSession = useMemo(() => {
+    if (!hasHydrated || !sessionBootstrapEnabled) return null;
+    return getCached<SessionBootstrap>(cacheKeys.auth.session);
+  }, [hasHydrated, sessionBootstrapEnabled]);
 
   const sessionQuery = useQuery({
     queryKey: queryKeys.auth.session,
-    queryFn: getSession,
-    staleTime: Infinity,
+    queryFn: async () => {
+      const bootstrap = await getSession();
+      if (bootstrap) {
+        setCached(cacheKeys.auth.session, bootstrap, { ttl: MAX_CACHE_TTL });
+        queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
+      }
+      return bootstrap;
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+    enabled: sessionBootstrapEnabled,
+    placeholderData: cachedSession ?? undefined,
   });
 
-  const navigateAfterAuth = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
+  const hasResolvedSession = hasResolvedSessionBootstrap(
+    sessionBootstrapEnabled,
+    sessionQuery.isFetched,
+    sessionQuery.isPlaceholderData,
+    sessionQuery.isError,
+  );
 
-    const tenants = await queryClient.fetchQuery({
-      queryKey: queryKeys.tenants.all,
-      queryFn: fetchUserTenants,
+  useEffect(() => {
+    setRefreshCallbacks({
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+      },
     });
+    return () => {
+      setRefreshCallbacks({});
+    };
+  }, [queryClient]);
 
-    queryClient.setQueryData(queryKeys.tenants.all, tenants);
+  useEffect(() => {
+    if (sessionQuery.data && !sessionQuery.isPlaceholderData) {
+      clearIdleLock();
+      touchLastActivity();
+      resumeAuthRefresh();
+      startProactiveRefresh();
+    }
+    return () => {
+      stopProactiveRefresh();
+    };
+  }, [sessionQuery.data, sessionQuery.isPlaceholderData]);
 
-    const redirect = readRedirectParam();
-    const destination = resolveAuthDestination({
-      isAuthenticated: true,
-      tenants,
-      redirect,
-    });
-    router.push(authDestinationToPath(destination));
-  }, [queryClient, router]);
+  const navigateAfterAuth = useCallback(
+    async (bootstrap: SessionBootstrap) => {
+      queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+      queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
+
+      const redirect = readRedirectParam();
+      const href = await resolvePostAuthHref({
+        tenants: bootstrap.workspaces,
+        paymentsEnabled: bootstrap.paymentsEnabled,
+        redirect,
+      });
+      goToHref(href, router.push);
+    },
+    [queryClient, router],
+  );
 
   const loginMutation = useMutation({
     mutationFn: loginRequest,
-    onSuccess: async (user) => {
-      queryClient.setQueryData(queryKeys.auth.session, user);
+    onSuccess: async (bootstrap) => {
+      setCached(cacheKeys.auth.session, bootstrap, { ttl: MAX_CACHE_TTL });
+      queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+      queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
       await bootstrapCsrf();
       toast.success(<ToastMessage title="Login Successful" description="Welcome back!" />);
-      await navigateAfterAuth();
+      await navigateAfterAuth(bootstrap);
     },
     onError: (error: Error) => {
       toast.error(<ToastMessage title="Login Failed" description={error.message} />);
@@ -81,50 +169,113 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: registerRequest,
-    onSuccess: async (user) => {
-      queryClient.setQueryData(queryKeys.auth.session, user);
-      await bootstrapCsrf();
+    onSuccess: () => {
       toast.success(
         <ToastMessage
-          title="Registration Successful"
-          description="Your account has been created!"
+          title="Check your email"
+          description="Enter the verification code to activate your account."
         />,
       );
-      await navigateAfterAuth();
     },
     onError: (error: Error) => {
       toast.error(<ToastMessage title="Registration Failed" description={error.message} />);
     },
   });
 
-  const logout = useCallback(() => {
-    void logoutRequest().finally(() => {
-      clearSession();
-      clearCsrfToken();
-      queryClient.setQueryData(queryKeys.auth.session, null);
-      queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
-    });
-    router.push('/signin');
+  const verifyEmail = useCallback(
+    async (email: string, code: string) => {
+      const bootstrap = await verifyEmailRequest(email, code);
+      setCached(cacheKeys.auth.session, bootstrap, { ttl: MAX_CACHE_TTL });
+      queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+      queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
+
+      const redirect = readRedirectParam();
+      const href = await resolvePostAuthHref({
+        tenants: bootstrap.workspaces,
+        paymentsEnabled: bootstrap.paymentsEnabled,
+        redirect,
+      });
+      goToHref(href, router.replace);
+    },
+    [queryClient, router],
+  );
+
+  const logout = useCallback(async () => {
+    stopProactiveRefresh();
+    clearIdleLock();
+    resumeAuthRefresh();
+    try {
+      await logoutRequest();
+    } catch {
+      // Server unreachable — still tear down client state below
+    }
+    clearSession();
+    // Release the identified analytics identity before the full-page redirect.
+    resetPostHog();
+    queryClient.setQueryData(queryKeys.auth.session, null);
+    queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
+    queryClient.removeQueries({ queryKey: ['privacy', 'consent'] });
+    clearAppCache();
     toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
-  }, [queryClient, router]);
+    window.location.assign(authPageUrl('/signin'));
+  }, [queryClient]);
+
+  const sessionUser = sessionQuery.data ? mapSessionUser(sessionQuery.data) : null;
 
   const value = useMemo<AuthContextType>(
     () => ({
-      user: sessionQuery.data ?? null,
+      user: sessionUser,
+      workspaces: sessionQuery.data?.workspaces ?? [],
+      paymentsEnabled: sessionQuery.data?.paymentsEnabled ?? false,
+      featureGatingEnabled: sessionQuery.data?.featureGatingEnabled ?? false,
+      analyticsDistinctId: sessionQuery.data?.analyticsDistinctId ?? null,
+      hasResolvedSession,
       login: async (input) => {
         await loginMutation.mutateAsync(input);
       },
       register: async (input) => {
-        await registerMutation.mutateAsync(input);
+        return registerMutation.mutateAsync(input);
       },
+      verifyEmail,
       logout,
-      isAuthenticated: Boolean(sessionQuery.data),
-      isLoading: sessionQuery.isLoading || loginMutation.isPending || registerMutation.isPending,
+      isAuthenticated: isServerValidatedSession(sessionUser, sessionQuery.isPlaceholderData),
+      isLoading:
+        isSessionBootstrapLoading(
+          sessionBootstrapEnabled,
+          sessionQuery.isPending,
+          sessionQuery.isPlaceholderData,
+        ) ||
+        loginMutation.isPending ||
+        registerMutation.isPending,
     }),
-    [sessionQuery.data, sessionQuery.isLoading, loginMutation, registerMutation, logout],
+    [
+      sessionBootstrapEnabled,
+      sessionQuery.data,
+      sessionQuery.isPending,
+      sessionQuery.isPlaceholderData,
+      sessionUser,
+      hasResolvedSession,
+      loginMutation,
+      registerMutation,
+      verifyEmail,
+      logout,
+    ],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <PrivacyConsentGate />
+      <IdleLockGate
+        monitor={isServerValidatedSession(sessionUser, sessionQuery.isPlaceholderData)}
+        email={sessionUser?.email ?? null}
+        hasPassword={sessionUser?.hasPassword ?? true}
+        onUnlocked={() => {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+        }}
+      />
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
@@ -134,3 +285,6 @@ export function useAuth() {
   }
   return context;
 }
+
+// Used by OAuth completion when cookies attach after redirect.
+export { waitForSessionBootstrap };

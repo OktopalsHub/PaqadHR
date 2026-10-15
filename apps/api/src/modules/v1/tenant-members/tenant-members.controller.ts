@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, CurrentUser } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
@@ -11,9 +20,9 @@ import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebr
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
 import type { ITenantMemberResponseDto } from '../../../common/interfaces/itenant-member-response-dto.interface';
 import { TenantMemberMapper, TenantMemberResponseDto } from './dto/tenant-member-response.dto';
-import type { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
-import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
-import type { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
+import { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
+import { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
+import { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
 import { TenantMembersService } from './tenant-members.service';
 
@@ -41,6 +50,16 @@ export class TenantMembersController {
     const tenantMembers = await this.tenantMembersService.getTenantMembers(tenantId);
     return TenantMemberMapper.toResponseList(tenantMembers, this.fileUrlService);
   }
+  @Get('members/summary')
+  @ApiOperation({
+    summary: 'Get lightweight employee summary',
+    description:
+      'Returns active employee and department counts without loading the employee directory',
+  })
+  /** Return lightweight employee and department metrics for the dashboard. */
+  async getTenantMemberSummary(@Param('tenantId') tenantId: string) {
+    return this.tenantMembersService.getTenantMemberSummary(tenantId);
+  }
   @Get('profile')
   async getTenantMemberProfile(
     @Param('tenantId') tenantId: string,
@@ -50,7 +69,9 @@ export class TenantMembersController {
       req.auth.principalId,
       tenantId,
     );
-    return TenantMemberMapper.toResponse(member, this.fileUrlService);
+    return TenantMemberMapper.toResponse(member, this.fileUrlService, {
+      includeIdentityStatus: true,
+    });
   }
   @Patch('profile')
   @ApiOperation({ summary: 'Update current member profile' })
@@ -64,7 +85,9 @@ export class TenantMembersController {
       req.auth.principalId,
       updateDto,
     );
-    return TenantMemberMapper.toResponse(member, this.fileUrlService);
+    return TenantMemberMapper.toResponse(member, this.fileUrlService, {
+      includeIdentityStatus: true,
+    });
   }
   @Get('roles')
   @Public()
@@ -78,37 +101,62 @@ export class TenantMembersController {
   @Get('/members/:memberId')
   async getTenantMember(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<ITenantMemberResponseDto> {
     await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, memberId, tenantId);
     const result = await this.tenantMembersService.getTenantMember(memberId, tenantId);
-    return TenantMemberMapper.toResponse(result, this.fileUrlService);
+    return TenantMemberMapper.toResponse(result, this.fileUrlService, {
+      includeIdentityStatus: member.id === memberId,
+    });
   }
   @Delete('/members/:memberId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async removeTenantMember(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
+    @CurrentTenantMember() actor: MemberContext,
   ): Promise<void> {
-    await this.tenantMembersService.removeTenantMember(memberId, tenantId);
+    await this.tenantMembersService.removeTenantMember(memberId, tenantId, actor.id);
   }
   @Patch('/members/:memberId/status')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateTenantMemberStatus(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() updateDto: UpdateTenantMemberStatusDto,
+    @CurrentTenantMember() actor: MemberContext,
   ) {
     const updatedMember = await this.tenantMembersService.updateTenantMemberStatus(
       memberId,
       tenantId,
       updateDto.isActive,
+      actor.id,
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }
+  @Patch('/members/:memberId/profile')
+  @ApiOperation({ summary: 'Update tenant member profile (admin or self)' })
+  async updateTenantMemberProfileById(
+    @Param('tenantId') tenantId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
+    @Body() updateDto: UpdateMemberProfileDto,
+    @CurrentTenantMember() actor: MemberContext,
+  ): Promise<ITenantMemberResponseDto> {
+    await this.managerAccessService.assertAdminOrSelfOrManagerOf(actor, memberId, tenantId);
+    const updated = await this.tenantMembersService.updateTenantMemberProfileById(
+      memberId,
+      tenantId,
+      updateDto,
+      actor.id,
+    );
+    return TenantMemberMapper.toResponse(updated, this.fileUrlService, {
+      includeIdentityStatus: actor.id === memberId,
+    });
+  }
+
   @Patch('/members/:memberId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -123,13 +171,15 @@ export class TenantMembersController {
   })
   async updateTenantMember(
     @Param('tenantId') tenantId: string,
-    @Param('memberId') memberId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() updateDto: UpdateTenantMemberDto,
+    @CurrentTenantMember() actor: MemberContext,
   ): Promise<ITenantMemberResponseDto> {
     const updatedMember = await this.tenantMembersService.updateTenantMemberById(
       memberId,
       tenantId,
       updateDto,
+      actor,
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }

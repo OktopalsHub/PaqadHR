@@ -1,10 +1,29 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Ip,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { Public } from 'src/common/decorators';
 import { FileService } from 'src/common/services/file.service';
-import type { CreateCandidateDto } from '../dto/index';
-import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
-import { Candidate } from '../entities/candidate.entity';
+import { RateLimitService } from 'src/common/services/rate-limit.service';
+import { TurnstileService } from 'src/common/services/turnstile.service';
+import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import { ApplicationAccessDto } from '../dto/application-access.dto';
+import { CandidateUploadUrlDto } from '../dto/candidate-upload-url.dto';
+import { CreateCandidateDto } from '../dto/index';
+import {
+  PublicApplicationMapper,
+  PublicApplicationResponseDto,
+} from '../dto/public-application-response.dto';
+import { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { CandidateService } from '../services/candidate.service';
 import { JobOpeningService } from '../services/job-opening.service';
 
@@ -16,107 +35,150 @@ export class ApplicationController {
     private readonly candidateService: CandidateService,
     private readonly fileService: FileService,
     private readonly jobOpeningService: JobOpeningService,
+    private readonly rateLimitService: RateLimitService,
+    private readonly turnstileService: TurnstileService,
   ) {}
+
+  private resolveClientIp(req: Request, ip: string): string {
+    return GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ip);
+  }
+
+  private async assertTurnstile(token: string | undefined, ip: string): Promise<void> {
+    if (!this.turnstileService.isEnabled()) {
+      return;
+    }
+    const valid = await this.turnstileService.verify(token ?? '', ip);
+    if (!valid) {
+      throw new BadRequestException('Captcha verification failed');
+    }
+  }
+
+  private async assertApplicationRateLimit(scope: string, ip: string): Promise<void> {
+    const rate = await this.rateLimitService.checkRateLimit(`${scope}:${ip}`, {
+      rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 30 }],
+    });
+    if (!rate.allowed) {
+      throw new BadRequestException('Too many requests. Please try again later.');
+    }
+  }
 
   @Post(':jobId/apply/upload-url')
   @ApiOperation({ summary: 'Generate a presigned upload URL for candidate resumes/cover-letters' })
   async getUploadUrl(
-    @Param('jobId') jobId: string,
-    @Body() body: { location: string; originalName: string; contentType?: string },
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+    @Body() body: CandidateUploadUrlDto,
+    @Req() req: Request,
+    @Ip() ip: string,
   ) {
-    const job = await this.jobOpeningService.getActiveJob(jobId);
-    if (!['resumes', 'cover-letters'].includes(body.location)) {
-      throw new BadRequestException('Invalid location for candidate upload');
+    const clientIp = this.resolveClientIp(req, ip);
+    const rate = await this.rateLimitService.checkRateLimit(`apply-upload:${clientIp}:${jobId}`, {
+      rules: [{ windowMs: 60 * 60 * 1000, maxRequests: 10 }],
+    });
+    if (!rate.allowed) {
+      throw new BadRequestException('Too many upload requests. Please try again later.');
     }
+
+    const job = await this.jobOpeningService.getActiveJob(jobId);
     return this.fileService.generateUploadUrl({
       tenantId: job.tenantId,
-      location: body.location as any,
+      location: body.location,
       originalName: body.originalName,
       contentType: body.contentType,
+      contentLength: body.contentLength,
     });
   }
 
   @Post(':jobId/apply')
-  @ApiOperation({
-    summary: 'Apply for a job opening',
-    description: `Submit basic application information. Files can be added via PATCH after application creation.
-HRM Flow:
-1. Submit this form with basic info and optional cover letter text
-2. Optionally include resume/cover letter file keys if files were pre-uploaded
-3. Use PATCH /jobs/{jobId}/applications/{applicationId} to add/update file information
-File Upload Flow:
-1. POST /files/upload-url with location: "resumes" or "cover-letters"
-2. PUT <presigned-url> to upload file
-3. Include fileKey in application creation or update`,
-  })
+  @ApiOperation({ summary: 'Apply for a job opening' })
   @ApiResponse({
     status: 201,
     description: 'Application submitted successfully',
-    type: Candidate,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - already applied or invalid data',
+    type: PublicApplicationResponseDto,
   })
   async applyForJob(
-    @Param('jobId') jobId: string,
+    @Param('jobId', ParseUUIDPipe) jobId: string,
     @Body() createCandidateDto: CreateCandidateDto,
-  ): Promise<Candidate> {
-    return this.candidateService.applyForJob(jobId, createCandidateDto);
+    @Req() req: Request,
+    @Ip() ip: string,
+  ): Promise<PublicApplicationResponseDto> {
+    const clientIp = this.resolveClientIp(req, ip);
+    await this.assertApplicationRateLimit(`apply:${jobId}`, clientIp);
+    await this.assertTurnstile(createCandidateDto.turnstileToken, clientIp);
+    const candidate = await this.candidateService.applyForJob(jobId, createCandidateDto);
+    return PublicApplicationMapper.toResponse(candidate);
   }
-  @Get(':jobId/applications/:applicationId/status')
-  @ApiOperation({ summary: 'Get application status' })
+
+  @Post(':jobId/applications/:applicationId/status')
+  @ApiOperation({ summary: 'Get application status (requires applicant email)' })
   @ApiResponse({
     status: 200,
     description: 'Application status retrieved',
-    type: Candidate,
+    type: PublicApplicationResponseDto,
   })
-  @ApiResponse({ status: 404, description: 'Application not found' })
   async getApplicationStatus(
-    @Param('applicationId') applicationId: string,
-    @Body('email') email: string,
-  ): Promise<Candidate> {
-    return this.candidateService.getApplicationStatus(applicationId, email);
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+    @Body() body: ApplicationAccessDto,
+    @Req() req: Request,
+    @Ip() ip: string,
+  ): Promise<PublicApplicationResponseDto> {
+    const clientIp = this.resolveClientIp(req, ip);
+    await this.assertApplicationRateLimit(`apply-status:${applicationId}`, clientIp);
+    const candidate = await this.candidateService.getApplicationStatus(
+      jobId,
+      applicationId,
+      body.email,
+    );
+    return PublicApplicationMapper.toResponse(candidate);
   }
+
   @Patch(':jobId/applications/:applicationId/withdraw')
   @ApiOperation({ summary: 'Withdraw job application' })
   @ApiResponse({
     status: 200,
     description: 'Application withdrawn successfully',
-    type: Candidate,
+    type: PublicApplicationResponseDto,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Cannot withdraw application in current status',
-  })
-  @ApiResponse({ status: 404, description: 'Application not found' })
   async withdrawApplication(
-    @Param('applicationId') applicationId: string,
-    @Body('email') email: string,
-  ): Promise<Candidate> {
-    return this.candidateService.withdrawApplication(applicationId, email);
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+    @Body() body: ApplicationAccessDto,
+    @Req() req: Request,
+    @Ip() ip: string,
+  ): Promise<PublicApplicationResponseDto> {
+    const clientIp = this.resolveClientIp(req, ip);
+    await this.assertApplicationRateLimit(`apply-withdraw:${applicationId}`, clientIp);
+    const candidate = await this.candidateService.withdrawApplication(
+      jobId,
+      applicationId,
+      body.email,
+    );
+    return PublicApplicationMapper.toResponse(candidate);
   }
+
   @Patch(':jobId/applications/:applicationId')
-  @ApiOperation({
-    summary: 'Update job application',
-    description:
-      'Update application details including adding resume/cover letter file information after upload',
-  })
+  @ApiOperation({ summary: 'Update job application' })
   @ApiResponse({
     status: 200,
     description: 'Application updated successfully',
-    type: Candidate,
+    type: PublicApplicationResponseDto,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Cannot update application in current status',
-  })
-  @ApiResponse({ status: 404, description: 'Application not found' })
   async updateApplication(
-    @Param('applicationId') applicationId: string,
-    @Body() updateDto: UpdateCandidateDto & { email: string },
-  ): Promise<Candidate> {
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+    @Param('applicationId', ParseUUIDPipe) applicationId: string,
+    @Body() updateDto: UpdateCandidateDto & ApplicationAccessDto,
+    @Req() req: Request,
+    @Ip() ip: string,
+  ): Promise<PublicApplicationResponseDto> {
+    const clientIp = this.resolveClientIp(req, ip);
+    await this.assertApplicationRateLimit(`apply-update:${applicationId}`, clientIp);
     const { email, ...updateData } = updateDto;
-    return this.candidateService.updateApplication(applicationId, email, updateData);
+    const candidate = await this.candidateService.updateApplication(
+      jobId,
+      applicationId,
+      email,
+      updateData,
+    );
+    return PublicApplicationMapper.toResponse(candidate);
   }
 }

@@ -1,11 +1,5 @@
-import { redirect } from 'next/navigation';
-import { tenantPath } from '@/lib/navigation/tenant-routes';
+import { CalendarView } from '@/features/calenders/components/calendar-view';
 
-export default async function CalendarRedirectPage({
-  params,
-}: {
-  params: Promise<{ tenantSlug: string }>;
-}) {
-  const { tenantSlug } = await params;
-  redirect(tenantPath(tenantSlug, 'schedule'));
+export default function CalendarPage() {
+  return <CalendarView />;
 }

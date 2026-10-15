@@ -6,6 +6,54 @@ import {
   type ValidatorConstraintInterface,
 } from 'class-validator';
 
+export const PAYROLL_PERIOD_DAY_RANGES = {
+  weekly: { min: 6, max: 8, label: 'Weekly' },
+  biweekly: { min: 13, max: 15, label: 'Bi-weekly' },
+  monthly: { min: 25, max: 32, label: 'Monthly' },
+  quarterly: { min: 89, max: 93, label: 'Quarterly' },
+  annually: { min: 364, max: 366, label: 'Annually' },
+} as const;
+
+export type PayrollFrequency = keyof typeof PAYROLL_PERIOD_DAY_RANGES;
+
+export function payrollCalendarDatePart(value: Date | string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toISOString().slice(0, 10);
+}
+
+export function payrollTodayCalendarDatePart(timeZone = 'UTC', now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+export function payrollPeriodDiffDays(
+  periodStart: Date | string,
+  periodEnd: Date | string,
+): number {
+  const start = new Date(periodStart);
+  const end = new Date(periodEnd);
+  return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function describePayrollPeriodError(frequency: string, diffDays: number): string | null {
+  const range = PAYROLL_PERIOD_DAY_RANGES[frequency as PayrollFrequency];
+  if (!range) {
+    return 'Select a valid payroll frequency.';
+  }
+
+  if (diffDays < range.min) {
+    return `${range.label} payroll needs ${range.min}–${range.max} days between period start and end; you have ${diffDays} days.`;
+  }
+  if (diffDays > range.max) {
+    return `${range.label} payroll allows at most ${range.max} days between start and end; you have ${diffDays} days.`;
+  }
+  return null;
+}
+
 @ValidatorConstraint({ name: 'isNotFuture', async: false })
 export class IsNotFutureConstraint implements ValidatorConstraintInterface {
   validate(date: unknown) {
@@ -18,6 +66,33 @@ export class IsNotFutureConstraint implements ValidatorConstraintInterface {
 
   defaultMessage() {
     return 'Date cannot be in the future';
+  }
+}
+
+/** Validates that a payroll payment date is strictly after today's calendar date. */
+@ValidatorConstraint({ name: 'isAfterToday', async: false })
+export class IsAfterTodayConstraint implements ValidatorConstraintInterface {
+  /** Checks the supplied payment date against today's calendar date. */
+  validate(date: unknown) {
+    if (!date) return false;
+    return payrollCalendarDatePart(date as string) > payrollTodayCalendarDatePart();
+  }
+
+  /** Returns the validation message for a non-future payment date. */
+  defaultMessage() {
+    return 'Payment date must be in the future';
+  }
+}
+
+@ValidatorConstraint({ name: 'isNotPast', async: false })
+export class IsNotPastConstraint implements ValidatorConstraintInterface {
+  validate(date: unknown) {
+    if (!date) return false;
+    return payrollCalendarDatePart(date as string) >= payrollTodayCalendarDatePart();
+  }
+
+  defaultMessage() {
+    return 'Payment date cannot be in the past';
   }
 }
 
@@ -43,28 +118,23 @@ export class IsValidPayrollPeriodConstraint implements ValidatorConstraintInterf
     const startDate = obj.periodStart;
     const frequency = obj.frequency;
     if (!startDate || !frequency) return false;
-    const start = new Date(startDate as string);
-    const end = new Date(endDate as string);
-    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    switch (frequency) {
-      case 'weekly':
-        return diffDays >= 6 && diffDays <= 8;
-      case 'biweekly':
-        return diffDays >= 13 && diffDays <= 15;
-      case 'monthly':
-        return diffDays >= 28 && diffDays <= 32;
-      case 'quarterly':
-        return diffDays >= 89 && diffDays <= 93;
-      case 'annually':
-        return diffDays >= 364 && diffDays <= 366;
-      default:
-        return false;
-    }
+    const diffDays = payrollPeriodDiffDays(startDate as string, endDate as string);
+    return describePayrollPeriodError(String(frequency), diffDays) === null;
   }
 
   defaultMessage(args: ValidationArguments) {
-    const frequency = (args.object as Record<string, unknown>).frequency;
-    return `Period length is invalid for ${frequency} frequency`;
+    const obj = args.object as Record<string, unknown>;
+    const startDate = obj.periodStart;
+    const frequency = String(obj.frequency ?? '');
+    const endDate = args.value;
+    if (!startDate || !endDate) {
+      return 'Pay period length is invalid for the selected frequency';
+    }
+    const diffDays = payrollPeriodDiffDays(startDate as string, endDate as string);
+    return (
+      describePayrollPeriodError(frequency, diffDays) ??
+      'Pay period length is invalid for the selected frequency'
+    );
   }
 }
 
@@ -76,6 +146,30 @@ export function IsNotFuture(validationOptions?: ValidationOptions) {
       options: validationOptions,
       constraints: [],
       validator: IsNotFutureConstraint,
+    });
+  };
+}
+
+export function IsAfterToday(validationOptions?: ValidationOptions) {
+  return (object: object, propertyName: string) => {
+    registerDecorator({
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      constraints: [],
+      validator: IsAfterTodayConstraint,
+    });
+  };
+}
+
+export function IsNotPast(validationOptions?: ValidationOptions) {
+  return (object: object, propertyName: string) => {
+    registerDecorator({
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      constraints: [],
+      validator: IsNotPastConstraint,
     });
   };
 }

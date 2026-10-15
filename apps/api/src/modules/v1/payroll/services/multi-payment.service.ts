@@ -1,36 +1,77 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
-import { NombaProvider } from 'src/common/providers/nomba.provider';
-import { DataSource } from 'typeorm';
+import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { BatchPaymentResult } from '../../../../common/interfaces/batch-payment-result.interface';
-import type { PaymentBatch } from '../../../../common/interfaces/payment-batch.interface';
-import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
+import { PaymentBatching } from './payment-batching';
+import { PaymentValidation } from './payment-validation';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
 
-interface PaymentSummary {
-  fiatSuccess: number;
-  fiatFailed: number;
+const PAYROLL_PROCESSING_LOCK_MS = 30 * 60 * 1000;
+
+/** Bachs float top-up funding currency only — never stamp Nomba/Monnify NGN onto Bachs items. */
+function bachsFundingCurrencyFromFloatTopup(floatTopup: unknown): string | undefined {
+  if (!floatTopup || typeof floatTopup !== 'object') return undefined;
+  const meta = floatTopup as { provider?: unknown; fundingCurrency?: unknown };
+  if (meta.provider !== PaymentProvider.BACHS) return undefined;
+  return typeof meta.fundingCurrency === 'string' ? meta.fundingCurrency : undefined;
+}
+
+/**
+ * Why a payout found nothing to send. A run whose items are already paid, in flight, or
+ * cancelled is not a payment-method or funding problem, so it must not be reported as one.
+ */
+export function noPayableEmployeesMessage(items: PayrollItem[], suffix: string): string {
+  const active = items.filter((item) => item.status !== PayrollItemStatus.CANCELLED);
+  const settled = active.filter(
+    (item) =>
+      item.status === PayrollItemStatus.PAID || item.status === PayrollItemStatus.PROCESSING,
+  );
+
+  if (active.length === 0) {
+    return 'Every employee on this run was cancelled, so there is nothing to pay.';
+  }
+  if (settled.length === active.length) {
+    const allPaid = active.every((item) => item.status === PayrollItemStatus.PAID);
+    return allPaid
+      ? 'Every employee on this run has already been paid.'
+      : 'Payment for this run is already in progress. It updates when each payout completes — no need to pay again.';
+  }
+
+  return `No employees could be paid. Check each employee payment method and that your payout provider account is funded, ${suffix}`;
 }
 
 @Injectable()
 export class MultiPaymentService {
-  private readonly logger = new Logger(MultiPaymentService.name);
+  private readonly batching: PaymentBatching;
+  private readonly validation: PaymentValidation;
+  private readonly lifecycleNotify?: PayrollLifecycleNotifyService;
   constructor(
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
-    private readonly paymentMethodService: PaymentMethodService,
-    readonly _dataSource: DataSource,
-    private readonly nombaProvider: NombaProvider,
+    readonly paymentMethodService: PaymentMethodService,
+    readonly paymentProviderFactory: PaymentProviderFactoryService,
     private readonly payrollPayoutService: PayrollPayoutService,
-  ) {}
+    @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
+  ) {
+    this.lifecycleNotify = lifecycleNotify;
+    this.validation = new PaymentValidation(payrollItemRepository);
+    this.batching = new PaymentBatching(
+      payrollItemRepository,
+      paymentMethodService,
+      paymentProviderFactory,
+      payrollPayoutService,
+      lifecycleNotify,
+    );
+  }
   async processMultiPaymentPayroll(
     payrollRunId: string,
     tenantId: string,
@@ -38,7 +79,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Nomba payroll gateway is not configured. Use manual disburse or configure Nomba credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -56,30 +97,67 @@ export class MultiPaymentService {
         `Payroll run must be approved before payout. Current: ${payrollRun.status}`,
       );
     }
-    const paymentBatch = await this.categorizePayments(
-      payrollRun.items,
-      tenantId,
-      payrollRun.baseCurrency,
-    );
-    this.logger.log(`Processing payment batch: ${paymentBatch.fiatPayments.length} bank payments`);
-    const fiatPaymentResults = await this.processFiatPayments(
-      paymentBatch.fiatPayments,
-      auditContext,
-      tenantId,
-      payrollRun.tenant?.name,
-      payrollRun.title,
-    );
-    const summary = this.calculatePaymentSummary(fiatPaymentResults);
-    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
-    const result: BatchPaymentResult = {
-      totalItems: payrollRun.items.length,
-      successfulPayments: summary.fiatSuccess,
-      failedPayments: summary.fiatFailed,
-      fiatResults: fiatPaymentResults,
-      summary,
-    };
-    return result;
+
+    const lockAt = new Date();
+    if (!(await this.claimPayrollRun(payrollRunId, tenantId, auditContext, lockAt))) {
+      throw new BadRequestException('Payroll run is already being processed');
+    }
+
+    try {
+      if (payrollRun.payoutMode === 'scheduled' && this.lifecycleNotify) {
+        await this.lifecycleNotify.onScheduledPayoutDue({
+          tenantId,
+          run: {
+            id: payrollRun.id,
+            title: payrollRun.title,
+            tenantId,
+            periodStart: payrollRun.periodStart,
+            periodEnd: payrollRun.periodEnd,
+            paymentDate: payrollRun.paymentDate,
+          },
+        });
+      }
+      if (payrollRun.payoutMode === 'scheduled') {
+        payrollRun.payoutMode = 'immediate';
+        await this.payrollRunRepository.save(payrollRun);
+      }
+      const paymentBatch = await this.batching.categorizePayments(payrollRun.items, tenantId);
+      const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
+      if (payable.length === 0) {
+        await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+        throw new BadRequestException(
+          noPayableEmployeesMessage(payrollRun.items, 'then use Retry payment.'),
+        );
+      }
+      const payoutResults = await this.batching.processPayouts(
+        payable,
+        auditContext,
+        tenantId,
+        payrollRun.tenant?.name,
+        payrollRun.title,
+        {
+          periodStart: payrollRun.periodStart,
+          periodEnd: payrollRun.periodEnd,
+          baseCurrency: payrollRun.baseCurrency,
+          bachsSourceCurrency: bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
+        },
+      );
+      const summary = this.validation.calculatePaymentSummary(payoutResults);
+      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+      return {
+        totalItems: payrollRun.items.length,
+        successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
+        failedPayments: summary.bankFailed + summary.cryptoFailed,
+        processingPayments: summary.bankProcessing + summary.cryptoProcessing,
+        fiatResults: payoutResults,
+        payoutResults,
+        summary,
+      };
+    } finally {
+      await this.releasePayrollRun(payrollRunId, tenantId, lockAt);
+    }
   }
+
   async retryFailedPayments(
     payrollRunId: string,
     tenantId: string,
@@ -87,7 +165,9 @@ export class MultiPaymentService {
     specificItemIds?: string[],
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
-      throw new BadRequestException('Nomba payroll gateway is not configured.');
+      throw new BadRequestException(
+        'Payroll gateway is not configured. Configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
+      );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
@@ -103,35 +183,116 @@ export class MultiPaymentService {
     if (failedItems.length === 0) {
       throw new BadRequestException('No failed payments found to retry');
     }
-    this.logger.log(
-      `Retrying ${failedItems.length} failed payments for payroll run ${payrollRunId}`,
-    );
-    await this.resetItemsForRetry(failedItems);
-    const paymentBatch = await this.categorizePayments(
-      failedItems,
-      tenantId,
-      payrollRun.baseCurrency,
-    );
-    const fiatPaymentResults = await this.processFiatPayments(
-      paymentBatch.fiatPayments,
-      auditContext,
-      tenantId,
-      payrollRun.tenant?.name,
-      payrollRun.title,
-    );
-    const summary = this.calculatePaymentSummary(fiatPaymentResults);
-    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
-    const result: BatchPaymentResult = {
-      totalItems: failedItems.length,
-      successfulPayments: summary.fiatSuccess,
-      failedPayments: summary.fiatFailed,
-      fiatResults: fiatPaymentResults,
-      summary,
-    };
-    return result;
+
+    const lockAt = new Date();
+    if (!(await this.claimPayrollRun(payrollRunId, tenantId, auditContext, lockAt))) {
+      throw new BadRequestException('Payroll run is already being processed');
+    }
+
+    try {
+      const retriableItems: PayrollItem[] = [];
+      for (const item of failedItems) {
+        const canRetry = await this.payrollPayoutService.reconcileFailedItemBeforeRetry(
+          item,
+          tenantId,
+        );
+        if (canRetry) {
+          retriableItems.push(item);
+        }
+      }
+      if (retriableItems.length === 0) {
+        throw new BadRequestException('No failed payments found to retry');
+      }
+      await this.validation.resetItemsForRetry(retriableItems, tenantId);
+      const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
+      const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
+      if (payable.length === 0) {
+        await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+        throw new BadRequestException(
+          noPayableEmployeesMessage(retriableItems, 'then retry again.'),
+        );
+      }
+      const payoutResults = await this.batching.processPayouts(
+        payable,
+        auditContext,
+        tenantId,
+        payrollRun.tenant?.name,
+        payrollRun.title,
+        {
+          periodStart: payrollRun.periodStart,
+          periodEnd: payrollRun.periodEnd,
+          baseCurrency: payrollRun.baseCurrency,
+          bachsSourceCurrency: bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
+        },
+      );
+      const summary = this.validation.calculatePaymentSummary(payoutResults);
+      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+      return {
+        totalItems: retriableItems.length,
+        successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
+        failedPayments: summary.bankFailed + summary.cryptoFailed,
+        processingPayments: summary.bankProcessing + summary.cryptoProcessing,
+        fiatResults: payoutResults,
+        payoutResults,
+        summary,
+      };
+    } finally {
+      await this.releasePayrollRun(payrollRunId, tenantId, lockAt);
+    }
   }
+
+  private async claimPayrollRun(
+    payrollRunId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+    lockAt: Date,
+  ): Promise<boolean> {
+    const cutoff = new Date(lockAt.getTime() - PAYROLL_PROCESSING_LOCK_MS);
+    const result = await this.payrollRunRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        processingLockedAt: lockAt,
+        processingLockedById: auditContext.performedById ?? null,
+      })
+      .where('id = :payrollRunId', { payrollRunId })
+      .andWhere('tenant_id = :tenantId', { tenantId })
+      .andWhere('status IN (:...statuses)', {
+        statuses: [PayrollStatus.APPROVED, PayrollStatus.PROCESSING],
+      })
+      .andWhere('(processing_locked_at IS NULL OR processing_locked_at < :cutoff)', { cutoff })
+      .execute();
+
+    return (result.affected ?? 0) === 1;
+  }
+
+  private async releasePayrollRun(
+    payrollRunId: string,
+    tenantId: string,
+    lockAt: Date,
+  ): Promise<void> {
+    await this.payrollRunRepository
+      .createQueryBuilder()
+      .update()
+      .set({
+        processingLockedAt: null,
+        processingLockedById: null,
+      })
+      .where('id = :payrollRunId', { payrollRunId })
+      .andWhere('tenant_id = :tenantId', { tenantId })
+      .andWhere('processing_locked_at = :lockAt', { lockAt })
+      .execute();
+  }
+
   async getPaymentStatusSummary(payrollRunId: string, tenantId: string) {
-    const items = await this.payrollItemRepository.findByPayrollRunId(payrollRunId);
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      select: ['id'],
+    });
+    if (!payrollRun) {
+      throw new NotFoundException('Payroll run not found');
+    }
+    const items = await this.payrollItemRepository.findByPayrollRunId(payrollRunId, tenantId);
     const statusCounts = items.reduce(
       (acc, item) => {
         acc[item.status] = (acc[item.status] || 0) + 1;
@@ -139,7 +300,7 @@ export class MultiPaymentService {
       },
       {} as Record<PayrollItemStatus, number>,
     );
-    const paymentTypeCounts = await this.getPaymentTypeBreakdown(items);
+    const paymentTypeCounts = await this.validation.getPaymentTypeBreakdown(items);
     return {
       total: items.length,
       statusBreakdown: statusCounts,
@@ -149,167 +310,5 @@ export class MultiPaymentService {
         statusCounts[PayrollItemStatus.FAILED] === 0 &&
         statusCounts[PayrollItemStatus.PENDING] === 0,
     };
-  }
-  private async categorizePayments(
-    items: PayrollItem[],
-    tenantId: string,
-    currency: string,
-  ): Promise<PaymentBatch> {
-    const fiatPayments: PayrollItem[] = [];
-    const skipped: PayrollItem[] = [];
-
-    for (const item of items) {
-      if (item.status === PayrollItemStatus.CANCELLED) {
-        continue;
-      }
-
-      const readiness = await this.paymentMethodService.assessPayrollReadiness(
-        tenantId,
-        item.memberId,
-        currency,
-        Boolean(item.metadata?.excludedFromRun),
-      );
-      if (!readiness.ready) {
-        skipped.push(item);
-        await this.payrollItemRepository.update(item.id, {
-          status: PayrollItemStatus.FAILED,
-          failureReason: readiness.message,
-        });
-        continue;
-      }
-
-      fiatPayments.push(item);
-    }
-
-    if (skipped.length > 0) {
-      this.logger.warn(
-        `Skipped ${skipped.length} payroll item(s) without complete payment settings`,
-      );
-    }
-
-    return { fiatPayments };
-  }
-  private async processFiatPayments(
-    items: PayrollItem[],
-    auditContext: AuditContext,
-    tenantId: string,
-    tenantName?: string,
-    payrollRunTitle?: string,
-  ): Promise<PaymentResult[]> {
-    const results: PaymentResult[] = [];
-    for (const item of items) {
-      try {
-        await this.payrollItemRepository.update(item.id, {
-          status: PayrollItemStatus.PROCESSING,
-        });
-        const readiness = await this.paymentMethodService.assessPayrollReadiness(
-          tenantId,
-          item.memberId,
-          item.paymentCurrency,
-          Boolean(item.metadata?.excludedFromRun),
-        );
-        if (!readiness.ready || !readiness.paymentMethodId) {
-          throw new BadRequestException(readiness.message);
-        }
-
-        const paymentMethod = await this.paymentMethodService.findById(readiness.paymentMethodId);
-        if (!paymentMethod) {
-          throw new BadRequestException('Payment method not found');
-        }
-
-        const provider = this.nombaProvider;
-        const employeeName = item.employee
-          ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
-          : item.memberId;
-        const paymentData = buildPayrollPaymentData(
-          item,
-          paymentMethod,
-          employeeName,
-          tenantName,
-          payrollRunTitle,
-        );
-        const result = await provider.createPayment(paymentData);
-        if (result.success) {
-          await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
-          const outcome = this.payrollPayoutService.classifyPaymentResultStatus(
-            result.providerStatus,
-          );
-          const itemStatus =
-            outcome === 'paid'
-              ? PayrollItemStatus.PAID
-              : outcome === 'failed'
-                ? PayrollItemStatus.FAILED
-                : PayrollItemStatus.PROCESSING;
-
-          await this.payrollItemRepository.update(item.id, {
-            status: itemStatus,
-            transactionId: result.transactionId,
-            paymentProvider: 'Nomba',
-            paymentMethodId: paymentMethod.id,
-            paidAt: itemStatus === PayrollItemStatus.PAID ? new Date() : null,
-            failureReason:
-              itemStatus === PayrollItemStatus.FAILED
-                ? result.error || 'Nomba transfer failed'
-                : null,
-          });
-          results.push({
-            success: itemStatus === PayrollItemStatus.PAID,
-            transactionId: result.transactionId,
-            provider: 'Nomba',
-            error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
-          });
-        } else {
-          throw new BadRequestException(result.error || 'Payment failed');
-        }
-      } catch (error) {
-        await this.payrollItemRepository.update(item.id, {
-          status: PayrollItemStatus.FAILED,
-          failureReason: error.message,
-        });
-        results.push({
-          success: false,
-          error: error.message,
-        });
-      }
-    }
-    return results;
-  }
-  private calculatePaymentSummary(fiatResults: PaymentResult[]): PaymentSummary {
-    return {
-      fiatSuccess: fiatResults.filter((r) => r.success).length,
-      fiatFailed: fiatResults.filter((r) => !r.success && r.error).length,
-    };
-  }
-  private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
-    for (const item of items) {
-      await this.payrollItemRepository.update(item.id, {
-        status: PayrollItemStatus.PENDING,
-        failureReason: null,
-        transactionId: null,
-        paymentProvider: null,
-        paidAt: null,
-      });
-    }
-  }
-  private async getPaymentTypeBreakdown(items: PayrollItem[]) {
-    const breakdown = {
-      fiat: { total: 0, paid: 0, failed: 0, pending: 0 },
-    };
-    for (const item of items) {
-      breakdown.fiat.total++;
-      switch (item.status) {
-        case PayrollItemStatus.PAID:
-          breakdown.fiat.paid++;
-          break;
-        case PayrollItemStatus.FAILED:
-          breakdown.fiat.failed++;
-          break;
-        case PayrollItemStatus.PENDING:
-        case PayrollItemStatus.PROCESSING:
-          breakdown.fiat.pending++;
-          break;
-      }
-    }
-    return breakdown;
   }
 }

@@ -11,6 +11,7 @@ export enum SubscriptionStatus {
   TRIAL = 'TRIAL',
   SUSPENDED = 'SUSPENDED',
   PAST_DUE = 'PAST_DUE',
+  PAUSED = 'PAUSED',
 }
 export enum BillingCycle {
   MONTHLY = 'MONTHLY',

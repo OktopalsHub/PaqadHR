@@ -15,7 +15,7 @@ export const departmentMemberSchema = z.object({
 export const departmentTeamSchema = z.object({
   id: z.string(),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   memberCount: z.number(),
   members: z.array(departmentMemberSchema),
 });
@@ -23,7 +23,7 @@ export const departmentTeamSchema = z.object({
 export const departmentSchema = z.object({
   id: z.string(),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   color: z.string(),
   manager: departmentMemberSchema.optional(),
   members: z.array(departmentMemberSchema),

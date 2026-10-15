@@ -1,11 +1,40 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import {
+  DEFAULT_WALLET_CURRENCY_FALLBACK,
+  isWalletCurrencyLocked,
+  resolveInitialWalletCurrency,
+} from 'src/common/utils/rewards-defaults.util';
 import { DataSource, EntityManager } from 'typeorm';
+import { ActivitiesService } from '../../activities/services/activities.service';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { TenantsService } from '../../tenants/tenants.service';
+import { resolveRewardsWalletPaymentProvider } from '../config/rewards-wallet-provider.config';
+import {
+  WALLET_SAVED_CARD_UNSUPPORTED,
+  WALLET_UNAVAILABLE_MEMBER,
+} from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 
+export interface WalletCreditOptions {
+  /** Tenant member who triggered the credit — required for every credit. */
+  actorMemberId: string;
+  rawAmount?: number;
+  providerEventId?: string;
+  metadata?: Record<string, unknown>;
+  status?: TenantWalletTransaction['status'];
+}
+
 @Injectable()
 export class TenantWalletService {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly logger = new Logger(TenantWalletService.name);
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly activitiesService: ActivitiesService,
+    private readonly tenantsService: TenantsService,
+  ) {}
 
   async ensureWallet(tenantId: string, manager?: EntityManager): Promise<TenantWallet> {
     const repo = manager
@@ -13,9 +42,21 @@ export class TenantWalletService {
       : this.dataSource.getRepository(TenantWallet);
 
     let wallet = await repo.findOne({ where: { tenantId } });
-    if (wallet) return wallet;
+    if (wallet) {
+      return this.syncWalletCurrencyIfSafe(tenantId, wallet, manager);
+    }
 
-    wallet = repo.create({ tenantId, currencyCode: 'NGN', balanceAmount: 0 });
+    let currencyCode = DEFAULT_WALLET_CURRENCY_FALLBACK;
+    try {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      currencyCode = resolveInitialWalletCurrency(tenant.countryCode, tenant.preferredCurrency);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to resolve tenant currency for wallet ${tenantId}, defaulting to ${DEFAULT_WALLET_CURRENCY_FALLBACK}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    wallet = repo.create({ tenantId, currencyCode, balanceAmount: 0 });
     try {
       return await repo.save(wallet);
     } catch (error) {
@@ -33,27 +74,97 @@ export class TenantWalletService {
     return this.ensureWallet(tenantId);
   }
 
+  async getTenantCountryCode(tenantId: string): Promise<string | null> {
+    try {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      return tenant.countryCode ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async syncWalletCurrencyIfSafe(
+    tenantId: string,
+    wallet: TenantWallet,
+    manager?: EntityManager,
+  ): Promise<TenantWallet> {
+    const walletRepo = manager
+      ? manager.getRepository(TenantWallet)
+      : this.dataSource.getRepository(TenantWallet);
+    const txRepo = manager
+      ? manager.getRepository(TenantWalletTransaction)
+      : this.dataSource.getRepository(TenantWalletTransaction);
+
+    const transactionCount = await txRepo.count({
+      where: { tenantWalletId: wallet.id },
+    });
+    if (isWalletCurrencyLocked(wallet, transactionCount)) {
+      return wallet;
+    }
+
+    const desiredCurrency = await this.resolveTenantWalletCurrency(tenantId);
+    if (!desiredCurrency || desiredCurrency === wallet.currencyCode) {
+      return wallet;
+    }
+
+    wallet.currencyCode = desiredCurrency;
+    return walletRepo.save(wallet);
+  }
+
+  async isWalletCurrencyLockedForTenant(tenantId: string): Promise<boolean> {
+    const wallet = await this.dataSource
+      .getRepository(TenantWallet)
+      .findOne({ where: { tenantId } });
+    if (!wallet) {
+      return false;
+    }
+    const transactionCount = await this.dataSource.getRepository(TenantWalletTransaction).count({
+      where: { tenantWalletId: wallet.id },
+    });
+    return isWalletCurrencyLocked(wallet, transactionCount);
+  }
+
+  async getWalletCurrencyCode(tenantId: string): Promise<string> {
+    const wallet = await this.ensureWallet(tenantId);
+    return wallet.currencyCode.toUpperCase();
+  }
+
+  private async resolveTenantWalletCurrency(tenantId: string): Promise<string | null> {
+    try {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      return resolveInitialWalletCurrency(tenant.countryCode, tenant.preferredCurrency);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to resolve tenant currency for wallet ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
   async debit(
     tenantId: string,
     amount: number,
     reference: string,
     description: string,
+    actorMemberId: string,
     manager: EntityManager,
   ): Promise<TenantWallet> {
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Invalid debit amount');
+    }
+    const memberId = await this.requireTenantMemberActor(tenantId, actorMemberId);
     const walletRepo = manager.getRepository(TenantWallet);
     const txRepo = manager.getRepository(TenantWalletTransaction);
 
     const result = await walletRepo
       .createQueryBuilder()
       .update(TenantWallet)
-      .set({ balanceAmount: () => `balance_amount - ${amount}` })
+      .set({ balanceAmount: () => 'balance_amount - :amount' })
       .where('tenant_id = :tenantId AND balance_amount >= :amount', { tenantId, amount })
       .execute();
 
     if (result.affected === 0) {
-      throw new BadRequestException(
-        'Insufficient wallet balance. Please fund your rewards wallet to continue.',
-      );
+      throw new BadRequestException(WALLET_UNAVAILABLE_MEMBER);
     }
 
     const wallet = await walletRepo.findOneOrFail({ where: { tenantId } });
@@ -64,10 +175,12 @@ export class TenantWalletService {
       amount: -amount,
       reference,
       description,
+      status: 'COMPLETED',
+      metadata: { actorMemberId: memberId },
     });
     await txRepo.save(tx);
 
-    return wallet;
+    return walletRepo.findOneOrFail({ where: { tenantId } });
   }
 
   async credit(
@@ -76,33 +189,91 @@ export class TenantWalletService {
     type: 'DEPOSIT' | 'REFUND',
     reference: string,
     description: string,
-    manager?: EntityManager,
+    manager: EntityManager | undefined,
+    options: WalletCreditOptions,
   ): Promise<TenantWallet> {
-    const mgr = manager ?? this.dataSource.manager;
-    const walletRepo = mgr.getRepository(TenantWallet);
-    const txRepo = mgr.getRepository(TenantWalletTransaction);
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Invalid credit amount');
+    }
+    const actorMemberId = await this.requireTenantMemberActor(tenantId, options.actorMemberId);
 
-    const wallet = await this.ensureWallet(tenantId, mgr);
+    const apply = async (mgr: EntityManager): Promise<TenantWallet> => {
+      const walletRepo = mgr.getRepository(TenantWallet);
+      const txRepo = mgr.getRepository(TenantWalletTransaction);
 
-    await walletRepo
-      .createQueryBuilder()
-      .update(TenantWallet)
-      .set({ balanceAmount: () => `balance_amount + ${amount}` })
-      .where('tenant_id = :tenantId', { tenantId })
-      .execute();
+      const wallet = await this.ensureWallet(tenantId, mgr);
+      await walletRepo
+        .createQueryBuilder('w')
+        .setLock('pessimistic_write')
+        .where('w.tenantId = :tenantId', { tenantId })
+        .getOneOrFail();
 
-    const updated = await walletRepo.findOneOrFail({ where: { tenantId } });
+      const existing = await txRepo.findOne({ where: { reference } });
+      if (existing) {
+        return walletRepo.findOneOrFail({ where: { tenantId } });
+      }
 
-    const tx = txRepo.create({
-      tenantWalletId: wallet.id,
-      type,
-      amount,
-      reference,
-      description,
+      await walletRepo
+        .createQueryBuilder()
+        .update(TenantWallet)
+        .set({ balanceAmount: () => 'balance_amount + :amount' })
+        .where('tenant_id = :tenantId', { tenantId, amount })
+        .execute();
+
+      const updated = await walletRepo.findOneOrFail({ where: { tenantId } });
+
+      const tx = txRepo.create({
+        tenantWalletId: wallet.id,
+        type,
+        amount,
+        reference,
+        description,
+        status: options.status ?? 'COMPLETED',
+        rawAmount: options.rawAmount ?? amount,
+        providerEventId: options.providerEventId ?? null,
+        metadata: {
+          ...(options.metadata ?? {}),
+          actorMemberId,
+        },
+      });
+      await txRepo.save(tx);
+
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: type === 'DEPOSIT' ? 'wallet.deposit' : 'wallet.refund',
+          resourceType: 'rewards_wallet',
+          resourceId: reference,
+          description,
+          metadata: { amount, reference, actorMemberId },
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Failed to queue wallet ${type.toLowerCase()} activity: ${err instanceof Error ? err.message : err}`,
+          );
+        });
+
+      return updated;
+    };
+
+    if (manager) return apply(manager);
+    return this.dataSource.transaction(apply);
+  }
+
+  private async requireTenantMemberActor(tenantId: string, memberId?: string): Promise<string> {
+    const id = memberId?.trim();
+    if (!id) {
+      throw new BadRequestException('A tenant member is required for this wallet operation');
+    }
+    const member = await this.dataSource.getRepository(TenantMember).findOne({
+      where: { id, tenantId },
+      select: ['id'],
     });
-    await txRepo.save(tx);
-
-    return updated;
+    if (!member) {
+      throw new BadRequestException('A tenant member is required for this wallet operation');
+    }
+    return member.id;
   }
 
   async listTransactions(tenantId: string, limit = 50): Promise<TenantWalletTransaction[]> {
@@ -112,5 +283,49 @@ export class TenantWalletService {
       order: { createdAt: 'DESC' },
       take: limit,
     });
+  }
+
+  async updateAutoTopupConfig(
+    tenantId: string,
+    enabled: boolean,
+    threshold: number,
+    amount: number,
+    actorMemberId: string,
+  ): Promise<TenantWallet> {
+    const memberId = await this.requireTenantMemberActor(tenantId, actorMemberId);
+    const repo = this.dataSource.getRepository(TenantWallet);
+    const wallet = await this.ensureWallet(tenantId);
+    if (enabled) {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      const walletProvider = resolveRewardsWalletPaymentProvider(
+        tenant.countryCode,
+        wallet.currencyCode,
+      );
+      if (walletProvider === PaymentProvider.FINCRA) {
+        throw new BadRequestException(WALLET_SAVED_CARD_UNSUPPORTED);
+      }
+    }
+    wallet.autoTopupEnabled = enabled;
+    wallet.autoTopupThreshold = threshold;
+    wallet.autoTopupAmount = amount;
+    const saved = await repo.save(wallet);
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'wallet.auto_topup_updated',
+        resourceType: 'rewards_wallet',
+        resourceId: wallet.id,
+        description: enabled
+          ? `Auto top-up enabled (${amount} when balance falls below ${threshold})`
+          : 'Auto top-up disabled',
+        metadata: { enabled, threshold, amount, actorMemberId: memberId },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to queue auto-topup activity: ${err instanceof Error ? err.message : err}`,
+        );
+      });
+    return saved;
   }
 }

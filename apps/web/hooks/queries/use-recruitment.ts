@@ -1,14 +1,20 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  archiveJobOpening,
+  closeJobOpening,
   createCandidate,
   createJobOpening,
+  deactivateJobOpening,
+  deleteJobOpening,
   fetchAllCandidates,
   fetchCandidatesByJob,
   fetchJobOpening,
   fetchJobOpenings,
+  fetchJobStats,
   updateCandidateStatus,
+  updateJobOpening,
 } from '@/lib/api/recruitment';
 import { queryKeys } from '@/lib/query/keys';
 import type {
@@ -18,13 +24,16 @@ import type {
 } from '@/lib/schemas/recruitment';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function useJobOpenings(search?: string) {
+export function useJobOpenings(searchOrOptions?: string | { search?: string; enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
+  const search = typeof searchOrOptions === 'string' ? searchOrOptions : searchOrOptions?.search;
+  const enabledOption = typeof searchOrOptions === 'object' ? searchOrOptions.enabled : undefined;
 
   return useQuery({
     queryKey: [...queryKeys.recruitment.jobs, tenantId, search ?? ''],
     queryFn: () => fetchJobOpenings({ search, limit: 50 }),
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (enabledOption ?? true) && !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -82,14 +91,16 @@ export function useCandidatesByJob(jobId: string | null) {
   });
 }
 
-export function useAllCandidates() {
+export function useAllCandidates(options?: { enabled?: boolean; limit?: number }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
-    queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+    queryKey: [...queryKeys.recruitment.allCandidates, tenantId, options?.limit],
     queryFn: fetchAllCandidates,
-    enabled: !tenantLoading && Boolean(tenantId),
+    select: options?.limit ? (data) => data.slice(0, options.limit) : undefined,
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     retry: false,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -110,5 +121,91 @@ export function useUpdateCandidateStatus(jobId: string | null) {
         });
       }
     },
+  });
+}
+
+export function useDeactivateJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (jobId: string) => deactivateJobOpening(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
+    },
+  });
+}
+
+export function useCloseJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (jobId: string) => closeJobOpening(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
+    },
+  });
+}
+
+export function useArchiveJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (jobId: string) => archiveJobOpening(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
+    },
+  });
+}
+
+export function useDeleteJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (jobId: string) => deleteJobOpening(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
+    },
+  });
+}
+
+export function useUpdateJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({ jobId, input }: { jobId: string; input: Partial<CreateJobOpeningInput> }) =>
+      updateJobOpening(jobId, input),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.job(variables.jobId), tenantId],
+      });
+    },
+  });
+}
+
+export function useJobStats() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.recruitment.jobs, 'stats', tenantId],
+    queryFn: fetchJobStats,
+    enabled: !tenantLoading && Boolean(tenantId),
   });
 }

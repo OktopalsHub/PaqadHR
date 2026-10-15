@@ -4,15 +4,36 @@ import { Edit, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
+import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+  AppTablePanel,
+} from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -27,14 +48,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import {
   useCreatePosition,
@@ -55,6 +68,84 @@ const COLORS = [
   '#06b6d4', // Cyan
   '#64748b', // Slate
 ];
+
+function getPositionStatusStyles(isActive: boolean) {
+  return isActive
+    ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-450 dark:border-green-900'
+    : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
+}
+
+function PositionTable({
+  positions,
+  onEdit,
+  onDelete,
+  faded = false,
+  canManage = true,
+}: {
+  positions: ApiPosition[];
+  onEdit: (position: ApiPosition) => void;
+  onDelete: (id: string) => void;
+  faded?: boolean;
+  canManage?: boolean;
+}) {
+  return (
+    <AppTablePanel>
+      <AppTable className="min-w-[600px]">
+        <AppTableHeaderSection>
+          <AppTableHeaderRow>
+            <AppTableHeadCell>Title</AppTableHeadCell>
+            <AppTableHeadCell>Status</AppTableHeadCell>
+            {canManage ? <AppTableHeadCell className="text-right">Actions</AppTableHeadCell> : null}
+          </AppTableHeaderRow>
+        </AppTableHeaderSection>
+        <AppTableBodySection>
+          {positions.map((position) => (
+            <AppTableBodyRow key={position.id} className={faded ? 'opacity-60' : undefined}>
+              <AppTableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="size-2.5 shrink-0 rounded-full border border-black/10"
+                    style={{ backgroundColor: position.color || '#64748b' }}
+                  />
+                  <span>{position.title}</span>
+                </div>
+              </AppTableCell>
+              <AppTableCell>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getPositionStatusStyles(
+                    position.isActive,
+                  )}`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${position.isActive ? 'animate-pulse bg-green-500' : 'bg-gray-400 dark:bg-gray-500'}`}
+                  />
+                  {position.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </AppTableCell>
+              {canManage ? (
+                <AppTableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(position)}>
+                      <Edit className="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => onDelete(position.id)}
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                </AppTableCell>
+              ) : null}
+            </AppTableBodyRow>
+          ))}
+        </AppTableBodySection>
+      </AppTable>
+    </AppTablePanel>
+  );
+}
 
 export function PositionsManager({
   hidePageActions = false,
@@ -79,40 +170,44 @@ export function PositionsManager({
   const setCreateOpen =
     setCreateOpenExternal !== undefined ? setCreateOpenExternal : setCreateOpenInternal;
   const [editingPosition, setEditingPosition] = useState<ApiPosition | null>(null);
+  const [positionPendingDeletion, setPositionPendingDeletion] = useState<ApiPosition | null>(null);
+  const [pendingPositionAction, setPendingPositionAction] = useState<'create' | 'update' | null>(
+    null,
+  );
 
   const [formTitle, setFormTitle] = useState('');
-  const [formDepartment, setFormDepartment] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formIsActive, setFormIsActive] = useState('true');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
 
   const resetForm = () => {
     setFormTitle('');
-    setFormDepartment('');
     setFormDescription('');
     setFormIsActive('true');
     setSelectedColor(COLORS[0]);
+    setPendingPositionAction(null);
   };
 
   const openEdit = (position: ApiPosition) => {
     setFormTitle(position.title);
-    setFormDepartment(position.department ?? '');
     setFormDescription(position.description ?? '');
     setFormIsActive(position.isActive ? 'true' : 'false');
     setSelectedColor(position.color ?? COLORS[0]);
     setEditingPosition(position);
   };
 
-  const handleCreate = async () => {
+  const requestCreate = () => {
     if (!formTitle.trim()) {
       toast.error('Position title is required');
       return;
     }
+    setPendingPositionAction('create');
+  };
 
+  const handleCreate = async () => {
     try {
       await createPosition.mutateAsync({
         title: formTitle.trim(),
-        department: formDepartment.trim() || undefined,
         description: formDescription.trim() || undefined,
         isActive: formIsActive === 'true',
         color: selectedColor,
@@ -125,19 +220,22 @@ export function PositionsManager({
     }
   };
 
-  const handleUpdate = async () => {
+  const requestUpdate = () => {
     if (!editingPosition) return;
     if (!formTitle.trim()) {
       toast.error('Position title is required');
       return;
     }
+    setPendingPositionAction('update');
+  };
 
+  const handleUpdate = async () => {
+    if (!editingPosition) return;
     try {
       await updatePosition.mutateAsync({
         id: editingPosition.id,
         input: {
           title: formTitle.trim(),
-          department: formDepartment.trim() || undefined,
           description: formDescription.trim() || undefined,
           isActive: formIsActive === 'true',
           color: selectedColor,
@@ -155,21 +253,11 @@ export function PositionsManager({
     try {
       await deletePosition.mutateAsync(id);
       toast.success('Position deleted');
+      setPositionPendingDeletion(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete position');
     }
   };
-
-  if (!isAdmin) {
-    return (
-      <AppPage>
-        <Alert>
-          <AlertTitle>Access restricted</AlertTitle>
-          <AlertDescription>Only admins and owners can manage positions.</AlertDescription>
-        </Alert>
-      </AppPage>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -204,15 +292,6 @@ export function PositionsManager({
           value={formTitle}
           onChange={(e) => setFormTitle(e.target.value)}
           placeholder="e.g. Software Engineer"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="position-department">Department</Label>
-        <Input
-          id="position-department"
-          value={formDepartment}
-          onChange={(e) => setFormDepartment(e.target.value)}
-          placeholder="e.g. Engineering"
         />
       </div>
       <div className="space-y-2">
@@ -279,112 +358,64 @@ export function PositionsManager({
 
   const mainContent = (
     <>
-      <Dialog
-        open={createOpen}
-        onOpenChange={(open) => {
-          setCreateOpen(open);
-          if (!open) resetForm();
-        }}
-      >
-        {!hidePageActions && (
-          <PageActions>
-            <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
-                <Plus size={16} />
-                <span>Add position</span>
+      {isAdmin ? (
+        <Dialog
+          open={createOpen}
+          onOpenChange={(open) => {
+            setCreateOpen(open);
+            if (!open) resetForm();
+          }}
+        >
+          {!hidePageActions && (
+            <PageActions>
+              <DialogTrigger asChild>
+                <Button variant="brandSolid" size="app" className="flex items-center gap-2">
+                  <Plus size={16} />
+                  <span>Add position</span>
+                </Button>
+              </DialogTrigger>
+            </PageActions>
+          )}
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>Create position</DialogTitle>
+            </DialogHeader>
+            {formDialog}
+            <DialogFooter>
+              <Button disabled={createPosition.isPending} onClick={requestCreate}>
+                {createPosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Create position
               </Button>
-            </DialogTrigger>
-          </PageActions>
-        )}
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>Create position</DialogTitle>
-            <DialogDescription>
-              Add a new position to your workspace. Positions can then be assigned to employees.
-            </DialogDescription>
-          </DialogHeader>
-          {formDialog}
-          <DialogFooter>
-            <Button disabled={createPosition.isPending} onClick={() => void handleCreate()}>
-              {createPosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Create position
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <Card>
         <CardHeader>
           <CardTitle>Positions</CardTitle>
-          <CardDescription>
-            Manage all positions in your workspace. Positions are assigned to employees via their
-            employment profile.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {positions.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              No positions yet. Create your first position to start assigning roles to employees.
-            </p>
+            <EmptyState
+              icon={Edit}
+              title="No positions yet"
+              description="Create a position to organize your team and assign work clearly."
+              className="min-h-[280px]"
+            />
           ) : (
             <div className="space-y-6">
               {activePositions.length > 0 ? (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead className="hidden md:table-cell">Description</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {activePositions.map((position) => (
-                        <TableRow key={position.id}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="size-2.5 rounded-full shrink-0 border border-black/10"
-                                style={{ backgroundColor: position.color || '#64748b' }}
-                              />
-                              <span>{position.title}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{position.department || '—'}</TableCell>
-                          <TableCell className="hidden md:table-cell max-w-[200px] truncate">
-                            {position.description || '—'}
-                          </TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-450 dark:border-green-900">
-                              <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
-                              Active
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEdit(position)}
-                              >
-                                <Edit className="size-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => void handleDelete(position.id)}
-                              >
-                                <Trash2 className="size-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <PositionTable
+                  positions={activePositions}
+                  onEdit={openEdit}
+                  onDelete={(id) =>
+                    setPositionPendingDeletion(
+                      positions.find((position) => position.id === id) ?? null,
+                    )
+                  }
+                  canManage={isAdmin}
+                />
               ) : null}
 
               {inactivePositions.length > 0 ? (
@@ -392,62 +423,17 @@ export function PositionsManager({
                   <h4 className="text-sm font-medium text-muted-foreground">
                     Inactive positions ({inactivePositions.length})
                   </h4>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Department</TableHead>
-                          <TableHead className="hidden md:table-cell">Description</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {inactivePositions.map((position) => (
-                          <TableRow key={position.id} className="opacity-60">
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="size-2.5 rounded-full shrink-0 border border-black/10"
-                                  style={{ backgroundColor: position.color || '#64748b' }}
-                                />
-                                <span>{position.title}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>{position.department || '—'}</TableCell>
-                            <TableCell className="hidden md:table-cell max-w-[200px] truncate">
-                              {position.description || '—'}
-                            </TableCell>
-                            <TableCell>
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800">
-                                <span className="size-1.5 rounded-full bg-gray-450 dark:bg-gray-500" />
-                                Inactive
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => openEdit(position)}
-                                >
-                                  <Edit className="size-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => void handleDelete(position.id)}
-                                >
-                                  <Trash2 className="size-4 text-destructive" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <PositionTable
+                    positions={inactivePositions}
+                    onEdit={openEdit}
+                    onDelete={(id) =>
+                      setPositionPendingDeletion(
+                        positions.find((position) => position.id === id) ?? null,
+                      )
+                    }
+                    faded
+                    canManage={isAdmin}
+                  />
                 </div>
               ) : null}
             </div>
@@ -455,30 +441,71 @@ export function PositionsManager({
         </CardContent>
       </Card>
 
-      {}
-      <Dialog
-        open={editingPosition !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingPosition(null);
-            resetForm();
-          }
+      {isAdmin ? (
+        <Dialog
+          open={editingPosition !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingPosition(null);
+              resetForm();
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>Edit position</DialogTitle>
+            </DialogHeader>
+            {formDialog}
+            <DialogFooter>
+              <Button disabled={updatePosition.isPending} onClick={requestUpdate}>
+                {updatePosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Save changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+      <ConfirmActionDialog
+        open={pendingPositionAction !== null}
+        onOpenChange={(open) => !open && setPendingPositionAction(null)}
+        title={pendingPositionAction === 'update' ? 'Save position changes?' : 'Create position?'}
+        description={
+          pendingPositionAction === 'update'
+            ? 'The changes to this position will be applied to your workspace.'
+            : `“${formTitle.trim()}” will be added to your workspace.`
+        }
+        actionLabel={pendingPositionAction === 'update' ? 'Save changes' : 'Create position'}
+        isPending={createPosition.isPending || updatePosition.isPending}
+        onConfirm={() => {
+          if (pendingPositionAction === 'create') void handleCreate();
+          if (pendingPositionAction === 'update') void handleUpdate();
         }}
+      />
+      <AlertDialog
+        open={Boolean(positionPendingDeletion)}
+        onOpenChange={(open) => !open && setPositionPendingDeletion(null)}
       >
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>Edit position</DialogTitle>
-            <DialogDescription>Update the details for this position.</DialogDescription>
-          </DialogHeader>
-          {formDialog}
-          <DialogFooter>
-            <Button disabled={updatePosition.isPending} onClick={() => void handleUpdate()}>
-              {updatePosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Save changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete position?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {positionPendingDeletion?.title} will no longer be available for assignment. Existing
+              position history remains unchanged.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() =>
+                positionPendingDeletion && void handleDelete(positionPendingDeletion.id)
+              }
+            >
+              Delete position
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 

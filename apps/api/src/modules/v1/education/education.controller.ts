@@ -14,19 +14,21 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
-import { isTenantAdmin } from 'src/common/utils/member-access.util';
+import { assertSelfOnly, isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateEducationDto } from './dto/create-education.dto';
-import type { UpdateEducationDto } from './dto/update-education.dto';
+import { CreateEducationDto } from './dto/create-education.dto';
+import { UpdateEducationDto } from './dto/update-education.dto';
 import { EducationService } from './education.service';
 import type { Education } from './entities/education.entity';
 
-@ApiTags('education')
-@UseGuards(TenantMemberGuard)
+@ApiTags('Education')
 @Controller('tenants/:tenantId/education')
+@UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.EMPLOYEE_SELF_SERVICE)
 export class EducationController {
   constructor(
     private readonly educationService: EducationService,
@@ -42,8 +44,13 @@ export class EducationController {
   ): Promise<Education> {
     const { memberId, ...educationData } = createEducationDto;
     const targetMemberId = memberId ?? member.id;
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, targetMemberId, tenantId);
-    return this.educationService.createEducation(tenantId, targetMemberId, educationData);
+    assertSelfOnly(member, targetMemberId);
+    return this.educationService.createEducation(
+      tenantId,
+      targetMemberId,
+      educationData,
+      member.id,
+    );
   }
 
   @Get()
@@ -97,12 +104,8 @@ export class EducationController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<Education> {
     const education = await this.educationService.getEducation(id, tenantId);
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      education.tenantMemberId,
-      tenantId,
-    );
-    return this.educationService.updateEducation(id, updateEducationDto, tenantId);
+    assertSelfOnly(member, education.tenantMemberId);
+    return this.educationService.updateEducation(id, updateEducationDto, tenantId, member.id);
   }
 
   @Delete(':id')
@@ -113,11 +116,7 @@ export class EducationController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<void> {
     const education = await this.educationService.getEducation(id, tenantId);
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      education.tenantMemberId,
-      tenantId,
-    );
-    return this.educationService.deleteEducation(id, tenantId);
+    assertSelfOnly(member, education.tenantMemberId);
+    return this.educationService.deleteEducation(id, tenantId, member.id);
   }
 }

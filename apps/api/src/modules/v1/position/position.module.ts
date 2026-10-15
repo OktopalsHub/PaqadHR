@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ManagerAccessModule } from 'src/common/modules/manager-access.module';
+import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { PositionController } from './controllers/position.controller';
 import { PositionMemberController } from './controllers/position-member.controller';
@@ -16,6 +17,7 @@ import { PositionMemberService } from './services/position-member.service';
     TypeOrmModule.forFeature([Position, PositionMember]),
     TenantMembersModule,
     ManagerAccessModule,
+    ActivitiesModule,
   ],
   controllers: [PositionController, PositionMemberController],
   providers: [PositionMemberRepository, PositionRepository, PositionService, PositionMemberService],

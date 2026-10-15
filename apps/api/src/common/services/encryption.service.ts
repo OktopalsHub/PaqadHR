@@ -1,16 +1,18 @@
 import * as crypto from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ENVIRONMENT } from '../config/env.config';
+
 @Injectable()
 export class EncryptionService {
   private readonly algorithm = 'aes-256-gcm';
   private readonly ivLength = 16;
   private readonly encryptionKey: Buffer;
   constructor() {
-    const key = process.env.ENCRYPTION_KEY || 'default-32-char-key-for-testing!';
-    if (key.length !== 32) {
-      throw new BadRequestException('Encryption key must be exactly 32 characters long');
+    const key = ENVIRONMENT.ENCRYPTION.KEY;
+    if (key.length < 32) {
+      throw new BadRequestException('Encryption key must be at least 32 characters long');
     }
-    this.encryptionKey = Buffer.from(key, 'utf8');
+    this.encryptionKey = Buffer.from(key, 'utf8').subarray(0, 32);
   }
   encrypt(text: string): string {
     if (!text || text.trim() === '') {
@@ -23,8 +25,8 @@ export class EncryptionService {
       encrypted += cipher.final('base64');
       const tag = cipher.getAuthTag();
       return `${iv.toString('base64')}:${tag.toString('base64')}:${encrypted}`;
-    } catch (error) {
-      throw new BadRequestException(`Encryption failed: ${error.message}`);
+    } catch {
+      throw new BadRequestException('Encryption operation failed');
     }
   }
   decrypt(encryptedText: string): string {
@@ -44,8 +46,8 @@ export class EncryptionService {
       let decrypted = decipher.update(encrypted, 'base64', 'utf8');
       decrypted += decipher.final('utf8');
       return decrypted;
-    } catch (error) {
-      throw new BadRequestException(`Decryption failed: ${error.message}`);
+    } catch {
+      throw new BadRequestException('Decryption operation failed');
     }
   }
   isEncrypted(text: string): boolean {

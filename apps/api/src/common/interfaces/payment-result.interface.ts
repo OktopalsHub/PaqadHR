@@ -1,5 +1,9 @@
+export type PaymentResultOutcome = 'paid' | 'processing' | 'failed';
+
 export interface PaymentResult {
   success: boolean;
+  /** Explicit payout outcome. Prefer this over inferring from `success` alone. */
+  outcome?: PaymentResultOutcome;
   transactionId?: string;
   reference?: string;
   provider?: string;
@@ -8,4 +12,6 @@ export interface PaymentResult {
   error?: string;
   errorCode?: string;
   retryable?: boolean;
+  rail?: 'bank' | 'crypto';
+  metadata?: Record<string, unknown>;
 }

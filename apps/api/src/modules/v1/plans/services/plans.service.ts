@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
@@ -7,6 +7,7 @@ import { PlanPrice } from '../entities/plan-price.entity';
 
 @Injectable()
 export class PlansService {
+  private readonly logger = new Logger(PlansService.name);
   constructor(
     @InjectRepository(Plan)
     private readonly planRepository: Repository<Plan>,
@@ -20,20 +21,29 @@ export class PlansService {
       relations: ['prices'],
     });
   }
-  async findPlanBySlug(slug: string): Promise<Plan | null> {
+  async findPlanBySlug(
+    slug: string,
+    options?: { includeInactive?: boolean },
+  ): Promise<Plan | null> {
     return this.planRepository.findOne({
-      where: { slug, isActive: true },
+      where: options?.includeInactive ? { slug } : { slug, isActive: true },
       relations: ['prices'],
     });
   }
   async getPricesForCountry(countryCode: string): Promise<PlanPrice[]> {
+    const normalized = (countryCode || 'GLOBAL').toUpperCase();
     const prices = await this.planPriceRepository.find({
-      where: { countryCode, isActive: true },
+      where: { countryCode: normalized, isActive: true },
       relations: ['plan'],
       order: { plan: { sortOrder: 'ASC' } },
     });
     if (prices.length > 0) {
       return prices;
+    }
+    // NG must never silently fall back to GLOBAL/USD — missing NGN seed is a hard miss.
+    if (normalized === 'NG') {
+      this.logger.warn('No active NG plan_prices rows found; refusing GLOBAL/USD fallback');
+      return [];
     }
     return this.planPriceRepository.find({
       where: { countryCode: 'GLOBAL', isActive: true },
@@ -54,25 +64,69 @@ export class PlansService {
     currency?: string,
   ): Promise<PlanPrice | null> {
     const plan = await this.findPlanBySlug(planSlug);
-    if (!plan) return null;
+    if (!plan) {
+      this.logger.warn(`Plan not found for slug=${planSlug}`);
+      return null;
+    }
+
+    const normalizedCountry = (countryCode || 'GLOBAL').toUpperCase();
+
+    if (normalizedCountry === 'GLOBAL') {
+      let price = await this.planPriceRepository.findOne({
+        where: {
+          planId: plan.id,
+          countryCode: 'GLOBAL',
+          isActive: true,
+          ...(currency ? { currency } : {}),
+        },
+        relations: ['plan'],
+      });
+      if (!price) {
+        this.logger.warn(
+          `GLOBAL plan price missing for slug=${planSlug}, currency=${currency ?? '(any)'}`,
+        );
+        price = await this.planPriceRepository.findOne({
+          where: { planId: plan.id, countryCode: 'GLOBAL', isActive: true },
+          relations: ['plan'],
+        });
+      }
+      return price ?? null;
+    }
+
     const where: Record<string, unknown> = {
       planId: plan.id,
-      countryCode,
+      countryCode: normalizedCountry,
       isActive: true,
     };
     if (currency) where.currency = currency;
+
     let price = await this.planPriceRepository.findOne({
       where,
       relations: ['plan'],
     });
-    if (!price && countryCode !== 'GLOBAL') {
-      const globalWhere = { ...where, countryCode: 'GLOBAL' };
-      price = await this.planPriceRepository.findOne({
-        where: globalWhere,
-        relations: ['plan'],
-      });
+
+    if (!price) {
+      // Non-NG countries may fall back to GLOBAL/USD until regional prices exist.
+      // NG must not — that caused USD subscription + NGN wallet drift.
+      if (normalizedCountry !== 'NG') {
+        price = await this.planPriceRepository.findOne({
+          where: { planId: plan.id, countryCode: 'GLOBAL', isActive: true },
+          relations: ['plan'],
+        });
+      } else {
+        this.logger.warn(
+          `NG plan price missing for slug=${planSlug}, currency=${currency ?? 'NGN'}; no USD fallback`,
+        );
+      }
     }
-    return price;
+
+    if (!price) {
+      this.logger.warn(
+        `Plan price not found for slug=${planSlug}, country=${normalizedCountry}, currency=${currency ?? '(any)'}`,
+      );
+    }
+
+    return price ?? null;
   }
   async createPlan(data: Partial<Plan>): Promise<Plan> {
     const plan = this.planRepository.create(data);
@@ -130,7 +184,7 @@ export class PlansService {
     limits?: Record<string, number>;
     sortOrder?: number;
   }): Promise<PlanPrice> {
-    let plan = await this.findPlanBySlug(params.slug);
+    let plan = await this.findPlanBySlug(params.slug, { includeInactive: true });
     if (!plan) {
       plan = await this.createPlan({
         slug: params.slug,
@@ -139,6 +193,16 @@ export class PlansService {
         features: params.features ?? {},
         limits: params.limits ?? {},
         sortOrder: params.sortOrder ?? 0,
+        isActive: true,
+      });
+    } else {
+      plan = await this.planRepository.save({
+        ...plan,
+        name: params.name,
+        description: params.description ?? null,
+        features: params.features ?? {},
+        limits: params.limits ?? {},
+        sortOrder: params.sortOrder ?? plan.sortOrder ?? 0,
         isActive: true,
       });
     }

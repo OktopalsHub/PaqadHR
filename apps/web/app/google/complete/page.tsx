@@ -4,13 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
-import { getSession } from '@/lib/api/auth';
+import { applySessionBootstrap, waitForSessionBootstrap } from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';
-import { fetchUserTenants } from '@/lib/api/tenants';
-import {
-  authDestinationToPath,
-  resolveAuthDestination,
-} from '@/lib/navigation/resolve-auth-destination';
+import { cacheKeys, MAX_CACHE_TTL, setCached } from '@/lib/cache';
+import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { queryKeys } from '@/lib/query/keys';
 import { ForceLightTheme } from '@/providers/force-light-theme';
 
@@ -24,26 +21,24 @@ export default function GoogleCompletePage() {
     started.current = true;
 
     void (async () => {
-      try {
-        await bootstrapCsrf();
-        const user = await getSession();
-        if (!user) {
-          router.replace('/signin?error=google');
-          return;
-        }
+      await bootstrapCsrf();
 
-        queryClient.setQueryData(queryKeys.auth.session, user);
-        const tenants = await fetchUserTenants();
-        queryClient.setQueryData(queryKeys.tenants.all, tenants);
-
-        const destination = resolveAuthDestination({
-          isAuthenticated: true,
-          tenants,
-        });
-        router.replace(authDestinationToPath(destination));
-      } catch {
+      const bootstrap = await waitForSessionBootstrap();
+      if (!bootstrap) {
         router.replace('/signin?error=google');
+        return;
       }
+
+      applySessionBootstrap(bootstrap);
+      setCached(cacheKeys.auth.session, bootstrap, { ttl: MAX_CACHE_TTL });
+      queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+      queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
+
+      const href = await resolvePostAuthHref({
+        tenants: bootstrap.workspaces,
+        paymentsEnabled: bootstrap.paymentsEnabled,
+      });
+      goToHref(href, router.replace);
     })();
   }, [queryClient, router]);
 

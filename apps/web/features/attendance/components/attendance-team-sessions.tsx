@@ -4,18 +4,21 @@ import { Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
+import { PersonAvatar } from '@/components/person-avatar';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
+import { Input } from '@/components/ui/input';
 import { AttendanceDateFilters } from '@/features/attendance/components/attendance-date-filters';
 import {
+  attendanceStatusDotClass,
+  attendanceStatusPillClass,
   type DateRangePreset,
   formatRecordDate,
   formatTimeOnly,
@@ -25,41 +28,6 @@ import {
 } from '@/features/attendance/lib/attendance-utils';
 import { useTeamAttendanceRecords } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
-import { getInitials } from '@/lib/utils';
-
-function getAttendanceStatusStyles(status: string) {
-  const key = status.toUpperCase();
-  switch (key) {
-    case 'PRESENT':
-      return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900';
-    case 'LATE':
-      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900';
-    case 'ABSENT':
-      return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900';
-    case 'ON_LEAVE':
-      return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900';
-    case 'WEEKEND':
-      return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
-    default:
-      return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
-  }
-}
-
-function getAttendanceStatusDotClass(status: string) {
-  const key = status.toUpperCase();
-  switch (key) {
-    case 'PRESENT':
-      return 'bg-green-500';
-    case 'LATE':
-      return 'bg-amber-500';
-    case 'ABSENT':
-      return 'bg-red-500';
-    case 'ON_LEAVE':
-      return 'bg-blue-500';
-    default:
-      return 'bg-gray-400 dark:bg-gray-500';
-  }
-}
 
 export function AttendanceTeamSessions() {
   const [preset, setPreset] = useState<DateRangePreset>('month');
@@ -92,23 +60,25 @@ export function AttendanceTeamSessions() {
 
   return (
     <>
-      <div className="space-y-3 border-b border-border/60 px-4 py-3">
-        <AttendanceDateFilters
-          preset={preset}
-          from={range.from}
-          to={range.to}
-          onPresetChange={setPreset}
-          onFromChange={setCustomFrom}
-          onToChange={setCustomTo}
-        />
-        <div className="relative max-w-md">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or employee number…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-8"
+      <div className="border-b border-border/60 px-5 py-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:flex-wrap xl:items-start xl:justify-between">
+          <AttendanceDateFilters
+            preset={preset}
+            from={range.from}
+            to={range.to}
+            onPresetChange={setPreset}
+            onFromChange={setCustomFrom}
+            onToChange={setCustomTo}
           />
+          <div className="relative w-full xl:w-[340px] xl:flex-none">
+            <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or employee number…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="app-input-surface py-2 pr-3 pl-10"
+            />
+          </div>
         </div>
       </div>
 
@@ -125,61 +95,62 @@ export function AttendanceTeamSessions() {
           />
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Employee #</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Session</TableHead>
-              <TableHead>Clock in</TableHead>
-              <TableHead>Clock out</TableHead>
-              <TableHead>Hours</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <AppTable className="min-w-[980px]">
+          <AppTableHeaderSection>
+            <AppTableHeaderRow>
+              <AppTableHeadCell>Member</AppTableHeadCell>
+              <AppTableHeadCell>Employee #</AppTableHeadCell>
+              <AppTableHeadCell>Date</AppTableHeadCell>
+              <AppTableHeadCell>Session</AppTableHeadCell>
+              <AppTableHeadCell>Clock in</AppTableHeadCell>
+              <AppTableHeadCell>Clock out</AppTableHeadCell>
+              <AppTableHeadCell>Hours</AppTableHeadCell>
+              <AppTableHeadCell>Status</AppTableHeadCell>
+            </AppTableHeaderRow>
+          </AppTableHeaderSection>
+          <AppTableBodySection>
             {filteredRecords.map((record) => {
               const name = memberDisplayName(record.member ?? {});
               const employee = employees.find((emp) => emp.id === record.member?.id);
               return (
-                <TableRow key={record.id}>
-                  <TableCell className="font-medium">
+                <AppTableBodyRow key={record.id}>
+                  <AppTableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7 flex-shrink-0">
-                        <AvatarImage src={employee?.avatar || '/placeholder.svg'} />
-                        <AvatarFallback>{getInitials(name)}</AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        src={employee?.avatar}
+                        name={name}
+                        className="h-7 w-7 flex-shrink-0"
+                      />
                       <span>{name}</span>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  </AppTableCell>
+                  <AppTableCell className="text-muted-foreground">
                     {record.member?.employeeNumber ?? '—'}
-                  </TableCell>
-                  <TableCell>{formatRecordDate(record.date)}</TableCell>
-                  <TableCell>#{record.sessionNumber}</TableCell>
-                  <TableCell>{formatTimeOnly(record.clockIn)}</TableCell>
-                  <TableCell>{formatTimeOnly(record.clockOut)}</TableCell>
-                  <TableCell>{record.workHours ?? '—'}</TableCell>
-                  <TableCell>
+                  </AppTableCell>
+                  <AppTableCell>{formatRecordDate(record.date)}</AppTableCell>
+                  <AppTableCell>#{record.sessionNumber}</AppTableCell>
+                  <AppTableCell>{formatTimeOnly(record.clockIn)}</AppTableCell>
+                  <AppTableCell>{formatTimeOnly(record.clockOut)}</AppTableCell>
+                  <AppTableCell>{record.workHours ?? '—'}</AppTableCell>
+                  <AppTableCell>
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getAttendanceStatusStyles(
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${attendanceStatusPillClass(
                         record.status,
                       )}`}
                     >
                       <span
-                        className={`size-1.5 rounded-full ${getAttendanceStatusDotClass(
+                        className={`size-1.5 rounded-full ${attendanceStatusDotClass(
                           record.status,
                         )}`}
                       />
                       {statusLabel(record.status)}
                     </span>
-                  </TableCell>
-                </TableRow>
+                  </AppTableCell>
+                </AppTableBodyRow>
               );
             })}
-          </TableBody>
-        </Table>
+          </AppTableBodySection>
+        </AppTable>
       )}
     </>
   );

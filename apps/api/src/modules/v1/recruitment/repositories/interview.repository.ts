@@ -262,29 +262,16 @@ export class InterviewRepository extends Repository<Interview> {
     tenantMemberId: string,
     dateFrom?: Date,
     dateTo?: Date,
-  ): Promise<{
-    total: number;
-    scheduled: number;
-    completed: number;
-    cancelled: number;
-    byType: { phone: number; video: number; onsite: number };
-    averageDuration: number;
-  }> {
-    const queryBuilder = this.interviewRepository
+  ) {
+    const qb = this.interviewRepository
       .createQueryBuilder('interview')
       .where('interview.tenantId = :tenantId', { tenantId })
-      .andWhere('interview.tenantMemberId = :tenantMemberId', {
-        tenantMemberId,
-      })
+      .andWhere('interview.tenantMemberId = :tenantMemberId', { tenantMemberId })
       .andWhere('interview.deletedAt IS NULL');
-    if (dateFrom && dateTo) {
-      queryBuilder.andWhere('interview.date BETWEEN :dateFrom AND :dateTo', {
-        dateFrom,
-        dateTo,
-      });
-    }
-    const interviews = await queryBuilder.getMany();
-    const stats = {
+    if (dateFrom && dateTo)
+      qb.andWhere('interview.date BETWEEN :dateFrom AND :dateTo', { dateFrom, dateTo });
+    const interviews = await qb.getMany();
+    return {
       total: interviews.length,
       scheduled: interviews.filter((i) => i.status === 'SCHEDULED').length,
       completed: interviews.filter((i) => i.status === 'COMPLETED').length,
@@ -299,6 +286,5 @@ export class InterviewRepository extends Repository<Interview> {
           ? Math.round(interviews.reduce((sum, i) => sum + i.duration, 0) / interviews.length)
           : 0,
     };
-    return stats;
   }
 }

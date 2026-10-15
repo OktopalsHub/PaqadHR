@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { defaultPayrollCurrency } from 'src/common/config/nomba.config';
+import { normalizeFiatCurrencies } from 'src/common/constants/supported-fiat-currencies.constant';
 import {
-  normalizeFiatCurrencies,
-  SUPPORTED_FIAT_CURRENCIES,
-} from 'src/common/constants/supported-fiat-currencies.constant';
+  getSupportedPaymentCurrencies,
+  NOAH_FIAT_CURRENCIES,
+  NOMBA_FIAT_CURRENCIES,
+} from 'src/common/constants/supported-payment-currencies.constant';
 import type { PointsSettings } from 'src/common/interfaces/points-settings.interface';
 import type { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';
 import { PAGINATION_DEFAULT_LIMIT } from 'src/common/utils/pagination.util';
@@ -97,10 +100,11 @@ export class TenantConfigService {
     tenantId: string,
     preferredCurrency?: string | null,
   ): Promise<string[]> {
+    const allowed = new Set(getSupportedPaymentCurrencies());
     const settings = await this.getSettingsRecord(tenantId);
     const configured = settings?.settings.general?.payrollCurrencies;
     if (Array.isArray(configured) && configured.length > 0) {
-      const normalized = normalizeFiatCurrencies(configured);
+      const normalized = normalizeFiatCurrencies(configured).filter((code) => allowed.has(code));
       if (normalized.length > 0) {
         return normalized;
       }
@@ -109,13 +113,33 @@ export class TenantConfigService {
     const primary = (
       settings?.settings.general?.currency ??
       preferredCurrency ??
-      'USD'
+      defaultPayrollCurrency()
     ).toUpperCase();
-    return normalizeFiatCurrencies([primary]);
+    const fallback = normalizeFiatCurrencies([primary]).filter((code) => allowed.has(code));
+    return fallback.length > 0 ? fallback : ['NGN'];
+  }
+
+  async isCryptoEnabled(tenantId: string): Promise<boolean> {
+    try {
+      const settings = await this.getSettingsRecord(tenantId);
+      return settings?.settings?.general?.cryptoEnabled === true;
+    } catch {
+      return false;
+    }
+  }
+
+  async shouldEmailPayslipOnPublish(tenantId: string): Promise<boolean> {
+    const settings = await this.getSettingsRecord(tenantId);
+    return settings?.settings.general?.emailPayslipOnPublish === true;
+  }
+
+  async requireIdentityForPayroll(tenantId: string): Promise<boolean> {
+    const settings = await this.getSettingsRecord(tenantId);
+    return settings?.settings.employee?.requireIdentityForPayroll === true;
   }
 
   getGloballySupportedFiatCurrencies(): readonly string[] {
-    return SUPPORTED_FIAT_CURRENCIES;
+    return [...NOMBA_FIAT_CURRENCIES, ...NOAH_FIAT_CURRENCIES];
   }
 
   async getTenantConfig(tenantId: string): Promise<{

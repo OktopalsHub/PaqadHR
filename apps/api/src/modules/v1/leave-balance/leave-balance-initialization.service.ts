@@ -50,44 +50,65 @@ export class LeaveBalanceInitializationService {
   }
   async bulkInitializeLeaveBalances(tenantId: string, memberIds: string[], year?: number) {
     const targetYear = year || new Date().getFullYear();
+    const uniqueMemberIds = [...new Set(memberIds)];
     const leaveTypes = await this.leaveTypeService.listLeaveTypes(tenantId);
     const activeLeaveTypes = leaveTypes.filter((lt) => lt.isActive);
-    const results: {
+    const activeLeaveTypeIds = activeLeaveTypes.map((lt) => lt.id);
+    const existingBalances = await this.leaveBalanceService.findExistingBalances(
+      tenantId,
+      uniqueMemberIds,
+      activeLeaveTypeIds,
+      targetYear,
+    );
+    const existingSet = new Set(existingBalances.map((b) => `${b.memberId}:${b.leaveTypeId}`));
+
+    // Build all missing balance records first
+    const missingRecords: {
       memberId: string;
-      balancesCreated: number;
-      balances: LeaveBalance[];
+      leaveTypeId: string;
+      totalDays: number;
     }[] = [];
-    for (const memberId of memberIds) {
-      const memberBalances: LeaveBalance[] = [];
+    for (const memberId of uniqueMemberIds) {
       for (const leaveType of activeLeaveTypes) {
-        const existingBalance = await this.leaveBalanceService.findByCriteria({
-          tenantId,
-          memberId,
-          leaveTypeId: leaveType.id,
-          year: targetYear,
-        });
-        if (!existingBalance) {
-          const newBalance = await this.leaveBalanceService.createLeaveBalance(
-            tenantId,
+        if (!existingSet.has(`${memberId}:${leaveType.id}`)) {
+          missingRecords.push({
             memberId,
-            leaveType.id,
-            {
-              year: targetYear,
-              totalDays: leaveType.defaultDays,
-              usedDays: 0,
-              remainingDays: leaveType.defaultDays,
-            },
-          );
-          memberBalances.push(newBalance);
+            leaveTypeId: leaveType.id,
+            totalDays: leaveType.defaultDays,
+          });
         }
       }
-      results.push({
-        memberId,
-        balancesCreated: memberBalances.length,
-        balances: memberBalances,
-      });
     }
-    return results;
+
+    // Batch insert all missing records and capture the returned entities
+    let savedBalances: LeaveBalance[] = [];
+    if (missingRecords.length > 0) {
+      savedBalances = await this.leaveBalanceService.createLeaveBalancesBatch(
+        tenantId,
+        missingRecords.map((r) => ({
+          memberId: r.memberId,
+          leaveTypeId: r.leaveTypeId,
+          year: targetYear,
+          totalDays: r.totalDays,
+          usedDays: 0,
+          remainingDays: r.totalDays,
+        })),
+      );
+    }
+
+    // Group saved balances by memberId
+    const balancesByMember = new Map<string, LeaveBalance[]>();
+    for (const balance of savedBalances) {
+      const list = balancesByMember.get(balance.memberId) ?? [];
+      list.push(balance);
+      balancesByMember.set(balance.memberId, list);
+    }
+
+    return uniqueMemberIds.map((memberId) => ({
+      memberId,
+      balancesCreated: balancesByMember.get(memberId)?.length ?? 0,
+      balances: balancesByMember.get(memberId) ?? [],
+    }));
   }
   async initializeNewLeaveTypeForAllMembers(
     tenantId: string,

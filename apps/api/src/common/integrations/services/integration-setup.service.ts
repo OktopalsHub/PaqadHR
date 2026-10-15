@@ -19,7 +19,6 @@ export class IntegrationSetupService {
     config: IntegrationConfig,
     memberId: string,
   ) {
-    this.logger.log(`Setting up ${type} integration for tenant: ${tenantId}`);
     try {
       const integration = await this.platformIntegrationService.createIntegration(
         tenantId,
@@ -27,20 +26,11 @@ export class IntegrationSetupService {
         config,
         memberId,
       );
-      this.logger.log(`Integration created: ${integration.id}`);
       this.eventEmitter.emit('integration.connected', {
         integrationId: integration.id,
         tenantId,
         platform: type,
       });
-      setTimeout(async () => {
-        try {
-          const syncStatus = await this.userSyncService.getSyncStatus(integration.id);
-          this.logger.log(`Initial sync completed:`, syncStatus);
-        } catch (error) {
-          this.logger.error('Error getting sync status:', error);
-        }
-      }, 2000);
       return {
         integration,
         message: 'Integration setup completed. User sync is running in the background.',
@@ -51,10 +41,8 @@ export class IntegrationSetupService {
     }
   }
   async triggerUserSync(integrationId: string, tenantId: string) {
-    this.logger.log(`Manually triggering user sync for integration: ${integrationId}`);
     try {
       const syncResults = await this.userSyncService.syncAllUsers(integrationId, tenantId);
-      this.logger.log(`Manual sync completed:`, syncResults);
       return {
         success: true,
         results: syncResults,

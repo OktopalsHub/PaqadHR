@@ -90,7 +90,7 @@ export class Candidate extends BaseEntity {
     availabilityDate?: Date;
   };
   @Column({ type: 'jsonb', nullable: true, name: 'custom_answers' })
-  customAnswers?: Record<string, any>;
+  customAnswers?: Record<string, unknown>;
   @ManyToOne(
     () => JobOpening,
     (jobOpening) => jobOpening.candidates,

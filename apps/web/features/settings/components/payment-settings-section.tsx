@@ -1,13 +1,31 @@
 'use client';
 
-import { Banknote, CheckCircle2, Loader2, Pencil, ShieldCheck, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import {
+  CheckCircle2,
+  Loader2,
+  MoreHorizontal,
+  Send,
+  ShieldCheck,
+  Star,
+  Trash2,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { BankLogo } from '@/components/bank-logo';
+import { OtpVerificationDialog } from '@/components/otp-verification-dialog';
 import { SearchSelect } from '@/components/search-select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -17,211 +35,221 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PasswordInput } from '@/features/auth/components/form-fields/password-input';
 import {
-  useChangePaymentMethodPasscode,
+  useChangePaymentPasscode,
   useCreatePaymentMethod,
   useDeletePaymentMethod,
   useNigerianBanks,
   usePaymentMethods,
+  usePaymentPasscodeStatus,
+  useSetPrimaryPaymentMethod,
+  useSubmitPaymentMethodForVerification,
   useSupportedPaymentCurrencies,
-  useUpdatePaymentMethod,
 } from '@/hooks/queries/use-payment-methods';
+import { useDebounce } from '@/hooks/use-debounce';
 import { lookupNigerianBankAccount } from '@/lib/api/payment-methods';
+import { networksForCryptoCurrency } from '@/lib/constants/currencies';
+import {
+  getPayoutFieldConfig,
+  isGlobalBankCurrency,
+  normalizeAccountInput,
+  normalizeInstitutionInput,
+  parseUkIban,
+  validateGlobalBankFields,
+} from '@/lib/payout-bank-fields';
 import type { PaymentMethodSummary } from '@/lib/schemas/payment-method';
+import { useTenant } from '@/providers/tenant-provider';
 
 const COUNTRY_BY_CURRENCY: Record<string, string> = {
   NGN: 'NG',
   USD: 'US',
   GBP: 'GB',
   EUR: 'DE',
-  KES: 'KE',
-  GHS: 'GH',
-  ZAR: 'ZA',
 };
 
 function statusBadgeVariant(status: string) {
   if (status === 'verified') return 'default' as const;
   if (status === 'rejected') return 'destructive' as const;
+  if (status === 'draft') return 'outline' as const;
   return 'secondary' as const;
 }
 
+function statusLabel(status: string) {
+  if (status === 'pending_verification') return 'Pending review';
+  if (status === 'draft') return 'Draft';
+  return status.replaceAll('_', ' ');
+}
+
 function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
-  const updateMethod = useUpdatePaymentMethod();
   const deleteMethod = useDeletePaymentMethod();
-  const changePasscode = useChangePaymentMethodPasscode();
-  const [editOpen, setEditOpen] = useState(false);
-  const [passcodeOpen, setPasscodeOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const setPrimaryMethod = useSetPrimaryPaymentMethod();
+  const submitMethod = useSubmitPaymentMethodForVerification();
+  const [confirmAction, setConfirmAction] = useState<'primary' | 'delete' | null>(null);
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
   const [currentPasscode, setCurrentPasscode] = useState('');
-  const [newPasscode, setNewPasscode] = useState('');
-  const [accountName, setAccountName] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [bankName, setBankName] = useState('');
 
-  const handleEdit = async () => {
+  const canSubmit = method.status === 'draft' || method.status === 'rejected';
+  const confirmOpen = confirmAction !== null;
+
+  useEffect(() => {
+    if (!confirmOpen) return;
+    setCurrentPasscode('');
+  }, [confirmOpen]);
+
+  useEffect(() => {
+    if (!submitOpen) return;
+    setCurrentPasscode('');
+  }, [submitOpen]);
+
+  const requestSubmit = () => {
     if (currentPasscode.length !== 6) {
-      toast.error('Current passcode is required');
+      toast.error('Payment passcode is required');
       return;
     }
+    setOtpOpen(true);
+  };
+
+  const handleSubmitForReview = async (otpProof: string) => {
     try {
-      await updateMethod.mutateAsync({
+      await submitMethod.mutateAsync({
         paymentMethodId: method.id,
-        input: {
-          currentPasscode,
-          accountName: accountName.trim() || undefined,
-          accountNumber: accountNumber.trim() || undefined,
-          bankName: bankName.trim() || undefined,
-        },
+        passcode: currentPasscode,
+        otpProof,
       });
-      toast.success('Payment method updated');
-      setEditOpen(false);
+      toast.success('Submitted for admin verification');
+      setSubmitOpen(false);
       setCurrentPasscode('');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Update failed');
+      toast.error(err instanceof Error ? err.message : 'Submit failed');
     }
   };
 
-  const handleChangePasscode = async () => {
-    if (currentPasscode.length !== 6 || newPasscode.length !== 6) {
-      toast.error('Passcodes must be exactly 6 digits');
-      return;
-    }
-    try {
-      await changePasscode.mutateAsync({
-        paymentMethodId: method.id,
-        currentPasscode,
-        newPasscode,
-      });
-      toast.success('Passcode changed');
-      setPasscodeOpen(false);
-      setCurrentPasscode('');
-      setNewPasscode('');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Passcode change failed');
-    }
-  };
-
-  const handleDelete = async () => {
+  const handleConfirmPasscodeAction = async () => {
     if (currentPasscode.length !== 6) {
-      toast.error('Passcode is required to delete');
+      toast.error('Passcode is required');
       return;
     }
     try {
-      await deleteMethod.mutateAsync({ paymentMethodId: method.id, passcode: currentPasscode });
-      toast.success('Payment method deleted');
-      setDeleteOpen(false);
+      if (confirmAction === 'primary') {
+        await setPrimaryMethod.mutateAsync({
+          paymentMethodId: method.id,
+          passcode: currentPasscode,
+        });
+        toast.success('Primary payout method updated');
+      } else if (confirmAction === 'delete') {
+        await deleteMethod.mutateAsync({
+          paymentMethodId: method.id,
+          passcode: currentPasscode,
+        });
+        toast.success('Payment method deleted');
+      }
+      setConfirmAction(null);
       setCurrentPasscode('');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Delete failed');
+      toast.error(err instanceof Error ? err.message : 'Action failed');
     }
   };
+
+  const confirmPending = setPrimaryMethod.isPending || deleteMethod.isPending;
 
   return (
-    <div className="flex flex-wrap gap-1">
-      <Button size="sm" variant="ghost" onClick={() => setEditOpen(true)}>
-        <Pencil className="size-3.5" />
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => setPasscodeOpen(true)}>
-        Passcode
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => setDeleteOpen(true)}>
-        <Trash2 className="size-3.5 text-destructive" />
-      </Button>
+    <div className="flex flex-wrap items-center gap-1">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost" className="px-2" aria-label="Payment method actions">
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {!method.isPrimary ? (
+            <DropdownMenuItem onClick={() => setConfirmAction('primary')}>
+              <Star className="size-4" />
+              Set as primary
+            </DropdownMenuItem>
+          ) : null}
+          {canSubmit ? (
+            <DropdownMenuItem onClick={() => setSubmitOpen(true)}>
+              <Send className="size-4" />
+              Submit for review
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem variant="destructive" onClick={() => setConfirmAction('delete')}>
+            <Trash2 className="size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit bank details</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            <div className="space-y-2">
-              <Label>Bank name</Label>
-              <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Account name</Label>
-              <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Account number</Label>
-              <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Current passcode</Label>
-              <Input
-                type="password"
-                maxLength={6}
-                value={currentPasscode}
-                onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              />
-            </div>
-            <Button className="w-full" disabled={updateMethod.isPending} onClick={handleEdit}>
-              Save changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={passcodeOpen} onOpenChange={setPasscodeOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change passcode</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            <div className="space-y-2">
-              <Label>Current passcode</Label>
-              <Input
-                type="password"
-                maxLength={6}
-                value={currentPasscode}
-                onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>New passcode</Label>
-              <Input
-                type="password"
-                maxLength={6}
-                value={newPasscode}
-                onChange={(e) => setNewPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              />
-            </div>
-            <Button
-              className="w-full"
-              disabled={changePasscode.isPending}
-              onClick={handleChangePasscode}
-            >
-              Update passcode
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete payment method</DialogTitle>
+            <DialogTitle>Submit for verification</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
             <p className="text-sm text-muted-foreground">
-              This removes the bank account from payroll. Enter your passcode to confirm.
+              Submit {method.displayInfo} for admin review.
             </p>
             <div className="space-y-2">
-              <Label>Passcode</Label>
-              <Input
-                type="password"
+              <Label>Payment passcode</Label>
+              <PasswordInput
+                maxLength={6}
+                value={currentPasscode}
+                onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <Button className="w-full" disabled={submitMethod.isPending} onClick={requestSubmit}>
+              {submitMethod.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Submit for review
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <OtpVerificationDialog
+        open={otpOpen}
+        onOpenChange={setOtpOpen}
+        purpose="payment_method"
+        title="Verify to submit payment method"
+        onVerified={(proof) => void handleSubmitForReview(proof)}
+      />
+
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {confirmAction === 'primary' ? 'Set as primary payout' : 'Delete payment method'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            {confirmAction === 'primary' ? (
+              <p className="text-sm text-muted-foreground">
+                Use {method.displayInfo} as your primary payout method. Enter your payment passcode
+                to confirm.
+              </p>
+            ) : null}
+            <div className="space-y-2">
+              <Label>Payment passcode</Label>
+              <PasswordInput
                 maxLength={6}
                 value={currentPasscode}
                 onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               />
             </div>
             <Button
-              variant="destructive"
+              variant={confirmAction === 'delete' ? 'destructive' : 'default'}
               className="w-full"
-              disabled={deleteMethod.isPending}
-              onClick={handleDelete}
+              disabled={confirmPending}
+              onClick={() => void handleConfirmPasscodeAction()}
             >
-              Delete account
+              {confirmPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {confirmAction === 'primary' ? 'Set as primary' : 'Delete'}
             </Button>
           </div>
         </DialogContent>
@@ -231,81 +259,242 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
 }
 
 export function PaymentSettingsSection() {
+  const { tenantId } = useTenant();
   const { data: methods = [], isLoading, isError, error } = usePaymentMethods();
-  const { data: currencies } = useSupportedPaymentCurrencies();
-  const { data: banks = [], isLoading: banksLoading } = useNigerianBanks();
+  const { data: passcodeStatus } = usePaymentPasscodeStatus();
+  const { data: currencies, refetch: refetchCurrencies } = useSupportedPaymentCurrencies();
   const createMethod = useCreatePaymentMethod();
+  const changePasscode = useChangePaymentPasscode();
   const [openForm, setOpenForm] = useState(false);
+  const [passcodeDialogOpen, setPasscodeDialogOpen] = useState(false);
   const [currency, setCurrency] = useState('NGN');
   const [bankCode, setBankCode] = useState('');
   const [bankName, setBankName] = useState('');
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  const [institutionCode, setInstitutionCode] = useState('');
   const [passcode, setPasscode] = useState('');
-  const [lookupVerified, setLookupVerified] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [isPrimary, setIsPrimary] = useState(true);
+  const [otpOpen, setOtpOpen] = useState(false);
+  const [currentPasscode, setCurrentPasscode] = useState('');
+  const [newPasscode, setNewPasscode] = useState('');
 
-  const fiatOptions = currencies?.fiat ?? [];
+  const [walletAddress, setWalletAddress] = useState('');
+  const [cryptoNetwork, setCryptoNetwork] = useState('');
+
+  const hasPasscode = passcodeStatus?.hasPasscode ?? methods.length > 0;
+  const fiatOptions = useMemo(() => currencies?.fiat ?? [], [currencies]);
+  const cryptoOptions = useMemo(() => currencies?.crypto ?? [], [currencies]);
+  const currencyOptions = useMemo(
+    () => [...fiatOptions, ...cryptoOptions],
+    [fiatOptions, cryptoOptions],
+  );
   const isNgn = currency === 'NGN';
+  const isCrypto = cryptoOptions.includes(currency);
+  const cryptoNetworkOptions = useMemo(
+    () => (isCrypto ? [...networksForCryptoCurrency(currency)] : []),
+    [isCrypto, currency],
+  );
+  const {
+    data: banks = [],
+    isLoading: banksLoading,
+    isError: banksError,
+    error: banksQueryError,
+  } = useNigerianBanks({
+    enabled: openForm && isNgn,
+  });
+  const isGlobalBank = isGlobalBankCurrency(currency);
+  const payoutConfig = getPayoutFieldConfig(currency);
+  const hasAnyPrimary = methods.some((m) => m.isPrimary);
 
   useEffect(() => {
-    if (fiatOptions.length === 0) return;
-    if (!fiatOptions.includes(currency)) {
-      setCurrency(fiatOptions[0]);
+    if (currencyOptions.length === 0) return;
+    if (!currencyOptions.includes(currency)) {
+      setCurrency(currencyOptions[0]);
     }
-  }, [currency, fiatOptions]);
+  }, [currency, currencyOptions]);
+
+  useEffect(() => {
+    if (!isCrypto) {
+      setCryptoNetwork('');
+      return;
+    }
+    if (cryptoNetworkOptions.length === 0) return;
+    if (!cryptoNetworkOptions.includes(cryptoNetwork)) {
+      setCryptoNetwork(cryptoNetworkOptions[0]);
+    }
+  }, [isCrypto, cryptoNetwork, cryptoNetworkOptions]);
+
+  useEffect(() => {
+    setInstitutionCode('');
+    setBankCode('');
+    setBankName('');
+    setAccountName('');
+    setAccountNumber('');
+    setWalletAddress('');
+    setCryptoNetwork('');
+    // Only the first method defaults to primary; later methods stay off unless checked.
+    setIsPrimary(!hasAnyPrimary);
+  }, [hasAnyPrimary]);
+
+  const openAddForm = async () => {
+    try {
+      await refetchCurrencies({ throwOnError: true });
+      setWalletAddress('');
+      setCryptoNetwork('');
+      setOpenForm(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not refresh currencies');
+    }
+  };
 
   const bankOptions = useMemo(
-    () => banks.map((bank) => ({ value: bank.code, label: bank.name })),
+    () =>
+      banks.map((bank) => ({
+        value: bank.code,
+        label: bank.name,
+        icon: <BankLogo name={bank.name} logoUrl={bank.logoUrl} />,
+      })),
     [banks],
   );
 
+  // Bank account lookup via mutation + debounce (PII-safe: no cache, no key leakage, SECURITY.md §5)
+  const normalizedAccount = accountNumber.replace(/\D/g, '');
+  const debouncedAccount = useDebounce(normalizedAccount, 500);
+  const debouncedBankCode = useDebounce(bankCode, 500);
+  const selectedBankNameForLookup = banks.find((bank) => bank.code === debouncedBankCode)?.name;
+  const bankLookupEnabled =
+    isNgn &&
+    openForm &&
+    debouncedAccount.length === 10 &&
+    Boolean(debouncedBankCode) &&
+    Boolean(tenantId);
+
+  const bankLookupMutation = useMutation({
+    mutationFn: (vars: { accountNumber: string; bankCode: string; bankName?: string }) =>
+      lookupNigerianBankAccount(vars),
+  });
+  const bankLookupRequestRef = useRef(0);
+
   useEffect(() => {
-    if (!isNgn) {
-      setLookupVerified(false);
-      setLookupError(null);
+    if (!bankLookupEnabled) {
+      bankLookupMutation.reset();
       return;
     }
+    const requestId = ++bankLookupRequestRef.current;
+    bankLookupMutation.mutate(
+      {
+        accountNumber: debouncedAccount,
+        bankCode: debouncedBankCode,
+        bankName: selectedBankNameForLookup,
+      },
+      {
+        onSuccess: (data) => {
+          if (requestId !== bankLookupRequestRef.current) return;
+          if (data.accountNumber !== debouncedAccount || data.bankCode !== debouncedBankCode) {
+            return;
+          }
+          setAccountName(data.accountName);
+          setBankName(data.bankName);
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    debouncedAccount,
+    debouncedBankCode,
+    bankLookupEnabled,
+    selectedBankNameForLookup,
+    bankLookupMutation.reset,
+    bankLookupMutation.mutate,
+  ]);
 
+  const isDebouncingLookup =
+    debouncedAccount !== normalizedAccount || debouncedBankCode !== bankCode;
+  const shouldShowLookupPending =
+    isNgn && openForm && normalizedAccount.length === 10 && Boolean(bankCode);
+  const lookupPending =
+    shouldShowLookupPending && (isDebouncingLookup || bankLookupMutation.isPending);
+  const lookupVerified =
+    !isDebouncingLookup &&
+    bankLookupMutation.isSuccess &&
+    Boolean(bankLookupMutation.data?.accountName) &&
+    bankLookupMutation.data.accountNumber === normalizedAccount &&
+    bankLookupMutation.data.bankCode === bankCode;
+  const rawLookupError = bankLookupMutation.error
+    ? bankLookupMutation.error instanceof Error
+      ? bankLookupMutation.error.message
+      : 'Could not verify account'
+    : null;
+  const lookupErrorStatus =
+    bankLookupMutation.error &&
+    typeof bankLookupMutation.error === 'object' &&
+    'status' in bankLookupMutation.error
+      ? Number((bankLookupMutation.error as { status: number }).status)
+      : 0;
+  const lookupUnavailable = Boolean(
+    rawLookupError &&
+      (lookupErrorStatus === 503 ||
+        /not available|not configured|unavailable|authenticate with Nomba|Nomba payout/i.test(
+          rawLookupError,
+        )),
+  );
+  const lookupError = lookupUnavailable
+    ? 'Auto-verify unavailable. Enter the account name as on your statement.'
+    : rawLookupError;
+
+  // Clear account name when inputs become invalid, verification fails, or live fields diverge during debounce
+  useEffect(() => {
+    if (!isNgn) return;
     const normalized = accountNumber.replace(/\D/g, '');
-    if (normalized.length !== 10 || !bankCode) {
-      setAccountName('');
-      setLookupVerified(false);
-      setLookupError(null);
+    if (normalized.length !== 10 || !bankCode || (isDebouncingLookup && !lookupUnavailable)) {
+      if (!lookupUnavailable) setAccountName('');
       return;
     }
+    if (bankLookupMutation.isError && !lookupUnavailable) {
+      setAccountName('');
+    }
+  }, [
+    accountNumber,
+    bankCode,
+    isNgn,
+    lookupUnavailable,
+    isDebouncingLookup,
+    bankLookupMutation.isError,
+  ]);
 
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      try {
-        const selectedBank = banks.find((bank) => bank.code === bankCode);
-        const result = await lookupNigerianBankAccount({
-          accountNumber: normalized,
-          bankCode,
-          bankName: selectedBank?.name,
-        });
-        if (cancelled) return;
-        setAccountName(result.accountName);
-        setBankName(result.bankName);
-        setLookupVerified(true);
-        setLookupError(null);
-      } catch (err) {
-        if (cancelled) return;
-        setAccountName('');
-        setLookupVerified(false);
-        setLookupError(err instanceof Error ? err.message : 'Could not verify account');
+  const handleSubmit = () => {
+    if (isCrypto) {
+      if (!walletAddress.trim()) {
+        toast.error('Wallet address is required');
+        return;
       }
-    }, 500);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [accountNumber, bankCode, banks, isNgn]);
-
-  const handleSubmit = async () => {
-    if (isNgn) {
-      if (!bankCode || !lookupVerified || !accountName.trim()) {
+      if (!cryptoNetwork.trim()) {
+        toast.error('Network is required');
+        return;
+      }
+    } else if (isNgn) {
+      if (!bankCode) {
+        toast.error('Select your bank');
+        return;
+      }
+      if (accountNumber.replace(/\D/g, '').length !== 10) {
+        toast.error('Enter a valid 10-digit Naira account number');
+        return;
+      }
+      if (lookupPending && !lookupUnavailable) {
+        toast.error('Waiting for account verification…');
+        return;
+      }
+      if (!lookupVerified && !accountName.trim()) {
+        toast.error(
+          lookupUnavailable
+            ? 'Enter the account name on the account'
+            : 'Verify your account number and bank first',
+        );
+        return;
+      }
+      if (!lookupVerified && !lookupUnavailable) {
         toast.error('Verify your account number and bank first');
         return;
       }
@@ -314,7 +503,15 @@ export function PaymentSettingsSection() {
       return;
     }
 
-    if (!accountNumber.trim()) {
+    if (isGlobalBank) {
+      const validationError = validateGlobalBankFields(currency, accountNumber, institutionCode);
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+    }
+
+    if (!isCrypto && !accountNumber.trim()) {
       toast.error('Account number is required');
       return;
     }
@@ -323,28 +520,68 @@ export function PaymentSettingsSection() {
       return;
     }
 
+    setOtpOpen(true);
+  };
+
+  const submitWithOtp = async (otpProof: string) => {
     try {
+      const normalizedAccount = payoutConfig
+        ? normalizeAccountInput(accountNumber, payoutConfig)
+        : accountNumber.trim();
+      let normalizedInstitution = payoutConfig
+        ? normalizeInstitutionInput(institutionCode, payoutConfig)
+        : bankCode.trim();
+      if (currency === 'GBP' && !normalizedInstitution) {
+        const ukIban = parseUkIban(normalizedAccount);
+        if (ukIban) normalizedInstitution = ukIban.sortCode;
+      }
+
       await createMethod.mutateAsync({
+        type: isCrypto ? 'crypto' : 'bank',
         currency,
-        bankName: bankName.trim(),
-        bankCode: bankCode.trim() || undefined,
-        accountName: accountName.trim(),
-        accountNumber: accountNumber.trim(),
-        country: COUNTRY_BY_CURRENCY[currency] ?? 'NG',
+        bankName: isCrypto ? undefined : bankName.trim(),
+        bankCode: isCrypto
+          ? undefined
+          : isNgn
+            ? bankCode.trim()
+            : normalizedInstitution || undefined,
+        accountName: isCrypto ? 'Crypto wallet' : accountName.trim(),
+        accountNumber: isCrypto ? walletAddress.trim() : normalizedAccount,
+        walletAddress: isCrypto ? walletAddress.trim() : undefined,
+        cryptoNetwork: isCrypto ? cryptoNetwork.trim() || undefined : undefined,
+        country: isCrypto ? 'NG' : (COUNTRY_BY_CURRENCY[currency] ?? 'NG'),
         passcode,
-        isPrimary: true,
+        otpProof,
+        isPrimary,
       });
       setOpenForm(false);
       setBankName('');
       setBankCode('');
+      setInstitutionCode('');
       setAccountName('');
       setAccountNumber('');
+      setWalletAddress('');
+      setCryptoNetwork('');
       setPasscode('');
-      setLookupVerified(false);
-      setLookupError(null);
-      toast.success('Payment settings saved. An admin may need to verify your account.');
+      toast.success('Payment account saved as draft.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save payment settings');
+    }
+  };
+
+  const handleChangePasscode = async () => {
+    if (currentPasscode.length !== 6 || newPasscode.length !== 6) {
+      toast.error('Passcodes must be exactly 6 digits');
+      return;
+    }
+    try {
+      await changePasscode.mutateAsync({ currentPasscode, newPasscode });
+      toast.success('Payment passcode changed');
+      setPasscodeDialogOpen(false);
+      setCurrentPasscode('');
+      setNewPasscode('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Passcode change failed');
     }
   };
 
@@ -365,15 +602,6 @@ export function PaymentSettingsSection() {
 
   return (
     <div className="space-y-4">
-      <Alert>
-        <Banknote className="size-4" />
-        <AlertTitle>Payroll bank account</AlertTitle>
-        <AlertDescription>
-          Add the account where you want salary paid. For NGN accounts, enter your account number
-          and bank — we will verify the account name automatically.
-        </AlertDescription>
-      </Alert>
-
       {methods.length === 0 ? (
         <p className="text-sm text-muted-foreground">No payment method on file yet.</p>
       ) : (
@@ -386,20 +614,23 @@ export function PaymentSettingsSection() {
               <div>
                 <p className="text-sm font-medium">{method.displayInfo}</p>
                 <p className="text-xs text-muted-foreground">{method.currency}</p>
+                {method.status === 'rejected' && method.verificationNotes ? (
+                  <p className="mt-1 text-xs text-destructive">{method.verificationNotes}</p>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={statusBadgeVariant(method.status)}>
-                  {method.status.replaceAll('_', ' ')}
+                  {statusLabel(method.status)}
                 </Badge>
-                {method.isPrimary ? <Badge variant="secondary">Primary</Badge> : null}
+                {method.isPrimary ? <Badge variant="secondary">Primary payout</Badge> : null}
                 {method.canReceivePayments ? (
                   <Badge>
                     <ShieldCheck className="mr-1 size-3" />
                     Ready
                   </Badge>
-                ) : (
+                ) : method.status === 'verified' ? (
                   <Badge variant="destructive">Incomplete</Badge>
-                )}
+                ) : null}
                 <PaymentMethodActions method={method} />
               </div>
             </div>
@@ -407,19 +638,27 @@ export function PaymentSettingsSection() {
         </div>
       )}
 
+      {hasPasscode ? (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => setPasscodeDialogOpen(true)}>
+            Change payment passcode
+          </Button>
+        </div>
+      ) : null}
+
       {openForm ? (
         <div className="grid gap-3 rounded-lg border border-border/60 p-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>Currency</Label>
-            {fiatOptions.length <= 1 ? (
-              <Input value={fiatOptions[0] ?? currency} readOnly disabled />
+            {currencyOptions.length <= 1 ? (
+              <Input value={currencyOptions[0] ?? currency} readOnly disabled />
             ) : (
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {fiatOptions.map((code) => (
+                  {currencyOptions.map((code) => (
                     <SelectItem key={code} value={code}>
                       {code}
                     </SelectItem>
@@ -427,55 +666,127 @@ export function PaymentSettingsSection() {
                 </SelectContent>
               </Select>
             )}
-            <p className="text-xs text-muted-foreground">
-              Your workspace only accepts payroll accounts in{' '}
-              {fiatOptions.length ? fiatOptions.join(', ') : 'the configured currencies'}.
-            </p>
           </div>
 
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Account number</Label>
-            <Input
-              value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17))}
-              inputMode="numeric"
-              placeholder={isNgn ? '10-digit account number' : 'Account number'}
-            />
-          </div>
-
-          {isNgn ? (
+          {isCrypto ? (
+            <>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Wallet address</Label>
+                <Input
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  placeholder="Paste your wallet address"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Network</Label>
+                {cryptoNetworkOptions.length <= 1 ? (
+                  <Input value={cryptoNetworkOptions[0] ?? cryptoNetwork} readOnly disabled />
+                ) : (
+                  <Select value={cryptoNetwork} onValueChange={setCryptoNetwork}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select network" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cryptoNetworkOptions.map((network) => (
+                        <SelectItem key={network} value={network}>
+                          {network}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </>
+          ) : isNgn ? (
             <>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Bank</Label>
-                {banksLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading banks…</p>
-                ) : (
-                  <SearchSelect
-                    options={bankOptions}
-                    value={bankCode}
-                    onValueChange={(code) => {
-                      setBankCode(code);
-                      const selected = banks.find((bank) => bank.code === code);
-                      setBankName(selected?.name ?? '');
-                    }}
-                    placeholder="Select your bank"
-                    searchPlaceholder="Search banks…"
-                  />
-                )}
+                <SearchSelect
+                  options={bankOptions}
+                  value={bankCode}
+                  onValueChange={(value) => {
+                    setBankCode(value);
+                    const selected = banks.find((bank) => bank.code === value);
+                    setBankName(selected?.name ?? '');
+                  }}
+                  placeholder={banksLoading ? 'Loading banks…' : 'Search bank'}
+                  disabled={banksLoading}
+                />
+                {banksError ? (
+                  <p className="text-xs text-destructive">
+                    {banksQueryError instanceof Error
+                      ? banksQueryError.message
+                      : 'Could not load banks'}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Account number</Label>
+                <Input
+                  inputMode="numeric"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="10-digit account number"
+                />
+                {lookupPending ? (
+                  <p className="text-xs text-muted-foreground">Looking up account…</p>
+                ) : null}
+                {lookupVerified ? (
+                  <p className="flex items-center gap-1 text-xs text-emerald-600">
+                    <CheckCircle2 className="size-3" />
+                    Account verified
+                  </p>
+                ) : null}
+                {lookupError ? <p className="text-xs text-destructive">{lookupError}</p> : null}
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Account name</Label>
-                <div className="relative">
-                  <Input value={accountName} readOnly placeholder="Verified automatically" />
-                  {lookupVerified ? (
-                    <CheckCircle2 className="absolute right-3 top-2.5 size-4 text-green-600" />
-                  ) : null}
-                </div>
-                {lookupError ? (
-                  <p className="text-xs text-destructive">{lookupError}</p>
-                ) : lookupVerified ? (
-                  <p className="text-xs text-muted-foreground">Account verified</p>
-                ) : null}
+                <Input
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  readOnly={lookupVerified && !lookupUnavailable}
+                />
+              </div>
+            </>
+          ) : isGlobalBank && payoutConfig ? (
+            <>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Bank name</Label>
+                <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{payoutConfig.institutionLabel}</Label>
+                <Input
+                  value={institutionCode}
+                  placeholder={payoutConfig.institutionPlaceholder}
+                  inputMode={payoutConfig.institutionAlphanumeric ? 'text' : 'numeric'}
+                  onChange={(e) =>
+                    setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
+                  }
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{payoutConfig.accountLabel}</Label>
+                <Input
+                  value={accountNumber}
+                  placeholder={payoutConfig.accountPlaceholder}
+                  inputMode={payoutConfig.accountAlphanumeric ? 'text' : 'numeric'}
+                  autoCapitalize="characters"
+                  onChange={(e) => {
+                    const next = normalizeAccountInput(e.target.value, payoutConfig);
+                    setAccountNumber(next);
+                    if (currency === 'GBP') {
+                      const ukIban = parseUkIban(next);
+                      if (ukIban) setInstitutionCode(ukIban.sortCode);
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">{payoutConfig.help}</p>
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Account name</Label>
+                <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
               </div>
             </>
           ) : (
@@ -488,18 +799,47 @@ export function PaymentSettingsSection() {
                 <Label>Account name</Label>
                 <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
               </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Account number</Label>
+                <Input
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17))}
+                />
+              </div>
             </>
           )}
 
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="is-primary"
+                checked={isPrimary}
+                onCheckedChange={(checked) => setIsPrimary(checked === true)}
+              />
+              <Label htmlFor="is-primary">
+                Primary payout method
+                {!hasAnyPrimary ? ' — Required for your first method' : ''}
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground pl-6">
+              Only one method can be primary. Checking this replaces your current primary
+              {hasAnyPrimary ? ' (even if it is a different currency)' : ''}.
+            </p>
+          </div>
+
           <div className="space-y-2 sm:col-span-2">
-            <Label>6-digit passcode</Label>
-            <Input
-              type="password"
+            <Label>{hasPasscode ? 'Enter payment passcode' : 'Set payment passcode'}</Label>
+            <PasswordInput
               inputMode="numeric"
               maxLength={6}
               value={passcode}
               onChange={(e) => setPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             />
+            <p className="text-xs text-muted-foreground">
+              {hasPasscode
+                ? 'Same 6-digit passcode for all payment actions.'
+                : 'Create a 6-digit passcode for payment actions.'}
+            </p>
           </div>
           <div className="flex gap-2 sm:col-span-2">
             <Button disabled={createMethod.isPending} onClick={handleSubmit}>
@@ -512,10 +852,51 @@ export function PaymentSettingsSection() {
           </div>
         </div>
       ) : (
-        <Button size="sm" variant="outline" onClick={() => setOpenForm(true)}>
+        <Button size="sm" variant="outline" onClick={openAddForm}>
           {methods.length ? 'Add another account' : 'Add bank account'}
         </Button>
       )}
+
+      <Dialog open={passcodeDialogOpen} onOpenChange={setPasscodeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change payment passcode</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-2">
+              <Label>Current passcode</Label>
+              <PasswordInput
+                maxLength={6}
+                value={currentPasscode}
+                onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>New passcode</Label>
+              <PasswordInput
+                maxLength={6}
+                value={newPasscode}
+                onChange={(e) => setNewPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <Button
+              className="w-full"
+              disabled={changePasscode.isPending}
+              onClick={() => void handleChangePasscode()}
+            >
+              Update passcode
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <OtpVerificationDialog
+        open={otpOpen}
+        onOpenChange={setOtpOpen}
+        purpose="payment_method"
+        title="Verify to save payment method"
+        onVerified={(proof) => void submitWithOtp(proof)}
+      />
     </div>
   );
 }

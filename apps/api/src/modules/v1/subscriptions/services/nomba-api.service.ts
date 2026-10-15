@@ -1,12 +1,24 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  isNombaAcceptedCode,
+  isNombaCheckoutPaymentSuccessful,
+  nombaCheckoutOrderPath,
+  nombaCheckoutTransactionPath,
+  nombaSandboxCheckoutTransactionPath,
+  resolveNombaTokenExpiresAtMs,
+  resolveNombaVerifiedCheckoutAmount,
+} from 'src/common/config/nomba-api.util';
+import { verifyNombaWebhookSignature } from 'src/common/config/nomba-webhook.util';
 import {
   getNombaAccountId,
   getNombaBaseUrl,
   getNombaClientId,
   getNombaClientSecret,
-  getNombaWebhookSecret,
+  getNombaScopedAccountId,
+  getNombaSubAccountId,
+  hasNombaSubAccount,
   isNombaConfigured,
+  isNombaLive,
 } from '../config/nomba.config';
 import { formatNombaAmount } from '../utils/per-seat-pricing.util';
 
@@ -22,10 +34,13 @@ function stringifyOrderMeta(
 }
 
 interface NombaTokenResponse {
-  data?: { access_token?: string; expires_in?: number };
+  code?: string;
+  data?: { access_token?: string; expires_in?: number; expiresAt?: string; expires_at?: string };
 }
 
 interface NombaCheckoutResponse {
+  code?: string;
+  description?: string;
   data?: {
     checkoutLink?: string;
     orderReference?: string;
@@ -35,11 +50,25 @@ interface NombaCheckoutResponse {
 interface NombaVerifyResponse {
   data?: {
     status?: string;
-    amount?: number;
+    amount?: number | string;
+    onlineCheckoutAmount?: number | string;
     currency?: string;
     meta?: Record<string, unknown>;
-  };
+    success?: boolean;
+    message?: string;
+    order?: { amount?: number | string };
+    transactionDetails?: { statusCode?: string };
+  } | null;
 }
+
+export type NombaVerifiedTransaction = {
+  status?: string;
+  amount?: number;
+  currency?: string;
+  meta?: Record<string, unknown>;
+  success?: boolean;
+  message?: string;
+};
 
 export interface NombaCheckoutOrderInput {
   orderReference: string;
@@ -85,7 +114,10 @@ export class NombaApiService {
 
     const response = await fetch(`${getNombaBaseUrl()}/v1/auth/token/issue`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        accountId: getNombaAccountId(),
+      },
       body: JSON.stringify({
         grant_type: 'client_credentials',
         client_id: getNombaClientId(),
@@ -95,12 +127,11 @@ export class NombaApiService {
 
     const payload = (await response.json()) as NombaTokenResponse;
     const token = payload.data?.access_token;
-    if (!response.ok || !token) {
-      throw new BadRequestException('Failed to authenticate with Nomba');
+    if (!response.ok || (payload.code && !isNombaAcceptedCode(payload.code)) || !token) {
+      throw new BadRequestException(`Failed to authenticate with Nomba (${response.status})`);
     }
 
-    const ttl = (payload.data?.expires_in ?? 3600) * 1000;
-    this.cachedToken = { token, expiresAt: Date.now() + ttl - 60_000 };
+    this.cachedToken = { token, expiresAt: resolveNombaTokenExpiresAtMs(payload.data) };
     return token;
   }
 
@@ -116,12 +147,20 @@ export class NombaApiService {
       body: JSON.stringify(body),
     });
 
-    const payload = (await response.json()) as T & { message?: string };
-    if (!response.ok) {
+    const payload = (await response.json()) as T & {
+      code?: string;
+      message?: string;
+      description?: string;
+    };
+    if (!response.ok || (payload.code !== undefined && !isNombaAcceptedCode(payload.code))) {
       const message =
-        typeof payload === 'object' && payload && 'message' in payload
+        (typeof payload === 'object' && payload && 'description' in payload
+          ? payload.description
+          : undefined) ||
+        (typeof payload === 'object' && payload && 'message' in payload
           ? String(payload.message)
-          : `Nomba request failed (${response.status})`;
+          : undefined) ||
+        `Nomba request failed (${response.status})`;
       this.logger.error(`Nomba ${path} failed: ${message}`);
       throw new BadRequestException(`Nomba Error: ${message}`);
     }
@@ -129,25 +168,37 @@ export class NombaApiService {
     return payload;
   }
 
+  private assertOrderReference(reference: string): void {
+    if (reference.length > 50) {
+      throw new BadRequestException('Order reference length cannot exceed 50');
+    }
+  }
+
   async createCheckoutOrder(input: NombaCheckoutOrderInput): Promise<{
     checkoutLink: string;
     orderReference: string;
   }> {
-    const payload = await this.request<NombaCheckoutResponse>('/v1/checkout/order', {
-      order: {
-        orderReference: input.orderReference,
-        customerEmail: input.customerEmail,
-        amount: formatNombaAmount(input.amount),
-        currency: input.currency.toUpperCase(),
-        callbackUrl: input.callbackUrl,
-        orderMetaData: stringifyOrderMeta(input.meta),
-      },
+    this.assertOrderReference(input.orderReference);
+    const path = nombaCheckoutOrderPath(isNombaLive());
+    const order: Record<string, unknown> = {
+      orderReference: input.orderReference,
+      customerEmail: input.customerEmail,
+      amount: formatNombaAmount(input.amount),
+      currency: input.currency.toUpperCase(),
+      callbackUrl: input.callbackUrl,
+      orderMetaData: stringifyOrderMeta(input.meta),
+    };
+    if (hasNombaSubAccount()) {
+      order.accountId = getNombaScopedAccountId();
+    }
+    const payload = await this.request<NombaCheckoutResponse>(path, {
+      order,
       tokenizeCard: input.tokenizeCard ?? true,
     });
 
     const checkoutLink = payload.data?.checkoutLink;
     if (!checkoutLink) {
-      throw new BadRequestException('Failed to initialize Nomba checkout');
+      throw new BadRequestException(payload.description || 'Failed to initialize Nomba checkout');
     }
 
     return {
@@ -157,6 +208,7 @@ export class NombaApiService {
   }
 
   async chargeTokenizedCard(input: NombaTokenizedChargeInput): Promise<{ orderReference: string }> {
+    this.assertOrderReference(input.orderReference);
     const payload = await this.request<{ data?: { orderReference?: string } }>(
       '/v1/checkout/tokenized-card-payment',
       {
@@ -167,7 +219,7 @@ export class NombaApiService {
           amount: formatNombaAmount(input.amount),
           currency: input.currency.toUpperCase(),
           callbackUrl: input.callbackUrl,
-          accountId: getNombaAccountId(),
+          accountId: getNombaScopedAccountId(),
           orderMetaData: stringifyOrderMeta(input.meta),
         },
       },
@@ -178,7 +230,23 @@ export class NombaApiService {
     };
   }
 
-  async verifyTransaction(reference: string): Promise<NombaVerifyResponse['data'] | null> {
+  private singleTransactionPath(reference: string): string {
+    const subAccountId = getNombaSubAccountId();
+    // Billing uses our orderReference (sub_*, card_update_*); Nomba txn IDs use transactionRef.
+    const looksLikeTxnId =
+      reference.startsWith('WEB-') ||
+      reference.startsWith('API-') ||
+      reference.includes('TRANSFER') ||
+      reference.includes('ONLINE_C');
+    const query = looksLikeTxnId
+      ? `transactionRef=${encodeURIComponent(reference)}`
+      : `orderReference=${encodeURIComponent(reference)}`;
+    return subAccountId
+      ? `/v1/transactions/accounts/${encodeURIComponent(subAccountId)}/single?${query}`
+      : `/v1/transactions/accounts/single?${query}`;
+  }
+
+  async verifyTransaction(reference: string): Promise<NombaVerifiedTransaction | null> {
     const e2eAmountMatch = /^e2e_verify_(\d+)$/.exec(reference);
     if (process.env.NODE_ENV === 'test' && e2eAmountMatch) {
       return { status: 'success', amount: Number(e2eAmountMatch[1]) };
@@ -188,22 +256,46 @@ export class NombaApiService {
 
     try {
       const token = await this.getAccessToken();
-      const response = await fetch(
-        `${getNombaBaseUrl()}/v1/transactions/accounts/single?transactionRef=${encodeURIComponent(reference)}`,
-        {
+      const paths = isNombaLive()
+        ? [this.singleTransactionPath(reference), nombaCheckoutTransactionPath(reference)]
+        : [
+            nombaCheckoutTransactionPath(reference),
+            this.singleTransactionPath(reference),
+            nombaSandboxCheckoutTransactionPath(reference),
+          ];
+
+      for (const path of paths) {
+        const response = await fetch(`${getNombaBaseUrl()}${path}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             accountId: getNombaAccountId(),
           },
-        },
-      );
+        });
 
-      const payload = (await response.json()) as NombaVerifyResponse;
-      if (!response.ok) {
-        return null;
+        const payload = (await response.json()) as NombaVerifyResponse;
+        if (!response.ok || !payload.data) continue;
+
+        const data = payload.data;
+        const rawStatus =
+          data.status ?? data.transactionDetails?.statusCode ?? data.message ?? undefined;
+        const successful = isNombaCheckoutPaymentSuccessful({
+          status: rawStatus,
+          successFlag: data.success,
+          message: data.message,
+        });
+        const amount = resolveNombaVerifiedCheckoutAmount(data);
+
+        return {
+          status: successful ? 'success' : rawStatus,
+          amount,
+          currency: data.currency,
+          meta: data.meta,
+          success: data.success,
+          message: data.message,
+        };
       }
 
-      return payload.data ?? null;
+      return null;
     } catch (error) {
       this.logger.warn(
         `Nomba verify failed for ${reference}: ${error instanceof Error ? error.message : String(error)}`,
@@ -213,69 +305,6 @@ export class NombaApiService {
   }
 
   verifyWebhookSignature(rawBody: string, signature: string): boolean {
-    const secret = getNombaWebhookSecret();
-    if (!secret || !signature) {
-      return false;
-    }
-
-    // 1. Try production Nomba structured signature verification (Base64)
-    try {
-      const payload = JSON.parse(rawBody) as {
-        event_type?: string;
-        eventType?: string;
-        requestId?: string;
-        data?: {
-          merchant?: { userId?: string; walletId?: string };
-          transaction?: {
-            transactionId?: string;
-            type?: string;
-            time?: string;
-            responseCode?: string;
-          };
-        };
-      };
-
-      const eventType = payload.event_type || payload.eventType || '';
-      const requestId = payload.requestId || '';
-      const merchant = payload.data?.merchant;
-      const transaction = payload.data?.transaction;
-      const userId = merchant?.userId || '';
-      const walletId = merchant?.walletId || '';
-      const transactionId = transaction?.transactionId || '';
-      const transactionType = transaction?.type || '';
-      const transactionTime = transaction?.time || '';
-      let responseCode = transaction?.responseCode ?? '';
-      if (responseCode === 'null') responseCode = '';
-
-      const timestamp = transactionTime;
-
-      const hashingPayload = `${eventType}:${requestId}:${userId}:${walletId}:${transactionId}:${transactionType}:${transactionTime}:${responseCode}:${timestamp}`;
-
-      const hash = createHmac('sha256', secret).update(hashingPayload).digest('base64');
-
-      if (
-        hash.length === signature.length &&
-        timingSafeEqual(Buffer.from(hash, 'utf8'), Buffer.from(signature, 'utf8'))
-      ) {
-        return true;
-      }
-    } catch {
-      // Ignore and fallback
-    }
-
-    // 2. Fallback to raw body hex signature verification (compatibility / legacy / e2e)
-    try {
-      const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
-      if (
-        hash.length === signature.length &&
-        timingSafeEqual(Buffer.from(hash, 'utf8'), Buffer.from(signature, 'utf8'))
-      ) {
-        return true;
-      }
-    } catch {
-      // Ignore
-    }
-
-    return false;
+    return verifyNombaWebhookSignature(rawBody, signature);
   }
 }

@@ -23,4 +23,36 @@ export const testimonials = [
     avatar: 'PS',
     rating: 5,
   },
+  {
+    name: 'Tunde Adeyemi',
+    role: 'Founder, Mainspring Studio',
+    content:
+      'The dashboard gives our managers the answer before they need to ask. It has made the weekly people check-in far more useful.',
+    avatar: 'TA',
+    rating: 5,
+  },
+  {
+    name: 'Maya Fernandes',
+    role: 'Operations Director, Northstar',
+    content:
+      'Paqad has the thoughtful details of a much larger system without asking a small team to learn an entirely new language.',
+    avatar: 'MF',
+    rating: 5,
+  },
+  {
+    name: 'Damilola Adebayo',
+    role: 'Chief of Staff, Kinetic',
+    content:
+      'Our payroll review is now a short, confident conversation instead of a day of passing files between finance and people ops.',
+    avatar: 'DA',
+    rating: 5,
+  },
+  {
+    name: 'Elena Rossi',
+    role: 'Head of People, Fieldnote',
+    content:
+      'It brings the human side of operations back into focus. The team sees the work that usually disappears into administration.',
+    avatar: 'ER',
+    rating: 5,
+  },
 ];

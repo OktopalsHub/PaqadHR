@@ -1,19 +1,21 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CandidateMapper } from '../dto/candidate-response.dto';
-import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
-import type { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
+import { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
+import { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
 import { CandidateService } from '../services/candidate.service';
 
 @ApiTags('Tenant Candidates')
 @Controller('tenants/:tenantId/candidates')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard)
+@Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
 @RequireFeatures(FeatureAccess.RECRUITMENT)
 export class CandidateController {
   constructor(
@@ -52,11 +54,13 @@ export class CandidateController {
     @Param('candidateId') candidateId: string,
     @Param('tenantId') tenantId: string,
     @Body() updateDto: UpdateCandidateStatusDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
     const updated = await this.candidateService.updateCandidateStatus(
       candidateId,
       tenantId,
       updateDto,
+      member.id,
     );
     return CandidateMapper.toResponse(updated, this.fileUrlService);
   }

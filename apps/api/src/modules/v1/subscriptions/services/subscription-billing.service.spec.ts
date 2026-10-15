@@ -1,208 +1,193 @@
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { BillingProvider } from '../constants/billing-provider.enum';
 import { SubscriptionBillingService } from './subscription-billing.service';
 
-describe('SubscriptionBillingService renewal jobs', () => {
-  const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
-  const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
-  const originalNombaAccountId = process.env.NOMBA_ACCOUNT_ID;
+/**
+ * SubscriptionBillingService is now a thin facade over RenewalProcessor,
+ * WebhookDispatcher, SubscriptionCheckoutService, BillingOverviewService and
+ * SeatPricingCalculator. Behaviour for each of those lives in a spec next to its owner:
+ *
+ *   renewal-processor.spec.ts           renewal jobs + renewal success writes
+ *   webhook-dispatcher.spec.ts          provider webhook routing and failures
+ *   subscription-checkout.service.spec.ts  checkout guards
+ *   billing-overview.service.spec.ts    overview assembly and privacy
+ *   seat-pricing-calculator.spec.ts     seat sync and seat pricing
+ *
+ * What remains here is only the facade's own behaviour: cancel/resume lifecycle and
+ * confirming it actually delegates rather than reimplementing.
+ */
 
-  const createService = () => {
-    const nombaProvider = { ensureConfigured: jest.fn() };
-    const nombaApi = { verifyTransaction: jest.fn() };
-    const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
-    const tenantSettingsService = { getTenantSettings: jest.fn() };
-    const plansService = { getPlanPriceById: jest.fn() };
-    const subscriptionRepo = {
-      createQueryBuilder: jest.fn(),
-      save: jest.fn(),
-    };
-    const tenantRepo = { findOne: jest.fn() };
-    const userRepo = { findOne: jest.fn() };
-    const tenantMemberRepo = { count: jest.fn(), findOne: jest.fn() };
-    const billingEventRepo = {
-      exists: jest.fn(),
-      findOne: jest.fn(),
-      save: jest.fn(),
-      create: jest.fn(),
-    };
-    const dataSource = { transaction: jest.fn() };
+function createFacade() {
+  const nombaProvider = { verifyWebhookSignature: jest.fn() };
+  const billingProviderFactory = {
+    cancelExternalSubscription: jest.fn().mockResolvedValue(undefined),
+    resumeExternalSubscription: jest.fn().mockResolvedValue(undefined),
+    ensureConfigured: jest.fn(),
+    getProviderForCountry: jest.fn(() => nombaProvider),
+  };
+  const subscriptionRepo = { save: jest.fn(async (s) => s), findOne: jest.fn() };
+  const subscriptionsService = { getTenantSubscription: jest.fn() };
 
-    const service = new SubscriptionBillingService(
-      nombaProvider as never,
-      nombaApi as never,
-      subscriptionsService as never,
-      tenantSettingsService as never,
-      plansService as never,
-      subscriptionRepo as never,
-      tenantRepo as never,
-      userRepo as never,
-      tenantMemberRepo as never,
-      billingEventRepo as never,
-      dataSource as never,
-    );
-
-    return {
-      service,
-      nombaProvider,
-      subscriptionRepo,
-    };
+  const collaborators = {
+    webhookDispatcher: {
+      handleNombaWebhook: jest.fn(),
+      processNombaPayload: jest.fn(),
+      processBachsPayload: jest.fn(),
+      processMonnifyPayload: jest.fn(),
+    },
+    renewalProcessor: {
+      processDueRenewals: jest.fn(),
+      lapseStaleSubscriptions: jest.fn(),
+      applyRenewalSuccess: jest.fn(),
+      markRenewalFailed: jest.fn(),
+      buildNombaRenewalOrderReference: jest.fn(),
+      renewalPeriodEventId: jest.fn(),
+    },
+    seatPricing: {
+      getTenantSeatCount: jest.fn(),
+      syncSubscriptionQuantity: jest.fn(),
+    },
+    checkoutService: {
+      createSubscriptionCheckout: jest.fn(),
+      createPaymentMethodUpdateCheckout: jest.fn(),
+    },
+    overviewService: { getBillingOverview: jest.fn() },
   };
 
-  afterEach(() => {
-    process.env.NOMBA_CLIENT_ID = originalNombaClientId;
-    process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
-    process.env.NOMBA_ACCOUNT_ID = originalNombaAccountId;
-    jest.restoreAllMocks();
-  });
+  const service = new SubscriptionBillingService(
+    subscriptionsService as never,
+    subscriptionRepo as never,
+    collaborators.webhookDispatcher as never,
+    collaborators.renewalProcessor as never,
+    collaborators.seatPricing as never,
+    collaborators.checkoutService as never,
+    collaborators.overviewService as never,
+    billingProviderFactory as never,
+  );
 
-  it('returns empty result when Nomba is not configured', async () => {
-    delete process.env.NOMBA_CLIENT_ID;
-    delete process.env.NOMBA_CLIENT_SECRET;
-    delete process.env.NOMBA_ACCOUNT_ID;
-    const { service, nombaProvider } = createService();
+  return { service, collaborators, subscriptionsService, subscriptionRepo, billingProviderFactory };
+}
 
-    const result = await service.processDueRenewals();
+describe('SubscriptionBillingService cancellation lifecycle', () => {
+  afterEach(() => jest.restoreAllMocks());
 
-    expect(result).toEqual({ charged: 0, failed: 0, skipped: 0, suspended: 0 });
-    expect(nombaProvider.ensureConfigured).not.toHaveBeenCalled();
-  });
-
-  it('aggregates outcomes across due renewals', async () => {
-    process.env.NOMBA_CLIENT_ID = 'client-id';
-    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_ACCOUNT_ID = 'account-id';
-    const { service, subscriptionRepo, nombaProvider } = createService();
-    const dueSubs = [{ id: 'sub-1' }, { id: 'sub-2' }, { id: 'sub-3' }];
-
-    const queryBuilder = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue(dueSubs),
-    };
-    subscriptionRepo.createQueryBuilder.mockReturnValue(queryBuilder);
-
-    jest.spyOn(service as any, 'suspendPastGraceSubscriptions').mockResolvedValue(2);
-    const chargeSpy = jest
-      .spyOn(service as any, 'chargeSubscriptionRenewal')
-      .mockResolvedValueOnce('charged')
-      .mockResolvedValueOnce('failed')
-      .mockResolvedValueOnce('skipped');
-
-    const result = await service.processDueRenewals();
-
-    expect(nombaProvider.ensureConfigured).toHaveBeenCalledTimes(1);
-    expect(chargeSpy).toHaveBeenCalledTimes(3);
-    expect(result).toEqual({ charged: 1, failed: 1, skipped: 1, suspended: 2 });
-  });
-
-  it('skips renewal charge when renewal attempt was already processed', async () => {
-    process.env.NOMBA_CLIENT_ID = 'client-id';
-    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_ACCOUNT_ID = 'account-id';
-    const { service } = createService();
+  it('schedules cancel at period end by default', async () => {
+    const { service, subscriptionsService, subscriptionRepo } = createFacade();
     const subscription = {
-      id: 'sub-idempotent',
-      nextBillingDate: new Date('2026-06-01T00:00:00.000Z'),
       tenantId: 'tenant-1',
-      planPriceId: 'price-1',
-      planId: 'plan-1',
-      paymentMethodId: 'tok_123',
-      nombaSubscriptionId: 'nomba_ref_1',
       status: SubscriptionStatus.ACTIVE,
+      cancelAtPeriodEnd: false,
     };
+    subscriptionsService.getTenantSubscription.mockResolvedValue(subscription);
 
-    jest.spyOn(service as any, 'hasProcessedEvent').mockResolvedValue(true);
+    const result = await service.cancelSubscription('tenant-1', {});
 
-    const outcome = await (service as any).chargeSubscriptionRenewal(subscription);
+    expect(result.cancelAtPeriodEnd).toBe(true);
+    expect(subscriptionRepo.save).toHaveBeenCalled();
+  });
 
-    expect(outcome).toBe('skipped');
+  it('cancels the managed external subscription when the user cancels', async () => {
+    const { service, subscriptionsService, billingProviderFactory, subscriptionRepo } =
+      createFacade();
+    subscriptionsService.getTenantSubscription.mockResolvedValue({
+      tenantId: 'tenant-1',
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.BACHS,
+      externalSubscriptionId: 'sub_bachs_1',
+      cancelAtPeriodEnd: false,
+    });
+
+    await service.cancelSubscription('tenant-1', { atPeriodEnd: true });
+
+    expect(billingProviderFactory.cancelExternalSubscription).toHaveBeenCalledWith(
+      BillingProvider.BACHS,
+      'sub_bachs_1',
+      true,
+    );
+    expect(subscriptionRepo.save).toHaveBeenCalled();
+  });
+
+  it('uncancels the managed provider before clearing cancelAtPeriodEnd', async () => {
+    const { service, subscriptionsService, billingProviderFactory, subscriptionRepo } =
+      createFacade();
+    const subscription = {
+      tenantId: 'tenant-1',
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.BACHS,
+      externalSubscriptionId: 'sub_bachs_1',
+      cancelAtPeriodEnd: true,
+      paymentMethodId: 'pm_1',
+      currentPeriodEnd: new Date(Date.now() + 86_400_000),
+    };
+    subscriptionsService.getTenantSubscription.mockResolvedValue(subscription);
+
+    await service.resumeSubscription('tenant-1');
+
+    expect(billingProviderFactory.resumeExternalSubscription).toHaveBeenCalledWith(
+      BillingProvider.BACHS,
+      'sub_bachs_1',
+    );
+    expect(subscription.cancelAtPeriodEnd).toBe(false);
+    expect(subscriptionRepo.save).toHaveBeenCalled();
+  });
+
+  it('rejects undo when there is no scheduled cancellation', async () => {
+    const { service, subscriptionsService } = createFacade();
+    subscriptionsService.getTenantSubscription.mockResolvedValue({
+      tenantId: 'tenant-1',
+      status: SubscriptionStatus.ACTIVE,
+      cancelAtPeriodEnd: false,
+      paymentMethodId: 'pm_1',
+      currentPeriodEnd: new Date(Date.now() + 86_400_000),
+    });
+
+    await expect(service.resumeSubscription('tenant-1')).rejects.toThrow(
+      /No scheduled cancellation/,
+    );
   });
 });
 
-describe('SubscriptionBillingService webhooks', () => {
-  const createService = () => {
-    const nombaProvider = {
-      verifyWebhookSignature: jest.fn(),
-      parseWebhook: jest.fn(),
-    };
-    const nombaApi = { verifyTransaction: jest.fn() };
-    const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
-    const tenantSettingsService = { getTenantSettings: jest.fn() };
-    const plansService = { getPlanPriceById: jest.fn() };
-    const subscriptionRepo = { save: jest.fn(), findOne: jest.fn() };
-    const tenantRepo = { findOne: jest.fn() };
-    const userRepo = { findOne: jest.fn() };
-    const tenantMemberRepo = { count: jest.fn(), findOne: jest.fn() };
-    const billingEventRepo = {
-      exists: jest.fn(),
-      findOne: jest.fn(),
-      save: jest.fn(),
-      create: jest.fn(),
-    };
-    const dataSource = { transaction: jest.fn() };
+describe('SubscriptionBillingService delegation', () => {
+  afterEach(() => jest.restoreAllMocks());
 
-    const service = new SubscriptionBillingService(
-      nombaProvider as never,
-      nombaApi as never,
-      subscriptionsService as never,
-      tenantSettingsService as never,
-      plansService as never,
-      subscriptionRepo as never,
-      tenantRepo as never,
-      userRepo as never,
-      tenantMemberRepo as never,
-      billingEventRepo as never,
-      dataSource as never,
-    );
-
-    return { service, nombaProvider };
-  };
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('rejects missing webhook signatures', async () => {
-    const { service } = createService();
-    await expect(service.handleNombaWebhook('{}', '')).rejects.toThrow('Missing webhook signature');
-  });
-
-  it('rejects invalid webhook signatures', async () => {
-    const { service, nombaProvider } = createService();
-    (nombaProvider.verifyWebhookSignature as jest.Mock).mockReturnValue(false);
-    await expect(service.handleNombaWebhook('{}', 'bad')).rejects.toThrow(
-      'Invalid webhook signature',
-    );
-  });
-
-  it('routes payment.success to initial payment handler', async () => {
-    const { service, nombaProvider } = createService();
-    (nombaProvider.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
-    (nombaProvider.parseWebhook as jest.Mock).mockReturnValue({
-      kind: 'payment.success',
-      payment: { eventId: 'evt-1', reference: 'ref-1', tenantId: 'tenant-1' },
+  // These guards keep the facade honest: it must delegate, not reimplement.
+  it('delegates renewal jobs, seat sync, overview, and checkout to their owners', async () => {
+    const { service, collaborators } = createFacade();
+    collaborators.renewalProcessor.processDueRenewals.mockResolvedValue({
+      charged: 0,
+      failed: 0,
+      skipped: 0,
+      suspended: 0,
     });
-    const spy = jest
-      .spyOn(service as any, 'processInitialPaymentSuccess')
-      .mockResolvedValue(undefined);
+    collaborators.overviewService.getBillingOverview.mockResolvedValue({ ownerEmail: null });
+    collaborators.seatPricing.getTenantSeatCount.mockResolvedValue(3);
 
-    await service.handleNombaWebhook('{}', 'sig');
+    await service.processDueRenewals();
+    await service.syncSubscriptionQuantity('tenant-1');
+    await service.getBillingOverview('tenant-1', false);
 
-    expect(spy).toHaveBeenCalled();
+    expect(collaborators.renewalProcessor.processDueRenewals).toHaveBeenCalled();
+    expect(collaborators.seatPricing.syncSubscriptionQuantity).toHaveBeenCalledWith('tenant-1');
+    expect(collaborators.overviewService.getBillingOverview).toHaveBeenCalledWith(
+      'tenant-1',
+      false,
+      undefined,
+    );
+    await expect(service.getTenantSeatCount('tenant-1')).resolves.toBe(3);
   });
 
-  it('routes payment.failed to failure handler', async () => {
-    const { service, nombaProvider } = createService();
-    (nombaProvider.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
-    (nombaProvider.parseWebhook as jest.Mock).mockReturnValue({
-      kind: 'payment.failed',
-      payment: { eventId: 'evt-fail', reference: 'ref-fail', tenantId: 'tenant-1' },
-    });
-    const spy = jest.spyOn(service as any, 'processPaymentFailed').mockResolvedValue(undefined);
+  it('routes provider webhooks through the dispatcher with the right provider', async () => {
+    const { service, collaborators } = createFacade();
+    collaborators.webhookDispatcher.processBachsPayload.mockResolvedValue({ received: true });
+    collaborators.webhookDispatcher.processMonnifyPayload.mockResolvedValue({ received: true });
+    collaborators.webhookDispatcher.processNombaPayload.mockResolvedValue({ received: true });
 
-    await service.handleNombaWebhook('{}', 'sig');
+    await service.processBachsPayload({});
+    await service.processMonnifyPayload({});
+    await service.processNombaPayload({});
 
-    expect(spy).toHaveBeenCalled();
+    expect(collaborators.webhookDispatcher.processBachsPayload).toHaveBeenCalledWith({});
+    expect(collaborators.webhookDispatcher.processMonnifyPayload).toHaveBeenCalledWith({});
+    expect(collaborators.webhookDispatcher.processNombaPayload).toHaveBeenCalledWith({});
   });
 });

@@ -58,7 +58,7 @@ export const ForgotPasswordForm = ({ onBack }: ForgotPasswordFormProps) => {
             We sent password reset instructions to your inbox.
           </p>
         </div>
-        <Button variant="outline" onClick={onBack} className="w-full">
+        <Button variant="brandSolid" onClick={onBack} className="w-full">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to sign in
         </Button>

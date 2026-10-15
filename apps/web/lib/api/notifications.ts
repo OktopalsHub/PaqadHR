@@ -1,5 +1,4 @@
-import { apiClient, fetchWithCsrf, getApiV1Base } from '@/lib/api/client';
-import { resolveTenantId } from '@/lib/api/tenants';
+import { apiClient, getApiV1Base } from '@/lib/api/client';
 
 export type NotificationType = 'system' | 'tenant' | 'user';
 export type NotificationChannel = 'email' | 'in_app' | 'both';
@@ -29,44 +28,63 @@ export interface NotificationsListResponse {
   total: number;
 }
 
-async function withTenantHeaders(init?: RequestInit): Promise<RequestInit> {
-  const tenantId = await resolveTenantId();
-  const headers = new Headers(init?.headers);
-  headers.set('x-tenant-id', tenantId);
-  return { ...init, headers };
-}
-
-export async function fetchNotifications(options?: {
-  limit?: number;
-  offset?: number;
-  unreadOnly?: boolean;
-}): Promise<NotificationsListResponse> {
+export async function fetchNotifications(
+  tenantId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+    unreadOnly?: boolean;
+  },
+): Promise<NotificationsListResponse> {
   const params = new URLSearchParams();
   if (options?.limit != null) params.set('limit', String(options.limit));
   if (options?.offset != null) params.set('offset', String(options.offset));
   if (options?.unreadOnly) params.set('unreadOnly', 'true');
   const query = params.toString();
-  const path = `/notifications${query ? `?${query}` : ''}`;
-  return apiClient<NotificationsListResponse>(path, await withTenantHeaders());
+  const path = `/tenants/${tenantId}/notifications${query ? `?${query}` : ''}`;
+  return apiClient<NotificationsListResponse>(path);
 }
 
-export async function fetchUnreadNotificationCount(): Promise<number> {
+export async function fetchUnreadNotificationCount(tenantId: string): Promise<number> {
   const result = await apiClient<{ count: number }>(
-    '/notifications/unread-count',
-    await withTenantHeaders(),
+    `/tenants/${tenantId}/notifications/unread-count`,
   );
   return result.count;
 }
 
-export async function markNotificationRead(notificationId: string): Promise<void> {
-  await apiClient(
-    `/notifications/${notificationId}/read`,
-    await withTenantHeaders({ method: 'PATCH' }),
-  );
+export async function markNotificationRead(
+  tenantId: string,
+  notificationId: string,
+): Promise<void> {
+  await apiClient(`/tenants/${tenantId}/notifications/${notificationId}/read`, { method: 'PATCH' });
 }
 
-export async function markAllNotificationsRead(): Promise<void> {
-  await apiClient('/notifications/read-all', await withTenantHeaders({ method: 'PATCH' }));
+export async function markAllNotificationsRead(tenantId: string): Promise<void> {
+  await apiClient(`/tenants/${tenantId}/notifications/read-all`, { method: 'PATCH' });
+}
+
+export async function deleteNotification(tenantId: string, notificationId: string): Promise<void> {
+  await apiClient(`/tenants/${tenantId}/notifications/${notificationId}`, { method: 'DELETE' });
+}
+
+export interface BroadcastNotificationInput {
+  title: string;
+  message: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  channel?: 'in_app' | 'both';
+}
+
+export async function broadcastNotification(
+  tenantId: string,
+  input: BroadcastNotificationInput,
+): Promise<{ success: boolean; recipients: number }> {
+  return apiClient<{ success: boolean; recipients: number }>(
+    `/tenants/${tenantId}/notifications/broadcast`,
+    {
+      method: 'POST',
+      body: input,
+    },
+  );
 }
 
 export async function subscribeToNotificationStream(
@@ -74,11 +92,11 @@ export async function subscribeToNotificationStream(
   onEvent: () => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const response = await fetchWithCsrf(`${getApiV1Base()}/notifications/stream`, {
+  const response = await fetch(`${getApiV1Base()}/tenants/${tenantId}/notifications/stream`, {
     headers: {
       Accept: 'text/event-stream',
-      'x-tenant-id': tenantId,
     },
+    credentials: 'include',
     signal,
   });
 

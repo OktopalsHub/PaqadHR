@@ -9,17 +9,19 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { AssignPositionDto } from '../dto/assign-position.dto';
+import { AssignPositionDto } from '../dto/assign-position.dto';
 import { PositionMemberService } from '../services/position-member.service';
 
 @Controller('tenants/:tenantId/positions')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.BASIC_HR)
 export class PositionMemberController {
   constructor(
     private readonly positionMemberService: PositionMemberService,
@@ -59,6 +61,7 @@ export class PositionMemberController {
       memberId,
       body.positionId,
       body.assignedAt ?? new Date(),
+      member.id,
     );
   }
 }

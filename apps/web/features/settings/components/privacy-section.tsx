@@ -1,6 +1,6 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,16 +12,54 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { apiClient } from '@/lib/api/client';
+import { logoutRequest } from '@/lib/api/auth';
+import { apiClient, clearCsrfToken } from '@/lib/api/client';
+import { clearAppCache } from '@/lib/cache';
+import { clearSessionStorage } from '@/lib/session';
 
 export function PrivacySection() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const data = await apiClient<Record<string, unknown>>('/users/me/data-export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `paqad-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success('Your data export has been downloaded');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const clearClientSession = () => {
+    clearAppCache();
+    clearSessionStorage();
+    clearCsrfToken();
+  };
 
   const handleDelete = async () => {
     try {
       setBusy(true);
       await apiClient('/users/account', { method: 'DELETE' });
+      try {
+        await logoutRequest();
+      } catch {
+        // Server unreachable — still clear client state below
+      } finally {
+        clearClientSession();
+      }
       toast.success('Account deleted');
       window.location.href = '/signin';
     } catch (err) {
@@ -33,22 +71,26 @@ export function PrivacySection() {
   };
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Permanently delete your account and sign out of all workspaces.
-      </p>
-      <Button size="sm" variant="destructive" disabled={busy} onClick={() => setDeleteOpen(true)}>
-        <Trash2 className="mr-1 size-4" />
-        Delete account
+    <div className="space-y-6">
+      <Button size="sm" variant="outline" disabled={exporting} onClick={handleExport}>
+        <Download className="mr-1 size-4" />
+        {exporting ? 'Preparing export…' : 'Export my data'}
       </Button>
+
+      <div className="border-t border-border pt-6">
+        <Button size="sm" variant="destructive" disabled={busy} onClick={() => setDeleteOpen(true)}>
+          <Trash2 className="mr-1 size-4" />
+          Delete account
+        </Button>
+      </div>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete your account?</DialogTitle>
             <DialogDescription>
-              This permanently deletes your login, scrubs linked payment details, and signs you out.
-              This cannot be undone.
+              This deletes your login, scrubs linked payment details, and signs you out. Workspace
+              employment records may remain with your employer. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -56,7 +98,7 @@ export function PrivacySection() {
               Cancel
             </Button>
             <Button variant="destructive" disabled={busy} onClick={handleDelete}>
-              Delete permanently
+              Delete account
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,18 +1,22 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approveLeave,
+  cancelLeave,
   createLeave,
+  deleteLeave,
   fetchLeaves,
   fetchMyLeaveBalances,
   fetchMyLeaves,
   rejectLeave,
+  updateLeave,
 } from '@/lib/api/leaves';
 import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
-import type { CreateLeaveInput } from '@/lib/schemas/leave';
+import type { CreateLeaveInput, UpdateLeaveInput } from '@/lib/schemas/leave';
 import { useTenant } from '@/providers/tenant-provider';
+import { invalidateLeaveMutationQueries } from './leave-mutation-invalidation';
 import { useEmployees } from './use-employees';
 
 function useCanViewTeamLeaves() {
@@ -30,14 +34,21 @@ function useCanViewTeamLeaves() {
   return hasDirectReports(viewerId, employees);
 }
 
-export function useLeaves() {
+export function useLeaves(options?: { limit?: number }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const canViewTeamLeaves = useCanViewTeamLeaves();
 
   return useQuery({
-    queryKey: [...queryKeys.leaves.all, tenantId, canViewTeamLeaves ? 'team' : 'self'],
+    queryKey: [
+      ...queryKeys.leaves.all,
+      tenantId,
+      canViewTeamLeaves ? 'team' : 'self',
+      options?.limit,
+    ],
     queryFn: canViewTeamLeaves ? fetchLeaves : fetchMyLeaves,
+    select: options?.limit ? (data) => data.slice(0, options.limit) : undefined,
     enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -56,15 +67,35 @@ export function useCreateLeave() {
 
   return useMutation({
     mutationFn: (input: CreateLeaveInput) => createLeave(input),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.leaves.balances,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.calendar.events,
-      });
-    },
+    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
+  });
+}
+
+export function useUpdateLeave() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ leaveId, input }: { leaveId: string; input: UpdateLeaveInput }) =>
+      updateLeave(leaveId, input),
+    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
+  });
+}
+
+export function useDeleteLeave() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (leaveId: string) => deleteLeave(leaveId),
+    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
+  });
+}
+
+export function useCancelLeave() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (leaveId: string) => cancelLeave(leaveId),
+    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
   });
 }
 
@@ -74,15 +105,7 @@ export function useApproveLeave() {
   return useMutation({
     mutationFn: ({ leaveId, comments }: { leaveId: string; comments?: string }) =>
       approveLeave(leaveId, comments),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.leaves.balances,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.calendar.events,
-      });
-    },
+    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
   });
 }
 
@@ -92,15 +115,7 @@ export function useRejectLeave() {
   return useMutation({
     mutationFn: ({ leaveId, comments }: { leaveId: string; comments?: string }) =>
       rejectLeave(leaveId, comments),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.leaves.balances,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.calendar.events,
-      });
-    },
+    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
   });
 }
 

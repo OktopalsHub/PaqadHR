@@ -4,7 +4,9 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -13,19 +15,23 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { defaultPayrollCurrency } from 'src/common/config/nomba.config';
+import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { AuthOnly, CurrentUser, Public } from 'src/common/decorators';
-import type { PaginationDto } from 'src/common/dto/pagination.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { TenantMemberRole, UserRole } from 'src/common/enums';
 import { Roles as PlatformRoles } from 'src/common/guards/role.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { FileUrlService } from 'src/common/services/file-url.service';
-import { getPaginationSummary } from 'src/common/utils/pagination.util';
+import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateTenantDto } from './dto/create-tenant.dto';
+import { CreateTenantDto } from './dto/create-tenant.dto';
+import { PublicTenantResponseDto } from './dto/public-tenant-response.dto';
 import { TenantResponseDto, type UserTenantWithMembershipDto } from './dto/tenant-response.dto';
-import type { UpdateTenantDto } from './dto/update-tenant.dto';
+import { UpdatePaymentCurrencyDto } from './dto/update-payment-currency.dto';
+import { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantsService } from './tenants.service';
 
 @ApiTags('Tenants')
@@ -60,26 +66,31 @@ export class TenantsController {
     return this.tenantsService.updateTenant(tenantId, updateTenantDto);
   }
   @Delete(':tenantId')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER)
   @HttpCode(204)
   async deleteTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     await this.tenantsService.deleteTenant(tenantId);
   }
   @Patch(':tenantId/restore')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER)
   async restoreTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     return this.tenantsService.restoreTenant(tenantId);
   }
   @Get('user/me')
   @AuthOnly()
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Pragma', 'no-cache')
   async getUserTenants(
     @CurrentUser() req: IAuthenticatedUserRequest,
     @Query() pagination: PaginationDto,
   ): Promise<IPaginatedData<UserTenantWithMembershipDto>> {
     const result = await this.tenantsService.getUserTenantsWithDetails(req.auth.principalId);
     const { page = 1, limit = 10 } = pagination;
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
+    const safeLimit = normalizePaginationLimit(limit);
+    const startIndex = (page - 1) * safeLimit;
+    const endIndex = startIndex + safeLimit;
     const paginatedTenants = result.tenants.slice(startIndex, endIndex);
     const tenantsWithMembership: UserTenantWithMembershipDto[] = paginatedTenants.map((tenant) => {
       const response: UserTenantWithMembershipDto = {
@@ -130,40 +141,46 @@ export class TenantsController {
     return getPaginationSummary(
       tenantsWithMembership,
       result.totalCount,
-      { page, limit },
+      { page, limit: safeLimit },
       'User Tenants',
     );
   }
   @Public()
   @Get('slug/:slug')
-  async getTenantBySlug(@Param('slug') slug: string) {
+  async getTenantBySlug(@Param('slug') slug: string): Promise<PublicTenantResponseDto> {
     if (!/^[a-zA-Z0-9_-]+$/.test(slug) || slug.length > 50) {
       throw new BadRequestException('Invalid slug format');
     }
-    return this.tenantsService.getTenantBySlug(slug);
+    const tenant = await this.tenantsService.getTenantBySlug(slug);
+    if (!tenant?.isActive) {
+      throw new NotFoundException('Workspace not found');
+    }
+    return PublicTenantResponseDto.toResponse(tenant, this.fileUrlService);
   }
   @Patch(':tenantId/payment-currency')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updatePaymentCurrency(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
-    @Body() body: { currency: string },
+    @Body() body: UpdatePaymentCurrencyDto,
   ) {
-    const supportedCurrencies = ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR'];
-    if (!supportedCurrencies.includes(body.currency)) {
+    const supportedCurrencies = getSupportedPaymentCurrencies();
+    if (!supportedCurrencies.includes(body.currency.toUpperCase())) {
       throw new BadRequestException(`Currency must be one of: ${supportedCurrencies.join(', ')}`);
     }
     const updateDto: UpdateTenantDto = {
-      preferredCurrency: body.currency,
+      preferredCurrency: body.currency.toUpperCase(),
     };
-    return this.tenantsService.updateTenant(tenantId, updateDto);
+    const tenant = await this.tenantsService.updateTenant(tenantId, updateDto);
+    return tenant;
   }
   @Get(':tenantId/payment-currency')
   @UseGuards(TenantMemberGuard)
   async getPaymentCurrency(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     const tenant = await this.tenantsService.getTenant(tenantId);
     return {
-      currency: tenant.preferredCurrency || 'USD',
-      supportedCurrencies: ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR'],
+      currency: tenant.preferredCurrency || defaultPayrollCurrency(),
+      supportedCurrencies: getSupportedPaymentCurrencies(),
     };
   }
   @Get(':tenantId/profile')

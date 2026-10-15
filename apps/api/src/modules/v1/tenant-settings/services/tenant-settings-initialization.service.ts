@@ -101,7 +101,6 @@ export class TenantSettingsInitializationService {
       settings: finalSettings,
     };
     const savedSettings = await this.tenantSettingsRepository.save(newSettings);
-    this.logger.log(`Initialized tenant settings for tenant: ${tenantId}`);
     return savedSettings;
   }
   async bulkInitializeTenantSettings(
@@ -227,7 +226,6 @@ export class TenantSettingsInitializationService {
     this.validateSettings(updatedSettings);
     existingSettings.settings = updatedSettings;
     const savedSettings = await this.tenantSettingsRepository.save(existingSettings);
-    this.logger.log(`Updated tenant settings for tenant: ${tenantId}`);
     return savedSettings;
   }
   async resetTenantSettingsToDefaults(tenantId: string): Promise<TenantSettings> {

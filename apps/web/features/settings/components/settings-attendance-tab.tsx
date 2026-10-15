@@ -152,22 +152,14 @@ export function SettingsAttendanceTab() {
 
   return (
     <div className="space-y-5">
-      <ContentCard
-        title="Clock in / out"
-        description="Control whether members can track time from the header and Attendance page"
-      >
+      <ContentCard title="Clock in / out">
         <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium">Enable clock in</p>
-            <p className="text-xs text-muted-foreground">
-              When off, the clock button is hidden and clock-in API calls are blocked.
-            </p>
-          </div>
+          <p className="text-sm font-medium">Enable clock in</p>
           <Switch checked={clockInEnabled} onCheckedChange={saveClockInToggle} />
         </div>
       </ContentCard>
 
-      <ContentCard title="Weekend days" description="Days excluded from working-day calculations">
+      <ContentCard title="Weekend days">
         <div className="space-y-3">
           {WEEKDAYS.map((day) => (
             <div key={day.value} className="flex items-center justify-between">
@@ -183,7 +175,7 @@ export function SettingsAttendanceTab() {
         </div>
       </ContentCard>
 
-      <ContentCard title="Attendance policies" description="Work hours and lateness rules">
+      <ContentCard title="Attendance policies">
         <div className="space-y-3">
           {policies.map((policy) => (
             <div
@@ -228,34 +220,28 @@ export function SettingsAttendanceTab() {
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint label="Work start" hint="Expected clock-in time (24h).">
+              <SettingsFieldHint label="Work start">
                 <Input
                   type="time"
                   value={form.workStartTime}
                   onChange={(e) => setForm({ ...form, workStartTime: e.target.value })}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint label="Work end" hint="Expected clock-out time (24h).">
+              <SettingsFieldHint label="Work end">
                 <Input
                   type="time"
                   value={form.workEndTime}
                   onChange={(e) => setForm({ ...form, workEndTime: e.target.value })}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint
-                label="Late threshold (minutes)"
-                hint="Minutes after start before a session is late."
-              >
+              <SettingsFieldHint label="Late threshold (minutes)">
                 <Input
                   type="number"
                   value={form.lateThreshold}
                   onChange={(e) => setForm({ ...form, lateThreshold: Number(e.target.value) || 0 })}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint
-                label="Half-day threshold (minutes)"
-                hint="Worked minutes below this count as half day."
-              >
+              <SettingsFieldHint label="Half-day threshold (minutes)">
                 <Input
                   type="number"
                   value={form.halfDayThreshold}
@@ -264,20 +250,14 @@ export function SettingsAttendanceTab() {
                   }
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint
-                label="Grace period (minutes)"
-                hint="Allowed lateness before marking late."
-              >
+              <SettingsFieldHint label="Grace period (minutes)">
                 <Input
                   type="number"
                   value={form.gracePeriod}
                   onChange={(e) => setForm({ ...form, gracePeriod: Number(e.target.value) || 0 })}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint
-                label="Max sessions per day"
-                hint="How many clock-in sessions are allowed per day."
-              >
+              <SettingsFieldHint label="Max sessions per day">
                 <Input
                   type="number"
                   value={form.maxSessionsPerDay}

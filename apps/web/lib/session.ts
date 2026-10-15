@@ -1,35 +1,51 @@
-import type { User } from '@/lib/schemas/auth';
-import { userSchema } from '@/lib/schemas/auth';
+import { getAppDomain } from '@/lib/navigation/tenant-routes';
 
-const SESSION_KEY = 'paqad_session';
+const LEGACY_SESSION_KEY = 'paqad_session';
 const TENANT_KEY = 'paqad_tenant_id';
 const TENANT_SLUG_KEY = 'paqad_tenant_slug';
 
-export function persistSession(user: User) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+function sharedCookieDomain(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const hostname = window.location.hostname;
+  const appDomain = getAppDomain();
+  if (hostname === appDomain || hostname.endsWith(`.${appDomain}`)) {
+    return `.${appDomain}`;
+  }
+  return undefined;
 }
 
-export function readSession(): User | null {
-  if (typeof window === 'undefined') return null;
+function writeTenantSlugCookie(slug: string, maxAge: number) {
+  const domain = sharedCookieDomain();
+  const domainPart = domain ? `; Domain=${domain}` : '';
+  // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
+  document.cookie = `tenant_slug=${encodeURIComponent(slug)}; path=/${domainPart}; max-age=${maxAge}; SameSite=Lax`;
+}
 
-  const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
+function clearTenantSlugCookie() {
+  const domain = sharedCookieDomain();
+  const domainPart = domain ? `; Domain=${domain}` : '';
+  // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
+  document.cookie = `tenant_slug=; path=/${domainPart}; max-age=0; SameSite=Lax`;
+}
 
-  try {
-    return userSchema.parse(JSON.parse(raw));
-  } catch {
-    localStorage.removeItem(SESSION_KEY);
-    return null;
+/** User profile is loaded from the API only — never cached in localStorage (GDPR/NDPR). */
+export function persistSession(): void {
+  // Intentionally no-op: auth state lives in httpOnly cookies + server profile fetch.
+}
+
+export function readSession(): null {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(LEGACY_SESSION_KEY);
   }
+  return null;
 }
 
 export function clearSessionStorage() {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(LEGACY_SESSION_KEY);
   localStorage.removeItem(TENANT_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
-  document.cookie = 'tenant_slug=; path=/; max-age=0; SameSite=Lax';
+  clearTenantSlugCookie();
 }
 
 export function persistTenantId(tenantId: string) {
@@ -45,7 +61,7 @@ export function readTenantId(): string | null {
 export function persistTenantSlug(slug: string) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TENANT_SLUG_KEY, slug);
-  document.cookie = `tenant_slug=${encodeURIComponent(slug)}; path=/; max-age=31536000; SameSite=Lax`;
+  writeTenantSlugCookie(slug, 31536000);
 }
 
 export function readTenantSlug(): string | null {
@@ -57,5 +73,5 @@ export function clearTenantId() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TENANT_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
-  document.cookie = 'tenant_slug=; path=/; max-age=0; SameSite=Lax';
+  clearTenantSlugCookie();
 }

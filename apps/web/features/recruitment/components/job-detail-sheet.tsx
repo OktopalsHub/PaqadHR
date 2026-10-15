@@ -1,9 +1,34 @@
 'use client';
 
+import { Archive, Ban, MoreHorizontal, Trash2, XCircle } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { LoadingBlock } from '@/components/loading-block';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { useJobOpening } from '@/hooks/queries/use-recruitment';
+import {
+  useArchiveJobOpening,
+  useCloseJobOpening,
+  useDeactivateJobOpening,
+  useDeleteJobOpening,
+  useJobOpening,
+} from '@/hooks/queries/use-recruitment';
 import { formatDate } from '@/lib/format-date';
 
 type JobDetailSheetProps = {
@@ -27,6 +52,25 @@ function formatLocationType(value?: string) {
 
 export function JobDetailSheet({ jobId, open, onOpenChange }: JobDetailSheetProps) {
   const { data: job, isLoading, isError } = useJobOpening(open ? jobId : null);
+  const deactivate = useDeactivateJobOpening();
+  const close = useCloseJobOpening();
+  const archive = useArchiveJobOpening();
+  const deleteJob = useDeleteJobOpening();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const handleAction = async (
+    action: () => Promise<unknown>,
+    label: string,
+    successMsg: string,
+  ) => {
+    try {
+      await action();
+      toast.success(successMsg);
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to ${label.toLowerCase()}`);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -37,8 +81,63 @@ export function JobDetailSheet({ jobId, open, onOpenChange }: JobDetailSheetProp
           <p className="text-sm text-muted-foreground">Unable to load job details.</p>
         ) : (
           <>
-            <SheetHeader>
+            <SheetHeader className="flex flex-row items-start justify-between">
               <SheetTitle>{job.title}</SheetTitle>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {job.status === 'ACTIVE' && (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        handleAction(
+                          () => deactivate.mutateAsync(job.id),
+                          'Deactivate',
+                          'Job deactivated',
+                        )
+                      }
+                    >
+                      <Ban className="mr-2 h-4 w-4" />
+                      Deactivate
+                    </DropdownMenuItem>
+                  )}
+                  {job.status !== 'CLOSED' && job.status !== 'ARCHIVED' && (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        handleAction(() => close.mutateAsync(job.id), 'Close', 'Job closed')
+                      }
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Close
+                    </DropdownMenuItem>
+                  )}
+                  {job.status === 'CLOSED' && (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        handleAction(() => archive.mutateAsync(job.id), 'Archive', 'Job archived')
+                      }
+                    >
+                      <Archive className="mr-2 h-4 w-4" />
+                      Archive
+                    </DropdownMenuItem>
+                  )}
+                  {job.status !== 'ARCHIVED' && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => setConfirmDelete(true)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </SheetHeader>
 
             <div className="mt-4 space-y-5">
@@ -125,6 +224,40 @@ export function JobDetailSheet({ jobId, open, onOpenChange }: JobDetailSheetProp
           </>
         )}
       </SheetContent>
+
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Job Opening</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{job?.title}&rdquo;? This action cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteJob.isPending}
+              onClick={async () => {
+                if (!job) return;
+                try {
+                  await deleteJob.mutateAsync(job.id);
+                  toast.success('Job deleted');
+                  setConfirmDelete(false);
+                  onOpenChange(false);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Failed to delete job');
+                }
+              }}
+            >
+              {deleteJob.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

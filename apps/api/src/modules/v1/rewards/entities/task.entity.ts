@@ -26,4 +26,7 @@ export class Task extends BaseEntity {
 
   @Column({ name: 'submission_type', default: 'instant' })
   submissionType: 'instant' | 'text' | 'file';
+
+  @Column({ name: 'is_recurring', default: false })
+  isRecurring: boolean;
 }

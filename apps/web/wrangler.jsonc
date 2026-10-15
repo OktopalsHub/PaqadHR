@@ -1,11 +1,96 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "paqad-web",
-  "compatibility_date": "2024-12-30",
+  "name": "paqadhr-dev",
+  "compatibility_date": "2026-07-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "keep_names": false,
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "redact_query_string": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": true,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "vars": {
+    "NEXT_PUBLIC_API_URL": "https://api-dev.paqadhr.com",
+    "NEXT_PUBLIC_APP_URL": "https://dev.paqadhr.com",
+    "NEXT_PUBLIC_APP_DOMAIN": "paqadhr.com",
+    "NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS": "true"
+  },
+  "routes": [
+    {
+      "pattern": "dev.paqadhr.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "*.dev.paqadhr.com/*",
+      "zone_name": "paqadhr.com"
+    }
+  ],
+  "env": {
+    "production": {
+      "name": "paqadhr-prod",
+      "compatibility_date": "2026-07-01",
+      "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+      "workers_dev": false,
+      "preview_urls": false,
+      "keep_names": false,
+      "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS"
+      },
+      "observability": {
+        "enabled": true,
+        "head_sampling_rate": 1,
+        "redact_query_string": true,
+        "logs": {
+          "enabled": true,
+          "head_sampling_rate": 1,
+          "persist": true,
+          "invocation_logs": true
+        },
+        "traces": {
+          "enabled": true,
+          "persist": true,
+          "head_sampling_rate": 1
+        }
+      },
+      "vars": {
+        "NEXT_PUBLIC_API_URL": "https://api.paqadhr.com",
+        "NEXT_PUBLIC_APP_URL": "https://paqadhr.com",
+        "NEXT_PUBLIC_APP_DOMAIN": "paqadhr.com",
+        "NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS": "true"
+      },
+      "routes": [
+        {
+          "pattern": "paqadhr.com",
+          "custom_domain": true
+        },
+        {
+          "pattern": "www.paqadhr.com",
+          "custom_domain": true
+        },
+        {
+          "pattern": "*.paqadhr.com/*",
+          "zone_name": "paqadhr.com"
+        }
+      ]
+    }
   }
 }

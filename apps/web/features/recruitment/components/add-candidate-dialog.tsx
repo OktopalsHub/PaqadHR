@@ -3,13 +3,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -100,9 +94,6 @@ export function AddCandidateDialog({ open, onOpenChange }: AddCandidateDialogPro
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add candidate</DialogTitle>
-          <DialogDescription>
-            Add an external applicant to a job posting in your workspace.
-          </DialogDescription>
         </DialogHeader>
 
         <form className="space-y-4" onSubmit={handleSubmit}>

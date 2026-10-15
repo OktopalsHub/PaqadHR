@@ -8,20 +8,25 @@ export const tenantMemberSchema = z
   })
   .passthrough();
 
-export const tenantSchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    slug: z.string(),
-    isActive: z.boolean().default(true),
-    logoUrl: z.string().optional(),
-    industry: z.string().optional(),
-    location: z.string().optional(),
-    companySize: z.string().optional(),
-    employeeCode: z.string().optional(),
-    member: tenantMemberSchema.optional(),
-  })
-  .passthrough();
+export const tenantSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  isActive: z.boolean().default(true),
+  logoUrl: z.string().optional(),
+  industry: z.string().optional(),
+  location: z.string().optional(),
+  companySize: z.string().optional(),
+  employeeCode: z.string().optional(),
+  countryCode: z.string().optional(),
+  timezone: z.string().optional(),
+  preferredCurrency: z.string().optional(),
+  member: tenantMemberSchema.optional(),
+  settings: z.unknown().optional(),
+  entitled: z.boolean().optional(),
+  needsPayment: z.boolean().optional(),
+  plan: z.string().nullable().optional(),
+});
 
 export type Tenant = z.infer<typeof tenantSchema>;
 

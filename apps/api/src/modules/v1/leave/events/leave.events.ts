@@ -16,6 +16,17 @@ export class TenantMemberCreatedEvent {
 export class TenantMemberChangedEvent {
   constructor(public readonly tenantId: string) {}
 }
+
+export class ProfileUpdatedEvent {
+  constructor(
+    public readonly recipientId: string,
+    public readonly tenantId: string,
+    public readonly variables: {
+      updatedFields: string[];
+      updatedBy: string;
+    },
+  ) {}
+}
 export class LeaveTypeCreatedEvent {
   constructor(
     public readonly tenantId: string,

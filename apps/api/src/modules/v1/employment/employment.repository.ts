@@ -55,6 +55,16 @@ export class EmploymentRepository extends Repository<Employment> {
       withDeleted: false,
     });
   }
+
+  async findCurrentEmploymentsByTenantId(tenantId: string): Promise<Employment[]> {
+    return this.employmentRepository.find({
+      where: {
+        tenantId,
+        endDate: IsNull(),
+      },
+      withDeleted: false,
+    });
+  }
   async updateEmployment(
     id: string,
     updateEmploymentDto: Partial<Employment>,

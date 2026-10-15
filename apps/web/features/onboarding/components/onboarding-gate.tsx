@@ -1,20 +1,21 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
+import { useEffect, useRef } from 'react';
+import { LoadingSpinner } from '@/components/loading-block';
 import { useAuth } from '@/hooks/use-auth';
 import { bootstrapCsrf } from '@/lib/api/client';
 import {
-  authDestinationToPath,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { tenant, tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
+  const dashboardRedirectRef = useRef(false);
+  const { isAuthenticated, isLoading: authLoading, hasResolvedSession } = useAuth();
+  const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
 
   const isLoading = authLoading || (isAuthenticated && tenantLoading);
 
@@ -23,45 +24,38 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !hasResolvedSession) return;
 
     if (!isAuthenticated) {
-      router.replace(
-        authDestinationToPath(resolveAuthDestination({ isAuthenticated: false, tenants: [] })),
+      goToAuthDestination(
+        resolveAuthDestination({ isAuthenticated: false, tenants: [] }),
+        router.replace,
       );
       return;
     }
 
-    if (isLoading || !hasResolvedTenants) return;
+    if (!hasResolvedTenants) return;
 
-    const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
-    if (destination.type === 'dashboard') {
-      router.replace(authDestinationToPath(destination));
+    const destination = resolveAuthDestination({
+      isAuthenticated: true,
+      tenants,
+    });
+    if (destination.type === 'dashboard' && !dashboardRedirectRef.current) {
+      dashboardRedirectRef.current = true;
+      goToAuthDestination(destination, router.replace);
     }
-  }, [authLoading, isAuthenticated, isLoading, hasResolvedTenants, tenants, router]);
+  }, [authLoading, hasResolvedSession, isAuthenticated, hasResolvedTenants, tenants, router]);
 
-  if (isLoading || !hasResolvedTenants) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+  if (isLoading || !hasResolvedSession || !hasResolvedTenants) {
+    return <LoadingSpinner />;
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (tenants.length > 0) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return <>{children}</>;

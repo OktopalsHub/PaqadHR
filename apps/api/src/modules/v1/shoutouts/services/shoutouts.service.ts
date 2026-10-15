@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CelebrationType } from 'src/common/enums/celebration-type.enum';
 import { PlatformIntegrationService } from 'src/common/integrations/services/platform-integration.service';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
@@ -31,39 +32,62 @@ export class ShoutoutsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly dataSource: DataSource,
     readonly _platformIntegrationService: PlatformIntegrationService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
   async createShoutout(tenantId: string, senderMemberId: string, input: CreateShoutoutInput) {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const { points, shoutouts: shoutoutSettings } = settings.settings;
 
-    const recipientIds = [...new Set(input.recipientIds)];
-    if (recipientIds.length === 0) {
+    // Merge duplicate mentions of the same recipient by summing their points,
+    // preserving first-seen order.
+    const mergedPoints = new Map<string, number>();
+    for (const recipient of input.recipients ?? []) {
+      if (!recipient?.recipientId || !Number.isFinite(recipient.points)) {
+        throw new BadRequestException('Each recipient needs an id and a points amount');
+      }
+      mergedPoints.set(
+        recipient.recipientId,
+        (mergedPoints.get(recipient.recipientId) ?? 0) + Math.trunc(recipient.points),
+      );
+    }
+    const recipients = [...mergedPoints.entries()].map(([recipientId, pts]) => ({
+      recipientId,
+      points: pts,
+    }));
+    const recipientIds = recipients.map((r) => r.recipientId);
+
+    if (recipients.length === 0) {
       throw new BadRequestException('At least one recipient is required');
     }
     if (recipientIds.includes(senderMemberId)) {
       throw new BadRequestException('You cannot give a shoutout to yourself');
     }
-    if (recipientIds.length > shoutoutSettings.maxRecipientsPerShoutout) {
+    if (recipients.length > shoutoutSettings.maxRecipientsPerShoutout) {
       throw new BadRequestException(
         `Maximum ${shoutoutSettings.maxRecipientsPerShoutout} recipients per shoutout`,
       );
     }
-    if (
-      input.pointsPerRecipient < points.minPointsPerShoutout ||
-      input.pointsPerRecipient > points.maxPointsPerShoutout
-    ) {
-      throw new BadRequestException(
-        `Points must be between ${points.minPointsPerShoutout} and ${points.maxPointsPerShoutout} Paq points`,
-      );
+    for (const recipient of recipients) {
+      if (
+        recipient.points < points.minPointsPerShoutout ||
+        recipient.points > points.maxPointsPerShoutout
+      ) {
+        throw new BadRequestException(
+          `Points for each recipient must be between ${points.minPointsPerShoutout} and ${points.maxPointsPerShoutout} Paq points`,
+        );
+      }
     }
 
-    for (const recipientId of recipientIds) {
-      try {
-        await this.tenantMembersService.getTenantMemberId(tenantId, recipientId);
-      } catch {
-        throw new BadRequestException(`Recipient ${recipientId} is not a member of this tenant`);
-      }
+    const validMembers = await this.tenantMembersService.filterTenantMemberIds(
+      tenantId,
+      recipientIds,
+    );
+    const invalid = recipientIds.filter((id) => !validMembers.has(id));
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Recipient${invalid.length > 1 ? 's' : ''} ${invalid.join(', ')} ${invalid.length > 1 ? 'are' : 'is'} not a member of this tenant`,
+      );
     }
 
     let categoryIds = input.categoryIds ?? [];
@@ -82,23 +106,15 @@ export class ShoutoutsService {
       shoutoutSettings.enableCategories,
     );
 
-    const totalPoints = input.pointsPerRecipient * recipientIds.length;
+    const totalPoints = recipients.reduce((sum, r) => sum + r.points, 0);
 
     const shoutout = await this.dataSource.transaction(async (manager) => {
-      await this.memberPointsService.validateSenderAllowance(
-        tenantId,
-        senderMemberId,
-        totalPoints,
-        manager,
-      );
-
       const saved = await this.shoutoutsRepository.insertShoutout(manager, {
         tenantId,
         createdBy: senderMemberId,
         message: input.message,
         totalPoints,
-        recipientIds,
-        pointsPerRecipient: input.pointsPerRecipient,
+        recipients,
         categoryIds,
       });
 
@@ -106,8 +122,7 @@ export class ShoutoutsService {
         manager,
         tenantId,
         senderMemberId,
-        recipientIds,
-        input.pointsPerRecipient,
+        recipients,
         saved.id,
       );
 
@@ -123,9 +138,10 @@ export class ShoutoutsService {
       tenantId,
       shoutoutId: full.id,
       senderMemberId,
+      senderUserId: full.creator?.userId ?? null,
+      recipients,
       recipientIds,
       totalPoints,
-      pointsPerRecipient: input.pointsPerRecipient,
       message: full.message,
       categoryNames:
         (full.categoryAssignments?.map((a) => a.category?.name).filter(Boolean) as string[]) ?? [],
@@ -136,6 +152,8 @@ export class ShoutoutsService {
     this.dispatchNotifications(tenantId, full).catch((err) =>
       this.logger.error('Shoutout notification dispatch failed', err),
     );
+
+    this.productAnalytics.capture(senderMemberId, 'shoutout_created', { tenantId });
 
     return this.toShoutoutResponse(full);
   }
@@ -175,8 +193,7 @@ export class ShoutoutsService {
         createdBy: input.actorMemberId,
         message: input.message,
         totalPoints: input.points,
-        recipientIds: [input.recipientId],
-        pointsPerRecipient: input.points,
+        recipients: [{ recipientId: input.recipientId, points: input.points }],
         categoryIds,
       });
 
@@ -200,9 +217,10 @@ export class ShoutoutsService {
       tenantId: input.tenantId,
       shoutoutId: full.id,
       senderMemberId: input.actorMemberId,
+      senderUserId: full.creator?.userId ?? null,
+      recipients: [{ recipientId: input.recipientId, points: input.points }],
       recipientIds: [input.recipientId],
       totalPoints: input.points,
-      pointsPerRecipient: input.points,
       message: full.message,
       categoryNames:
         (full.categoryAssignments?.map((a) => a.category?.name).filter(Boolean) as string[]) ?? [],
@@ -236,13 +254,15 @@ export class ShoutoutsService {
 
     const senderName = this.formatMemberName(shoutout.creator);
 
-    for (const recipient of shoutout.recipients) {
-      await this.notificationHelper.sendShoutoutNotification(recipient.recipientId, tenantId, {
-        senderName,
-        message: shoutout.message,
-        points: recipient.points,
-      });
-    }
+    await Promise.all(
+      shoutout.recipients.map((recipient) =>
+        this.notificationHelper.sendShoutoutNotification(recipient.recipientId, tenantId, {
+          senderName,
+          message: shoutout.message,
+          points: recipient.points,
+        }),
+      ),
+    );
   }
 
   private formatMemberName(member?: {
@@ -251,9 +271,9 @@ export class ShoutoutsService {
     preferredName?: string | null;
   }): string {
     if (!member) return 'Someone';
-    if (member.preferredName) return member.preferredName;
     const parts = [member.firstName, member.lastName].filter(Boolean);
-    return parts.length > 0 ? parts.join(' ') : 'Someone';
+    if (parts.length > 0) return parts.join(' ');
+    return member.preferredName || 'Someone';
   }
 
   private toShoutoutResponse(

@@ -3,28 +3,31 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { SentryModule } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { dataSourceOptions } from './common/config';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
 import { JwtAuthGuard } from './common/guards';
+import { FeatureAccessGuard } from './common/guards/feature-access.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
+import { TenantMemberGuard } from './common/guards/tenant-member.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
-import { AuditModule } from './common/modules/audit.module';
 import { EncryptionModule } from './common/modules/encryption.module';
 import { ManagerAccessModule } from './common/modules/manager-access.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
-import { AuditLogsService } from './common/services/audit-logs.service';
+import { ObservabilityModule } from './common/observability/observability.module';
+import { ErrorResponseService } from './common/services/error-response.service';
+import { ActivitiesModule } from './modules/v1/activities/activities.module';
 import { AddressModule } from './modules/v1/address/address.module';
 import { AnalyticsModule } from './modules/v1/analytics/analytics.module';
-import { AssetsModule } from './modules/v1/assets/assets.module';
-import { AssetAssignmentModule } from './modules/v1/assets/assignment/asset-assignment.module';
-import { AssetCategoryModule } from './modules/v1/assets/category/asset-category.module';
-import { AssetDocumentModule } from './modules/v1/assets/document/asset-document.module';
-import { AssetMaintenanceModule } from './modules/v1/assets/maintenance/asset-maintenance.module';
 import { AttendanceModule } from './modules/v1/attendance/attendance.module';
+import { AuditLogsModule } from './modules/v1/audit-logs/audit-logs.module';
+import { AuditLogsService } from './modules/v1/audit-logs/services/audit-logs.service';
 import { AuthModule } from './modules/v1/auth/auth.module';
 import { CalendarEventsModule } from './modules/v1/calendar-events/calendar-events.module';
+import { ContactModule } from './modules/v1/contact/contact.module';
 import { DepartmentsModule } from './modules/v1/departments/departments.module';
 import { DocumentModule } from './modules/v1/document/document.module';
 import { EducationModule } from './modules/v1/education/education.module';
@@ -54,12 +57,15 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
+    ObservabilityModule,
     TypeOrmModule.forRoot(dataSourceOptions),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     EncryptionModule,
     RateLimitModule,
-    AuditModule,
+    AuditLogsModule,
+    ActivitiesModule,
     ManagerAccessModule,
     AuthModule,
     UsersModule,
@@ -71,11 +77,6 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     LeaveTypeModule,
     LeaveModule,
     LeaveBalanceModule,
-    AssetsModule,
-    AssetAssignmentModule,
-    AssetMaintenanceModule,
-    AssetCategoryModule,
-    AssetDocumentModule,
     DepartmentsModule,
     PositionModule,
     EmploymentModule,
@@ -97,11 +98,19 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     ShoutoutsModule,
     AnalyticsModule,
     CalendarEventsModule,
+    ContactModule,
     RewardsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    ErrorResponseService,
+    {
+      provide: APP_FILTER,
+      useFactory: (errorResponseService: ErrorResponseService) =>
+        new AllExceptionsFilter(errorResponseService),
+      inject: [ErrorResponseService],
+    },
     {
       provide: APP_FILTER,
       useFactory: (auditLogsService: AuditLogsService) =>
@@ -115,6 +124,14 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     {
       provide: APP_GUARD,
       useClass: TenantGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: TenantMemberGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: FeatureAccessGuard,
     },
   ],
 })

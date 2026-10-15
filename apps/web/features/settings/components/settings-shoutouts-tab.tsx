@@ -1,7 +1,7 @@
 'use client';
 
-import { Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Search, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
@@ -20,7 +20,7 @@ import {
   SettingsSwitchRow,
 } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
-import { SlackIntegrationSection } from '@/features/settings/components/slack-integration-section';
+import { useAssignPoints } from '@/hooks/queries/use-rewards';
 import {
   useCreateShoutoutCategoryAdmin,
   useDeleteShoutoutCategoryAdmin,
@@ -78,6 +78,24 @@ export function SettingsShoutoutsTab() {
   );
   const [categoryName, setCategoryName] = useState('');
   const [bulkPoints, setBulkPoints] = useState('10');
+  const [bulkReason, setBulkReason] = useState('');
+
+  const [directPoints, setDirectPoints] = useState('50');
+  const [directReason, setDirectReason] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<{ memberId: string; points: number }[]>(
+    [],
+  );
+  const [memberSearch, setMemberSearch] = useState('');
+  const [directMode, setDirectMode] = useState<'all' | 'specific'>('all');
+  const assignPoints = useAssignPoints();
+
+  const filteredMembers = useMemo(() => {
+    if (!memberSearch.trim()) return members;
+    const q = memberSearch.toLowerCase();
+    return members.filter((m) =>
+      `${m.firstName ?? ''} ${m.lastName ?? ''}`.toLowerCase().includes(q),
+    );
+  }, [members, memberSearch]);
 
   useEffect(() => {
     const points = settings?.settings?.points;
@@ -163,31 +181,70 @@ export function SettingsShoutoutsTab() {
   };
 
   const bulkAssign = async () => {
+    const pts = Number(bulkPoints) || 0;
+    if (pts < 1) {
+      toast.error('Points must be at least 1');
+      return;
+    }
     try {
-      await assignAll.mutateAsync({ points: Number(bulkPoints) || 0, reason: 'Admin bulk assign' });
-      toast.success(`${PAQ_POINTS_NAME} assigned to all members`);
+      await assignAll.mutateAsync({
+        points: pts,
+        reason: bulkReason.trim() || undefined,
+      });
+      toast.success(`Everyone got ${pts} ${PAQ_POINTS_NAME}`);
+      setBulkReason('');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Bulk assign failed');
     }
   };
 
+  const addSelectedMember = (memberId: string) => {
+    if (selectedMembers.some((a) => a.memberId === memberId)) return;
+    setSelectedMembers([...selectedMembers, { memberId, points: Number(directPoints) || 50 }]);
+  };
+
+  const removeSelectedMember = (memberId: string) => {
+    setSelectedMembers(selectedMembers.filter((a) => a.memberId !== memberId));
+  };
+
+  const selectAllFiltered = () => {
+    const pts = Number(directPoints) || 50;
+    setSelectedMembers(filteredMembers.map((m) => ({ memberId: m.memberId, points: pts })));
+  };
+
+  const directAssign = async () => {
+    if (selectedMembers.length === 0) {
+      toast.error('Select at least one member');
+      return;
+    }
+    const pts = Number(directPoints) || 0;
+    if (pts < 1) {
+      toast.error('Points must be at least 1');
+      return;
+    }
+    try {
+      await assignPoints.mutateAsync({
+        memberIds: selectedMembers.map((a) => a.memberId),
+        points: 0,
+        assignments: selectedMembers.map((a) => ({ memberId: a.memberId, points: pts })),
+        reason: directReason.trim() || undefined,
+      });
+      toast.success(`Assigned ${PAQ_POINTS_NAME} to ${selectedMembers.length} member(s)`);
+      setSelectedMembers([]);
+      setDirectReason('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Assign failed');
+    }
+  };
+
   return (
     <div className="space-y-5">
-      <ContentCard
-        title={`${PAQ_POINTS_NAME} allowance`}
-        description={`How many ${PAQ_POINTS_NAME.toLowerCase()} members can give per period`}
-      >
+      <ContentCard title={`${PAQ_POINTS_NAME} allowance`}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <SettingsFieldHint
-            label="Allowance amount"
-            hint={`Total ${PAQ_POINTS_NAME.toLowerCase()} each member can give during the selected reset period.`}
-          >
+          <SettingsFieldHint label="Allowance amount">
             <Input value={allowance} onChange={(e) => setAllowance(e.target.value)} />
           </SettingsFieldHint>
-          <SettingsFieldHint
-            label="Reset period"
-            hint="How often member shoutout allowances reset."
-          >
+          <SettingsFieldHint label="Reset period">
             <Select value={period} onValueChange={(v) => setPeriod(v as AllowancePeriod)}>
               <SelectTrigger>
                 <SelectValue />
@@ -201,11 +258,7 @@ export function SettingsShoutoutsTab() {
               </SelectContent>
             </Select>
           </SettingsFieldHint>
-          <SettingsFieldHint
-            label="Starting balance for new members"
-            hint={`${PAQ_POINTS_NAME} every new employee receives when they join the workspace.`}
-            className="sm:col-span-2"
-          >
+          <SettingsFieldHint label="Starting balance for new members" className="sm:col-span-2">
             <Input value={startingBalance} onChange={(e) => setStartingBalance(e.target.value)} />
           </SettingsFieldHint>
           <div className="sm:col-span-2">
@@ -214,25 +267,18 @@ export function SettingsShoutoutsTab() {
         </div>
       </ContentCard>
 
-      <ContentCard
-        title="Celebration shoutouts"
-        description={`Automated shoutouts and ${PAQ_POINTS_NAME.toLowerCase()} on birthdays and work anniversaries`}
-      >
+      <ContentCard title="Celebration shoutouts">
         <div className="space-y-6">
           <div className="space-y-3 rounded-lg border border-border/60 p-4">
             <SettingsSwitchRow
               id="birthday-enabled"
               label="Birthday shoutouts"
-              hint={`Post a shoutout and award ${PAQ_POINTS_NAME.toLowerCase()} when it is a member's birthday.`}
               checked={birthdayEnabled}
               onCheckedChange={setBirthdayEnabled}
             />
             {birthdayEnabled ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <SettingsFieldHint
-                  label={`${PAQ_POINTS_NAME} to award`}
-                  hint={`${PAQ_POINTS_NAME} granted to the birthday person.`}
-                >
+                <SettingsFieldHint label={`${PAQ_POINTS_NAME} to award`}>
                   <Input
                     value={birthdayPoints}
                     onChange={(e) => setBirthdayPoints(e.target.value)}
@@ -258,16 +304,12 @@ export function SettingsShoutoutsTab() {
             <SettingsSwitchRow
               id="anniversary-enabled"
               label="Work anniversary shoutouts"
-              hint={`Post a shoutout and award ${PAQ_POINTS_NAME.toLowerCase()} on each member's work anniversary.`}
               checked={anniversaryEnabled}
               onCheckedChange={setAnniversaryEnabled}
             />
             {anniversaryEnabled ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <SettingsFieldHint
-                  label={`${PAQ_POINTS_NAME} to award`}
-                  hint={`${PAQ_POINTS_NAME} granted on each anniversary.`}
-                >
+                <SettingsFieldHint label={`${PAQ_POINTS_NAME} to award`}>
                   <Input
                     value={anniversaryPoints}
                     onChange={(e) => setAnniversaryPoints(e.target.value)}
@@ -293,7 +335,7 @@ export function SettingsShoutoutsTab() {
         </div>
       </ContentCard>
 
-      <ContentCard title="Core values" description="Categories for shoutouts">
+      <ContentCard title="Core values">
         <div className="space-y-3">
           {categories.map((cat) => (
             <div
@@ -319,17 +361,7 @@ export function SettingsShoutoutsTab() {
         </div>
       </ContentCard>
 
-      <ContentCard
-        title="Slack integration"
-        description={`Connect Slack to publish shoutout notifications and congratulations in your Slack workspace`}
-      >
-        <SlackIntegrationSection />
-      </ContentCard>
-
-      <ContentCard
-        title={`Member ${PAQ_POINTS_NAME.toLowerCase()}`}
-        description={`Assign bonus ${PAQ_POINTS_NAME.toLowerCase()} to everyone`}
-      >
+      <ContentCard title={`Member ${PAQ_POINTS_NAME.toLowerCase()}`}>
         <div className="flex flex-wrap items-end gap-2">
           <SettingsFieldHint label={`${PAQ_POINTS_NAME} to assign`}>
             <Input
@@ -338,13 +370,109 @@ export function SettingsShoutoutsTab() {
               className="w-32"
             />
           </SettingsFieldHint>
+          <SettingsFieldHint label="Reason" className="min-w-[220px] flex-1">
+            <Input
+              placeholder="e.g. New year celebration"
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+            />
+          </SettingsFieldHint>
           <Button disabled={assignAll.isPending} onClick={bulkAssign}>
             Assign to all
           </Button>
         </div>
         {members.length > 0 ? (
-          <p className="mt-3 text-xs text-muted-foreground">{members.length} members tracked</p>
+          <p className="mt-3 text-xs text-muted-foreground">{members.length} members</p>
         ) : null}
+
+        <div className="mt-4 border-t pt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Send to specific members</p>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant={directMode === 'all' ? 'default' : 'outline'}
+                onClick={() => setDirectMode('all')}
+              >
+                All
+              </Button>
+              <Button
+                size="sm"
+                variant={directMode === 'specific' ? 'default' : 'outline'}
+                onClick={() => setDirectMode('specific')}
+              >
+                Specific
+              </Button>
+            </div>
+          </div>
+
+          {directMode === 'specific' && (
+            <div className="mt-3 space-y-3">
+              <div className="flex items-end gap-2">
+                <SettingsFieldHint label={`${PAQ_POINTS_NAME} per member`} className="w-32">
+                  <Input value={directPoints} onChange={(e) => setDirectPoints(e.target.value)} />
+                </SettingsFieldHint>
+                <SettingsFieldHint label="Reason" className="min-w-[220px] flex-1">
+                  <Input
+                    placeholder="e.g. Project completion bonus"
+                    value={directReason}
+                    onChange={(e) => setDirectReason(e.target.value)}
+                  />
+                </SettingsFieldHint>
+                <Button
+                  disabled={selectedMembers.length === 0 || assignPoints.isPending}
+                  onClick={directAssign}
+                >
+                  Assign ({selectedMembers.length})
+                </Button>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search members..."
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {filteredMembers.length} member(s) shown
+                </p>
+                <Button size="sm" variant="ghost" onClick={selectAllFiltered}>
+                  Select all shown
+                </Button>
+              </div>
+
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
+                {filteredMembers.map((m) => {
+                  const isSelected = selectedMembers.some((a) => a.memberId === m.memberId);
+                  return (
+                    <button
+                      key={m.memberId}
+                      type="button"
+                      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                        isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() =>
+                        isSelected
+                          ? removeSelectedMember(m.memberId)
+                          : addSelectedMember(m.memberId)
+                      }
+                    >
+                      <span className="font-medium">
+                        {m.firstName ?? ''} {m.lastName ?? ''}
+                      </span>
+                      {isSelected && <X className="size-4 text-muted-foreground" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </ContentCard>
     </div>
   );

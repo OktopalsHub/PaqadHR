@@ -7,18 +7,21 @@ export class TenantWallet extends BaseEntity {
   @Column({ name: 'tenant_id', type: 'uuid' })
   tenantId: string;
 
-  @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'NGN' })
+  @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'USD' })
   currencyCode: string;
 
   @Column({ name: 'balance_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
   balanceAmount: number;
 
-  @Column({ name: 'virtual_account_number', type: 'varchar', nullable: true })
-  virtualAccountNumber: string | null;
-
-  @Column({ name: 'virtual_account_bank', type: 'varchar', nullable: true })
-  virtualAccountBank: string | null;
-
-  @Column({ name: 'points_exchange_rate', type: 'numeric', precision: 10, scale: 2, default: 10 })
+  @Column({ name: 'points_exchange_rate', type: 'numeric', precision: 10, scale: 2, default: 1 })
   pointsExchangeRate: number;
+
+  @Column({ name: 'auto_topup_enabled', default: false })
+  autoTopupEnabled: boolean;
+
+  @Column({ name: 'auto_topup_threshold', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  autoTopupThreshold: number;
+
+  @Column({ name: 'auto_topup_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  autoTopupAmount: number;
 }

@@ -11,7 +11,9 @@ import { Shoutout } from '../shoutouts/entities/shoutout.entity';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { AnalyticsController } from './analytics.controller';
-import { AnalyticsService } from './analytics.service';
+import { AnalyticsActivityQueriesService } from './analytics-activity-queries.service';
+import { AnalyticsAggregationService } from './analytics-aggregation.service';
+import { AnalyticsWorkforceQueriesService } from './analytics-queries.service';
 
 @Module({
   imports: [
@@ -29,6 +31,10 @@ import { AnalyticsService } from './analytics.service';
     AttendanceModule,
   ],
   controllers: [AnalyticsController],
-  providers: [AnalyticsService],
+  providers: [
+    AnalyticsAggregationService,
+    AnalyticsWorkforceQueriesService,
+    AnalyticsActivityQueriesService,
+  ],
 })
 export class AnalyticsModule {}

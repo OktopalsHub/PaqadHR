@@ -1,5 +1,7 @@
 'use client';
 
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowLeft,
@@ -14,9 +16,11 @@ import {
   Star,
   Upload,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { OrgAvatar } from '@/components/org-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,10 +37,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import {
   fetchPublicJobs,
+  type PublicApplicationCustomAnswer,
   submitPublicApplication,
   uploadPublicCandidateFile,
 } from '@/lib/api/recruitment';
 import { getTenantBySlug } from '@/lib/api/tenants';
+import { queryKeys } from '@/lib/query/keys';
 import type { JobOpening } from '@/lib/schemas/recruitment';
 import type { Tenant } from '@/lib/schemas/tenant';
 
@@ -57,13 +63,51 @@ interface CustomQuestion {
   maxRating?: number;
 }
 
+const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
 export default function PublicCareersPage() {
   const params = useParams<{ tenantSlug: string }>();
   const router = useRouter();
-  const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [jobs, setJobs] = useState<JobOpening[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const tenantSlug = params.tenantSlug;
+
+  const isSlugValid = Boolean(tenantSlug) && /^[a-zA-Z0-9_-]+$/.test(tenantSlug!);
+  const tenantQuery = useQuery({
+    queryKey: queryKeys.recruitment.publicTenant(tenantSlug ?? ''),
+    queryFn: ({ signal }) => getTenantBySlug(tenantSlug!, signal),
+    enabled: isSlugValid,
+    retry: false,
+    staleTime: 30_000,
+  });
+
+  const tenant = (tenantQuery.data as Tenant | undefined) ?? null;
+  const jobsQuery = useQuery({
+    queryKey: tenant?.id
+      ? queryKeys.recruitment.publicJobs(tenant.id)
+      : queryKeys.recruitment.publicJobs('pending'),
+    queryFn: ({ signal }) => fetchPublicJobs(tenant!.id, undefined, signal),
+    enabled: Boolean(tenant?.id),
+    staleTime: 30_000,
+    gcTime: tenant?.id ? undefined : 0,
+  });
+
+  const jobs: JobOpening[] = jobsQuery.data?.jobs ?? [];
+  const isLoading = isSlugValid
+    ? tenantQuery.isLoading || (Boolean(tenant?.id) && jobsQuery.isLoading)
+    : false;
+  const error: string | null =
+    tenantSlug && !isSlugValid
+      ? 'Invalid workspace slug'
+      : tenantQuery.error
+        ? tenantQuery.error instanceof Error
+          ? tenantQuery.error.message
+          : 'Failed to load workspace data'
+        : jobsQuery.error
+          ? jobsQuery.error instanceof Error
+            ? jobsQuery.error.message
+            : 'Failed to load jobs'
+          : !tenantQuery.isLoading && !tenant && tenantQuery.isSuccess
+            ? 'Workspace not found'
+            : null;
 
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
@@ -87,37 +131,19 @@ export default function PublicCareersPage() {
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [coverLetterUploadProgress, setCoverLetterUploadProgress] = useState(false);
 
-  const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
+  const [customAnswers, setCustomAnswers] = useState<Record<string, PublicApplicationCustomAnswer>>(
+    {},
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [agreeToPrivacy, setAgreeToPrivacy] = useState(false);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
-  useEffect(() => {
-    if (!params.tenantSlug) return;
-
-    async function loadData() {
-      try {
-        setIsLoading(true);
-        const tenantData = await getTenantBySlug(params.tenantSlug);
-        if (!tenantData) {
-          setError('Workspace not found');
-          return;
-        }
-        setTenant(tenantData);
-
-        const jobsData = await fetchPublicJobs(tenantData.id);
-        setJobs(jobsData.jobs);
-      } catch (err: unknown) {
-        console.error('Failed to load careers page:', err);
-        const errMsg = err instanceof Error ? err.message : 'Failed to load workspace data';
-        setError(errMsg);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadData();
-  }, [params.tenantSlug]);
+  const handleTurnstileSuccess = useCallback((token: string) => {
+    setTurnstileToken(token);
+  }, []);
 
   const departments = useMemo(() => {
     const depts = new Set<string>();
@@ -174,6 +200,16 @@ export default function PublicCareersPage() {
       return;
     }
 
+    if (!agreeToPrivacy) {
+      toast.error('Please accept the privacy policy to submit your application.');
+      return;
+    }
+
+    if (turnstileSiteKey && !turnstileToken) {
+      toast.error('Please complete the security check before submitting.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -212,16 +248,19 @@ export default function PublicCareersPage() {
         experience: {
           years: 0,
         },
+        dataProcessingConsent: true,
+        turnstileToken: turnstileToken ?? undefined,
       };
 
       await submitPublicApplication(selectedJob.id, payload);
       setIsSuccess(true);
       toast.success('Application submitted successfully!');
     } catch (err: unknown) {
-      console.error('Failed to submit application:', err);
       const errMsg =
         err instanceof Error ? err.message : 'Failed to submit application. Please try again.';
       toast.error(errMsg);
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     } finally {
       setIsSubmitting(false);
       setResumeUploadProgress(false);
@@ -403,7 +442,7 @@ export default function PublicCareersPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background py-12">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#f5fbf8] py-12 text-foreground dark:bg-slate-950">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <p className="mt-4 text-sm text-muted-foreground">Loading workspace details...</p>
       </div>
@@ -412,7 +451,7 @@ export default function PublicCareersPage() {
 
   if (error || !tenant) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#f5fbf8] px-4 text-center dark:bg-slate-950">
         <AlertCircle className="h-16 w-16 text-destructive" />
         <h1 className="mt-4 text-2xl font-bold tracking-tight">Workspace Not Found</h1>
         <p className="mt-2 text-muted-foreground max-w-md">
@@ -427,79 +466,32 @@ export default function PublicCareersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/10">
-      {}
-      <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-md">
+    <div className="min-h-screen bg-[#f5fbf8] text-foreground selection:bg-primary/10 dark:bg-slate-950">
+      <header className="sticky top-0 z-40 w-full border-b border-[#dcebe4] bg-white/90 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/90">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center space-x-3">
-            {tenant.logoUrl ? (
-              <img
-                src={tenant.logoUrl}
-                alt={tenant.name}
-                className="h-9 w-9 rounded-lg object-contain bg-white p-0.5 border"
-              />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold border border-primary/20">
-                {tenant.name.substring(0, 2).toUpperCase()}
-              </div>
-            )}
-            <span className="font-bold text-lg tracking-tight">{tenant.name}</span>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <Badge
-              variant="secondary"
-              className="px-3 py-1 font-medium capitalize text-xs bg-secondary/60"
-            >
-              {tenant.industry || 'People Operations'}
-            </Badge>
+          <div className="flex items-center gap-3">
+            <OrgAvatar src={tenant.logoUrl} name={tenant.name} className="h-9 w-9 rounded-[8px]" />
+            <span className="text-lg font-semibold tracking-tight">{tenant.name}</span>
           </div>
         </div>
       </header>
 
-      {}
-      <section className="relative overflow-hidden py-20 lg:py-24 border-b bg-gradient-to-b from-primary/[0.02] to-transparent">
-        <div className="mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-foreground">
-            Be part of our mission
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg sm:text-xl text-muted-foreground leading-relaxed">
-            We are looking for passionate, driven individuals to join our team at{' '}
-            <strong className="text-foreground">{tenant.name}</strong>. Explore our open positions
-            and build the future with us.
+      <section className="px-4 pt-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl overflow-hidden rounded-[8px] bg-gradient-to-br from-[#043d32] via-[#076b56] to-[#08745c] px-6 py-10 text-white shadow-[0_18px_45px_rgba(4,61,50,0.18)] sm:px-10 sm:py-14">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/90">
+            Careers at {tenant.name}
           </p>
-
-          <div className="mt-10 flex justify-center space-x-8 text-center border-t border-border/60 pt-10 max-w-2xl mx-auto">
-            <div>
-              <p className="text-3xl font-extrabold text-primary">{jobs.length}</p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">
-                Open Roles
-              </p>
-            </div>
-            <div className="border-r border-border" />
-            <div>
-              <p className="text-3xl font-extrabold text-primary">{tenant.location || 'Remote'}</p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">
-                Primary Location
-              </p>
-            </div>
-            <div className="border-r border-border" />
-            <div>
-              <p className="text-3xl font-extrabold text-primary">
-                {tenant.companySize || 'Growing'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">
-                Company Size
-              </p>
-            </div>
+          <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
+            Build meaningful work with a team that values people.
+          </h1>
+          <div className="mt-6 inline-flex rounded-full border border-white/40 bg-[#032d25]/45 px-3 py-1.5 text-sm font-medium text-white">
+            {jobs.length} open role{jobs.length !== 1 ? 's' : ''} available
           </div>
         </div>
       </section>
 
-      {}
-      <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        {}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-8 mb-10">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+        <div className="dashboard-panel mb-7 flex flex-col gap-4 rounded-[8px] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -507,7 +499,7 @@ export default function PublicCareersPage() {
               placeholder="Search roles or keywords..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 bg-muted/40 border-muted/80 focus:bg-background"
+              className="border-[#dcebe4] bg-white pl-9 focus:bg-white dark:border-slate-700 dark:bg-slate-900 dark:focus:bg-slate-900"
             />
           </div>
 
@@ -516,7 +508,7 @@ export default function PublicCareersPage() {
             <select
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
-              className="h-10 px-3 border rounded-md text-sm bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary border-border"
+              className="h-10 rounded-[8px] border border-[#dcebe4] bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-900"
             >
               <option value="ALL">All Departments</option>
               {departments.map((dept) => (
@@ -530,7 +522,7 @@ export default function PublicCareersPage() {
             <select
               value={selectedLoc}
               onChange={(e) => setSelectedLoc(e.target.value)}
-              className="h-10 px-3 border rounded-md text-sm bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary border-border"
+              className="h-10 rounded-[8px] border border-[#dcebe4] bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-900"
             >
               <option value="ALL">All Locations</option>
               <option value="Remote">Remote Only</option>
@@ -547,7 +539,7 @@ export default function PublicCareersPage() {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="h-10 px-3 border rounded-md text-sm bg-muted/30 focus:outline-none focus:ring-1 focus:ring-primary border-border"
+              className="h-10 rounded-[8px] border border-[#dcebe4] bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary dark:border-slate-700 dark:bg-slate-900"
             >
               <option value="ALL">All Job Types</option>
               <option value="FULL_TIME">Full Time</option>
@@ -557,16 +549,74 @@ export default function PublicCareersPage() {
             </select>
           </div>
         </div>
+        {(() => {
+          const urgentJobs = jobs.filter((j) => j.isUrgent && j.status === 'ACTIVE');
+          if (
+            urgentJobs.length === 0 ||
+            search ||
+            selectedDept !== 'ALL' ||
+            selectedType !== 'ALL' ||
+            selectedLoc !== 'ALL'
+          ) {
+            return null;
+          }
+          return (
+            <div className="mb-10">
+              <div className="mb-4 flex items-center gap-2">
+                <Star className="h-5 w-5 text-destructive fill-destructive" />
+                <h2 className="text-lg font-bold">Featured &amp; Urgent Roles</h2>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {urgentJobs.map((job) => (
+                  <button
+                    type="button"
+                    key={`urgent-${job.id}`}
+                    className="group flex w-full cursor-pointer flex-col justify-between rounded-[8px] border border-destructive/25 bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-destructive/50 hover:shadow-md dark:border-destructive/40 dark:bg-slate-900"
+                    onClick={() => {
+                      setSelectedJob(job);
+                      setShowApplyForm(false);
+                      setIsSuccess(false);
+                      setCustomAnswers({});
+                    }}
+                  >
+                    <div>
+                      <Badge variant="destructive" className="mb-2 text-xs">
+                        Urgent
+                      </Badge>
+                      <h3 className="text-lg font-bold tracking-tight text-foreground group-hover:text-destructive transition-colors">
+                        {job.title}
+                      </h3>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>{job.departmentName || 'General'}</span>
+                        <span>·</span>
+                        <span>
+                          {job.location?.type === 'REMOTE' ? 'Remote' : job.location?.city || 'HQ'}
+                        </span>
+                        {job.position ? (
+                          <>
+                            <span>·</span>
+                            <span>{job.position}</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-destructive uppercase tracking-wider">
+                        View &amp; Apply
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-destructive group-hover:translate-x-1 transition-all" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
-        {}
         {filteredJobs.length === 0 ? (
-          <div className="text-center py-20 border-2 border-dashed rounded-2xl bg-muted/10">
+          <div className="rounded-[8px] border border-dashed border-[#c9ddd4] bg-white px-4 py-20 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
             <h3 className="mt-4 text-lg font-semibold">No open roles found</h3>
-            <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
-              We couldn't find any job openings matching your search criteria. Try adjusting your
-              filters.
-            </p>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -574,7 +624,7 @@ export default function PublicCareersPage() {
               <button
                 type="button"
                 key={job.id}
-                className="group flex flex-col text-left w-full justify-between p-6 border rounded-2xl bg-card transition-all duration-300 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 cursor-pointer"
+                className="group flex w-full cursor-pointer flex-col justify-between rounded-[8px] border border-[#dcebe4] bg-white p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:border-slate-700 dark:bg-slate-900"
                 onClick={() => {
                   setSelectedJob(job);
                   setShowApplyForm(false);
@@ -616,7 +666,28 @@ export default function PublicCareersPage() {
                       <MapPin className="h-4 w-4 mr-1 text-muted-foreground/80" />
                       {job.location?.type === 'REMOTE' ? 'Remote' : `${job.location?.city || 'HQ'}`}
                     </span>
+                    {job.position ? (
+                      <span className="flex items-center">
+                        <Briefcase className="h-4 w-4 mr-1 text-muted-foreground/80" />
+                        {job.position}
+                      </span>
+                    ) : null}
+                    {job.numberOfOpenings != null && job.numberOfOpenings > 0 ? (
+                      <span className="text-xs text-muted-foreground/80">
+                        {job.numberOfOpenings} opening{job.numberOfOpenings !== 1 ? 's' : ''}
+                      </span>
+                    ) : null}
                   </div>
+                  {job.applicationDeadline ? (
+                    <p className="mt-2 text-xs text-muted-foreground/70">
+                      Deadline:{' '}
+                      {new Date(job.applicationDeadline).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="mt-6 pt-4 border-t flex items-center justify-between">
@@ -631,8 +702,7 @@ export default function PublicCareersPage() {
         )}
       </main>
 
-      {}
-      <footer className="border-t bg-muted/20 mt-32 py-12">
+      <footer className="mt-16 border-t border-[#dcebe4] bg-white/70 py-10 dark:border-slate-800 dark:bg-slate-950/70">
         <div className="mx-auto max-w-7xl px-4 text-center text-sm text-muted-foreground sm:px-6 lg:px-8">
           <p>
             © {new Date().getFullYear()} {tenant.name}. Powered by Paqad HR.
@@ -640,7 +710,6 @@ export default function PublicCareersPage() {
         </div>
       </footer>
 
-      {}
       <Sheet
         open={selectedJob !== null}
         onOpenChange={(open) => {
@@ -680,7 +749,6 @@ export default function PublicCareersPage() {
                     </div>
                   </SheetHeader>
 
-                  {}
                   <div className="space-y-4 py-4 border-b">
                     <h3 className="font-semibold text-lg text-foreground">About the role</h3>
                     <div className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
@@ -688,7 +756,6 @@ export default function PublicCareersPage() {
                     </div>
                   </div>
 
-                  {}
                   {selectedJob.requirements && selectedJob.requirements.length > 0 && (
                     <div className="space-y-3 py-4 border-b">
                       <h3 className="font-semibold text-lg text-foreground">Requirements</h3>
@@ -700,7 +767,6 @@ export default function PublicCareersPage() {
                     </div>
                   )}
 
-                  {}
                   {selectedJob.responsibilities && selectedJob.responsibilities.length > 0 && (
                     <div className="space-y-3 py-4 border-b">
                       <h3 className="font-semibold text-lg text-foreground">Responsibilities</h3>
@@ -724,7 +790,6 @@ export default function PublicCareersPage() {
                 </>
               ) : (
                 <>
-                  {}
                   <button
                     type="button"
                     onClick={() => {
@@ -742,7 +807,17 @@ export default function PublicCareersPage() {
                       Apply for {selectedJob.title}
                     </SheetTitle>
                     <SheetDescription>
-                      Submit your application details below. All fields marked with * are required.
+                      Submit your application details below. Fields marked with * are required. Your
+                      data will be processed by {tenant.name} via Paqad to evaluate your
+                      application. See our{' '}
+                      <Link href="/privacy" className="text-primary hover:underline">
+                        Privacy Policy
+                      </Link>{' '}
+                      or contact{' '}
+                      <a href="mailto:privacy@paqad.com" className="text-primary hover:underline">
+                        privacy@paqad.com
+                      </a>{' '}
+                      to request access or deletion of application data.
                     </SheetDescription>
                   </SheetHeader>
 
@@ -980,12 +1055,41 @@ export default function PublicCareersPage() {
                         </div>
                       )}
 
-                      {}
-                      <div className="pt-6 border-t flex flex-col gap-2">
+                      {turnstileSiteKey ? (
+                        <div className="border-t pt-4 flex justify-center">
+                          <Turnstile
+                            ref={turnstileRef}
+                            siteKey={turnstileSiteKey}
+                            onSuccess={handleTurnstileSuccess}
+                            options={{ theme: 'auto' }}
+                          />
+                        </div>
+                      ) : null}
+
+                      <div className="flex items-start gap-2 border-t pt-4">
+                        <Checkbox
+                          id="apply-privacy-consent"
+                          checked={agreeToPrivacy}
+                          onCheckedChange={(checked) => setAgreeToPrivacy(checked === true)}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="apply-privacy-consent"
+                          className="text-sm leading-5 text-muted-foreground"
+                        >
+                          I agree that my application data will be processed according to the{' '}
+                          <Link href="/privacy" className="text-primary hover:underline">
+                            Privacy Policy
+                          </Link>
+                          .
+                        </Label>
+                      </div>
+
+                      <div className="pt-4 border-t flex flex-col gap-2">
                         <Button
                           type="submit"
                           size="lg"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || !agreeToPrivacy}
                           className="w-full flex items-center justify-center gap-2"
                         >
                           {isSubmitting ? (

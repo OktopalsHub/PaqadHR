@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
 import { Gender } from 'src/common/enums';
 
 export class UpdateMemberProfileDto {
@@ -15,6 +15,12 @@ export class UpdateMemberProfileDto {
   @IsString()
   @MaxLength(100)
   lastName?: string;
+
+  @ApiProperty({ required: false, example: 'Marie' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
 
   @ApiProperty({ required: false, example: 'Janey' })
   @IsOptional()
@@ -38,9 +44,20 @@ export class UpdateMemberProfileDto {
   @IsEnum(Gender)
   gender?: Gender;
 
-  @ApiProperty({ required: false, description: 'Avatar storage key from presigned upload' })
+  @ApiProperty({ required: false, description: 'Avatar storage key' })
   @IsOptional()
   @IsString()
-  @MaxLength(100)
   avatarKey?: string;
+
+  @ApiProperty({ required: false, description: 'Employee BVN (11 digits)' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{11}$/, { message: 'BVN must be 11 digits' })
+  identityBvn?: string;
+
+  @ApiProperty({ required: false, description: 'Employee NIN (11 digits)' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{11}$/, { message: 'NIN must be 11 digits' })
+  identityNin?: string;
 }

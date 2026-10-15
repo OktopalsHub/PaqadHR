@@ -5,7 +5,12 @@ import { fetchUserTenants, resolveTenantId } from '@/lib/api/tenants';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { mapApiLeaveToLeaveRequest } from '@/lib/mappers/leave';
 import { mapApiLeaveBalances } from '@/lib/mappers/leave-balance';
-import type { CreateLeaveInput, LeaveBalance, LeaveRequest } from '@/lib/schemas/leave';
+import type {
+  CreateLeaveInput,
+  LeaveBalance,
+  LeaveRequest,
+  UpdateLeaveInput,
+} from '@/lib/schemas/leave';
 import { leaveBalanceSchema, leaveRequestSchema } from '@/lib/schemas/leave';
 
 type PaginatedLeaves = {
@@ -36,13 +41,13 @@ function mapLeaveRecords(data: PaginatedLeaves): LeaveRequest[] {
 
 export async function fetchLeaves(): Promise<LeaveRequest[]> {
   const tenantId = await resolveTenantId();
-  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves')}?limit=200`);
+  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves')}?limit=100`);
   return mapLeaveRecords(data);
 }
 
 export async function fetchMyLeaves(): Promise<LeaveRequest[]> {
   const tenantId = await resolveTenantId();
-  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves/me')}?limit=200`);
+  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves/me')}?limit=100`);
   return mapLeaveRecords(data);
 }
 
@@ -54,7 +59,7 @@ export async function fetchLeavesForCalendar(options: {
 }): Promise<LeaveRequest[]> {
   const tenantId = await resolveTenantId();
   const params = new URLSearchParams();
-  params.set('limit', String(options.limit ?? 500));
+  params.set('limit', String(options.limit ?? 200));
   if (options.status) params.set('status', options.status);
   if (options.from) params.set('from', options.from);
   if (options.to) params.set('to', options.to);
@@ -79,6 +84,28 @@ export async function createLeave(input: CreateLeaveInput): Promise<void> {
   await apiClient(tenantPath(tenantId, 'leaves'), {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export async function updateLeave(leaveId: string, input: UpdateLeaveInput): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `leaves/${leaveId}`), {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteLeave(leaveId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `leaves/${leaveId}`), {
+    method: 'DELETE',
+  });
+}
+
+export async function cancelLeave(leaveId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `leaves/${leaveId}/cancel`), {
+    method: 'PATCH',
   });
 }
 

@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
@@ -19,9 +20,15 @@ import {
   normalizePhoneNumber,
   normalizeRelationship,
 } from '@/lib/mappers/employee-records';
+import { queryKeys } from '@/lib/query/keys';
+import { useTenant } from '@/providers/tenant-provider';
 import type { EducationFormValues } from '../components/education-form';
 import type { EmergencyContactFormValues } from '../components/emergency-contact-form';
-import { createEmployeeDetailState, type EmployeeDetailState } from '../lib/employee-detail-state';
+import {
+  createEmployeeDetailState,
+  type EmployeeDetailState,
+  memberFullName,
+} from '../lib/employee-detail-state';
 
 type EmployeeRecords = {
   emergencyContacts: ApiEmergencyContact[];
@@ -29,11 +36,23 @@ type EmployeeRecords = {
   address?: ApiAddress | null;
 };
 
+type EmployeeDetailFormOptions = {
+  managerName?: string;
+  canEdit?: boolean;
+  canEditPersonal?: boolean;
+  isSelf?: boolean;
+  isAdmin?: boolean;
+  canManageOrganization?: boolean;
+  canManageRole?: boolean;
+};
+
 export function useEmployeeDetailForm(
   baseMember: ApiTenantMember,
   initialRecords: EmployeeRecords,
-  options?: { managerName?: string; canEdit?: boolean; isSelf?: boolean },
+  options?: EmployeeDetailFormOptions,
 ) {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [emergencyContactDialogOpen, setEmergencyContactDialogOpen] = useState(false);
@@ -62,8 +81,8 @@ export function useEmployeeDetailForm(
   const handleInputChange = (field: string, value: string) => {
     setEmployee((prev) => {
       const next = { ...prev, [field]: value };
-      if (field === 'firstName' || field === 'lastName') {
-        next.name = [next.firstName, next.lastName].filter(Boolean).join(' ').trim();
+      if (field === 'firstName' || field === 'middleName' || field === 'lastName') {
+        next.name = memberFullName(next);
       }
       return next;
     });
@@ -85,53 +104,86 @@ export function useEmployeeDetailForm(
     setIsDirty(true);
   };
 
+  const invalidateMemberQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.employees.detail(employee.id), tenantId, 'member'],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
+      }),
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.employees.all, tenantId] }),
+    ]);
+  };
+
   const handleSaveChanges = async () => {
     if (options?.canEdit === false) return;
 
     setIsSaving(true);
     try {
-      const profilePayload = {
-        firstName: employee.firstName.trim(),
-        lastName: employee.lastName.trim(),
-        preferredName: employee.preferredName || undefined,
-        phone: employee.phone || undefined,
-        dateOfBirth: employee.dateOfBirth || undefined,
-        gender: employee.personalInfo.gender || undefined,
-      };
-
-      if (options?.isSelf) {
-        await updateMemberProfile(profilePayload);
-      } else {
-        await updateEmployee(employee.id, profilePayload);
-      }
-
-      const { street, city, state, zipCode, country } = employee.address;
-      const hasAddress =
-        street.trim() || city.trim() || state.trim() || zipCode.trim() || country.trim();
-      if (hasAddress) {
-        if (!city.trim() || !state.trim() || !country.trim()) {
-          toast.error('Address requires city, state, and country');
-          return;
+      if (options?.canEditPersonal) {
+        const profileUpdate = {
+          firstName: employee.firstName.trim(),
+          lastName: employee.lastName.trim(),
+          middleName: employee.middleName.trim() || undefined,
+          preferredName: employee.preferredName || undefined,
+          phone: employee.phone || undefined,
+          dateOfBirth: employee.dateOfBirth || undefined,
+          gender: employee.personalInfo.gender || undefined,
+          ...(options.isSelf
+            ? {
+                identityBvn: employee.identityBvn.trim() || undefined,
+                identityNin: employee.identityNin.trim() || undefined,
+              }
+            : {}),
+        };
+        if (options.isSelf) {
+          await updateMemberProfile(profileUpdate);
+        } else {
+          const { updateMemberProfileById } = await import('@/lib/api/member-profile');
+          await updateMemberProfileById(employee.id, profileUpdate);
         }
-        const saved = await upsertMemberAddress(employee.id, {
-          street: street.trim() || undefined,
-          city: city.trim(),
-          state: state.trim(),
-          postalCode: zipCode.trim() || undefined,
-          country: country.trim(),
-        });
-        setEmployee((prev) => ({
-          ...prev,
-          addressId: saved.id,
-          address: {
-            street: saved.street ?? '',
-            city: saved.city,
-            state: saved.state,
-            zipCode: saved.postalCode ?? '',
-            country: saved.country,
-          },
-        }));
       }
+
+      if (options?.canManageOrganization) {
+        await updateEmployee(employee.id, {
+          departmentId: employee.departmentId || null,
+          reportsToId: employee.reportsToId || null,
+          ...(options?.canManageRole ? { role: employee.workspaceRole } : {}),
+        });
+      }
+
+      if (options?.canEditPersonal) {
+        const { street, city, state, zipCode, country } = employee.address;
+        const hasAddress =
+          street.trim() || city.trim() || state.trim() || zipCode.trim() || country.trim();
+        if (hasAddress) {
+          if (!city.trim() || !state.trim() || !country.trim()) {
+            toast.error('City, state, and country are required');
+            return;
+          }
+          const saved = await upsertMemberAddress(employee.id, {
+            street: street.trim() || undefined,
+            city: city.trim(),
+            state: state.trim(),
+            postalCode: zipCode.trim() || undefined,
+            country: country.trim(),
+          });
+          setEmployee((prev) => ({
+            ...prev,
+            addressId: saved.id,
+            address: {
+              street: saved.street ?? '',
+              city: saved.city,
+              state: saved.state,
+              zipCode: saved.postalCode ?? '',
+              country: saved.country,
+            },
+          }));
+        }
+      }
+
+      await invalidateMemberQueries();
 
       toast.success(
         <ToastMessage
@@ -176,9 +228,11 @@ export function useEmployeeDetailForm(
         ...prev,
         emergencyContacts: prev.emergencyContacts.filter((contact) => contact.id !== contactId),
       }));
-      toast.success('Emergency contact removed.');
+      toast.success('Emergency contact removed');
+      return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove emergency contact');
+      return false;
     }
   };
 
@@ -212,9 +266,11 @@ export function useEmployeeDetailForm(
         ...prev,
         education: prev.education.filter((record) => record.id !== educationId),
       }));
-      toast.success('Education record removed.');
+      toast.success('Education record removed');
+      return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove education record');
+      return false;
     }
   };
 

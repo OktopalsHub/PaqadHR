@@ -11,21 +11,23 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
-import type { PaginationDto } from 'src/common/dto/pagination.dto';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { LeaveStatus } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateLeaveDto } from './dto/create-leave.dto';
-import type { LeaveResponseDto } from './dto/leave-response.dto';
-import type { UpdateLeaveDto } from './dto/update-leave.dto';
+import { CreateLeaveDto } from './dto/create-leave.dto';
+import { LeaveResponseDto } from './dto/leave-response.dto';
+import { ListLeavesQueryDto } from './dto/list-leaves-query.dto';
+import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { LeaveService } from './leave.service';
 
 @ApiTags('Leaves')
 @Controller('tenants/:tenantId/leaves')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.LEAVE_MANAGEMENT)
 export class LeaveController {
   constructor(
     private readonly leaveService: LeaveService,
@@ -57,7 +59,7 @@ export class LeaveController {
   private assertLeaveMutation(member: MemberContext, leave: LeaveResponseDto): void {
     const isRequester = leave.requester?.id === member.id;
     const isPending = leave.status === LeaveStatus.PENDING;
-    if (!isTenantAdmin(member) && !(isRequester && isPending)) {
+    if (!isRequester || !isPending) {
       throw new ForbiddenException('You can only modify your own pending leave requests');
     }
   }
@@ -74,12 +76,10 @@ export class LeaveController {
   @Get()
   async listLeavesByTenant(
     @Param('tenantId') tenantId: string,
-    @Query() pagination: PaginationDto,
+    @Query() query: ListLeavesQueryDto,
     @CurrentTenantMember() member: MemberContext,
-    @Query('status') status?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
   ) {
+    const { status, from, to, ...pagination } = query;
     const filters = { status, from, to };
     if (isTenantAdmin(member)) {
       return this.leaveService.listLeavesByTenant(tenantId, pagination, filters);
@@ -97,12 +97,10 @@ export class LeaveController {
   @Get('me')
   async getMyLeaves(
     @Param('tenantId') tenantId: string,
-    @Query() pagination: PaginationDto,
+    @Query() query: ListLeavesQueryDto,
     @CurrentTenantMember() member: MemberContext,
-    @Query('status') status?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
   ) {
+    const { status, from, to, ...pagination } = query;
     return this.leaveService.getLeavesByMember(tenantId, member.id, pagination, {
       status,
       from,
@@ -161,6 +159,23 @@ export class LeaveController {
     const leave = await this.leaveService.getLeave(tenantId, leaveId);
     this.assertLeaveMutation(member, leave);
     return this.leaveService.deleteLeave(tenantId, leaveId);
+  }
+
+  @Patch(':leaveId/cancel')
+  async cancelLeave(
+    @Param('tenantId') tenantId: string,
+    @Param('leaveId') leaveId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    const leave = await this.leaveService.getLeave(tenantId, leaveId);
+    const isRequester = leave.requester?.id === member.id;
+    if (!isRequester) {
+      if (!leave.requester?.id) {
+        throw new ForbiddenException('Admin or manager access required');
+      }
+      await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);
+    }
+    return this.leaveService.cancelLeave(tenantId, leaveId, member.id);
   }
 
   @Patch(':leaveId/approve')

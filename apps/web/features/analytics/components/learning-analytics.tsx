@@ -85,10 +85,7 @@ export function LearningAnalytics() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <ContentCard
-          title="Department learning progress"
-          description="Learning completion rates by department"
-        >
+        <ContentCard title="Department learning progress">
           <div className="space-y-4">
             {departmentProgress.map((dept) => (
               <div key={dept.department} className="space-y-2">
@@ -117,10 +114,7 @@ export function LearningAnalytics() {
           </div>
         </ContentCard>
 
-        <ContentCard
-          title="Skills gap analysis"
-          description="Identified skill gaps across the organization"
-        >
+        <ContentCard title="Skills gap analysis">
           <div className="space-y-4">
             {skillsGapData.map((skill) => (
               <div key={skill.skill} className="space-y-2">

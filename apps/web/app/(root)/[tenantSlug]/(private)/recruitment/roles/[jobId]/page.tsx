@@ -1,3 +1,4 @@
+import { AdminOnlyGate } from '@/features/navigations/components/admin-only-gate';
 import { RecruitmentBoardPage } from '@/features/recruitment/components/recruitment-board-page';
 
 type PageProps = {
@@ -6,5 +7,9 @@ type PageProps = {
 
 export default async function Page({ params }: PageProps) {
   const { jobId } = await params;
-  return <RecruitmentBoardPage jobId={jobId} />;
+  return (
+    <AdminOnlyGate>
+      <RecruitmentBoardPage jobId={jobId} />
+    </AdminOnlyGate>
+  );
 }

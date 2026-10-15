@@ -1,5 +1,15 @@
+import { isBachsConfigured } from '../../../../common/config/bachs.config';
+import { isFincraConfigured } from '../../../../common/config/fincra.config';
+import { isMonnifyConfigured } from '../../../../common/config/monnify.config';
+import { isNoahConfigured } from '../../../../common/config/noah.config';
 import { isNombaConfigured } from '../../../../common/config/nomba.config';
 
 export function isPayrollGatewayEnabled(): boolean {
-  return isNombaConfigured();
+  return (
+    isNombaConfigured() ||
+    isNoahConfigured() ||
+    isMonnifyConfigured() ||
+    isFincraConfigured() ||
+    isBachsConfigured()
+  );
 }

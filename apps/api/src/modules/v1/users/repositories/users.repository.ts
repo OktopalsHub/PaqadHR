@@ -14,11 +14,23 @@ export class UserRepository extends Repository<User> {
   }
 
   async findUserByEmail(email: string, includeDeleted = false): Promise<User | null> {
-    const normalizedEmail = email.toLowerCase().trim();
-    return this.findOne({
-      where: { email: normalizedEmail },
-      withDeleted: includeDeleted,
+    const normalizedEmail = StringUtility.trimAndLowerCase(email);
+    if (!normalizedEmail) return null;
+
+    const qb = this.createQueryBuilder('user').where('LOWER(TRIM(user.email)) = :email', {
+      email: normalizedEmail,
     });
+    if (includeDeleted) {
+      qb.withDeleted();
+    }
+    const user = await qb.getOne();
+
+    if (user && user.email !== normalizedEmail) {
+      await this.update(user.id, { email: normalizedEmail });
+      user.email = normalizedEmail;
+    }
+
+    return user;
   }
 
   async findUser(id: string, includeDeleted = false): Promise<User | null> {

@@ -1,4 +1,5 @@
 import { formatReminderLabel, formatTimeRange } from '@/features/calenders/lib/calendar-event-form';
+import type { CalendarEventRecord } from '@/lib/api/calendar-events';
 import { fetchCalendarEvents as fetchManualCalendarEvents } from '@/lib/api/calendar-events';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import type { Interview } from '@/lib/api/interviews';
@@ -6,6 +7,7 @@ import { fetchUpcomingInterviews } from '@/lib/api/interviews';
 import { fetchLeavesForCalendar } from '@/lib/api/leaves';
 import { resolveTenantId } from '@/lib/api/tenants';
 import { formatDisplayName, formatPersonName } from '@/lib/format-name';
+import { formatOrdinal } from '@/lib/format-ordinal';
 import type { CalendarEvent, CalendarEventType } from '@/lib/schemas/calendar';
 
 type ApiCelebration = {
@@ -15,6 +17,7 @@ type ApiCelebration = {
   preferredName?: string;
   type: 'birthday' | 'anniversary';
   date: string;
+  years?: number;
 };
 
 type Celebration = {
@@ -22,6 +25,7 @@ type Celebration = {
   memberName: string;
   type: 'birthday' | 'anniversary';
   date: string;
+  years?: number;
 };
 
 type Holiday = {
@@ -61,6 +65,7 @@ function mapCelebration(item: ApiCelebration): Celebration {
     date: normalizeCelebrationDate(
       typeof item.date === 'string' ? item.date : new Date(item.date).toISOString(),
     ),
+    years: item.years,
   };
 }
 
@@ -82,9 +87,13 @@ function leaveToEvents(leave: {
 }
 
 function celebrationToEvent(item: Celebration): CalendarEvent {
+  const anniversaryLabel =
+    item.years && item.years >= 1
+      ? `${formatOrdinal(item.years)} Work Anniversary`
+      : 'Work Anniversary';
   return {
     id: `celebration-${item.id}-${item.date}`,
-    title: `${item.memberName} — ${item.type === 'birthday' ? 'Birthday' : 'Work Anniversary'}`,
+    title: `${item.memberName} — ${item.type === 'birthday' ? 'Birthday' : anniversaryLabel}`,
     date: item.date,
     type: 'celebration',
   };
@@ -129,18 +138,7 @@ function normalizeDbTime(raw?: string | null): string | undefined {
   return raw.slice(0, 5);
 }
 
-function manualEventToCalendar(event: {
-  id: string;
-  title: string;
-  description?: string;
-  startDate: string;
-  endDate: string;
-  allDay?: boolean;
-  startTime?: string | null;
-  endTime?: string | null;
-  reminderMinutes?: number | null;
-  type: string;
-}): CalendarEvent[] {
+function manualEventToCalendar(event: CalendarEventRecord): CalendarEvent[] {
   const eventType: CalendarEventType =
     event.type === 'review' ? 'review' : event.type === 'reminder' ? 'meeting' : 'meeting';
   const timeLabel =
@@ -149,15 +147,18 @@ function manualEventToCalendar(event: {
       : undefined;
   const reminderLabel = formatReminderLabel(event.reminderMinutes);
 
-  return eachDayInclusive(event.startDate, event.endDate).map((date, index) => ({
-    id: `manual-${event.id}-${date}`,
-    title: event.title,
-    date,
-    type: eventType,
-    description: event.description,
-    time: index === 0 ? timeLabel : undefined,
-    reminder: index === 0 ? reminderLabel : undefined,
-  }));
+  return [
+    {
+      id: `manual-${event.id}`,
+      title: event.title,
+      date: event.startDate,
+      type: eventType,
+      description: event.description ?? undefined,
+      time: timeLabel,
+      reminder: reminderLabel,
+      manualEvent: event,
+    },
+  ];
 }
 
 function normalizeHolidayDateString(raw: string, fallbackYear?: number): string {
@@ -204,14 +205,17 @@ async function fetchHolidayEvents(fromYear: number, toYear: number): Promise<Cal
   });
 }
 
-export async function fetchCalendarEvents(): Promise<CalendarEvent[]> {
+export async function fetchCalendarEvents(dateRange?: {
+  from: string;
+  to: string;
+}): Promise<CalendarEvent[]> {
   const tenantId = await resolveTenantId();
   const year = new Date().getFullYear();
-  const from = `${year - 1}-01-01`;
-  const to = `${year + 1}-12-31`;
+  const from = dateRange?.from ?? `${year - 1}-01-01`;
+  const to = dateRange?.to ?? `${year + 1}-12-31`;
 
   const [leaves, celebrations, interviews, holidays, manualEvents] = await Promise.all([
-    fetchLeavesForCalendar({ status: 'approved', from, to, limit: 500 }).catch(() => []),
+    fetchLeavesForCalendar({ status: 'approved', from, to, limit: 200 }).catch(() => []),
     apiClient<ApiCelebration[]>(tenantPath(tenantId, 'celebrations')).catch(() => []),
     fetchUpcomingInterviews(365).catch(() => []),
     fetchHolidayEvents(year - 1, year + 1),

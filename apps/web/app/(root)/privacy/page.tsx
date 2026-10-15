@@ -2,10 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
+import { COMPANY } from '@/lib/constants/company';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Paqad',
-  description: 'How Paqad collects, uses, and protects your personal data.',
+  description: 'How Paqad collects and protects personal data.',
 };
 
 export default function PrivacyPage() {
@@ -23,37 +24,81 @@ export default function PrivacyPage() {
       </header>
       <main className="mx-auto max-w-3xl px-6 py-12 prose prose-neutral">
         <h1>Privacy Policy</h1>
-        <p className="text-muted-foreground">Last updated: June 2026</p>
+        <p className="text-muted-foreground">Last updated: September 2026</p>
+
         <p>
-          Paqad (&quot;we&quot;, &quot;us&quot;) provides HR and payroll software for teams. This
-          policy describes how we handle personal data when you use our website and workspace
-          applications.
+          This policy explains how {COMPANY.legalName} (&quot;we&quot;) processes personal data when
+          you use Paqad. {COMPANY.poweredBy}.
         </p>
+
+        <h2>Who we are</h2>
+        <p>
+          We operate Paqad / PaqadHR. We are the controller for account data. Your employer is
+          usually the controller for workforce records they enter. Contact:{' '}
+          <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.
+        </p>
+
         <h2>Data we collect</h2>
         <ul>
-          <li>Account information such as name, email, and workspace membership</li>
-          <li>Employment and payroll data you or your employer enters into the product</li>
-          <li>Payment method metadata for payroll (sensitive fields are encrypted)</li>
-          <li>Usage logs and security events to operate and protect the service</li>
+          <li>Account data: name, email, credentials, country.</li>
+          <li>HR data: role, leave, attendance, documents, emergency contacts.</li>
+          <li>Payroll data: bank details and payout metadata (encrypted at rest).</li>
+          <li>Recruitment data: applications and CVs from careers pages.</li>
+          <li>Technical data: IP address, device data, audit logs.</li>
         </ul>
-        <h2>How we use data</h2>
-        <p>
-          We use your data to provide HR, payroll, leave, and recognition features; to process
-          subscriptions; to comply with legal obligations; and to improve reliability and security.
-        </p>
+
+        <h2>Why we process data</h2>
+        <ul>
+          <li>To provide the service (contract).</li>
+          <li>To keep the platform secure (legitimate interests).</li>
+          <li>To meet legal and tax duties.</li>
+          <li>Where you give consent for optional processing.</li>
+        </ul>
+
+        <h2>Cookies</h2>
+        <p>We use essential cookies for sign-in and security. We do not use advertising cookies.</p>
+
         <h2>Sharing</h2>
         <p>
-          We share data with subprocessors that help us run the service (e.g. hosting, payments,
-          payroll partners such as Nomba where enabled). We do not sell personal data.
+          We use processors under contract for hosting, email, payments, and security. We do not
+          sell personal data. See our <Link href="/dpa">DPA summary</Link>.
         </p>
+
+        <h2>Transfers</h2>
+        <p>
+          We may process data in the EU, UK, United States, and Nigeria. We use legal safeguards
+          where required.
+        </p>
+
+        <h2>Retention</h2>
+        <p>
+          We keep data while your account is active. We remove or anonymise data when it is no
+          longer needed, subject to legal retention (for example payroll records).
+        </p>
+
+        <h2>Security</h2>
+        <p>
+          We use TLS, encryption for sensitive payment fields, httpOnly cookies, access controls,
+          and rate limits. Report issues to <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.
+        </p>
+
         <h2>Your rights</h2>
         <p>
-          Depending on your location, you may request access, correction, export, or deletion of
-          your account. Use in-app settings or contact your workspace administrator.
+          You may access, correct, delete, restrict, or object to processing of your personal data
+          where the law allows. You may lodge a complaint with a supervisory authority (for example
+          NDPC in Nigeria). Email <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> or use
+          Settings → Profile.
         </p>
+
+        <h2>Children</h2>
+        <p>Paqad is not for persons under 16.</p>
+
+        <h2>Changes</h2>
+        <p>We will post material changes on this page with a new date.</p>
+
         <h2>Contact</h2>
         <p>
-          Questions about this policy: <a href="mailto:privacy@paqad.com">privacy@paqad.com</a>
+          <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
         </p>
       </main>
     </div>

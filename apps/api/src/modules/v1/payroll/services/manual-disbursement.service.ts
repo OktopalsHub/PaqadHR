@@ -1,22 +1,24 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
+import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { AuditService } from './audit.service';
+import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 @Injectable()
 export class ManualDisbursementService {
-  private readonly logger = new Logger(ManualDisbursementService.name);
-
   constructor(
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly auditService: AuditService,
+    private readonly productAnalytics: ProductAnalyticsService,
+    @Optional() private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {}
 
   async disbursePayrollRun(
@@ -47,6 +49,20 @@ export class ManualDisbursementService {
       try {
         await this.markItemPaidManually(item, payrollRun.tenantId, auditContext);
         paidCount++;
+        if (this.lifecycleNotify) {
+          await this.lifecycleNotify.onItemPaid({
+            tenantId: payrollRun.tenantId,
+            item,
+            run: {
+              id: payrollRun.id,
+              title: payrollRun.title,
+              tenantId: payrollRun.tenantId,
+              periodStart: payrollRun.periodStart,
+              periodEnd: payrollRun.periodEnd,
+              baseCurrency: payrollRun.baseCurrency,
+            },
+          });
+        }
       } catch (error) {
         failedCount++;
         const message = error instanceof Error ? error.message : 'Manual disbursement failed';
@@ -62,6 +78,20 @@ export class ManualDisbursementService {
           },
           message,
         );
+        if (this.lifecycleNotify) {
+          await this.lifecycleNotify.onItemFailed({
+            tenantId: payrollRun.tenantId,
+            item,
+            run: {
+              id: payrollRun.id,
+              title: payrollRun.title,
+              tenantId: payrollRun.tenantId,
+              periodStart: payrollRun.periodStart,
+              periodEnd: payrollRun.periodEnd,
+            },
+            reason: message,
+          });
+        }
       }
     }
 
@@ -88,9 +118,9 @@ export class ManualDisbursementService {
       processingDuration,
     });
 
-    this.logger.log(
-      `Manual disbursement for run ${payrollRun.id}: ${paidCount} paid, ${failedCount} failed`,
-    );
+    this.productAnalytics.capture(auditContext.performedById, 'payroll_disbursed', {
+      tenantId: auditContext.tenantId,
+    });
 
     return { paidCount, failedCount };
   }

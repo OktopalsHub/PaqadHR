@@ -1,15 +1,28 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import {
+  approveAttendanceException,
   type ClockInInfo,
   clockIn,
   clockOut,
+  createAttendanceException,
+  deleteAttendance,
+  fetchAttendanceExceptions,
+  fetchAttendanceStats,
   fetchClockInInfo,
+  fetchDailyReport,
+  fetchEmployeeReport,
+  fetchMonthlyReport,
   fetchMonthlyTimesheet,
   fetchMyAttendanceRecords,
+  fetchSessionCount,
+  fetchSessionLimit,
   fetchTeamAttendanceRecords,
+  fetchTodayAttendance,
+  rejectAttendanceException,
+  updateAttendance,
 } from '@/lib/api/attendance';
 import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
@@ -51,6 +64,7 @@ export function useMyAttendanceRecords(from: string, to: string) {
     queryKey: [...queryKeys.attendance.myRecords, tenantId, memberId, from, to],
     queryFn: () => fetchMyAttendanceRecords(from, to, memberId!),
     enabled: !tenantLoading && Boolean(tenantId && memberId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -62,6 +76,7 @@ export function useMonthlyTimesheet(month: number, year: number, page = 1) {
     queryKey: [...queryKeys.attendance.monthly, tenantId, month, year, page],
     queryFn: () => fetchMonthlyTimesheet(month, year, page),
     enabled: !tenantLoading && Boolean(tenantId) && canViewTeam,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -73,6 +88,7 @@ export function useTeamAttendanceRecords(from: string, to: string) {
     queryKey: [...queryKeys.attendance.teamRecords, tenantId, from, to],
     queryFn: () => fetchTeamAttendanceRecords(from, to),
     enabled: !tenantLoading && Boolean(tenantId) && canViewTeam,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -121,6 +137,7 @@ export function useClockOut() {
       attendanceId: string;
       location?: string;
       notes?: string;
+      clockOut?: string;
     }) => clockOut(attendanceId, input),
     onSuccess: () => {
       queryClient.setQueryData<ClockInInfo>(clockInQueryKey, (current) => {
@@ -139,5 +156,168 @@ export function useClockOut() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.teamRecords });
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.monthly });
     },
+  });
+}
+
+export function useTodayAttendance() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.attendance.today, tenantId],
+    queryFn: fetchTodayAttendance,
+    enabled: !tenantLoading && Boolean(tenantId),
+  });
+}
+
+export function useAttendanceStats(startDate?: string, endDate?: string) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.attendance.stats, tenantId, startDate, endDate],
+    queryFn: () => fetchAttendanceStats(startDate, endDate),
+    enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAttendanceExceptions(filters?: {
+  employeeId?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.attendance.exceptions, tenantId, filters],
+    queryFn: () => fetchAttendanceExceptions(filters),
+    enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCreateAttendanceException() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createAttendanceException,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.exceptions });
+    },
+  });
+}
+
+export function useApproveAttendanceException() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ exceptionId, comments }: { exceptionId: string; comments?: string }) =>
+      approveAttendanceException(exceptionId, comments),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.exceptions });
+    },
+  });
+}
+
+export function useRejectAttendanceException() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ exceptionId, comments }: { exceptionId: string; comments: string }) =>
+      rejectAttendanceException(exceptionId, comments),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.exceptions });
+    },
+  });
+}
+
+export function useDailyReport(date?: string) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.attendance.dailyReport, tenantId, date],
+    queryFn: () => fetchDailyReport(date),
+    enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useMonthlyReport(month: number, year: number) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.attendance.monthlyReport, tenantId, month, year],
+    queryFn: () => fetchMonthlyReport(month, year),
+    enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useEmployeeReport(employeeId: string, startDate: string, endDate: string) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.attendance.monthlyReport, 'employee', employeeId, startDate, endDate],
+    queryFn: () => fetchEmployeeReport(employeeId, startDate, endDate),
+    enabled: !tenantLoading && Boolean(tenantId) && Boolean(employeeId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useUpdateAttendance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      attendanceId,
+      input,
+    }: {
+      attendanceId: string;
+      input: { status?: string; clockIn?: string; clockOut?: string; notes?: string };
+    }) => updateAttendance(attendanceId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.myRecords });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.teamRecords });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.monthly });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.dailyReport });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.stats });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.today });
+    },
+  });
+}
+
+export function useDeleteAttendance() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteAttendance,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.myRecords });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.teamRecords });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.monthly });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.dailyReport });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.stats });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.today });
+    },
+  });
+}
+
+export function useSessionLimit() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.attendance.sessionLimit, tenantId],
+    queryFn: fetchSessionLimit,
+    enabled: !tenantLoading && Boolean(tenantId),
+  });
+}
+
+export function useSessionCount(date?: string) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.attendance.sessionCount, tenantId, date],
+    queryFn: () => fetchSessionCount(date),
+    enabled: !tenantLoading && Boolean(tenantId),
   });
 }

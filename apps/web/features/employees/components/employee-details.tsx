@@ -3,20 +3,21 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useUpdateEmployeeMemberStatus } from '@/hooks/queries/use-employees';
 import { fetchMemberAddress } from '@/lib/api/address';
 import { fetchEducationRecords } from '@/lib/api/education';
 import { fetchEmergencyContacts } from '@/lib/api/emergency-contacts';
 import { fetchTenantMemberById, fetchTenantMembers } from '@/lib/api/employees';
-import { canManageMember } from '@/lib/auth/manager-access';
-import { formatDisplayName, formatPersonName } from '@/lib/format-name';
+import { canManageMember, isTenantAdmin } from '@/lib/auth/manager-access';
+import { formatDisplayName } from '@/lib/format-name';
 import type { ApiTenantMember } from '@/lib/mappers/employee';
 import { queryKeys } from '@/lib/query/keys';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
 import { useTenant } from '@/providers/tenant-provider';
 import { useEmployeeDetailForm } from '../hooks/use-employee-detail-form';
-import { EmployeeDetailHeader } from './detail/employee-detail-header';
 import { EmployeeDetailSidebar } from './detail/employee-detail-sidebar';
 import { EmployeeDetailTabs } from './detail/tabs/employee-detail-tabs';
 
@@ -24,10 +25,11 @@ function resolveManagerName(member: ApiTenantMember, members: ApiTenantMember[])
   if (!member.reportsToId) return '';
   const manager = members.find((m) => m.id === member.reportsToId);
   if (!manager) return '';
-  return (
-    formatPersonName(manager.firstName, manager.lastName, '') ||
-    formatDisplayName(manager.preferredName, '')
-  );
+  const full = [manager.firstName, manager.middleName, manager.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return full || formatDisplayName(manager.preferredName, '');
 }
 
 function EmployeeDetailFormView({
@@ -68,7 +70,7 @@ function EmployeeDetailFormView({
 
   return (
     <EmployeeDetailFormReady
-      key={member.id}
+      key={`${member.id}:${member.isActive}`}
       member={member}
       memberId={memberId}
       emergencyContacts={records.emergencyContacts}
@@ -96,31 +98,57 @@ function EmployeeDetailFormReady({
 }) {
   const { tenant } = useTenant();
   const role = tenant?.member?.role?.toLowerCase();
-  const isAdmin = role === 'owner' || role === 'admin';
+  const isAdmin = isTenantAdmin(role);
+  const canManageOrganization = isAdmin;
   const isSelf = tenant?.member?.id === memberId;
-  const canEdit = isAdmin || isSelf;
+  const canEditPersonal = isSelf;
+  const canEditOrg = canManageOrganization;
+  const canEdit = canEditPersonal || canEditOrg;
+  const memberTenantRole = member.role?.toLowerCase();
+  const canManageStatus = isAdmin && !isSelf && memberTenantRole !== 'owner';
+  const canManageRole = isAdmin && !isSelf && memberTenantRole !== 'owner';
+  const statusMutation = useUpdateEmployeeMemberStatus(memberId);
 
   const form = useEmployeeDetailForm(
     member,
     { emergencyContacts, education, address },
-    { managerName, canEdit, isSelf },
+    {
+      managerName,
+      canEdit,
+      canEditPersonal,
+      isSelf,
+      isAdmin,
+      canManageOrganization,
+      canManageRole,
+    },
   );
 
   return (
     <div className="space-y-6">
-      <EmployeeDetailHeader
-        isDirty={form.isDirty}
-        isSaving={form.isSaving}
-        canEdit={canEdit}
-        onSave={form.handleSaveChanges}
-      />
-
-      <div className="flex flex-col md:flex-row gap-6">
+      <div className="flex flex-col gap-6 xl:flex-row">
         <EmployeeDetailSidebar
           employee={form.employee}
           memberId={memberId}
           isSelf={isSelf}
-          canEdit={canEdit}
+          canEdit={canEditPersonal}
+          isAdmin={isAdmin}
+          canManageStatus={canManageStatus}
+          canManageRole={canManageRole}
+          statusUpdatePending={statusMutation.isPending}
+          isDirty={form.isDirty}
+          isSaving={form.isSaving}
+          canEditForm={canEdit}
+          onSave={form.handleSaveChanges}
+          onMemberStatusChange={(isActive) => {
+            statusMutation.mutate(isActive, {
+              onSuccess: () => {
+                toast.success(isActive ? 'Member reactivated' : 'Member deactivated');
+              },
+              onError: (err) => {
+                toast.error(err instanceof Error ? err.message : 'Failed to update member status');
+              },
+            });
+          }}
           onInputChange={form.handleInputChange}
           onAvatarUpdated={form.handleAvatarUpdated}
         />
@@ -129,7 +157,8 @@ function EmployeeDetailFormReady({
           memberId={memberId}
           viewerMemberId={tenant?.member?.id}
           isAdmin={isAdmin}
-          canEdit={canEdit}
+          canManageOrganization={canManageOrganization}
+          canEditPersonal={canEditPersonal}
         />
       </div>
     </div>
@@ -167,6 +196,7 @@ function EmployeeDetailContent() {
   const isSelf = viewerMemberId === id;
   const canViewDetail =
     isSelf ||
+    isTenantAdmin(tenant?.member?.role) ||
     (Boolean(viewerMemberId && targetMember) &&
       canManageMember(viewerMemberId!, targetMember!, role));
 
@@ -182,7 +212,7 @@ function EmployeeDetailContent() {
   });
 
   const displayName = member
-    ? formatPersonName(member.firstName, member.lastName, '') ||
+    ? [member.firstName, member.middleName, member.lastName].filter(Boolean).join(' ').trim() ||
       formatDisplayName(member.preferredName, 'Employee')
     : null;
 
@@ -192,10 +222,7 @@ function EmployeeDetailContent() {
     return (
       <Alert>
         <AlertTitle>Profile not available</AlertTitle>
-        <AlertDescription>
-          You can browse the people directory, but full employee profiles are limited to your own
-          profile, your direct reports, and admin users.
-        </AlertDescription>
+        <AlertDescription>You can only open your profile and direct reports.</AlertDescription>
       </Alert>
     );
   }

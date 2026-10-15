@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import { BillingChargeType } from '../constants/billing.constants';
+import { BillingChargeType, CARD_UPDATE_VERIFY_AMOUNT } from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
   SubscriptionCheckoutResponse,
@@ -9,41 +9,11 @@ import type {
 } from '../interfaces/subscription-billing.interface';
 import { NombaApiService } from '../services/nomba-api.service';
 import { calculatePerSeatTotal, resolveSeatCount } from '../utils/per-seat-pricing.util';
+import { parseNombaWebhook } from './nomba-webhook-parsers';
 import type { ISubscriptionBillingProvider } from './subscription-billing-provider.interface';
-
-interface NombaWebhookPayload {
-  event_type?: string;
-  eventType?: string;
-  data?: {
-    orderReference?: string;
-    amount?: number;
-    currency?: string;
-    customerEmail?: string;
-    status?: string;
-    tokenizedCardData?: {
-      tokenKey?: string;
-    };
-    meta?: SubscriptionBillingMetadata;
-    order?: {
-      orderReference?: string;
-      customerEmail?: string;
-      amount?: number;
-      currency?: string;
-      orderMetaData?: Record<string, string>;
-    };
-    transaction?: {
-      transactionId?: string;
-      merchantTxRef?: string;
-      transactionAmount?: number;
-      time?: string;
-    };
-  };
-}
 
 @Injectable()
 export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
-  private readonly logger = new Logger(NombaSubscriptionProvider.name);
-
   constructor(private readonly nombaApi: NombaApiService) {}
 
   async createCheckout(
@@ -56,7 +26,9 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_${metadata.tenantId}_${Date.now()}`;
+    // Keep under Nomba's 50-char reference limit: raw UUID (36) + "sub_" +
+    // timestamp overflows, so strip UUID hyphens and use a base36 timestamp.
+    const orderReference = `sub_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     const result = await this.nombaApi.createCheckoutOrder({
       orderReference,
@@ -69,7 +41,36 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         ...metadata,
         quantity: seats,
         billingType: BillingChargeType.SUBSCRIPTION,
-        nombaPlanId: planPrice.nombaPlanId ?? undefined,
+      },
+    });
+
+    return {
+      id: result.orderReference,
+      checkoutUrl: result.checkoutLink,
+      reference: result.orderReference,
+      authorizationUrl: result.checkoutLink,
+    };
+  }
+
+  async createCardUpdateCheckout(
+    email: string,
+    metadata: SubscriptionBillingMetadata,
+    successUrl: string,
+    currency: string,
+  ): Promise<SubscriptionCheckoutResponse> {
+    // Keep under Nomba's 50-char reference limit (see createCheckout).
+    const orderReference = `cu_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
+
+    const result = await this.nombaApi.createCheckoutOrder({
+      orderReference,
+      customerEmail: email,
+      amount: CARD_UPDATE_VERIFY_AMOUNT,
+      currency: currency.toUpperCase(),
+      callbackUrl: successUrl,
+      tokenizeCard: true,
+      meta: {
+        ...metadata,
+        billingType: BillingChargeType.CARD_UPDATE,
       },
     });
 
@@ -96,11 +97,11 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_renew_${metadata.tenantId}_${Date.now()}`;
-
-    this.logger.log(
-      `Renewing Nomba subscription ${subscriptionReference} for ${seats} seats (${amount} ${currency})`,
-    );
+    // Prefer caller-supplied period-scoped reference (≤50 chars) so retries dedupe at Nomba.
+    const fromMeta =
+      typeof metadata.orderReference === 'string' ? metadata.orderReference.trim() : '';
+    const orderReference =
+      fromMeta || `sub_ren_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     return this.nombaApi.chargeTokenizedCard({
       orderReference,
@@ -114,27 +115,24 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         quantity: seats,
         billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
         previousReference: subscriptionReference,
-        nombaPlanId: planPrice.nombaPlanId ?? undefined,
+        orderReference,
       },
     });
   }
 
-  async updateSubscription(
+  async chargeSeatAddition(
     subscriptionReference: string,
     planPrice: PlanPrice,
-    quantity: number,
+    amount: number,
+    targetSeatCount: number,
+    extraSeats: number,
     tokenKey: string,
     customerEmail: string,
     metadata?: SubscriptionBillingMetadata,
-  ): Promise<unknown> {
-    const seats = resolveSeatCount(quantity);
-    const amount = calculatePerSeatTotal(planPrice, seats);
+  ): Promise<{ orderReference: string }> {
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_qty_${subscriptionReference}_${Date.now()}`;
-
-    this.logger.log(
-      `Charging Nomba tokenized subscription ${subscriptionReference} for ${seats} seats (${amount} ${currency})`,
-    );
+    const tenantPart = (metadata?.tenantId ?? subscriptionReference).replace(/-/g, '').slice(0, 32);
+    const orderReference = `sub_qty_${tenantPart}_${Date.now().toString(36)}`;
 
     return this.nombaApi.chargeTokenizedCard({
       orderReference,
@@ -147,10 +145,11 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         ...metadata,
         billingType: BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE,
         previousReference: subscriptionReference,
-        quantity: seats,
+        quantity: targetSeatCount,
+        targetSeatCount,
+        extraSeats,
         planId: metadata?.planId ?? planPrice.planId,
         planPriceId: metadata?.planPriceId ?? planPrice.id,
-        nombaPlanId: planPrice.nombaPlanId ?? undefined,
       },
     });
   }
@@ -164,85 +163,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
   }
 
   parseWebhook(payload: unknown): SubscriptionWebhookEvent | null {
-    const body = payload as NombaWebhookPayload;
-    const eventType = (body.event_type || body.eventType || '').toLowerCase();
-
-    if (eventType === 'payment_success') {
-      const data = body.data;
-      const order = data?.order;
-      const orderMeta = order?.orderMetaData ?? {};
-      const meta: SubscriptionBillingMetadata = {
-        tenantId: orderMeta.tenantId ?? data?.meta?.tenantId,
-        planId: orderMeta.planId ?? data?.meta?.planId,
-        planPriceId: orderMeta.planPriceId ?? data?.meta?.planPriceId,
-        userId: orderMeta.userId ?? data?.meta?.userId,
-        tenantMemberId: orderMeta.tenantMemberId ?? data?.meta?.tenantMemberId,
-        quantity: orderMeta.quantity ? Number(orderMeta.quantity) : data?.meta?.quantity,
-        billingType: orderMeta.billingType ?? data?.meta?.billingType,
-      };
-      const reference = order?.orderReference ?? data?.orderReference;
-      if (!reference || !meta.tenantId) {
-        return null;
-      }
-
-      return {
-        kind: 'payment.success',
-        payment: {
-          eventId: data?.transaction?.transactionId || reference,
-          reference,
-          tenantId: String(meta.tenantId),
-          planId: meta.planId ? String(meta.planId) : undefined,
-          planPriceId: meta.planPriceId ? String(meta.planPriceId) : undefined,
-          quantity: meta.quantity ? Number(meta.quantity) : undefined,
-          amount: Number(
-            order?.amount ?? data?.amount ?? data?.transaction?.transactionAmount ?? 0,
-          ),
-          currency: (order?.currency ?? data?.currency ?? 'NGN').toUpperCase(),
-          tokenKey: data?.tokenizedCardData?.tokenKey,
-          customerEmail: order?.customerEmail ?? data?.customerEmail,
-          status: data?.status || 'success',
-          billingType: meta.billingType ? String(meta.billingType) : undefined,
-        },
-      };
-    }
-
-    if (eventType === 'payment_failed' || eventType === 'payment.failure') {
-      const data = body.data;
-      const order = data?.order;
-      const orderMeta = order?.orderMetaData ?? {};
-      const meta: SubscriptionBillingMetadata = {
-        tenantId: orderMeta.tenantId ?? data?.meta?.tenantId,
-        planId: orderMeta.planId ?? data?.meta?.planId,
-        planPriceId: orderMeta.planPriceId ?? data?.meta?.planPriceId,
-        quantity: orderMeta.quantity ? Number(orderMeta.quantity) : data?.meta?.quantity,
-        billingType: orderMeta.billingType ?? data?.meta?.billingType,
-      };
-      const reference = order?.orderReference ?? data?.orderReference;
-      if (!reference || !meta.tenantId) {
-        return null;
-      }
-
-      return {
-        kind: 'payment.failed',
-        payment: {
-          eventId: data?.transaction?.transactionId || reference,
-          reference,
-          tenantId: String(meta.tenantId),
-          planId: meta.planId ? String(meta.planId) : undefined,
-          planPriceId: meta.planPriceId ? String(meta.planPriceId) : undefined,
-          quantity: meta.quantity ? Number(meta.quantity) : undefined,
-          amount: Number(
-            order?.amount ?? data?.amount ?? data?.transaction?.transactionAmount ?? 0,
-          ),
-          currency: (order?.currency ?? data?.currency ?? 'NGN').toUpperCase(),
-          customerEmail: order?.customerEmail ?? data?.customerEmail,
-          status: data?.status || 'failed',
-          billingType: meta.billingType ? String(meta.billingType) : undefined,
-        },
-      };
-    }
-
-    return { kind: 'ignored', event: eventType || 'unknown' };
+    return parseNombaWebhook(payload);
   }
 
   mapStatus(status: string): SubscriptionStatus {

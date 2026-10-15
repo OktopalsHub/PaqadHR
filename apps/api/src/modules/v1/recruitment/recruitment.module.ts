@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from 'src/common/modules/file.module';
+import { TurnstileService } from 'src/common/services/turnstile.service';
 import { DepartmentExistsConstraint } from 'src/common/validators/department-exists.validator';
+import { ActivitiesModule } from '../activities/activities.module';
 import { Department } from '../departments/entities/department.entity';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -20,6 +22,8 @@ import { InterviewRepository } from './repositories/interview.repository';
 import { JobOpeningRepository } from './repositories/job-opening.repository';
 import { CandidateService } from './services/candidate.service';
 import { InterviewService } from './services/interview.service';
+import { InterviewFeedbackService } from './services/interview-feedback.service';
+import { InterviewSchedulingService } from './services/interview-scheduling.service';
 import { JobOpeningService } from './services/job-opening.service';
 
 @Module({
@@ -29,6 +33,7 @@ import { JobOpeningService } from './services/job-opening.service';
     TenantsModule,
     TenantMembersModule,
     SubscriptionsModule,
+    ActivitiesModule,
   ],
   controllers: [
     ApplicationController,
@@ -43,8 +48,11 @@ import { JobOpeningService } from './services/job-opening.service';
     CandidateService,
     CandidateRepository,
     InterviewRepository,
+    InterviewSchedulingService,
+    InterviewFeedbackService,
     InterviewService,
     DepartmentExistsConstraint,
+    TurnstileService,
   ],
   exports: [JobOpeningService, CandidateService, InterviewService],
 })

@@ -1,28 +1,35 @@
-import { createHash } from 'node:crypto';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
-import { Repository } from 'typeorm';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
+import { EncryptionService } from 'src/common/services/encryption.service';
+import { StringUtility } from 'src/common/utils';
+import { DataSource } from 'typeorm';
+import { AuditAction, AuditSeverity, AuditStatus } from '../../../common/enums/audit-action.enum';
+import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { Account } from '../auth/entities/account.entity';
 import { Session } from '../auth/entities/session.entity';
-import { PaymentMethod } from '../payment-method/entities/payment-method.entity';
-import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
-import type { User } from './entities/user.entity';
-import { buildUserConsentMetadata, getUserConsent } from './interfaces/user-metadata.interface';
+import { Verification } from '../auth/entities/verification.entity';
+import { loadMemberPersonalDataForExport } from '../tenant-members/utils/member-data-export.util';
+import { scrubMemberPersonalData } from '../tenant-members/utils/member-data-scrub.util';
+import { User } from './entities/user.entity';
+import {
+  buildUserConsentMetadata,
+  getCurrentPrivacyPolicyVersion,
+  getUserConsent,
+  needsPrivacyPolicyReconsent,
+} from './interfaces/user-metadata.interface';
 import { UserRepository } from './repositories/users.repository';
+import { buildDeletedUserEmail } from './utils/user-tombstone.util';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly userRepository: UserRepository,
-    @InjectRepository(Session)
-    private readonly sessionRepository: Repository<Session>,
-    @InjectRepository(Account)
-    private readonly accountRepository: Repository<Account>,
-    @InjectRepository(TenantMember)
-    private readonly tenantMemberRepository: Repository<TenantMember>,
-    @InjectRepository(PaymentMethod)
-    private readonly paymentMethodRepository: Repository<PaymentMethod>,
+    private readonly dataSource: DataSource,
+    private readonly auditLogsService: AuditLogsService,
+    private readonly r2Service: CloudflareR2Service,
+    private readonly encryptionService: EncryptionService,
   ) {}
 
   async getProfile(userId: string): Promise<User> {
@@ -39,59 +46,91 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const members = await this.tenantMemberRepository.find({ where: { userId } });
-    const memberIds = members.map((member) => member.id);
-
-    if (memberIds.length > 0) {
-      await this.paymentMethodRepository
-        .createQueryBuilder()
-        .update(PaymentMethod)
-        .set({
-          accountNumber: null,
-          accountName: null,
-          bankCode: null,
-          bankName: null,
-          passcodeHash: null,
-          status: PaymentMethodStatus.SUSPENDED,
-          isPrimary: false,
-        })
-        .where('member_id IN (:...memberIds)', { memberIds })
-        .execute();
-
-      await this.tenantMemberRepository.update(
-        { userId },
-        { isActive: false, leaveDate: new Date() },
-      );
-      await this.tenantMemberRepository.softDelete({ userId });
+    const fileKeys = new Set<string>();
+    if (user.imageKey) {
+      fileKeys.add(user.imageKey);
     }
 
-    await Promise.all([
-      this.sessionRepository.delete({ userId }),
-      this.accountRepository.delete({ userId }),
-    ]);
+    let membershipCount = 0;
 
-    const tombstoneEmail = `deleted_${createHash('sha256').update(userId).digest('hex').slice(0, 16)}@anonymized.paqad.local`;
-    await this.userRepository.update(userId, {
-      email: tombstoneEmail,
-      password: null,
-      isActive: false,
-      name: null,
-      imageKey: null,
-      countryCode: null,
+    await this.dataSource.transaction(async (manager) => {
+      const scrubResult = await scrubMemberPersonalData(manager, userId);
+      membershipCount = scrubResult.membershipCount;
+      for (const key of scrubResult.fileKeys) {
+        fileKeys.add(key);
+      }
+
+      await Promise.all([
+        manager.getRepository(Session).delete({ userId }),
+        manager.getRepository(Account).delete({ userId }),
+        manager.getRepository(Verification).delete({ identifier: `email-verification:${userId}` }),
+        manager.getRepository(Verification).delete({ identifier: `reset:${userId}` }),
+        manager
+          .getRepository(Verification)
+          .createQueryBuilder()
+          .delete()
+          .where('identifier LIKE :pattern', { pattern: `otp:%:${userId}` })
+          .execute(),
+      ]);
+
+      const tombstoneEmail = buildDeletedUserEmail(userId);
+      const userRepo = manager.getRepository(User);
+      await userRepo.update(userId, {
+        email: tombstoneEmail,
+        password: null,
+        isActive: false,
+        name: null,
+        imageKey: null,
+        countryCode: null,
+        metadata: null,
+      });
+      await userRepo.softDelete(userId);
     });
-    await this.userRepository.softDelete(userId);
+
+    const failedFileKeys: string[] = [];
+    for (const fileKey of fileKeys) {
+      try {
+        await this.r2Service.deleteFile(fileKey);
+      } catch {
+        try {
+          await this.r2Service.deleteFile(fileKey);
+        } catch (error) {
+          failedFileKeys.push(fileKey);
+          this.logger.error(
+            `Failed to purge file during account deletion after retry: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+    }
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.USER_DELETED,
+        description:
+          failedFileKeys.length > 0
+            ? 'User account deleted with incomplete file purge'
+            : 'User account deleted',
+        severity: AuditSeverity.HIGH,
+        status: failedFileKeys.length > 0 ? AuditStatus.FAILED : AuditStatus.SUCCESS,
+        resourceType: 'user',
+        resourceId: userId,
+        userId,
+        metadata: {
+          membershipCount,
+          ...(failedFileKeys.length > 0 ? { failedFileKeys } : {}),
+        },
+      })
+      .catch(() => {});
   }
 
   async exportUserData(userId: string): Promise<Record<string, unknown>> {
     const user = await this.getProfile(userId);
-    const members = await this.tenantMemberRepository.find({
-      where: { userId },
-      relations: ['tenant'],
-    });
-
     const consent = getUserConsent(user.metadata);
+    const memberExport = await loadMemberPersonalDataForExport(this.dataSource, userId, (value) =>
+      this.decryptOptional(value),
+    );
 
-    return {
+    const exportPayload = {
       exportedAt: new Date().toISOString(),
       profile: {
         id: user.id,
@@ -101,15 +140,67 @@ export class UsersService {
         consent,
         createdAt: user.createdAt,
       },
-      memberships: members.map((member) => ({
-        id: member.id,
-        tenantId: member.tenantId,
-        tenantName: member.tenant?.name,
-        role: member.role,
-        firstName: member.firstName,
-        lastName: member.lastName,
-      })),
+      ...memberExport,
     };
+
+    const memberships = (memberExport.memberships as unknown[]) ?? [];
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.DATA_EXPORT,
+        description: 'User data export requested',
+        severity: AuditSeverity.MEDIUM,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'user',
+        resourceId: userId,
+        userId,
+        metadata: {
+          membershipCount: memberships.length,
+          sections: Object.keys(exportPayload).filter((key) => key !== 'exportedAt'),
+        },
+      })
+      .catch(() => {});
+
+    return exportPayload;
+  }
+
+  async getPrivacyConsentStatus(userId: string): Promise<{
+    currentVersion: string;
+    acceptedVersion: string | null;
+    needsReconsent: boolean;
+  }> {
+    const user = await this.getProfile(userId);
+    const currentVersion = getCurrentPrivacyPolicyVersion();
+    const acceptedVersion = getUserConsent(user.metadata)?.privacyPolicyVersion ?? null;
+
+    return {
+      currentVersion,
+      acceptedVersion,
+      needsReconsent: needsPrivacyPolicyReconsent(user.metadata),
+    };
+  }
+
+  async acceptPrivacyPolicy(userId: string): Promise<void> {
+    const user = await this.getProfile(userId);
+    const consentMetadata = buildUserConsentMetadata(true);
+    const metadata = { ...(user.metadata ?? {}), ...consentMetadata };
+
+    await this.userRepository.update(userId, { metadata });
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.USER_UPDATED,
+        description: 'Privacy policy re-consent recorded',
+        severity: AuditSeverity.LOW,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'user',
+        resourceId: userId,
+        userId,
+        metadata: {
+          privacyPolicyVersion: getCurrentPrivacyPolicyVersion(),
+        },
+      })
+      .catch(() => {});
   }
 
   async getUsers(): Promise<User[]> {
@@ -133,9 +224,27 @@ export class UsersService {
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
+    if (data.email) {
+      data.email = StringUtility.trimAndLowerCase(data.email);
+    }
     await this.getUser(id);
     await this.userRepository.update(id, data as Parameters<UserRepository['update']>[1]);
-    return this.getUser(id);
+    const updated = await this.getUser(id);
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.USER_UPDATED,
+        description: `User profile updated`,
+        severity: AuditSeverity.LOW,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'user',
+        resourceId: id,
+        userId: id,
+        metadata: { updatedFields: Object.keys(data) },
+      })
+      .catch(() => {});
+
+    return updated;
   }
 
   validateRegistrationConsent(termsAccepted?: boolean): void {
@@ -149,5 +258,16 @@ export class UsersService {
       throw new BadRequestException('You must accept the terms and privacy policy to register');
     }
     return buildUserConsentMetadata(true);
+  }
+
+  private decryptOptional(value?: string | null): string | null {
+    if (!value?.trim()) {
+      return null;
+    }
+    try {
+      return this.encryptionService.decrypt(value);
+    } catch {
+      return null;
+    }
   }
 }

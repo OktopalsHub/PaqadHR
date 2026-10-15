@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { PositionModule } from '../position/position.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -15,6 +16,7 @@ import { Employment } from './entities/employment.entity';
     PositionModule,
     TenantsModule,
     TenantMembersModule,
+    ActivitiesModule,
   ],
   controllers: [EmploymentController],
   providers: [EmploymentService, EmploymentRepository],

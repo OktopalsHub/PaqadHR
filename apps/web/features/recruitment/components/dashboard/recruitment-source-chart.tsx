@@ -22,7 +22,7 @@ export function RecruitmentSourceChart({ data, total }: RecruitmentSourceChartPr
   );
 
   return (
-    <ContentCard title="Applicant sources" description="Where candidates come from">
+    <ContentCard title="Applicant sources">
       <div className="relative">
         <ChartContainer config={config} className="mx-auto aspect-square h-[220px]">
           <PieChart>

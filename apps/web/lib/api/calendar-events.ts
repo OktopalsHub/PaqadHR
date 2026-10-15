@@ -4,7 +4,7 @@ import { resolveTenantId } from '@/lib/api/tenants';
 export interface CalendarEventRecord {
   id: string;
   title: string;
-  description?: string;
+  description?: string | null;
   startDate: string;
   endDate: string;
   allDay?: boolean;
@@ -43,6 +43,27 @@ export async function createCalendarEvent(input: {
   const tenantId = await resolveTenantId();
   return apiClient<CalendarEventRecord>(tenantPath(tenantId, 'calendar-events'), {
     method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateCalendarEvent(
+  eventId: string,
+  input: Partial<{
+    title: string;
+    description: string;
+    startDate: string;
+    endDate: string;
+    allDay: boolean;
+    startTime: string | null;
+    endTime: string | null;
+    reminderMinutes: number | null;
+    type: string;
+  }>,
+): Promise<CalendarEventRecord> {
+  const tenantId = await resolveTenantId();
+  return apiClient<CalendarEventRecord>(tenantPath(tenantId, `calendar-events/${eventId}`), {
+    method: 'PATCH',
     body: JSON.stringify(input),
   });
 }

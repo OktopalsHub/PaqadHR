@@ -1,15 +1,17 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AddressService } from './address.service';
-import type { CreateAddressDto } from './dto/create-address.dto';
-import type { UpdateAddressDto } from './dto/update-address.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
+import { UpdateAddressDto } from './dto/update-address.dto';
 
 @ApiTags('Addresses')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/address')
+@UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.EMPLOYEE_SELF_SERVICE)
 export class AddressController {
   constructor(private readonly addressService: AddressService) {}
   @Post()
@@ -18,7 +20,7 @@ export class AddressController {
     @Body() createAddressDto: CreateAddressDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.createAddress(tenantId, member.id, createAddressDto);
+    return this.addressService.createAddress(tenantId, member.id, createAddressDto, member.id);
   }
   @Get()
   async listAddresses(
@@ -34,7 +36,13 @@ export class AddressController {
     @Body() updateAddressDto: UpdateAddressDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.updateAddress(member.id, addressId, updateAddressDto);
+    return this.addressService.updateAddress(
+      member.id,
+      addressId,
+      updateAddressDto,
+      tenantId,
+      member.id,
+    );
   }
   @Delete(':addressId')
   async deleteAddress(
@@ -42,6 +50,6 @@ export class AddressController {
     @Param('addressId') addressId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.deleteAddress(member.id, addressId);
+    return this.addressService.deleteAddress(member.id, addressId, tenantId, member.id);
   }
 }

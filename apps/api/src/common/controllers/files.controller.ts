@@ -4,7 +4,7 @@ import { TenantMemberGuard } from '../../modules/v1/tenant-members/guards/tenant
 import { GenerateUploadUrlDto } from '../dto/generate-upload-url.dto';
 import { FileService } from '../services/file.service';
 
-@ApiTags('files')
+@ApiTags('Files')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/files')
 export class FilesController {
@@ -19,6 +19,7 @@ export class FilesController {
       location: body.location,
       originalName: body.originalName,
       contentType: body.contentType,
+      contentLength: body.contentLength,
     });
   }
 }

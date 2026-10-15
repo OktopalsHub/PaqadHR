@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
@@ -17,6 +18,7 @@ import { CalendarEventReminderCronService } from './services/calendar-event-remi
     TenantConfigModule,
     TenantsModule,
     NotificationsModule,
+    ActivitiesModule,
   ],
   controllers: [CalendarEventsController],
   providers: [

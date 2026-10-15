@@ -1,9 +1,10 @@
 'use client';
 
-import { Building2, Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { OrgAvatar } from '@/components/org-avatar';
 import { Button } from '@/components/ui/button';
-import { IMAGE_ACCEPT, isAcceptedImageFile } from '@/lib/api/files';
+import { IMAGE_ACCEPT, IMAGE_UPLOAD_ERROR, isAcceptedImageFile } from '@/lib/api/files';
 import { cn } from '@/lib/utils';
 
 type LogoUploadProps = {
@@ -33,7 +34,7 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
     if (!file) return;
 
     if (!isAcceptedImageFile(file)) {
-      onError?.('Choose a JPEG, PNG, WebP, or GIF image');
+      onError?.(IMAGE_UPLOAD_ERROR);
       return;
     }
 
@@ -57,24 +58,20 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
   };
 
   return (
-    <div className="flex items-center gap-4">
-      <div
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+      <OrgAvatar
+        src={displaySrc}
+        name={name || 'Workspace'}
         className={cn(
-          'relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40',
+          'size-24 rounded-[8px] border border-[#d7e3f6] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/70',
         )}
-      >
-        {displaySrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={displaySrc} alt={`${name} logo`} className="size-full object-cover" />
-        ) : (
-          <Building2 className="size-8 text-muted-foreground" aria-hidden />
-        )}
-      </div>
+        fallbackClassName="bg-white text-slate-500 dark:bg-slate-950 dark:text-slate-300"
+        iconFallback={!displaySrc}
+      />
 
       <div className="space-y-2">
-        <p className="text-sm font-medium">{name || 'Workspace'}</p>
-        <p className="text-xs text-muted-foreground">
-          Square logo, at least 128×128px recommended.
+        <p className="text-[28px] font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+          {name || 'Workspace'}
         </p>
         {!disabled ? (
           <>
@@ -101,7 +98,7 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
             </Button>
           </>
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Only admins can change the workspace logo.
           </p>
         )}

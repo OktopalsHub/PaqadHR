@@ -1,31 +1,54 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
-import { fadeIn } from '../../constants/landing-motion';
 
 const navLinks = [
-  { label: 'Home', href: '/' },
-  { label: 'Product', href: '#product' },
-  { label: 'Features', href: '#features' },
+  { label: 'The workspace', href: '#product' },
+  { label: 'What it handles', href: '#features' },
   { label: 'Pricing', href: '#pricing' },
 ];
 
 export const LandingNav = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const renderAuthCta = (mobile: boolean) => {
+    return (
+      <>
+        <Link
+          href="/signin"
+          className={
+            mobile
+              ? 'text-sm font-medium cursor-pointer'
+              : 'text-sm font-medium transition-colors hover:text-muted-foreground cursor-pointer'
+          }
+          onClick={mobile ? () => setMobileOpen(false) : undefined}
+        >
+          Sign in
+        </Link>
+        <Button
+          asChild
+          size="sm"
+          className={
+            mobile
+              ? 'w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'h-9 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90'
+          }
+        >
+          <Link href="/signup" onClick={mobile ? () => setMobileOpen(false) : undefined}>
+            Sign up
+          </Link>
+        </Button>
+      </>
+    );
+  };
+
   return (
-    <motion.header
-      initial="hidden"
-      animate="show"
-      variants={fadeIn}
-      className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md"
-    >
-      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6">
+    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/85 backdrop-blur-xl">
+      <div className="mx-auto grid h-[4.5rem] max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6 lg:px-8">
         <Link href="/" aria-label="Paqad home" className="justify-self-start">
           <PaqadLogo />
         </Link>
@@ -43,19 +66,7 @@ export const LandingNav = () => {
         </nav>
 
         <div className="hidden items-center justify-self-end gap-5 md:flex">
-          <Link
-            href="/signin"
-            className="text-sm font-medium transition-colors hover:text-muted-foreground cursor-pointer"
-          >
-            Sign in
-          </Link>
-          <Button
-            asChild
-            size="sm"
-            className="h-9 rounded-full bg-foreground px-5 text-sm font-semibold text-background hover:bg-foreground/90"
-          >
-            <Link href="/signup">Sign up</Link>
-          </Button>
+          {renderAuthCta(false)}
         </div>
 
         <Button
@@ -82,15 +93,10 @@ export const LandingNav = () => {
                 {link.label}
               </a>
             ))}
-            <Link href="/signin" className="text-sm font-medium cursor-pointer">
-              Sign in
-            </Link>
-            <Button asChild className="w-full rounded-full bg-foreground text-background">
-              <Link href="/signup">Sign up</Link>
-            </Button>
+            {renderAuthCta(true)}
           </div>
         </div>
       ) : null}
-    </motion.header>
+    </header>
   );
 };

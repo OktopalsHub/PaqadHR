@@ -1,25 +1,31 @@
 'use client';
 
-import { Kanban, Plus } from 'lucide-react';
-import Link from 'next/link';
-import { useState } from 'react';
+import { Briefcase, Plus, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
+import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
-import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { useRecruitmentOverview } from '../hooks/use-recruitment-overview';
+import { filterRecruitmentJobs } from '../lib/filter-recruitment-jobs';
+import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { CreateJobDialog } from './create-job-dialog';
-import { RecruitmentApplicationsChart } from './dashboard/recruitment-applications-chart';
-import { RecruitmentDepartmentChart } from './dashboard/recruitment-department-chart';
-import { RecruitmentKpiRow } from './dashboard/recruitment-kpi-row';
-import { RecruitmentSourceChart } from './dashboard/recruitment-source-chart';
+import { JobDetailSheet } from './job-detail-sheet';
+import { JobOpeningCard } from './job-opening-card';
+import { RecruitmentSectionTabs } from './recruitment-section-tabs';
+import { ViewCareersPageLink } from './view-careers-page-link';
 
 export function RecruitmentPage() {
-  const tenantHref = useTenantHref();
+  const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const { overview, isLoading, jobsError, jobsErrorObj } = useRecruitmentOverview();
+
+  const filteredJobs = useMemo(
+    () => filterRecruitmentJobs(overview.jobs, search),
+    [overview.jobs, search],
+  );
 
   if (isLoading) {
     return (
@@ -43,33 +49,74 @@ export function RecruitmentPage() {
   }
 
   return (
-    <AppPage className="space-y-5">
-      <PageActions>
-        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
-          <Link href={tenantHref('recruitment')}>
-            <Kanban className="mr-1.5 size-3.5" />
-            Pipeline
-          </Link>
-        </Button>
-        <Button size="sm" className="h-8 rounded-lg text-xs" onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-1.5 size-3.5" />
-          New role
-        </Button>
-      </PageActions>
-
-      <RecruitmentKpiRow kpis={overview.kpis} />
-
-      <div className="grid gap-5 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <RecruitmentApplicationsChart data={overview.applicationsChart} />
-        </div>
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-1">
-          <RecruitmentDepartmentChart data={overview.departmentChart} />
-          <RecruitmentSourceChart data={overview.sourceChart} />
+    <AppPage className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <RecruitmentSectionTabs active="roles" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-nowrap lg:justify-end">
+          <ViewCareersPageLink />
+          <Button
+            variant="brandSolid"
+            size="appCta"
+            className="w-full normal-case tracking-normal text-sm sm:w-max"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="size-4" />
+            New role
+          </Button>
         </div>
       </div>
 
+      <RecruitmentBoardToolbar
+        title="Roles"
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search roles..."
+        showCounters={false}
+        viewToggle={null}
+      />
+
+      {overview.jobs.length === 0 ? (
+        <EmptyState
+          icon={Briefcase}
+          title="No roles yet"
+          description="Create a role."
+          action={
+            <Button variant="brandSolid" size="app" onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4" />
+              New role
+            </Button>
+          }
+          className="min-h-[280px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
+        />
+      ) : filteredJobs.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title="No matching roles"
+          description="Try another search."
+          className="min-h-[280px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
+        />
+      ) : (
+        <section className="dashboard-panel rounded-[8px] p-5">
+          <div className="grid gap-4 xl:grid-cols-2">
+            {filteredJobs.map((job) => (
+              <JobOpeningCard
+                key={job.id}
+                job={job}
+                onSelectDetails={(selectedJob) => setSelectedJobId(selectedJob.id)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       <CreateJobDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <JobDetailSheet
+        jobId={selectedJobId}
+        open={selectedJobId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedJobId(null);
+        }}
+      />
     </AppPage>
   );
 }

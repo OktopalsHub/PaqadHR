@@ -4,9 +4,9 @@ import {
   type ExceptionFilter,
   ForbiddenException,
 } from '@nestjs/common';
+import { AuditLogsService } from '../../modules/v1/audit-logs/services/audit-logs.service';
 import { AuditAction, AuditSeverity, AuditStatus } from '../enums/audit-action.enum';
 import type { IAuthenticatedMemberRequest } from '../interfaces';
-import { AuditLogsService } from '../services/audit-logs.service';
 
 @Catch(ForbiddenException)
 export class ForbiddenAuditFilter implements ExceptionFilter {
@@ -19,7 +19,7 @@ export class ForbiddenAuditFilter implements ExceptionFilter {
 
     const tenantId = (request.params?.tenantId as string | undefined) ?? request.tenant?.id ?? null;
     const memberId = request.member?.id ?? null;
-    const userId = request.member?.userId ?? null;
+    const userId = request.auth?.principalId ?? null;
 
     void this.auditLogsService.queueAuditLog({
       action: AuditAction.UNAUTHORIZED_ACCESS_ATTEMPT,

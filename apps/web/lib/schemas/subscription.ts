@@ -6,11 +6,15 @@ export const billingHistoryEntrySchema = z.object({
   currency: z.string(),
   status: z.enum(['paid', 'pending', 'failed']),
   invoiceId: z.string().nullable(),
+  failureReason: z.string().nullable().optional(),
 });
 
 export const billingStatusSchema = z.object({
   paymentsEnabled: z.boolean(),
+  payrollGatewayEnabled: z.boolean().optional(),
   featureGatingEnabled: z.boolean(),
+  entitled: z.boolean(),
+  needsPayment: z.boolean(),
   subscription: z
     .object({
       status: z.string(),
@@ -64,8 +68,27 @@ export const billingOverviewSchema = billingStatusSchema.extend({
   hasPaymentMethodOnFile: z.boolean().optional(),
   billingHistory: z.array(billingHistoryEntrySchema).optional(),
   needsPayment: z.boolean().optional(),
+  trialEligible: z.boolean().optional(),
   billingContact: billingContactSchema.optional(),
   ownerEmail: z.string().nullable().optional(),
+  paymentMethodBrand: z.string().nullable().optional(),
+  paymentMethodLastFour: z.string().nullable().optional(),
+  cancelAtPeriodEnd: z.boolean().optional(),
+  cancelledAt: z.string().nullable().optional(),
+  pausedAt: z.string().nullable().optional(),
+  dunningNextRetryAt: z.string().nullable().optional(),
+  lastPaymentFailureReason: z.string().nullable().optional(),
+  lastPaymentFailureCode: z.string().nullable().optional(),
+  billingProvider: z.enum(['nomba', 'bachs', 'polar']).optional(),
+  supportsCardUpdate: z.boolean().optional(),
+  pricingMismatch: z
+    .object({
+      expectedCurrency: z.literal('NGN'),
+      actualCurrency: z.string(),
+      message: z.string(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const checkoutResponseSchema = z.object({

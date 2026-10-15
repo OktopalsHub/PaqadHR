@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -69,17 +68,14 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm" className="h-8 rounded-lg text-xs">
-          <Plus className="mr-1.5 size-3.5" />
+        <Button variant="brandSolid" size="app" className="w-max">
+          <Plus className="size-4" />
           Request leave
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Request Leave</DialogTitle>
-          <DialogDescription>
-            Fill in the leave request details. Click submit when you&apos;re done.
-          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
@@ -91,7 +87,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
               onValueChange={setLeaveTypeId}
               disabled={balancesLoading || balances.length === 0}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100">
                 <SelectValue
                   placeholder={
                     balancesLoading
@@ -121,6 +117,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
               />
             </div>
             <div className="grid gap-2">
@@ -132,6 +129,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
               />
             </div>
           </div>
@@ -141,8 +139,8 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
             </label>
             <Textarea
               id="reason"
-              placeholder="Briefly describe the reason for your leave"
-              className="min-h-[100px]"
+              placeholder="Reason"
+              className="min-h-[100px] rounded-[8px] border-slate-200 bg-white text-slate-700 shadow-none placeholder:text-slate-400 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:placeholder:text-slate-500"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />

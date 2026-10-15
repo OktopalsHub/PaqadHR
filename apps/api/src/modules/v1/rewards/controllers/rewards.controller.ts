@@ -3,152 +3,266 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
-  HttpCode,
-  HttpStatus,
   Param,
   Patch,
   Post,
-  Req,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Public } from 'src/common/decorators';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { MemberContext } from 'src/common/interfaces';
+import { MemberPointsService } from '../../shoutouts/services/member-points.service';
+import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
 import { CustomRewardsService } from '../services/custom-rewards.service';
-import { type ClaimInput, RewardsService } from '../services/rewards.service';
+import { RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
+import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
+import {
+  RewardsAdminRoles,
+  RewardsAllRoles,
+  RewardsIntegrationsAdminRoles,
+  RewardsIntegrationsAllRoles,
+} from './rewards.decorators';
+import { RewardsCatalogHandler } from './rewards-catalog.controller';
+import { RewardsClaimsHandler } from './rewards-claims.controller';
+import { RewardsTasksHandler } from './rewards-tasks.controller';
+import { RewardsWalletHandler } from './rewards-wallet.controller';
 
 @ApiTags('Rewards')
 @Controller('tenants/:tenantId/rewards')
+@UseGuards(TenantMemberGuard)
 export class RewardsController {
-  constructor(
-    private readonly rewardsService: RewardsService,
-    private readonly walletService: TenantWalletService,
-    private readonly customRewardsService: CustomRewardsService,
-  ) {}
+  private readonly claims: RewardsClaimsHandler;
+  private readonly wallet: RewardsWalletHandler;
+  private readonly catalog: RewardsCatalogHandler;
+  private readonly tasks: RewardsTasksHandler;
 
-  @Post('webhooks/nomba')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  async handleNombaWebhook(
-    @Req() req: any,
-    @Headers('nomba-signature') signature: string,
-    @Headers('nomba-sig-value') signatureAlt: string,
-    @Headers('x-nomba-signature') signatureLegacy: string,
+  constructor(
+    rewardsService: RewardsService,
+    walletService: TenantWalletService,
+    walletTopupService: TenantWalletTopupService,
+    customRewardsService: CustomRewardsService,
+    memberPointsService: MemberPointsService,
   ) {
-    const rawBody = req.rawBody?.toString('utf8') ?? '';
-    return this.rewardsService.handleNombaFundingWebhook(
-      rawBody,
-      signature || signatureAlt || signatureLegacy || '',
-    );
+    this.claims = new RewardsClaimsHandler(rewardsService);
+    this.wallet = new RewardsWalletHandler(rewardsService, walletService, walletTopupService);
+    this.catalog = new RewardsCatalogHandler(rewardsService, customRewardsService);
+    this.tasks = new RewardsTasksHandler(rewardsService, memberPointsService);
   }
 
   @Get('catalog')
-  async getCatalog(@Param('tenantId') tenantId: string) {
-    return this.rewardsService.getCatalog(tenantId);
+  @RewardsIntegrationsAllRoles()
+  async getCatalog(
+    @Param('tenantId') t: string,
+    @CurrentTenantMember() m: MemberContext,
+    @Query('country') c?: string,
+  ) {
+    return this.catalog.getCatalog(t, m, c);
+  }
+
+  @Post('catalog/sync')
+  @RewardsIntegrationsAdminRoles()
+  async syncCatalog(@Param('tenantId') t: string) {
+    return this.catalog.syncCatalog(t);
   }
 
   @Get('countries')
-  async getCountries(@Param('tenantId') tenantId: string) {
-    return this.rewardsService.getReloadlyCountries(tenantId);
+  @RewardsIntegrationsAllRoles()
+  async getCountries(@Param('tenantId') t: string) {
+    return this.catalog.getCountries(t);
   }
 
   @Post('claim')
-  async claim(@Param('tenantId') tenantId: string, @Body() body: ClaimInput, @Req() req: any) {
-    const memberId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.claim(tenantId, memberId, body);
+  @RewardsIntegrationsAllRoles()
+  async claim(
+    @Param('tenantId') t: string,
+    @Body() b: {
+      rewardType: string;
+      rewardId: string;
+      pointsCost: number;
+      currencyValue: number;
+      [key: string]: unknown;
+    },
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.claims.claim(t, b as never, m);
   }
 
   @Get('claims/me')
-  async getMyClaims(@Param('tenantId') tenantId: string, @Req() req: any) {
-    const memberId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.getMyClaims(tenantId, memberId);
+  @RewardsIntegrationsAllRoles()
+  async getMyClaims(@Param('tenantId') t: string, @CurrentTenantMember() m: MemberContext) {
+    return this.claims.getMyClaims(t, m);
   }
 
   @Get('claims')
-  async getAllClaims(@Param('tenantId') tenantId: string) {
-    return this.rewardsService.getAllClaims(tenantId);
+  @RewardsIntegrationsAdminRoles()
+  async getAllClaims(@Param('tenantId') t: string) {
+    return this.claims.getAllClaims(t);
   }
 
-  @Get('wallet')
-  async getWallet(@Param('tenantId') tenantId: string) {
-    const wallet = await this.walletService.getWallet(tenantId);
-    const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    return {
-      ...wallet,
-      feePercentage: fees.feePercentage,
-      flatFee: fees.flatFee,
-    };
-  }
-
-  @Get('wallet/transactions')
-  async getWalletTransactions(@Param('tenantId') tenantId: string) {
-    return this.walletService.listTransactions(tenantId);
+  @Get('calculate-points')
+  @RewardsIntegrationsAllRoles()
+  async calculatePointsCost(
+    @Param('tenantId') t: string,
+    @Query('type') type: string,
+    @Query('billerId') bid?: string,
+    @Query('amount') amt?: string,
+  ) {
+    return this.claims.calculatePointsCost(t, type, bid, amt);
   }
 
   @Get('custom')
-  async listCustomRewards(@Param('tenantId') tenantId: string) {
-    return this.customRewardsService.list(tenantId, true);
+  @RewardsIntegrationsAdminRoles()
+  async listCustomRewards(@Param('tenantId') t: string) {
+    return this.catalog.listCustomRewards(t);
   }
 
   @Post('custom')
+  @RewardsIntegrationsAdminRoles()
   async createCustomReward(
-    @Param('tenantId') tenantId: string,
-    @Body()
-    body: {
-      title: string;
-      description?: string;
-      pointsCost: number;
-      imageUrl?: string;
-      stockLimit?: number;
-      deliveryInstructions?: string;
-    },
+    @Param('tenantId') t: string,
+    @Body() b: { name: string; pointsCost: number; [key: string]: unknown },
+    @CurrentTenantMember() m: MemberContext,
   ) {
-    return this.customRewardsService.create(tenantId, body);
+    return this.catalog.createCustomReward(t, b, m);
   }
 
   @Patch('custom/:rewardId')
+  @RewardsIntegrationsAdminRoles()
   async updateCustomReward(
-    @Param('tenantId') tenantId: string,
-    @Param('rewardId') rewardId: string,
-    @Body()
-    body: Partial<{
-      title: string;
-      description: string;
-      pointsCost: number;
-      imageUrl: string;
-      isActive: boolean;
-      stockLimit: number;
-      deliveryInstructions: string;
-    }>,
+    @Param('tenantId') t: string,
+    @Param('rewardId') r: string,
+    @Body() b: { [key: string]: unknown },
+    @CurrentTenantMember() m: MemberContext,
   ) {
-    return this.customRewardsService.update(tenantId, rewardId, body);
+    return this.catalog.updateCustomReward(t, r, b, m);
   }
 
   @Delete('custom/:rewardId')
+  @RewardsIntegrationsAdminRoles()
   async deleteCustomReward(
-    @Param('tenantId') tenantId: string,
-    @Param('rewardId') rewardId: string,
+    @Param('tenantId') t: string,
+    @Param('rewardId') r: string,
+    @CurrentTenantMember() m: MemberContext,
   ) {
-    await this.customRewardsService.softDelete(tenantId, rewardId);
-    return { success: true };
+    return this.catalog.deleteCustomReward(t, r, m);
+  }
+
+  @Get('providers')
+  @RewardsIntegrationsAllRoles()
+  async getProviderAvailability() {
+    return this.catalog.getProviderAvailability();
+  }
+
+  @Get('data-plans/:network')
+  @RewardsIntegrationsAllRoles()
+  async listNombaDataPlans(@Param('network') n: string) {
+    return this.catalog.listNombaDataPlans(n);
+  }
+
+  @Get('utilities/billers/:countryCode')
+  @RewardsIntegrationsAllRoles()
+  async listUtilityBillers(@Param('countryCode') c: string) {
+    return this.catalog.listUtilityBillers(c);
+  }
+
+  @Post('utilities/lookup')
+  @RewardsIntegrationsAllRoles()
+  async lookupUtilityMeter(
+    @Body() b: {
+      countryCode: string;
+      billerId: string;
+      accountNumber: string;
+      serviceType?: string;
+    },
+  ) {
+    return this.catalog.lookupUtilityMeter(b);
+  }
+
+  @Get('wallet')
+  @RewardsIntegrationsAdminRoles()
+  async getWallet(@Param('tenantId') t: string) {
+    return this.wallet.getWallet(t);
+  }
+
+  @Get('wallet/transactions')
+  @RewardsIntegrationsAdminRoles()
+  async getWalletTransactions(@Param('tenantId') t: string) {
+    return this.wallet.getWalletTransactions(t);
+  }
+
+  @Post('wallet/topup')
+  @RewardsIntegrationsAdminRoles()
+  async manualTopup(
+    @Param('tenantId') t: string,
+    @Body() b: { amount: number },
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.wallet.manualTopup(t, b, m);
+  }
+
+  @Post('wallet/topup/checkout')
+  @RewardsIntegrationsAdminRoles()
+  async topupCheckout(
+    @Param('tenantId') t: string,
+    @Body() b: { amount: number },
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.wallet.topupCheckout(t, b, m);
+  }
+
+  @Post('wallet/topup/checkout/complete')
+  @RewardsIntegrationsAdminRoles()
+  async completeTopupCheckout(
+    @Param('tenantId') t: string,
+    @Body() b: { orderReference: string; amount?: number; transactionReference?: string },
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.wallet.completeTopupCheckout(t, b, m);
+  }
+
+  @Post('wallet/auto-topup')
+  @RewardsIntegrationsAdminRoles()
+  async updateAutoTopup(
+    @Param('tenantId') t: string,
+    @Body() b: WalletAutoTopupDto,
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.wallet.updateAutoTopup(t, b, m);
+  }
+
+  @Post('assign-points')
+  @RewardsAdminRoles()
+  async assignPoints(
+    @Param('tenantId') t: string,
+    @Body() b: { memberIds?: string[]; points?: number; reason?: string; assignments?: unknown },
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.tasks.assignPoints(t, b as never, m);
   }
 
   @Get('tasks')
-  async listTasks(@Param('tenantId') tenantId: string, @Req() req: any) {
-    const memberId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.listTasks(tenantId, memberId);
+  @RewardsAllRoles()
+  async listTasks(@Param('tenantId') t: string, @CurrentTenantMember() m: MemberContext) {
+    return this.tasks.listTasks(t, m);
   }
 
   @Get('tasks/submissions/pending')
-  async listPendingSubmissions(@Param('tenantId') tenantId: string) {
-    return this.rewardsService.listPendingSubmissions(tenantId);
+  @RewardsAdminRoles()
+  async listPendingSubmissions(
+    @Param('tenantId') t: string,
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.tasks.listPendingSubmissions(t, m);
   }
 
   @Post('tasks')
+  @RewardsAdminRoles()
   async createTask(
-    @Param('tenantId') tenantId: string,
-    @Body()
-    body: {
+    @Param('tenantId') t: string,
+    @Body() b: {
       title: string;
       description: string;
       points: number;
@@ -156,42 +270,64 @@ export class RewardsController {
       category?: string;
       imageUrl?: string;
       submissionType: 'instant' | 'text' | 'file';
+      isRecurring?: boolean;
     },
+    @CurrentTenantMember() m: MemberContext,
   ) {
-    return this.rewardsService.createTask(tenantId, body);
+    return this.tasks.createTask(t, b, m);
+  }
+
+  @Patch('tasks/:taskId')
+  @RewardsAdminRoles()
+  async updateTask(
+    @Param('tenantId') t: string,
+    @Param('taskId') id: string,
+    @Body() b: { [key: string]: unknown },
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.tasks.updateTask(t, id, b, m);
   }
 
   @Delete('tasks/:taskId')
-  async deleteTask(@Param('tenantId') tenantId: string, @Param('taskId') taskId: string) {
-    return this.rewardsService.deleteTask(tenantId, taskId);
+  @RewardsAdminRoles()
+  async deleteTask(
+    @Param('tenantId') t: string,
+    @Param('taskId') id: string,
+    @CurrentTenantMember() m: MemberContext,
+  ) {
+    return this.tasks.deleteTask(t, id, m);
   }
 
   @Post('tasks/:taskId/submit')
+  @RewardsAllRoles()
   async submitTask(
-    @Param('tenantId') tenantId: string,
-    @Param('taskId') taskId: string,
-    @Req() req: any,
-    @Body() body: { submissionText?: string; submissionFileName?: string },
+    @Param('tenantId') t: string,
+    @Param('taskId') id: string,
+    @CurrentTenantMember() m: MemberContext,
+    @Body() b: { submissionText?: string; submissionFileName?: string },
   ) {
-    const memberId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.submitTask(tenantId, taskId, memberId, body);
+    return this.tasks.submitTask(t, id, m, b);
   }
 
   @Post('tasks/:taskId/submissions/:submissionId/approve')
+  @RewardsAdminRoles()
   async approveSubmission(
-    @Param('tenantId') tenantId: string,
-    @Param('taskId') taskId: string,
-    @Param('submissionId') submissionId: string,
+    @Param('tenantId') t: string,
+    @Param('taskId') tid: string,
+    @Param('submissionId') sid: string,
+    @CurrentTenantMember() m: MemberContext,
   ) {
-    return this.rewardsService.approveSubmission(tenantId, taskId, submissionId);
+    return this.tasks.approveSubmission(t, tid, sid, m);
   }
 
   @Post('tasks/:taskId/submissions/:submissionId/reject')
+  @RewardsAdminRoles()
   async rejectSubmission(
-    @Param('tenantId') tenantId: string,
-    @Param('taskId') taskId: string,
-    @Param('submissionId') submissionId: string,
+    @Param('tenantId') t: string,
+    @Param('taskId') tid: string,
+    @Param('submissionId') sid: string,
+    @CurrentTenantMember() m: MemberContext,
   ) {
-    return this.rewardsService.rejectSubmission(tenantId, taskId, submissionId);
+    return this.tasks.rejectSubmission(t, tid, sid, m);
   }
 }

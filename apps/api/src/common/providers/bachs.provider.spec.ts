@@ -1,0 +1,552 @@
+import { BachsApiError } from '../services/bachs-api.service';
+import { BachsProvider } from './bachs.provider';
+
+describe('BachsProvider', () => {
+  const ORIGINAL_ENV = { ...process.env };
+
+  const makeApi = () => ({
+    createPayoutDestination: jest.fn().mockResolvedValue({
+      id: 'pd_dest1',
+      name: 'Test Destination',
+      type: 'bank_account',
+      currency: 'NGN',
+      status: 'approved',
+      status_reason: null,
+      is_usable: true,
+      is_default: false,
+      account_number: '0123456789',
+      account_name: 'ADA OKAFOR',
+      bank_code: '058',
+      bank_name: 'GTBank',
+      phone_number: null,
+      mobile_provider: null,
+      wallet_address: null,
+      network: null,
+      reviewed_at: null,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    }),
+    createPayoutQuote: jest.fn().mockResolvedValue({
+      quote_id: 'qt_1',
+      from_amount: '100.00',
+      to_amount: '74.30',
+      exchange_rate: '0.743',
+    }),
+    createPayout: jest.fn().mockResolvedValue({ id: 'pay_1', status: 'pending', currency: 'NGN' }),
+    getPayout: jest.fn(),
+  });
+
+  let bachsApi: ReturnType<typeof makeApi>;
+  let provider: BachsProvider;
+
+  const ngnData = {
+    amount: 300000,
+    currency: 'NGN',
+    description: 'Payroll',
+    accountNumber: '0123456789',
+    bankCode: '058',
+    merchantTxRef: 'pi_abc',
+    metadata: { payrollItemId: 'item-1' },
+  };
+
+  beforeEach(() => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    delete process.env.BACHS_PAYOUT_SOURCE_CURRENCY;
+    bachsApi = makeApi();
+    provider = new BachsProvider(bachsApi as never);
+  });
+
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+    jest.restoreAllMocks();
+  });
+
+  it('uses a lower concurrency for bulk payouts', async () => {
+    let activePayouts = 0;
+    let maxConcurrency = 0;
+    const resolvers: Array<() => void> = [];
+
+    const createPayment = jest.spyOn(provider, 'createPayment').mockImplementation(async (data) => {
+      activePayouts += 1;
+      maxConcurrency = Math.max(maxConcurrency, activePayouts);
+
+      await new Promise<void>((resolve) => resolvers.push(resolve));
+      activePayouts -= 1;
+
+      return { success: true, reference: data.merchantTxRef, outcome: 'processing' };
+    });
+
+    const transfers = Array.from({ length: 6 }, (_, index) => ({
+      ...ngnData,
+      merchantTxRef: `bulk-${index}`,
+    }));
+
+    const resultPromise = provider.createBulkTransfer(transfers as never);
+
+    expect(createPayment).toHaveBeenCalledTimes(5);
+    expect(maxConcurrency).toBe(5);
+
+    resolvers.splice(0, 5).forEach((resolve) => {
+      resolve();
+    });
+    // Workers continue on microtasks after the first five settle.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(resolvers).toHaveLength(1);
+    resolvers[0]();
+
+    const result = await resultPromise;
+
+    expect(result).toHaveLength(6);
+    expect(createPayment).toHaveBeenCalledTimes(6);
+  });
+
+  it('pays an NGN payroll item through a bank destination with idempotency and reference', async () => {
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith({
+      currency: 'NGN',
+      type: 'bank_account',
+      accountNumber: '0123456789',
+      bankCode: '058',
+    });
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_dest1',
+      amount: '300000.00',
+      quoteId: undefined,
+      reference: 'pi_abc',
+      idempotencyKey: 'pi_abc',
+    });
+    expect(result.success).toBe(true);
+    expect(result.outcome).toBe('processing');
+    expect(result.transactionId).toBe('pay_1');
+    expect(result.providerStatus).toBe('pending');
+    expect(result.rail).toBe('bank');
+  });
+
+  it('reuses a persisted destination id without resolving the bank account again', async () => {
+    const result = await provider.createPayment({
+      ...ngnData,
+      metadata: { payrollItemId: 'item-1', bachsDestinationId: 'pd_persisted' },
+    } as never);
+
+    expect(bachsApi.createPayoutDestination).not.toHaveBeenCalled();
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_persisted',
+      amount: '300000.00',
+      quoteId: undefined,
+      reference: 'pi_abc',
+      idempotencyKey: 'pi_abc',
+    });
+    expect(result.metadata).toEqual({ bachsDestinationId: 'pd_persisted' });
+  });
+
+  it('reuses a cached destination for repeat payouts', async () => {
+    await provider.createPayment(ngnData as never);
+    await provider.createPayment(ngnData as never);
+
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalledTimes(1);
+    expect(bachsApi.createPayout).toHaveBeenCalledTimes(2);
+  });
+
+  it('maps a USDT TRC20 wallet to a USDT_TRC20 destination', async () => {
+    const result = await provider.createPayment({
+      amount: 100,
+      currency: 'USDT',
+      description: 'Payroll',
+      merchantTxRef: 'pi_usdt',
+      metadata: { payrollItemId: 'item-2', walletAddress: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb' },
+      network: 'TRC20',
+      accountNumber: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
+    } as never);
+
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalled();
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith({
+      currency: 'USDT_TRC20',
+      type: 'crypto_wallet',
+      walletAddress: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
+      network: 'TRC20',
+    });
+    expect(result.success).toBe(true);
+    expect(result.rail).toBe('crypto');
+  });
+
+  it('rejects USDT payouts on networks Bachs does not deliver', async () => {
+    const result = await provider.createPayment({
+      amount: 100,
+      currency: 'USDT',
+      description: 'Payroll',
+      metadata: { walletAddress: '0xabc', cryptoNetwork: 'POLYGON' },
+    } as never);
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+    expect(bachsApi.createPayoutDestination).not.toHaveBeenCalled();
+  });
+
+  it('pays a USD ACH payroll item through a bank destination', async () => {
+    const result = await provider.createPayment({
+      amount: 500,
+      currency: 'USD',
+      description: 'Payroll',
+      accountNumber: '3010001234567',
+      accountName: 'Ada Okafor',
+      bankName: 'Bank of America',
+      bankCode: '026009593',
+      merchantTxRef: 'pi_usd',
+      metadata: {
+        payrollItemId: 'item-usd',
+        noahHolderAddress: {
+          line1: '100 North Tryon Street',
+          city: 'Charlotte',
+          state: 'NC',
+          postalCode: '28255',
+          countryCode: 'US',
+        },
+      },
+    } as never);
+
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currency: 'USD',
+        scheme: 'ach',
+        routingNumber: '026009593',
+        accountNumber: '3010001234567',
+        accountName: 'Ada Okafor',
+        bankName: 'Bank of America',
+        bankAddress: {
+          line1: '100 North Tryon Street',
+          city: 'Charlotte',
+          state: 'NC',
+          postalCode: '28255',
+          country: 'US',
+        },
+      }),
+    );
+    expect(bachsApi.createPayoutQuote).not.toHaveBeenCalled();
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_dest1',
+      amount: '500.00',
+      quoteId: undefined,
+      reference: 'pi_usd',
+      idempotencyKey: 'pi_usd',
+    });
+    expect(result.success).toBe(true);
+    expect(result.rail).toBe('bank');
+  });
+
+  it('quotes a GBP salary from the USD balance to hit the destination amount', async () => {
+    const result = await provider.createPayment({
+      amount: 371.5,
+      currency: 'GBP',
+      description: 'Payroll',
+      accountNumber: '55779911',
+      accountName: 'Ada Okafor',
+      bankName: 'Barclays',
+      bankCode: '200000',
+      merchantTxRef: 'pi_gbp',
+      metadata: { payrollItemId: 'item-gbp' },
+    } as never);
+
+    expect(bachsApi.createPayoutDestination).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currency: 'GBP',
+        sortCode: '200000',
+        accountNumber: '55779911',
+      }),
+    );
+    expect(bachsApi.createPayoutQuote).toHaveBeenCalled();
+    expect(bachsApi.createPayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destination: 'pd_dest1',
+        amount: undefined,
+        quoteId: 'qt_1',
+        reference: 'pi_gbp',
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects USD payouts without a US bank address', async () => {
+    const result = await provider.createPayment({
+      amount: 500,
+      currency: 'USD',
+      description: 'Payroll',
+      accountNumber: '3010001234567',
+      accountName: 'Ada Okafor',
+      bankName: 'Bank of America',
+      bankCode: '026009593',
+    } as never);
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+  });
+
+  it('ignores a mismatched NGN funding currency for USD bank payouts', async () => {
+    const result = await provider.createPayment({
+      amount: 500,
+      currency: 'USD',
+      description: 'Payroll',
+      accountNumber: '3010001234567',
+      accountName: 'Ada Okafor',
+      bankName: 'Bank of America',
+      bankCode: '026009593',
+      merchantTxRef: 'pi_usd_ngn_meta',
+      metadata: {
+        payrollItemId: 'item-usd',
+        bachsSourceCurrency: 'NGN',
+        bachsBankAddress: {
+          line1: '100 North Tryon Street',
+          city: 'Charlotte',
+          state: 'NC',
+          postalCode: '28255',
+          country: 'US',
+        },
+      },
+    } as never);
+
+    expect(result.success).toBe(true);
+    expect(bachsApi.createPayout).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: '500.00', quoteId: undefined }),
+    );
+  });
+
+  it('quotes a cross-currency USD→NGN payout from the salary amount', async () => {
+    process.env.BACHS_PAYOUT_SOURCE_CURRENCY = 'USD';
+    const result = await provider.createPayment({
+      ...ngnData,
+      metadata: {
+        payrollItemId: 'item-1',
+        fxAtPayout: true,
+        salaryCurrency: 'USD',
+      },
+    } as never);
+
+    expect(bachsApi.createPayoutQuote).toHaveBeenCalledWith({
+      fromCurrency: 'USD',
+      toCurrency: 'NGN',
+      amount: '300000.00',
+      payoutMethod: 'BANK_TRANSFER',
+    });
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_dest1',
+      amount: undefined,
+      quoteId: 'qt_1',
+      reference: 'pi_abc',
+      idempotencyKey: 'pi_abc',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('quotes USD→NGN when funding a pre-converted NGN amount from the USD balance', async () => {
+    process.env.BACHS_PAYOUT_SOURCE_CURRENCY = 'USD';
+    bachsApi.createPayoutQuote
+      .mockResolvedValueOnce({
+        quote_id: 'qt_probe',
+        from_amount: '100.00',
+        to_amount: '150000.00',
+      })
+      .mockResolvedValueOnce({
+        quote_id: 'qt_final',
+        from_amount: '200.00',
+        to_amount: '300000.00',
+      });
+
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(result.success).toBe(true);
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_dest1',
+      amount: undefined,
+      quoteId: 'qt_final',
+      reference: 'pi_abc',
+      idempotencyKey: 'pi_abc',
+    });
+  });
+
+  it('quotes a USD→USDT payout at disbursement without any source-currency env', async () => {
+    const result = await provider.createPayment({
+      amount: 1000,
+      currency: 'USDT',
+      description: 'Payroll',
+      merchantTxRef: 'pi_usd',
+      network: 'TRC20',
+      accountNumber: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
+      metadata: {
+        payrollItemId: 'item-3',
+        walletAddress: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
+        fxAtPayout: true,
+        salaryCurrency: 'USD',
+      },
+    } as never);
+
+    expect(bachsApi.createPayoutQuote).toHaveBeenCalledWith({
+      fromCurrency: 'USD',
+      toCurrency: 'USDT_TRC20',
+      amount: '1000.00',
+    });
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_dest1',
+      amount: undefined,
+      quoteId: 'qt_1',
+      reference: 'pi_usd',
+      idempotencyKey: 'pi_usd',
+    });
+    expect(result.success).toBe(true);
+    expect(result.rail).toBe('crypto');
+  });
+
+  it('pays a USDT salary to a TRC20 wallet without a quote (same asset)', async () => {
+    const result = await provider.createPayment({
+      amount: 250,
+      currency: 'USDT',
+      description: 'Payroll',
+      merchantTxRef: 'pi_usdt_salary',
+      network: 'TRC20',
+      accountNumber: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
+      metadata: {
+        payrollItemId: 'item-4',
+        walletAddress: 'TWd4WrZ9wn84f5x1hZhL4DHvk738ns5jwb',
+        fxAtPayout: true,
+        salaryCurrency: 'USDT',
+      },
+    } as never);
+
+    expect(bachsApi.createPayoutQuote).not.toHaveBeenCalled();
+    expect(bachsApi.createPayout).toHaveBeenCalledWith({
+      destination: 'pd_dest1',
+      amount: '250.00',
+      quoteId: undefined,
+      reference: 'pi_usdt_salary',
+      idempotencyKey: 'pi_usdt_salary',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('quotes from metadata bachsSourceCurrency when it differs from the item amount', async () => {
+    bachsApi.createPayoutQuote
+      .mockResolvedValueOnce({
+        quote_id: 'qt_probe',
+        from_amount: '100.00',
+        to_amount: '150000.00',
+      })
+      .mockResolvedValueOnce({
+        quote_id: 'qt_final',
+        from_amount: '200.00',
+        to_amount: '300000.00',
+      });
+
+    const result = await provider.createPayment({
+      ...ngnData,
+      metadata: { payrollItemId: 'item-1', bachsSourceCurrency: 'USD' },
+    } as never);
+
+    expect(result.success).toBe(true);
+    expect(bachsApi.createPayout).toHaveBeenCalledWith(
+      expect.objectContaining({ quoteId: 'qt_final', amount: undefined }),
+    );
+  });
+
+  it('classifies a synchronously failed payout as terminal', async () => {
+    bachsApi.createPayout.mockResolvedValue({
+      id: 'pay_2',
+      status: 'failed',
+      failure_reason: 'Bank rejected the transfer',
+    });
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(result.success).toBe(false);
+    expect(result.outcome).toBe('failed');
+    expect(result.retryable).toBe(false);
+    expect(result.providerStatus).toBe('failed');
+  });
+
+  it('marks insufficient balance as non-retryable', async () => {
+    bachsApi.createPayout.mockRejectedValue(
+      new BachsApiError('Balance too low', 'INSUFFICIENT_BALANCE', 400),
+    );
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+  });
+
+  it('retries transient server errors', async () => {
+    bachsApi.createPayout.mockRejectedValue(
+      new BachsApiError('Unexpected error', 'INTERNAL_SERVER_ERROR', 500),
+    );
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(true);
+  });
+
+  it('marks a pre-payout destination rejection as non-retryable', async () => {
+    // A bank-coverage rejection happens before any payout exists, so there is nothing
+    // for reconciliation to requery — parking the item in PROCESSING zombifies it.
+    bachsApi.createPayoutDestination.mockRejectedValue(
+      new BachsApiError('Withdrawals to this bank are currently unavailable.', undefined, 400),
+    );
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+    expect(result.transactionId).toBeUndefined();
+  });
+
+  it('marks an unknown pre-payout quote failure as non-retryable', async () => {
+    bachsApi.createPayoutQuote.mockRejectedValue(
+      new BachsApiError('Upstream quote service hiccup', 'SOME_UNKNOWN_CODE', 503),
+    );
+    const result = await provider.createPayment({
+      amount: 250,
+      currency: 'EUR',
+      description: 'Payroll',
+      accountNumber: 'DE89370400440532013000',
+      bankCode: 'COBADEFFXXX',
+      accountName: 'Ada Okafor',
+      bankName: 'Commerzbank',
+      merchantTxRef: 'pi_eur',
+      metadata: { payrollItemId: 'item-eur' },
+    } as never);
+
+    expect(bachsApi.createPayoutQuote).toHaveBeenCalled();
+    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+    expect(result.retryable).toBe(false);
+  });
+
+  it('still retries an unknown failure thrown by createPayout itself', async () => {
+    // Post-submission failures may have created a payout, so requery must still run.
+    bachsApi.createPayout.mockRejectedValue(
+      new BachsApiError('Request timeout', 'SOME_UNKNOWN_CODE', 500),
+    );
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(bachsApi.createPayout).toHaveBeenCalled();
+    expect(result.retryable).toBe(true);
+  });
+
+  it('treats an unusable destination as non-retryable', async () => {
+    bachsApi.createPayoutDestination.mockResolvedValue({
+      id: 'pd_dest2',
+      status: 'pending_review',
+      is_usable: false,
+    });
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+  });
+
+  it('returns not-configured without touching the API', async () => {
+    process.env.BACHS_SECRET_KEY = '';
+    const result = await provider.createPayment(ngnData as never);
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+  });
+});

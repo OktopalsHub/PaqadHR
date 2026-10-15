@@ -1,7 +1,11 @@
+'use client';
+
 import { Book, PlusCircle, Trash } from 'lucide-react';
+import { useState } from 'react';
+import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 import { EducationForm } from '../../education-form';
@@ -12,6 +16,8 @@ interface EducationTabProps {
 }
 
 export function EducationTab({ form, canEdit = false }: EducationTabProps) {
+  const [educationPendingDeletion, setEducationPendingDeletion] = useState<string | null>(null);
+  const [isDeletingEducation, setIsDeletingEducation] = useState(false);
   const {
     employee,
     educationDialogOpen,
@@ -21,12 +27,11 @@ export function EducationTab({ form, canEdit = false }: EducationTabProps) {
   } = form;
 
   return (
-    <TabsContent value="education">
+    <TabsContent value="education" className="mt-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Education</CardTitle>
-            <CardDescription>Employee's educational background</CardDescription>
           </div>
           {canEdit ? (
             <Button variant="outline" onClick={() => setEducationDialogOpen(true)}>
@@ -55,7 +60,7 @@ export function EducationTab({ form, canEdit = false }: EducationTabProps) {
                     variant="ghost"
                     size="sm"
                     className="text-red-500"
-                    onClick={() => handleDeleteEducation(edu.id)}
+                    onClick={() => setEducationPendingDeletion(edu.id)}
                   >
                     <Trash className="mr-2 h-3 w-3" />
                     Remove
@@ -87,6 +92,26 @@ export function EducationTab({ form, canEdit = false }: EducationTabProps) {
         open={educationDialogOpen}
         onOpenChange={setEducationDialogOpen}
         onSubmit={handleAddEducation}
+      />
+      <DestructiveConfirmDialog
+        open={Boolean(educationPendingDeletion)}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingEducation) setEducationPendingDeletion(null);
+        }}
+        title="Remove education record?"
+        description="Delete this record?"
+        actionLabel="Remove record"
+        isPending={isDeletingEducation}
+        preventAutoClose
+        onConfirm={() => {
+          if (!educationPendingDeletion || isDeletingEducation) return;
+          setIsDeletingEducation(true);
+          void handleDeleteEducation(educationPendingDeletion)
+            .then((deleted) => {
+              if (deleted) setEducationPendingDeletion(null);
+            })
+            .finally(() => setIsDeletingEducation(false));
+        }}
       />
     </TabsContent>
   );

@@ -1,7 +1,9 @@
 import { Controller, Get, HttpStatus, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, TenantId } from 'src/common/decorators';
-import type { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -13,6 +15,7 @@ import { MemberPointsService } from '../services/member-points.service';
 
 @ApiTags('Shoutouts')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 @Controller('tenants/:tenantId/member-points')
 export class MemberPointsController {
   constructor(private readonly memberPointsService: MemberPointsService) {}
@@ -30,7 +33,7 @@ export class MemberPointsController {
   async listMyTransactions(
     @TenantId() tenantId: string,
     @CurrentTenantMember() member: MemberContext,
-    @Query() query: PaginationQueryDto,
+    @Query() query: PaginationDto,
   ) {
     const { page, limit } = PaginationUtil.parsePaginationOptions(query);
     return this.memberPointsService.listTransactions(tenantId, member.id, page, limit);

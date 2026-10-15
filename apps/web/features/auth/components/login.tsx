@@ -1,13 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { LoadingBlock } from '@/components/loading-block';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -19,65 +19,66 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
-import {
-  authDestinationToPath,
-  resolveAuthDestination,
-} from '@/lib/navigation/resolve-auth-destination';
+import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { type LoginInput, loginSchema } from '@/lib/schemas/auth';
 import { useTenant } from '@/providers/tenant-provider';
+import { submitHandledAuthAction } from '../lib/submit-handled-auth-action';
 import { SocialAuthButtons } from './buttons/social-auth-buttons';
 import { ForgotPasswordForm } from './forgot-password.form';
 import { PasswordInput } from './form-fields/password-input';
 
-export const Login = () => {
+interface LoginProps {
+  googleSignInFailed: boolean;
+  redirect?: string;
+}
+
+export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
   const router = useRouter();
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { login, isLoading, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, isLoading, isAuthenticated, isLoading: authLoading, paymentsEnabled } = useAuth();
   const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
 
-  const redirectParam =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('redirect')
-      : null;
-
-  const resolvedDestination = resolveAuthDestination({
-    isAuthenticated,
-    tenants: isAuthenticated && hasResolvedTenants ? tenants : [],
-    redirect: redirectParam,
-  });
-
-  const isResolvingSession =
-    authLoading || (isAuthenticated && (!hasResolvedTenants || tenantLoading));
-
-  const showRedirectSpinner =
-    isAuthenticated &&
-    hasResolvedTenants &&
-    !tenantLoading &&
-    resolvedDestination.type !== 'signin';
+  const showRedirectSpinner = isAuthenticated && hasResolvedTenants && !tenantLoading;
 
   useEffect(() => {
     if (!isAuthenticated || !hasResolvedTenants || tenantLoading || authLoading) return;
 
-    const redirect = new URLSearchParams(window.location.search).get('redirect');
-    const destination = resolveAuthDestination({ isAuthenticated, tenants, redirect });
-    if (destination.type !== 'signin') {
-      router.replace(authDestinationToPath(destination));
-    }
-  }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, router]);
+    void (async () => {
+      const href = await resolvePostAuthHref({ tenants, paymentsEnabled, redirect });
+      goToHref(href, router.replace);
+    })();
+  }, [
+    authLoading,
+    isAuthenticated,
+    hasResolvedTenants,
+    tenantLoading,
+    tenants,
+    paymentsEnabled,
+    router,
+    redirect,
+  ]);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
-      rememberMe: false,
     },
   });
 
-  if (isResolvingSession || showRedirectSpinner) {
+  const handleLoginSubmit = form.handleSubmit(async (values) => {
+    await submitHandledAuthAction(() => login({ ...values, rememberMe: true }));
+  });
+
+  if (showRedirectSpinner) {
     return (
-      <div className="flex min-h-[280px] items-center justify-center">
-        <LoadingBlock />
+      <div
+        className="flex min-h-[280px] flex-col items-center justify-center gap-3"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="size-9 animate-spin text-primary" aria-hidden="true" />
+        <span className="text-sm font-medium text-slate-500">Signing you in…</span>
       </div>
     );
   }
@@ -87,28 +88,55 @@ export const Login = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6 xl:min-h-[33.5rem]">
+      <div className="space-y-2">
+        <h1 className="text-[clamp(1.8rem,2.5vw,2.25rem)] font-semibold tracking-[-0.05em] text-slate-950">
+          Sign in
+        </h1>
+      </div>
+
+      {googleSignInFailed && !isAuthenticated && !authLoading ? (
+        <Alert
+          variant="destructive"
+          className="rounded-[20px] border-destructive/20 bg-destructive/5"
+        >
+          <AlertTitle>Google sign-in incomplete</AlertTitle>
+          <AlertDescription>
+            Try &quot;Continue with Google&quot; again, or sign in with your email and password.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <SocialAuthButtons />
 
-      <div className="relative">
+      <div className="relative py-1">
         <div className="absolute inset-0 flex items-center">
           <Separator className="w-full" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
+          <span className="bg-white/90 px-2.5 text-[10px] font-semibold tracking-[0.18em] text-slate-400 sm:px-3">
+            Or continue with email
+          </span>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((values) => login(values))} className="space-y-4">
+        <form onSubmit={handleLoginSubmit} className="space-y-4.5">
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email address</FormLabel>
+              <FormItem className="space-y-2">
+                <FormLabel className="text-[13px] font-semibold tracking-[0.01em] text-slate-700">
+                  Email address
+                </FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="admin@example.com" className="h-11" {...field} />
+                  <Input
+                    type="email"
+                    placeholder="admin@example.com"
+                    className="h-11.5 rounded-[16px] border-slate-200 bg-white/90 px-4 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-visible:ring-[3px] focus-visible:ring-emerald-500/18"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -119,48 +147,45 @@ export const Login = () => {
             control={form.control}
             name="password"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
+              <FormItem className="space-y-2">
+                <FormLabel className="text-[13px] font-semibold tracking-[0.01em] text-slate-700">
+                  Password
+                </FormLabel>
                 <FormControl>
-                  <PasswordInput placeholder="Enter your password" className="h-11" {...field} />
+                  <PasswordInput
+                    placeholder="Enter your password"
+                    className="h-11.5 rounded-[16px] border-slate-200 bg-white/90 px-4 pr-11 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-visible:ring-[3px] focus-visible:ring-emerald-500/18 focus-visible:ring-offset-0"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <div className="flex items-center justify-between">
-            <FormField
-              control={form.control}
-              name="rememberMe"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-2 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormLabel className="text-sm font-normal text-muted-foreground">
-                    Remember me
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-
+          <div className="flex justify-end pt-1">
             <button
               type="button"
               onClick={() => setShowForgotPassword(true)}
-              className="text-sm font-medium text-primary hover:text-primary/90"
+              className="cursor-pointer text-sm font-semibold text-primary hover:text-primary/90"
             >
               Forgot password?
             </button>
           </div>
 
-          <Button type="submit" className="w-full h-11" disabled={isLoading}>
+          <Button
+            type="submit"
+            variant="brandSolid"
+            className="h-11.5 w-full rounded-[16px] text-base font-semibold shadow-[0_22px_40px_-28px_var(--brand-shadow)]"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
       </Form>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="pt-1 text-center text-sm text-slate-500">
         Don&apos;t have an account?{' '}
         <Link href="/signup" className="font-medium text-primary hover:text-primary/90">
           Sign up

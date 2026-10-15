@@ -2,6 +2,8 @@
 
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { OrgAvatar } from '@/components/org-avatar';
+import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -11,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Skeleton } from '@/components/ui/skeleton';
 import { CreateWorkspaceDialog } from '@/features/navigations/components/create-workspace-dialog';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { cn } from '@/lib/utils';
@@ -20,15 +21,24 @@ import { useTenant } from '@/providers/tenant-provider';
 function WorkspaceMark({ name, logoUrl }: { name?: string; logoUrl?: string | null }) {
   if (logoUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={logoUrl} alt="" className="size-8 shrink-0 rounded-lg object-cover" />
+      <OrgAvatar
+        src={logoUrl}
+        name={name || 'Workspace'}
+        className="size-9 rounded-[10px] border border-[#d7e3f6] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950"
+      />
     );
   }
-  const letter = (name?.trim()?.[0] ?? 'P').toUpperCase();
+
+  if (!name?.trim()) {
+    return <PaqadLogo showWordmark={false} className="size-9" />;
+  }
+
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-      {letter}
-    </span>
+    <OrgAvatar
+      name={name}
+      className="size-9 rounded-[10px] border border-transparent shadow-sm"
+      fallbackClassName="bg-primary text-sm font-bold text-primary-foreground"
+    />
   );
 }
 
@@ -38,9 +48,11 @@ export const WorkspaceSwitcher = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2.5 px-1">
-        <Skeleton className="size-8 rounded-lg" />
-        <Skeleton className="h-8 flex-1 rounded-lg" />
+      <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        <WorkspaceMark />
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-muted-foreground group-data-[collapsible=icon]:hidden">
+          Workspace
+        </p>
       </div>
     );
   }
@@ -48,7 +60,7 @@ export const WorkspaceSwitcher = () => {
   if (!tenants.length) {
     return (
       <>
-        <div className="flex items-center gap-2.5 px-1">
+        <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
           <WorkspaceMark />
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-tight">Paqad</p>
@@ -72,12 +84,9 @@ export const WorkspaceSwitcher = () => {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="h-auto w-full justify-start gap-2.5 px-1 py-1.5 font-normal hover:bg-sidebar-accent"
+            className="h-auto w-full justify-start gap-2.5 rounded-[10px] px-1.5 py-1.5 font-normal hover:bg-sidebar-accent group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           >
-            <WorkspaceMark
-              name={tenant?.name}
-              logoUrl={(tenant as { logoUrl?: string })?.logoUrl}
-            />
+            <WorkspaceMark name={tenant?.name} logoUrl={tenant?.logoUrl} />
             <div className="min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
               <p className="truncate text-sm font-semibold tracking-tight">
                 {formatWorkspaceName(tenant?.name)}
@@ -86,19 +95,26 @@ export const WorkspaceSwitcher = () => {
             <ChevronsUpDown className="size-4 shrink-0 opacity-50 group-data-[collapsible=icon]:hidden" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56 rounded-xl">
+        <DropdownMenuContent align="start" className="w-64 rounded-xl">
           <DropdownMenuLabel className="text-xs text-muted-foreground">
             Workspaces
           </DropdownMenuLabel>
           {tenants.map((item) => (
-            <DropdownMenuItem key={item.id} onClick={() => setTenantId(item.id)} className="gap-2">
+            <DropdownMenuItem
+              key={item.id}
+              onClick={() => setTenantId(item.id)}
+              className="gap-2.5"
+            >
+              <WorkspaceMark name={item.name} logoUrl={item.logoUrl} />
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {formatWorkspaceName(item.name)}
+              </span>
               <Check
                 className={cn(
                   'size-4 shrink-0',
                   item.id === tenant?.id ? 'opacity-100' : 'opacity-0',
                 )}
               />
-              <span className="truncate">{formatWorkspaceName(item.name)}</span>
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />

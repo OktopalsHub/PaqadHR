@@ -1,29 +1,32 @@
 'use client';
 
-import { ArrowUpRight, Briefcase, CalendarClock, Users } from 'lucide-react';
+import { Briefcase, Building2, CalendarClock, RefreshCw, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
-import { LoadingBlock } from '@/components/loading-block';
-import { PageActions } from '@/components/page-actions';
-import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { DashboardActivityFeed } from '@/features/dashboard/components/dashboard-activity-feed';
 import { UpcomingReminders } from '@/features/dashboard/components/upcoming-reminders';
-import { RecruitmentActivityFeed } from '@/features/recruitment/components/dashboard/recruitment-activity-feed';
+import { getDashboardRecruitmentAccessState } from '@/features/dashboard/lib/dashboard-feature-access';
 import { RecruitmentApplicantsTable } from '@/features/recruitment/components/dashboard/recruitment-applicants-table';
 import { RecruitmentScheduleWidget } from '@/features/recruitment/components/dashboard/recruitment-schedule-widget';
 import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashboard/recruitment-vacancy-grid';
 import { JobDetailSheet } from '@/features/recruitment/components/job-detail-sheet';
 import { useRecruitmentOverview } from '@/features/recruitment/hooks/use-recruitment-overview';
-import { useEmployees } from '@/hooks/queries/use-employees';
+import { useEmployeeSummary } from '@/hooks/queries/use-employees';
+import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useLeaves } from '@/hooks/queries/use-leaves';
 import { useJobOpenings } from '@/hooks/queries/use-recruitment';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { isTenantAdmin } from '@/lib/auth/manager-access';
+import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatDate } from '@/lib/format-date';
 import type { JobOpening } from '@/lib/schemas/recruitment';
+import { useTenant } from '@/providers/tenant-provider';
 
 function leaveStatusVariant(status: string) {
   switch (status.toLowerCase()) {
@@ -39,132 +42,243 @@ function leaveStatusVariant(status: string) {
 }
 
 export const Dashboard = () => {
+  const { tenant } = useTenant();
+  const isAdmin = isTenantAdmin(tenant?.member?.role);
+  const { hasFeature, featureGatingEnabled } = useFeatureAccess();
+  const recruitmentAccess = getDashboardRecruitmentAccessState({
+    isAdmin,
+    featureGatingEnabled,
+    hasFeature,
+    recruitmentFeature: FeatureAccess.RECRUITMENT,
+  });
+  const { canAccessRecruitment, recruitmentQueriesEnabled } = recruitmentAccess;
   const {
-    data: employees = [],
-    isLoading: employeesLoading,
+    data: employeeSummary,
     isError: employeesError,
-  } = useEmployees();
-  const { data: leaves = [], isLoading: leavesLoading, isError: leavesError } = useLeaves();
-  const { data: jobsData, isLoading: jobsLoading, isError: jobsError } = useJobOpenings();
+    refetch: refetchEmployeeSummary,
+  } = useEmployeeSummary();
+  const {
+    data: leaves = [],
+    isLoading: leavesLoading,
+    isError: leavesError,
+    refetch: refetchLeaves,
+  } = useLeaves();
+  const {
+    data: jobsData,
+    isLoading: jobsLoading,
+    isError: jobsError,
+  } = useJobOpenings({ enabled: recruitmentQueriesEnabled });
   const {
     overview,
     isLoading: overviewLoading,
     jobsError: overviewError,
-  } = useRecruitmentOverview();
+    refetch: refetchOverview,
+  } = useRecruitmentOverview({ enabled: recruitmentQueriesEnabled });
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const tenantHref = useTenantHref();
 
-  const isLoading = employeesLoading || leavesLoading || jobsLoading || overviewLoading;
-  const hasError = employeesError || leavesError || jobsError || overviewError;
+  const hasError =
+    employeesError ||
+    leavesError ||
+    (isAdmin && canAccessRecruitment && (jobsError || overviewError));
 
   const jobs = jobsData?.jobs ?? [];
-  const openRoles = jobs.filter((job) => job.status === 'ACTIVE').length;
-  const pendingLeaves = leaves.filter((leave) => leave.status?.toLowerCase() === 'pending').length;
-  const recentLeaves = [...leaves]
-    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-    .slice(0, 6);
+  const openRoles = useMemo(() => jobs.filter((job) => job.status === 'ACTIVE').length, [jobs]);
+  const pendingLeaves = useMemo(
+    () => leaves.filter((leave) => leave.status?.toLowerCase() === 'pending').length,
+    [leaves],
+  );
+  const recentLeaves = useMemo(
+    () =>
+      [...leaves]
+        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+        .slice(0, 6),
+    [leaves],
+  );
+  const departmentCount = useMemo(() => employeeSummary?.departments ?? 0, [employeeSummary]);
+  const pipelineStages = useMemo(
+    () => [
+      { label: 'Active', count: jobs.filter((job) => job.status === 'ACTIVE').length },
+      { label: 'Draft', count: jobs.filter((job) => job.status === 'DRAFT').length },
+      { label: 'Closed', count: jobs.filter((job) => job.status === 'CLOSED').length },
+      { label: 'Archived', count: jobs.filter((job) => job.status === 'ARCHIVED').length },
+    ],
+    [jobs],
+  );
+  const pipelineMax = useMemo(
+    () => Math.max(1, ...pipelineStages.map((stage) => stage.count)),
+    [pipelineStages],
+  );
+  const contentCardHeaderClassName = 'border-b border-border/60 px-5 py-4';
+  const contentCardTitleClassName = 'text-[17px] font-semibold text-foreground';
+  const statCards = [
+    {
+      label: 'Headcount',
+      // Keep the placeholder until the summary for this workspace actually
+      // arrives — never flash a stale/default number while the tenant resolves.
+      value: employeeSummary ? employeeSummary.activeEmployees : '—',
+      hint: 'Active employees',
+      icon: Users,
+      iconClassName: 'bg-warning/15 text-warning',
+    },
+    ...(recruitmentAccess.includeOpenRolesCard
+      ? [
+          {
+            label: 'Open roles',
+            value: jobsLoading || overviewLoading ? '—' : openRoles,
+            hint:
+              jobsLoading || overviewLoading
+                ? 'Loading postings…'
+                : `${jobs.length} total postings`,
+            icon: Briefcase,
+            iconClassName: 'bg-info/15 text-info',
+          },
+        ]
+      : []),
+    {
+      label: 'Pending leave',
+      value: leavesLoading ? '—' : pendingLeaves,
+      hint: leavesLoading ? 'Loading requests…' : `${leaves.length} requests total`,
+      icon: CalendarClock,
+      iconClassName: 'bg-success/15 text-success',
+    },
+    {
+      label: 'Departments',
+      value: employeeSummary ? departmentCount : '—',
+      hint: 'With assigned members',
+      icon: Building2,
+      iconClassName: 'bg-indigo-100 text-indigo-700',
+    },
+  ] as const;
+  const statGridClassName =
+    statCards.length === 3
+      ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'
+      : 'grid gap-4 md:grid-cols-2 xl:grid-cols-4';
 
-  const departmentCount = new Set(employees.map((employee) => employee.department).filter(Boolean))
-    .size;
-
-  const pipelineStages = [
-    { label: 'Active', count: jobs.filter((job) => job.status === 'ACTIVE').length },
-    { label: 'Draft', count: jobs.filter((job) => job.status === 'DRAFT').length },
-    { label: 'Closed', count: jobs.filter((job) => job.status === 'CLOSED').length },
-    { label: 'Archived', count: jobs.filter((job) => job.status === 'ARCHIVED').length },
-  ];
-  const pipelineMax = Math.max(1, ...pipelineStages.map((stage) => stage.count));
-
-  const handleSelectJobDetails = (job: JobOpening) => {
+  const handleSelectJobDetails = useCallback((job: JobOpening) => {
     setSelectedJobId(job.id);
+  }, []);
+
+  const handleJobDetailOpenChange = useCallback((open: boolean) => {
+    if (!open) setSelectedJobId(null);
+  }, []);
+
+  const retryDashboard = () => {
+    void refetchEmployeeSummary();
+    void refetchLeaves();
+    if (recruitmentQueriesEnabled) {
+      void refetchOverview();
+    }
   };
 
-  if (isLoading) {
-    return (
-      <AppPage>
-        <LoadingBlock />
-      </AppPage>
-    );
-  }
-
-  if (hasError) {
-    return (
-      <AppPage>
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load dashboard</AlertTitle>
-          <AlertDescription>
-            Some workspace data could not be loaded. Refresh the page or try again shortly.
-          </AlertDescription>
-        </Alert>
-      </AppPage>
-    );
-  }
-
   return (
-    <AppPage className="space-y-5">
-      <PageActions>
-        <Button asChild size="sm" className="h-8 rounded-lg text-xs">
-          <Link href={tenantHref('recruitment')}>
-            View recruitment
-            <ArrowUpRight className="ml-1.5 size-3.5" />
-          </Link>
-        </Button>
-      </PageActions>
+    <AppPage className="space-y-6">
+      {hasError ? (
+        <Alert
+          variant="destructive"
+          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <AlertTitle>Couldn’t load some data</AlertTitle>
+            <AlertDescription>Retry the failed sections.</AlertDescription>
+          </div>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={retryDashboard}>
+            <RefreshCw className="size-4" aria-hidden="true" />
+            Retry
+          </Button>
+        </Alert>
+      ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Headcount" value={employees.length} hint="Active employees" icon={Users} />
-        <StatCard
-          label="Open roles"
-          value={openRoles}
-          hint={`${jobs.length} total postings`}
-          icon={Briefcase}
-        />
-        <StatCard
-          label="Pending leave"
-          value={pendingLeaves}
-          hint={`${leaves.length} requests total`}
-          icon={CalendarClock}
-        />
-        <StatCard
-          label="Departments"
-          value={departmentCount || '—'}
-          hint="With assigned members"
-          icon={Users}
-          iconClassName="bg-chart-2/15 text-chart-2"
-        />
+      <div className={statGridClassName}>
+        {statCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <article key={card.label} className="dashboard-panel rounded-[8px] px-5 py-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
+                    {card.label}
+                  </p>
+                  <p className="mt-3 text-[31px] font-semibold leading-none tracking-[-0.035em] text-foreground">
+                    {card.value}
+                  </p>
+                  <p className="mt-2 text-sm text-muted-foreground">{card.hint}</p>
+                </div>
+                <div
+                  className={`flex size-11 items-center justify-center rounded-2xl shadow-sm ${card.iconClassName}`}
+                >
+                  <Icon className="size-4.5" />
+                </div>
+              </div>
+            </article>
+          );
+        })}
       </div>
 
       <UpcomingReminders />
 
       <div className="grid gap-4 xl:grid-cols-12">
         <ContentCard
-          className="xl:col-span-8"
+          className={`dashboard-panel rounded-[8px] ${
+            recruitmentAccess.showRecruitmentSections ? 'xl:col-span-8' : 'xl:col-span-7'
+          }`}
+          headerClassName={contentCardHeaderClassName}
+          titleClassName={contentCardTitleClassName}
           title="Recent leave requests"
           action={
-            <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-              <Link href={tenantHref('leaves')}>View all</Link>
-            </Button>
+            <Link href={tenantHref('leaves')} className="dashboard-link text-xs font-semibold">
+              View all
+            </Link>
           }
-          bodyClassName="p-0"
+          bodyClassName="p-4"
         >
-          {recentLeaves.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-              No leave requests yet.
-            </p>
+          {leavesLoading ? (
+            <div className="space-y-3 py-1">
+              {['first', 'second', 'third'].map((placeholder) => (
+                <div
+                  key={placeholder}
+                  className="dashboard-soft-tile flex items-center justify-between gap-3 rounded-[8px] px-4 py-3"
+                >
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-3 w-44" />
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : leavesError ? (
+            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+              <CalendarClock className="size-10 text-muted-foreground" />
+              <p className="text-sm">Leave requests could not be loaded right now.</p>
+              <Button variant="outline" size="sm" onClick={() => void refetchLeaves()}>
+                Try again
+              </Button>
+            </div>
+          ) : recentLeaves.length === 0 ? (
+            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+              <CalendarClock className="size-10 text-muted-foreground" />
+              <p className="text-sm">No leave requests yet.</p>
+            </div>
           ) : (
-            <div className="divide-y divide-border/60">
+            <div className="space-y-3">
               {recentLeaves.map((leave) => (
                 <div
                   key={leave.id}
-                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
+                  className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] px-4 py-3 transition-colors hover:bg-background/70 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{leave.employee}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {leave.employee}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {leave.type} · {formatDate(leave.startDate)} – {formatDate(leave.endDate)}
                     </p>
                   </div>
-                  <Badge variant={leaveStatusVariant(leave.status ?? 'pending')}>
+                  <Badge
+                    variant={leaveStatusVariant(leave.status ?? 'pending')}
+                    className="self-start rounded-full px-2.5 py-1 text-[11px] sm:self-auto"
+                  >
                     {leave.status ?? 'Pending'}
                   </Badge>
                 </div>
@@ -173,67 +287,89 @@ export const Dashboard = () => {
           )}
         </ContentCard>
 
-        <ContentCard
-          className="xl:col-span-4"
-          title="Hiring pipeline"
-          action={
-            <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-              <Link href={tenantHref('recruitment')}>Manage</Link>
-            </Button>
-          }
-          bodyClassName="p-4"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            {pipelineStages.map((stage) => (
-              <div
-                key={stage.label}
-                className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3"
+        {recruitmentAccess.showRecruitmentSections ? (
+          <ContentCard
+            className="dashboard-panel rounded-[8px] xl:col-span-4"
+            headerClassName={contentCardHeaderClassName}
+            titleClassName={contentCardTitleClassName}
+            title="Hiring pipeline"
+            action={
+              <Link
+                href={tenantHref('recruitment')}
+                className="dashboard-link text-xs font-semibold"
               >
-                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {stage.label}
-                </p>
-                <p className="mt-1 text-xl font-semibold">{stage.count}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 flex h-20 items-end gap-2 border-b border-border/60 pb-1">
-            {pipelineStages.map((stage) => {
-              const height = Math.max(8, (stage.count / pipelineMax) * 100);
-              return (
-                <div key={stage.label} className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    className="w-full max-w-8 rounded-t-md bg-primary/70"
-                    style={{ height: `${height}%` }}
-                  />
-                  <span className="text-[10px] text-muted-foreground">{stage.label}</span>
+                Manage
+              </Link>
+            }
+            bodyClassName="space-y-4 p-4"
+          >
+            <div className="grid grid-cols-2 gap-3">
+              {pipelineStages.map((stage) => (
+                <div key={stage.label} className="dashboard-soft-tile rounded-[8px] px-3 py-3">
+                  <p className="dashboard-outline-label text-[10px] font-semibold uppercase">
+                    {stage.label}
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+                    {stage.count}
+                  </p>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+            <div className="dashboard-soft-tile rounded-[8px] px-3 pb-2 pt-4">
+              <div className="flex h-24 items-end gap-2 border-b border-border/60 pb-2">
+                {pipelineStages.map((stage) => {
+                  const height = Math.max(10, (stage.count / pipelineMax) * 100);
+                  return (
+                    <div key={stage.label} className="flex flex-1 flex-col items-center gap-2">
+                      <div
+                        className="dashboard-chart-bar w-full max-w-9"
+                        style={{ height: `${height}%` }}
+                      ></div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex justify-between text-[10px] font-medium text-muted-foreground">
+                {pipelineStages.map((stage) => (
+                  <span key={stage.label}>{stage.label}</span>
+                ))}
+              </div>
+            </div>
+          </ContentCard>
+        ) : (
+          <div className="min-w-0 xl:col-span-5">
+            <DashboardActivityFeed />
           </div>
-        </ContentCard>
+        )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <RecruitmentVacancyGrid
-          jobs={overview.jobs.filter((job) => job.status === 'ACTIVE')}
-          applicantCounts={overview.applicantCounts}
-          onSelectDetails={handleSelectJobDetails}
-        />
-        <RecruitmentScheduleWidget events={overview.schedule} />
-      </div>
+      {recruitmentAccess.showRecruitmentSections ? (
+        <>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <RecruitmentVacancyGrid
+              jobs={overview.jobs.filter((job) => job.status === 'ACTIVE')}
+              applicantCounts={overview.applicantCounts}
+              onSelectDetails={handleSelectJobDetails}
+            />
+            <RecruitmentScheduleWidget events={overview.schedule} />
+          </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <RecruitmentApplicantsTable rows={overview.applicantRows} />
-        <RecruitmentActivityFeed items={[...overview.activity]} />
-      </div>
+          <div className="grid gap-5 xl:grid-cols-3">
+            <div className="min-w-0 h-full xl:col-span-2">
+              <RecruitmentApplicantsTable rows={overview.applicantRows} />
+            </div>
+            <div className="min-w-0 h-full">
+              <DashboardActivityFeed />
+            </div>
+          </div>
 
-      <JobDetailSheet
-        jobId={selectedJobId}
-        open={Boolean(selectedJobId)}
-        onOpenChange={(open) => {
-          if (!open) setSelectedJobId(null);
-        }}
-      />
+          <JobDetailSheet
+            jobId={selectedJobId}
+            open={Boolean(selectedJobId)}
+            onOpenChange={handleJobDetailOpenChange}
+          />
+        </>
+      ) : null}
     </AppPage>
   );
 };

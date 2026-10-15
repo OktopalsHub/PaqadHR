@@ -33,7 +33,7 @@ export class PaymentMethod extends BaseEntity {
     type: 'enum',
     enum: PaymentMethodType,
     default: PaymentMethodType.BANK,
-    comment: 'Payment method type - only BANK supported',
+    comment: 'Payment method type — BANK or CRYPTO',
   })
   type: PaymentMethodType;
   @Column({ name: 'currency', type: 'varchar', length: 10, nullable: true })
@@ -45,14 +45,14 @@ export class PaymentMethod extends BaseEntity {
   @Column({
     name: 'account_name',
     type: 'varchar',
-    length: 160,
+    length: 512,
     nullable: true,
   })
   accountName: string | null;
   @Column({
     name: 'account_number',
     type: 'varchar',
-    length: 60,
+    length: 512,
     nullable: true,
   })
   accountNumber: string | null;
@@ -63,7 +63,7 @@ export class PaymentMethod extends BaseEntity {
   @Column({
     type: 'enum',
     enum: PaymentMethodStatus,
-    default: PaymentMethodStatus.PENDING_VERIFICATION,
+    default: PaymentMethodStatus.DRAFT,
     comment: 'Payment method verification status',
   })
   status: PaymentMethodStatus;
@@ -119,6 +119,13 @@ export class PaymentMethod extends BaseEntity {
   })
   verifiedAt: Date | null;
   @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'submitted_at',
+    comment: 'When employee submitted this method for admin verification',
+  })
+  submittedAt: Date | null;
+  @Column({
     type: 'varchar',
     length: 500,
     nullable: true,
@@ -138,7 +145,7 @@ export class PaymentMethod extends BaseEntity {
     nullable: true,
     comment: 'Additional payment method metadata',
   })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
 
   get isVerified(): boolean {
     return this.status === PaymentMethodStatus.VERIFIED;
@@ -155,6 +162,9 @@ export class PaymentMethod extends BaseEntity {
     }
     if (this.type === PaymentMethodType.BANK) {
       return `${this.bankName} - ${this.accountNumber?.slice(-4)}`;
+    }
+    if (this.type === PaymentMethodType.CRYPTO) {
+      return `Crypto ${this.currency ?? ''} - ${this.accountNumber?.slice(-6)}`;
     }
     return 'Bank Account';
   }

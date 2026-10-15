@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import { CandidateSource, CandidateStatus } from 'src/common/enums';
+import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateCandidateDto } from '../dto/create-candidate.dto';
 import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
@@ -13,6 +16,8 @@ export class CandidateService {
   constructor(
     private readonly candidateRepository: CandidateRepository,
     private readonly jobOpeningService: JobOpeningService,
+    private readonly activitiesService: ActivitiesService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
   async createPipelineCandidate(
     tenantId: string,
@@ -54,13 +59,36 @@ export class CandidateService {
       skills: dto.skills,
       experience: dto.experience,
     });
-    return this.candidateRepository.save(entity);
+    const saved = await this.candidateRepository.save(entity);
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'recruitment.candidate_added',
+        resourceType: 'candidate',
+        resourceId: saved.id,
+        description: `Candidate "${dto.firstName} ${dto.lastName}" added to pipeline`,
+        metadata: {
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          jobOpeningId: dto.jobOpeningId,
+        },
+      })
+      .catch(() => {});
+
+    return saved;
   }
 
   async applyForJob(jobId: string, createCandidateDto: CreateCandidateDto): Promise<Candidate> {
+    if (!createCandidateDto.dataProcessingConsent) {
+      throw new BadRequestException('You must accept the privacy policy to submit an application');
+    }
+
     const job = await this.jobOpeningService.getActiveJob(jobId);
+    const normalizedEmail = createCandidateDto.email.trim().toLowerCase();
     const existingApplication = await this.candidateRepository.findByEmailAndJob(
-      createCandidateDto.email,
+      normalizedEmail,
       jobId,
     );
     if (existingApplication) {
@@ -70,9 +98,9 @@ export class CandidateService {
     }
     const entity = this.candidateRepository.create({
       jobOpeningId: jobId,
-      firstName: createCandidateDto.firstName,
-      lastName: createCandidateDto.lastName,
-      email: createCandidateDto.email,
+      firstName: createCandidateDto.firstName.trim(),
+      lastName: createCandidateDto.lastName.trim(),
+      email: normalizedEmail,
       phone: createCandidateDto.phone || '',
       resume: {
         filename: createCandidateDto.resumeFilename,
@@ -98,9 +126,19 @@ export class CandidateService {
       githubUrl: createCandidateDto.githubUrl,
       skills: createCandidateDto.skills,
       experience: createCandidateDto.experience,
-      customAnswers: createCandidateDto.customAnswers,
+      customAnswers: {
+        ...(createCandidateDto.customAnswers ?? {}),
+        _privacyConsent: {
+          dataProcessingConsentAt: new Date().toISOString(),
+          privacyPolicyVersion: getPrivacyPolicyVersion(),
+        },
+      },
     });
-    return this.candidateRepository.save(entity);
+    const saved = await this.candidateRepository.save(entity);
+    this.productAnalytics.capture('anonymous', 'application_submitted', {
+      tenantId: job.tenantId,
+    });
+    return saved;
   }
   async getCandidatesByTenant(tenantId: string): Promise<Candidate[]> {
     return this.candidateRepository.findByTenantOnly(tenantId);
@@ -116,8 +154,50 @@ export class CandidateService {
     candidateId: string,
     tenantId: string,
     updateDto: UpdateCandidateStatusDto,
+    actorMemberId?: string,
   ): Promise<Candidate> {
-    await this.getCandidate(candidateId, tenantId);
+    const candidate = await this.getCandidate(candidateId, tenantId);
+    const allowedTransitions: Record<CandidateStatus, CandidateStatus[]> = {
+      [CandidateStatus.APPLIED]: [
+        CandidateStatus.SCREENING,
+        CandidateStatus.UNDER_REVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.SCREENING]: [
+        CandidateStatus.UNDER_REVIEW,
+        CandidateStatus.INTERVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.UNDER_REVIEW]: [
+        CandidateStatus.SCREENING,
+        CandidateStatus.INTERVIEW,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.INTERVIEW]: [
+        CandidateStatus.OFFER,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.OFFER]: [
+        CandidateStatus.HIRED,
+        CandidateStatus.REJECTED,
+        CandidateStatus.WITHDRAWN,
+      ],
+      [CandidateStatus.HIRED]: [],
+      [CandidateStatus.REJECTED]: [],
+      [CandidateStatus.WITHDRAWN]: [],
+    };
+    if (
+      updateDto.status !== candidate.status &&
+      !allowedTransitions[candidate.status]?.includes(updateDto.status)
+    ) {
+      throw new BadRequestException(
+        `Cannot move candidate from ${candidate.status} to ${updateDto.status}`,
+      );
+    }
     const updateData: Record<string, unknown> = {
       status: updateDto.status,
       currentStage: {
@@ -135,23 +215,51 @@ export class CandidateService {
     if (!updatedCandidate) {
       throw new NotFoundException('Candidate not found');
     }
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'recruitment.candidate_status_updated',
+          resourceType: 'candidate',
+          resourceId: candidateId,
+          description: `Candidate status updated to "${updateDto.status}"`,
+          metadata: {
+            status: updateDto.status,
+            candidateName: `${updatedCandidate.firstName} ${updatedCandidate.lastName}`,
+          },
+        })
+        .catch(() => {});
+    }
+
     return updatedCandidate;
   }
   async getCandidatesByJob(jobId: string, tenantId: string): Promise<Candidate[]> {
     return this.candidateRepository.findByJobOpening(jobId, tenantId);
   }
-  async getApplicationStatus(applicationId: string, email: string): Promise<Candidate> {
-    const candidate = await this.candidateRepository.findByApplicationIdAndEmail(
+  async getApplicationStatus(
+    jobOpeningId: string,
+    applicationId: string,
+    email: string,
+  ): Promise<Candidate> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const candidate = await this.candidateRepository.findByApplicationIdEmailAndJob(
       applicationId,
-      email,
+      normalizedEmail,
+      jobOpeningId,
     );
     if (!candidate) {
       throw new NotFoundException('Application not found');
     }
     return candidate;
   }
-  async withdrawApplication(applicationId: string, email: string): Promise<Candidate> {
-    const candidate = await this.getApplicationStatus(applicationId, email);
+  async withdrawApplication(
+    jobOpeningId: string,
+    applicationId: string,
+    email: string,
+  ): Promise<Candidate> {
+    const candidate = await this.getApplicationStatus(jobOpeningId, applicationId, email);
     if (candidate.status === CandidateStatus.WITHDRAWN) {
       throw new BadRequestException('Application has already been withdrawn');
     }
@@ -176,11 +284,12 @@ export class CandidateService {
     return updatedCandidate;
   }
   async updateApplication(
+    jobOpeningId: string,
     applicationId: string,
     email: string,
     updateDto: UpdateCandidateDto,
   ): Promise<Candidate> {
-    const candidate = await this.getApplicationStatus(applicationId, email);
+    const candidate = await this.getApplicationStatus(jobOpeningId, applicationId, email);
     if (![CandidateStatus.APPLIED, CandidateStatus.UNDER_REVIEW].includes(candidate.status)) {
       throw new BadRequestException('Application cannot be updated in current status');
     }

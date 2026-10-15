@@ -10,20 +10,26 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
-import type { CreateTeamDto } from '../teams/dto/create-team.dto';
+import { CreateTeamDto } from '../teams/dto/create-team.dto';
 import { TeamsService } from '../teams/teams.service';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { DepartmentsService } from './departments.service';
-import type { CreateDepartmentDto } from './dto/create-department.dto';
+import { AddDepartmentMemberDto } from './dto/add-department-member.dto';
+import { AssignDepartmentManagerDto } from './dto/assign-department-manager.dto';
+import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department-response.dto';
-import type { UpdateDepartmentDto } from './dto/update-department.dto';
+import { UpdateDepartmentDto } from './dto/update-department.dto';
 
 @ApiTags('Departments')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/departments')
+@UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.BASIC_HR)
 export class DepartmentsController {
   constructor(
     private readonly departmentsService: DepartmentsService,
@@ -51,7 +57,7 @@ export class DepartmentsController {
       tenantId,
       { name, managerId },
       page ? Number(page) : 1,
-      limit ? Number(limit) : 10,
+      limit ? Number(limit) : 100,
     );
   }
   @Get(':id')
@@ -59,6 +65,8 @@ export class DepartmentsController {
     return this.departmentsService.getDepartment(tenantId, id);
   }
   @Post()
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createDepartment(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateDepartmentDto,
@@ -67,22 +75,33 @@ export class DepartmentsController {
     return this.departmentsService.createDepartment(tenantId, member.id, dto);
   }
   @Patch(':id')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: UpdateDepartmentDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.departmentsService.updateDepartment(tenantId, id, dto);
+    return this.departmentsService.updateDepartment(tenantId, id, dto, member.id);
   }
   @Delete(':id')
-  async deleteDepartment(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.departmentsService.deleteDepartment(tenantId, id);
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async deleteDepartment(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.departmentsService.deleteDepartment(tenantId, id, member.id);
   }
   @Get(':id/teams')
   async getDepartmentTeams(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.teamsService.getTeams(tenantId, { departmentId: id });
   }
   @Post(':id/teams')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createDepartmentTeam(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -95,30 +114,42 @@ export class DepartmentsController {
     });
   }
   @Patch(':id/manager')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async assignDepartmentManager(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() dto: { managerId: string },
+    @Body() dto: AssignDepartmentManagerDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.departmentsService.updateDepartment(tenantId, id, {
-      managerId: dto.managerId,
-    });
+    return this.departmentsService.updateDepartment(
+      tenantId,
+      id,
+      { managerId: dto.managerId },
+      member.id,
+    );
   }
   @Post(':id/members')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async addMemberToDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() dto: { memberId: string },
+    @Body() dto: AddDepartmentMemberDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.departmentsService.addMemberToDepartment(tenantId, id, dto.memberId);
+    return this.departmentsService.addMemberToDepartment(tenantId, id, dto.memberId, member.id);
   }
   @Delete(':id/members/:memberId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async removeMemberFromDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.departmentsService.removeMemberFromDepartment(tenantId, id, memberId);
+    return this.departmentsService.removeMemberFromDepartment(tenantId, id, memberId, member.id);
   }
   @Get(':id/members')
   async getDepartmentMembers(@Param('tenantId') tenantId: string, @Param('id') id: string) {

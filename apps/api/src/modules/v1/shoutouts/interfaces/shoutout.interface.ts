@@ -1,6 +1,10 @@
+export interface ShoutoutRecipientInput {
+  recipientId: string;
+  points: number;
+}
+
 export interface CreateShoutoutInput {
-  recipientIds: string[];
-  pointsPerRecipient: number;
+  recipients: ShoutoutRecipientInput[];
   message: string;
   categoryIds?: string[];
   source?: 'api' | 'slack';

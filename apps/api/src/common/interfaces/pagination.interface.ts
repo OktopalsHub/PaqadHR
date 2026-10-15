@@ -1,4 +1,4 @@
-export type IPaginatedData<T = any> = {
+export type IPaginatedData<T = unknown> = {
   name: string;
   size: number;
   pageCount: number;

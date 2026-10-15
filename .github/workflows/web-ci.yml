@@ -1,0 +1,213 @@
+name: Web — Check, Build and Publish
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'apps/web/**'
+      - 'constants/**'
+      - '.github/scripts/**'
+      - 'patches/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'biome.json'
+      - '.github/workflows/web-ci.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'apps/web/**'
+      - 'constants/**'
+      - '.github/scripts/**'
+      - 'patches/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'biome.json'
+      - '.github/workflows/web-ci.yml'
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Resolve public env for target branch
+        id: env
+        run: |
+          TARGET="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
+          if [ "$TARGET" = "main" ]; then
+            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high --ignore GHSA-vfj7-8cjw-p6xm
+
+      - name: Check braces patch (CVE-2026-93687)
+        run: pnpm check:patches
+
+      - name: Lint web
+        run: pnpm --filter web check
+
+      - name: Build web
+        run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ steps.env.outputs.api_url }}
+          NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
+          NEXT_PUBLIC_APP_DOMAIN: paqadhr.com
+          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'true'
+          NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
+
+  cf-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Resolve public env for target branch
+        id: env
+        run: |
+          TARGET="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
+          if [ "$TARGET" = "main" ]; then
+            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: OpenNext Cloudflare build
+        run: pnpm --filter web cf:build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ steps.env.outputs.api_url }}
+          NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
+          NEXT_PUBLIC_APP_DOMAIN: paqadhr.com
+          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'true'
+          NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
+
+  build-and-publish:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    needs: check-and-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase repository name
+        run: |
+          REPO_LC=${GITHUB_REPOSITORY,,}
+          echo "REPO=${REPO_LC}" >> $GITHUB_ENV
+          echo "PACKAGE_NAME=${REPO_LC##*/}-web" >> $GITHUB_ENV
+
+      - name: Resolve public env for branch
+        id: env
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ env.REPO }}-web
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ steps.env.outputs.api_url }}
+            NEXT_PUBLIC_APP_URL=${{ steps.env.outputs.app_url }}
+            NEXT_PUBLIC_APP_DOMAIN=paqadhr.com
+            NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS=true
+            NEXT_PUBLIC_APP_BUILD_ID=${{ github.sha }}
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+            NEXT_PUBLIC_R2_PUBLIC_URL=${{ secrets.NEXT_PUBLIC_R2_PUBLIC_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Prune untagged GHCR manifests
+        uses: actions/delete-package-versions@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          package-name: ${{ env.PACKAGE_NAME }}
+          package-type: container
+          delete-only-untagged-versions: true
+          min-versions-to-keep: 5
+
+      - name: Trigger Dokploy webhook
+        env:
+          DOKPLOY_WEB_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEB_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DOKPLOY_WEB_WEBHOOK_URL" ]; then
+            echo "DOKPLOY_WEB_WEBHOOK_URL not set — skipping deploy trigger"
+            exit 0
+          fi
+          # Dokploy expects a GitHub-style push payload (bare POST returns 400).
+          # Also requires Auto Deploy enabled on the Dokploy application.
+          BODY=$(jq -nc \
+            --arg ref "refs/heads/${GITHUB_REF_NAME}" \
+            --arg id "${GITHUB_SHA}" \
+            --arg msg "CI deploy ${GITHUB_SHA:0:7} (${GITHUB_REF_NAME})" \
+            '{ref:$ref,head_commit:{id:$id,message:$msg}}')
+          RESP=$(curl -sS -w "\n%{http_code}" -X POST "$DOKPLOY_WEB_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -d "$BODY")
+          CODE=$(echo "$RESP" | tail -n1)
+          BODY_OUT=$(echo "$RESP" | sed '$d')
+          echo "Dokploy response ($CODE): $BODY_OUT"
+          if [ "$CODE" -lt 200 ] || [ "$CODE" -ge 300 ]; then
+            exit 22
+          fi

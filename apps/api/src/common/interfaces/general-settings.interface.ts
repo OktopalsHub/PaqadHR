@@ -4,6 +4,7 @@ export interface GeneralSettings {
   currency: string;
 
   payrollCurrencies?: string[];
+  cryptoEnabled?: boolean;
   language: string;
   companyName: string;
   paginationLimit?: number;

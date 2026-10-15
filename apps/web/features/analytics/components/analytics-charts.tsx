@@ -50,11 +50,7 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
 
   return (
     <div className="grid gap-4 xl:grid-cols-12">
-      <ContentCard
-        className="xl:col-span-7"
-        title="Headcount trend"
-        description="Active team size over the last 6 months"
-      >
+      <ContentCard className="xl:col-span-7" title="Headcount trend">
         <ChartContainer config={headcountConfig} className="aspect-[16/9] h-[280px] w-full">
           <LineChart data={data.headcountTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -71,11 +67,7 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
         </ChartContainer>
       </ContentCard>
 
-      <ContentCard
-        className="xl:col-span-5"
-        title="Hiring pipeline"
-        description="Candidates by current stage"
-      >
+      <ContentCard className="xl:col-span-5" title="Hiring pipeline">
         {data.recruitment.pipelineByStatus.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">No candidates yet.</p>
         ) : (
@@ -98,11 +90,7 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
         )}
       </ContentCard>
 
-      <ContentCard
-        className="xl:col-span-6"
-        title="Applications"
-        description="Monthly candidate volume"
-      >
+      <ContentCard className="xl:col-span-6" title="Applications">
         <ChartContainer config={applicationsConfig} className="aspect-[16/9] h-[260px] w-full">
           <BarChart
             data={data.recruitment.applicationsByMonth}
@@ -116,11 +104,7 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
         </ChartContainer>
       </ContentCard>
 
-      <ContentCard
-        className="xl:col-span-6"
-        title="Leave requests"
-        description="Distribution by status"
-      >
+      <ContentCard className="xl:col-span-6" title="Leave requests">
         {data.leaves.byStatus.length === 0 ? (
           <p className="py-12 text-center text-sm text-muted-foreground">
             No leave requests recorded.
@@ -137,11 +121,7 @@ export function AnalyticsCharts({ data }: AnalyticsChartsProps) {
         )}
       </ContentCard>
 
-      <ContentCard
-        className="xl:col-span-12"
-        title="Department headcount"
-        description="Active members per department"
-      >
+      <ContentCard className="xl:col-span-12" title="Department headcount">
         {departmentData.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No departments yet.</p>
         ) : (

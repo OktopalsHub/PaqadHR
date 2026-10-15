@@ -1,15 +1,22 @@
 'use client';
 
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
+import { useEffect, useRef } from 'react';
+import { LoadingSpinner } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
+import { readIdleLock } from '@/lib/auth/idle-lock';
 import {
-  authDestinationToPath,
+  captureAuthReturnTo,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
-import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import {
+  isSubdomainTenantsEnabled,
+  tenantRoot,
+  tenantSubpathFromPathname,
+  tenantUrl,
+} from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function TenantSlugGate({ children }: { children: React.ReactNode }) {
@@ -17,82 +24,115 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const params = useParams<{ tenantSlug: string }>();
   const tenantSlug = params.tenantSlug;
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { tenant, tenants, isLoading: tenantLoading, hasResolvedTenants, isError } = useTenant();
+  const redirectedRef = useRef(false);
+  const onboardingRedirectRef = useRef(false);
+  const { user, isAuthenticated, isLoading: authLoading, hasResolvedSession } = useAuth();
+  const {
+    tenant,
+    tenants,
+    selectTenantId,
+    isLoading: tenantLoading,
+    hasResolvedTenants,
+  } = useTenant();
+  const idleLocked = typeof window !== 'undefined' && Boolean(readIdleLock());
 
+  const slugTenant = tenants.find((item) => item.slug === tenantSlug);
   const isLoading = authLoading || (isAuthenticated && tenantLoading);
+  const keepShell = Boolean(user) || idleLocked || isAuthenticated;
 
   useEffect(() => {
-    if (authLoading) return;
+    if (idleLocked) return;
+    if (authLoading || !hasResolvedSession) return;
 
     if (!isAuthenticated) {
       const destination = resolveAuthDestination({
         isAuthenticated: false,
         tenants: [],
-        redirect: pathname,
+        redirect: captureAuthReturnTo(pathname),
       });
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
       return;
     }
 
-    if (tenantLoading || !hasResolvedTenants || isError) return;
+    if (!hasResolvedTenants) return;
 
-    const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
-    if (destination.type === 'onboarding') {
-      router.replace(authDestinationToPath(destination));
+    const destination = resolveAuthDestination({
+      isAuthenticated: true,
+      tenants,
+    });
+    if (destination.type === 'onboarding' && !onboardingRedirectRef.current) {
+      onboardingRedirectRef.current = true;
+      goToAuthDestination(destination, router.replace);
       return;
     }
 
-    if (tenant && tenant.slug !== tenantSlug) {
-      const suffix = pathname.replace(`/${tenantSlug}`, '') || '';
-      router.replace(`${tenantRoot(tenant.slug)}${suffix}`);
+    if (!slugTenant && tenants.length > 0 && !redirectedRef.current) {
+      redirectedRef.current = true;
+      const fallback =
+        tenants.find((item) => item.id === tenant?.id) ??
+        tenants.find((item) => item.isActive) ??
+        tenants[0];
+      if (fallback?.slug) {
+        if (isSubdomainTenantsEnabled()) {
+          window.location.assign(
+            tenantUrl(fallback.slug, tenantSubpathFromPathname(pathname, tenantSlug)),
+          );
+          return;
+        }
+        const suffix = pathname.replace(`/${tenantSlug}`, '') || '';
+        router.replace(`${tenantRoot(fallback.slug)}${suffix}`);
+      }
     }
   }, [
     authLoading,
+    hasResolvedSession,
     isAuthenticated,
-    tenantLoading,
     hasResolvedTenants,
-    isError,
     tenant,
     tenantSlug,
     tenants,
+    slugTenant,
     pathname,
     router,
+    idleLocked,
   ]);
 
-  if (isLoading || !hasResolvedTenants) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+  useEffect(() => {
+    if (!slugTenant || tenant?.id === slugTenant.id) return;
+    selectTenantId(slugTenant.id);
+  }, [slugTenant, tenant?.id, selectTenantId]);
+
+  if (idleLocked) {
+    return <>{children}</>;
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+  if (!keepShell && (isLoading || !hasResolvedSession || !hasResolvedTenants)) {
+    return <LoadingSpinner />;
   }
 
-  if (isError) {
+  if (hasResolvedSession && !isAuthenticated) {
+    return <LoadingSpinner />;
+  }
+
+  if (!slugTenant) {
+    if (keepShell && (!hasResolvedSession || !hasResolvedTenants)) {
+      return <>{children}</>;
+    }
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
         <Alert variant="destructive" className="max-w-md">
-          <AlertTitle>Unable to load workspace</AlertTitle>
-          <AlertDescription>Refresh the page or try signing in again.</AlertDescription>
+          <AlertTitle>Workspace not found</AlertTitle>
+          <AlertDescription>
+            You don&apos;t have access to this workspace, or it doesn&apos;t exist.
+          </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  if (tenants.length === 0 || !tenant || tenant.slug !== tenantSlug) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+  // Keep shell while tenant selection catches up to the URL slug.
+  if (!tenant || tenant.id !== slugTenant.id) {
+    return <>{children}</>;
   }
 
   return <>{children}</>;

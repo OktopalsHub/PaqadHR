@@ -1,17 +1,40 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { fetchEmployeeById, fetchEmployees } from '@/lib/api/employees';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchEmployeeById,
+  fetchEmployeeSummary,
+  fetchEmployees,
+  updateEmployee,
+  updateEmployeeMemberStatus,
+} from '@/lib/api/employees';
 import { queryKeys } from '@/lib/query/keys';
+import type { Employee } from '@/lib/schemas/employee';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function useEmployees() {
+export function useEmployeeSummary(options?: { enabled?: boolean }) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.employees.summary, tenantId],
+    queryFn: () => fetchEmployeeSummary(tenantId ?? undefined),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
+    staleTime: 60_000,
+  });
+}
+
+export function useEmployees<T = Employee[]>(options?: {
+  enabled?: boolean;
+  select?: (data: Employee[]) => T;
+}) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.employees.all, tenantId],
     queryFn: fetchEmployees,
-    enabled: !tenantLoading && Boolean(tenantId),
+    select: options?.select,
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
+    staleTime: 60_000,
   });
 }
 
@@ -20,5 +43,44 @@ export function useEmployee(id: string | undefined) {
     queryKey: queryKeys.employees.detail(id ?? ''),
     queryFn: () => fetchEmployeeById(id!),
     enabled: Boolean(id),
+  });
+}
+
+export function useUpdateEmployeeMemberStatus(memberId: string) {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (isActive: boolean) => updateEmployeeMemberStatus(memberId, isActive),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(memberId) }),
+        queryClient.invalidateQueries({ queryKey: [...queryKeys.employees.all, tenantId] }),
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'member'],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
+        }),
+      ]);
+    },
+  });
+}
+
+export function useUpdateEmployeeOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ memberId, departmentId }: { memberId: string; departmentId: string | null }) =>
+      updateEmployee(memberId, { departmentId }),
+    onSuccess: async (_member, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.departments.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.employees.detail(variables.memberId), 'member'],
+        }),
+      ]);
+    },
   });
 }

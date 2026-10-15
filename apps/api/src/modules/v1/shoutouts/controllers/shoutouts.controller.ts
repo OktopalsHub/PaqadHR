@@ -10,16 +10,19 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, TenantId } from 'src/common/decorators';
+import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreateShoutoutDto } from '../dto/create-shoutout.dto';
-import type { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';
+import { CreateShoutoutDto } from '../dto/create-shoutout.dto';
+import { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';
 import { ShoutoutPaginatedResponseDto, ShoutoutResponseDto } from '../dto/shoutout-response.dto';
 import { ShoutoutsService } from '../services/shoutouts.service';
 
 @ApiTags('Shoutouts')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 @Controller('tenants/:tenantId/shoutouts')
 export class ShoutoutsController {
   constructor(private readonly shoutoutsService: ShoutoutsService) {}
@@ -34,8 +37,7 @@ export class ShoutoutsController {
     @Body() dto: CreateShoutoutDto,
   ) {
     return this.shoutoutsService.createShoutout(tenantId, member.id, {
-      recipientIds: dto.recipientIds,
-      pointsPerRecipient: dto.pointsPerRecipient,
+      recipients: dto.recipients,
       message: dto.message,
       categoryIds: dto.categoryIds,
       source: 'api',

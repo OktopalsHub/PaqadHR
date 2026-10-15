@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,6 +19,7 @@ import { useCreateDepartment } from '@/hooks/queries/use-departments';
 type CreateDepartmentDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (id: string) => void;
 };
 
 const COLORS = [
@@ -31,32 +33,42 @@ const COLORS = [
   '#64748b', // Slate
 ];
 
-export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentDialogProps) {
+export function CreateDepartmentDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: CreateDepartmentDialogProps) {
   const createDepartment = useCreateDepartment();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
 
   const reset = () => {
     setName('');
     setDescription('');
     setSelectedColor(COLORS[0]);
+    setConfirmationOpen(false);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const requestCreate = (event: React.FormEvent) => {
     event.preventDefault();
     if (name.trim().length < 2) {
       toast.error('Department name must be at least 2 characters');
       return;
     }
+    setConfirmationOpen(true);
+  };
 
+  const createDepartmentRecord = async () => {
     try {
-      await createDepartment.mutateAsync({
+      const created = await createDepartment.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
         color: selectedColor,
       });
       toast.success('Department created');
+      onCreated?.(created.id);
       reset();
       onOpenChange(false);
     } catch (error) {
@@ -73,7 +85,7 @@ export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentD
       }}
     >
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={(event) => void handleSubmit(event)}>
+        <form onSubmit={requestCreate}>
           <DialogHeader>
             <DialogTitle>Add department</DialogTitle>
           </DialogHeader>
@@ -146,6 +158,15 @@ export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentD
           </DialogFooter>
         </form>
       </DialogContent>
+      <ConfirmActionDialog
+        open={confirmationOpen}
+        onOpenChange={setConfirmationOpen}
+        title="Create department?"
+        description={`“${name.trim()}” will be added to your workspace.`}
+        actionLabel="Create department"
+        isPending={createDepartment.isPending}
+        onConfirm={() => void createDepartmentRecord()}
+      />
     </Dialog>
   );
 }

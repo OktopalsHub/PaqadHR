@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
-import type { IntegrationType } from 'src/common/enums';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { IntegrationType, TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
 import type { IntegrationConfig } from '../integration.types';
@@ -10,10 +12,13 @@ import { PlatformIntegrationService } from '../services/platform-integration.ser
 @Controller('tenants/:tenantId/integrations')
 @UseGuards(TenantMemberGuard)
 @ApiTags('Integrations')
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 export class IntegrationController {
   constructor(private readonly integrationService: PlatformIntegrationService) {}
 
   @Post('/:type')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createIntegration(
     @Param('tenantId') tenantId: string,
     @Param('type') type: IntegrationType,
@@ -33,12 +38,9 @@ export class IntegrationController {
     return this.integrationService.getShoutoutSlackStatus(tenantId);
   }
 
-  @Post('/:id/sync-users')
-  async syncUsers(@Param('id') integrationId: string, @Body() body: { channelId?: string }) {
-    return this.integrationService.syncUsers(integrationId, body.channelId);
-  }
-
   @Post('/:id/disconnect')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async disconnectIntegration(
     @Param('tenantId') tenantId: string,
     @Param('id') integrationId: string,
@@ -48,6 +50,8 @@ export class IntegrationController {
   }
 
   @Post('/:id/reconnect')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async reconnectIntegration(
     @Param('tenantId') tenantId: string,
     @Param('id') integrationId: string,
@@ -57,6 +61,8 @@ export class IntegrationController {
   }
 
   @Get('/:id/unmatched-users')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getUnmatchedUsers(@Param('tenantId') tenantId: string, @Param('id') integrationId: string) {
     return this.integrationService.getUnmatchedUsers(integrationId);
   }
@@ -67,6 +73,8 @@ export class IntegrationController {
   }
 
   @Post('/:id/bulk-invite-unmatched')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async bulkInviteUnmatchedUsers(
     @Param('tenantId') tenantId: string,
     @Param('id') integrationId: string,
@@ -87,6 +95,8 @@ export class IntegrationController {
   }
 
   @Post('/:id/manual-match-user')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async manualMatchUser(
     @Param('tenantId') tenantId: string,
     @Param('id') integrationId: string,

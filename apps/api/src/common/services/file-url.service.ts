@@ -89,13 +89,6 @@ export class FileUrlService {
       fileName: fileName,
     });
   }
-  getAssetDocumentUrl(tenantId: string, fileName: string): string | null {
-    return this.generateFileUrl({
-      tenantId,
-      location: FileUploadLocation.ASSETS,
-      fileName: fileName,
-    });
-  }
   getAttachmentUrl(tenantId: string, fileName: string): string | null {
     return this.generateFileUrl({
       tenantId,

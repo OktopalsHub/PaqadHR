@@ -12,4 +12,6 @@ export enum AuditEventType {
   PAYROLL_DISBURSED_MANUAL = 'payroll_disbursed_manual',
   PAYROLL_EXPORTED = 'payroll_exported',
   PAYSLIPS_PUBLISHED = 'payslips_published',
+  PAYROLL_PAYMENT_SETUP_NOTIFIED = 'payroll_payment_setup_notified',
+  PAYROLL_SCHEDULED = 'payroll_scheduled',
 }

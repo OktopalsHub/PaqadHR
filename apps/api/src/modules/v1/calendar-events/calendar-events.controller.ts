@@ -17,7 +17,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CalendarEventsService } from './calendar-events.service';
-import type { CreateCalendarEventDto, UpdateCalendarEventDto } from './dto/calendar-event.dto';
+import { CreateCalendarEventDto, UpdateCalendarEventDto } from './dto/calendar-event.dto';
 
 @ApiTags('Calendar Events')
 @Controller('tenants/:tenantId/calendar-events')
@@ -52,15 +52,20 @@ export class CalendarEventsController {
     @Param('tenantId') tenantId: string,
     @Param('eventId') eventId: string,
     @Body() dto: UpdateCalendarEventDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.calendarEventsService.update(tenantId, eventId, dto);
+    return this.calendarEventsService.update(tenantId, eventId, dto, member.id);
   }
 
   @Delete(':eventId')
   @HttpCode(204)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
-  async remove(@Param('tenantId') tenantId: string, @Param('eventId') eventId: string) {
-    await this.calendarEventsService.remove(tenantId, eventId);
+  async remove(
+    @Param('tenantId') tenantId: string,
+    @Param('eventId') eventId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    await this.calendarEventsService.remove(tenantId, eventId, member.id);
   }
 }

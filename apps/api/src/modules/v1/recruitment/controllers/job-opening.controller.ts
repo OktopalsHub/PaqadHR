@@ -14,20 +14,21 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
-import { EmploymentType, JobStatus } from 'src/common/enums';
+import { EmploymentType, JobStatus, TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreateJobOpeningDto } from '../dto/index';
-import type { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
+import { CreateJobOpeningDto } from '../dto/index';
+import { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
 import { JobOpening } from '../entities/job-opening.entity';
 import { JobOpeningService } from '../services/job-opening.service';
 
 @ApiTags('Job Openings')
 @Controller('tenants/:tenantId/jobs')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard)
+@Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
 @RequireFeatures(FeatureAccess.RECRUITMENT)
 export class JobOpeningController {
   private readonly logger = new Logger(JobOpeningController.name);
@@ -69,7 +70,6 @@ export class JobOpeningController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<JobOpening> {
     try {
-      this.logger.log(`Creating job opening for tenant ${tenantId} by member ${member.id}`);
       return await this.jobOpeningService.createJob(tenantId, member.id, createJobOpeningDto);
     } catch (error) {
       this.logger.error(`Failed to create job opening for tenant ${tenantId}:`, error);
@@ -182,7 +182,6 @@ export class JobOpeningController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<JobOpening> {
     try {
-      this.logger.log(`Updating job opening ${jobId} for tenant ${tenantId}`);
       return await this.jobOpeningService.updateJob(
         jobId,
         tenantId,

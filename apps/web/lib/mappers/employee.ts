@@ -5,6 +5,7 @@ export type ApiTenantMember = {
   id: string;
   firstName: string;
   lastName: string;
+  middleName?: string;
   preferredName?: string;
   phone?: string;
   dateOfBirth?: string;
@@ -15,9 +16,11 @@ export type ApiTenantMember = {
   joinDate?: string;
   avatarUrl?: string;
   reportsToId?: string;
+  hasIdentityBvn?: boolean;
+  hasIdentityNin?: boolean;
   user: { email: string };
   position?: { id: string; title: string; color?: string };
-  department?: { name: string; role?: string; color?: string };
+  department?: { id: string; name: string; role?: string; color?: string };
 };
 
 export function formatApiTenantMember(member: ApiTenantMember): ApiTenantMember {
@@ -25,6 +28,7 @@ export function formatApiTenantMember(member: ApiTenantMember): ApiTenantMember 
     ...member,
     firstName: formatDisplayName(member.firstName, member.firstName),
     lastName: formatDisplayName(member.lastName, member.lastName),
+    middleName: member.middleName ? formatDisplayName(member.middleName) : member.middleName,
     preferredName: member.preferredName
       ? formatDisplayName(member.preferredName)
       : member.preferredName,
@@ -39,6 +43,8 @@ export function mapTenantMemberToEmployee(member: ApiTenantMember): Employee {
   const name =
     formatPersonName(member.firstName, member.lastName, '') ||
     formatDisplayName(member.preferredName, 'Unknown');
+  const departmentColor = member.department?.color;
+  const positionColor = member.position?.color;
 
   return {
     id: member.id,
@@ -51,8 +57,11 @@ export function mapTenantMemberToEmployee(member: ApiTenantMember): Employee {
     avatar: member.avatarUrl ?? '',
     reportsToId: member.reportsToId ?? undefined,
     employeeNumber: member.employeeNumber,
-    departmentColor: member.department?.color,
-    positionColor: member.position?.color,
+    // Omit absent optional values instead of serialising them as `undefined`.
+    // This keeps the response safe to validate when a member has no position
+    // or department assigned yet.
+    ...(departmentColor ? { departmentColor } : {}),
+    ...(positionColor ? { positionColor } : {}),
   };
 }
 

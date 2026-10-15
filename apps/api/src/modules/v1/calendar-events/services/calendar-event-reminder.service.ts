@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ENVIRONMENT } from 'src/common/config/env.config';
 import { NotificationChannel } from 'src/common/enums/notification-channel.enum';
 import { NotificationPreferenceType } from 'src/common/enums/notification-preference-type.enum';
 import { NotificationPriority } from 'src/common/enums/notification-priority.enum';
 import { NotificationType } from 'src/common/enums/notification-type.enum';
+import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { IsNull, MoreThanOrEqual, Not, Repository } from 'typeorm';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { NotificationPreferenceService } from '../../notifications/services/notification-preference.service';
@@ -22,8 +22,6 @@ import {
 
 @Injectable()
 export class CalendarEventReminderService {
-  private readonly logger = new Logger(CalendarEventReminderService.name);
-
   constructor(
     @InjectRepository(TenantCalendarEvent)
     private readonly eventRepository: Repository<TenantCalendarEvent>,
@@ -124,7 +122,7 @@ export class CalendarEventReminderService {
     if (activeMembers.length === 0) return 0;
 
     const tenant = event.tenant ?? (await this.tenantsService.getTenant(event.tenantId));
-    const scheduleUrl = `${ENVIRONMENT.APP.FRONTEND_URL.replace(/\/$/, '')}/${tenant.slug}/schedule`;
+    const scheduleUrl = tenantFrontendUrl(tenant.slug, '/schedule');
     const startLabel = formatEventStartLabel(event, timezone);
     const leadLabel = formatReminderLeadLabel(event.reminderMinutes ?? 0);
     const title = 'Schedule reminder';
@@ -142,7 +140,7 @@ export class CalendarEventReminderService {
         priority: NotificationPriority.HIGH,
         title,
         message,
-        recipientId: member.userId,
+        recipientId: member.id,
         tenantId: event.tenantId,
         actionData: {
           url: scheduleUrl,
@@ -158,12 +156,6 @@ export class CalendarEventReminderService {
         },
       });
       delivered += 1;
-    }
-
-    if (delivered > 0) {
-      this.logger.log(
-        `Sent calendar reminder for event ${event.id} (${event.title}) to ${delivered} recipients`,
-      );
     }
 
     return delivered;

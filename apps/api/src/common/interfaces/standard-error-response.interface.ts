@@ -7,5 +7,5 @@ export interface StandardErrorResponse {
   traceId: string;
   errors?: Record<string, string[]>;
   code?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }

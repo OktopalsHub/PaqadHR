@@ -54,6 +54,10 @@ export class TenantMember extends BaseEntity {
   dateOfBirth: Date | null;
   @Column({ type: 'enum', enum: Gender, nullable: true })
   gender: Gender | null;
+  @Column({ name: 'identity_bvn', type: 'varchar', nullable: true })
+  identityBvn: string | null;
+  @Column({ name: 'identity_nin', type: 'varchar', nullable: true })
+  identityNin: string | null;
   @Column({ default: TenantMemberRole.MEMBER })
   role: string;
   @Column({ name: 'is_active', default: true })

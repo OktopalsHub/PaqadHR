@@ -1,4 +1,10 @@
-import { RESERVED_ROUTE_SEGMENTS } from '@/lib/navigation/tenant-routes';
+import { isReservedTenantSlug } from '@/lib/constants/reserved-tenant-slugs';
+import {
+  getWorkspaceUrlPrefix,
+  getWorkspaceUrlSuffix,
+  isSubdomainTenantsEnabled,
+  tenantHostPreview,
+} from '@/lib/navigation/tenant-routes';
 
 const SLUG_MAX_LENGTH = 25;
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -19,16 +25,21 @@ export function isSlugFormatValid(slug: string): boolean {
 }
 
 export function isSlugReserved(slug: string): boolean {
-  return RESERVED_ROUTE_SEGMENTS.has(slug);
+  return isReservedTenantSlug(slug);
 }
 
 export function getAppBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/`;
+  return getWorkspaceUrlPrefix();
+}
+
+export function getAppUrlSuffix(): string {
+  return getWorkspaceUrlSuffix();
+}
+
+export function formatWorkspaceUrl(slug: string): string {
+  if (isSubdomainTenantsEnabled()) {
+    const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
+    return `${protocol}//${tenantHostPreview(slug)}`;
   }
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configured) {
-    return configured.endsWith('/') ? configured : `${configured}/`;
-  }
-  return '/';
+  return `${getWorkspaceUrlPrefix()}${slug}`;
 }

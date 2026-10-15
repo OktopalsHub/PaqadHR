@@ -43,20 +43,35 @@ export class CandidateRepository extends Repository<Candidate> {
     });
   }
   async findByEmailAndJob(email: string, jobOpeningId: string): Promise<Candidate | null> {
-    return this.findOne({
-      where: { email, jobOpeningId },
-      relations: ['jobOpening'],
-      withDeleted: false,
-    });
+    const normalizedEmail = email.trim().toLowerCase();
+    return this.createQueryBuilder('candidate')
+      .where('candidate.jobOpeningId = :jobOpeningId', { jobOpeningId })
+      .andWhere('LOWER(candidate.email) = :email', { email: normalizedEmail })
+      .getOne();
   }
   async findByApplicationIdAndEmail(
     applicationId: string,
     email: string,
   ): Promise<Candidate | null> {
-    return this.findOne({
-      where: { id: applicationId, email },
-      relations: ['jobOpening'],
-    });
+    const normalizedEmail = email.trim().toLowerCase();
+    return this.createQueryBuilder('candidate')
+      .where('candidate.id = :applicationId', { applicationId })
+      .andWhere('LOWER(candidate.email) = :email', { email: normalizedEmail })
+      .leftJoinAndSelect('candidate.jobOpening', 'jobOpening')
+      .getOne();
+  }
+  async findByApplicationIdEmailAndJob(
+    applicationId: string,
+    email: string,
+    jobOpeningId: string,
+  ): Promise<Candidate | null> {
+    const normalizedEmail = email.trim().toLowerCase();
+    return this.createQueryBuilder('candidate')
+      .where('candidate.id = :applicationId', { applicationId })
+      .andWhere('candidate.jobOpeningId = :jobOpeningId', { jobOpeningId })
+      .andWhere('LOWER(candidate.email) = :email', { email: normalizedEmail })
+      .leftJoinAndSelect('candidate.jobOpening', 'jobOpening')
+      .getOne();
   }
   async findAllByTenant(
     tenantId: string,

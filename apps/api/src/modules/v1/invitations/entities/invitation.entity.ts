@@ -11,10 +11,10 @@ export class Invitation extends BaseEntity {
   email: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @Column({ name: 'first_name' })
-  firstName: string;
-  @Column({ name: 'last_name' })
-  lastName: string;
+  @Column({ name: 'first_name', type: 'varchar', length: 50, nullable: true })
+  firstName?: string;
+  @Column({ name: 'last_name', type: 'varchar', length: 50, nullable: true })
+  lastName?: string;
   @Column({ name: 'middle_name', nullable: true })
   middleName?: string;
   @Column({ name: 'job_title', nullable: true })

@@ -1,8 +1,1 @@
-export const trustedLogos = [
-  'Acme Labs',
-  'Northwind',
-  'Brightpath',
-  'Kora Health',
-  'Stackline',
-  'Vertex Co',
-];
+export const trustedLogos = ['TeamLyf', 'Sanarwa', 'Nomidat', 'Kaizen', 'Nkata', 'SoonWhy'];

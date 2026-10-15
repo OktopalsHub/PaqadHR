@@ -1,6 +1,7 @@
 export * from './auth.decorator';
 export * from './detected-country.decorator';
 export * from './feature-access.decorator';
+export * from './normalize-email.decorator';
 export * from './public.decorator';
 export * from './rate-limit.decorator';
 export * from './skip-member.decorator';

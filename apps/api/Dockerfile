@@ -8,6 +8,7 @@ WORKDIR /app
 
 FROM base AS dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
 COPY apps/api/package.json ./apps/api/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
@@ -24,14 +25,17 @@ WORKDIR /app/apps/api
 ENV NODE_ENV=production
 ENV PORT=9001
 EXPOSE 9001
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:9001/health || exit 1
+# Liveness only (/). /health is readiness (DB) and must not restart the container.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:9001/ || exit 1
 
 COPY --from=dependencies /app/node_modules /app/node_modules
 COPY --from=dependencies /app/apps/api/node_modules ./node_modules
 COPY --from=builder /app/apps/api/dist ./dist
+# Runtime readFileSync resolves to /app/constants from dist/common/constants/
+COPY constants /app/constants
 COPY apps/api/package.json ./
 
 RUN npm install -g pm2@latest
 USER node
-CMD ["pm2", "start", "-s", "dist/main.js", "--name", "paqad-api", "-i", "max", "--no-daemon"]
+CMD ["sh", "-c", "npx typeorm migration:run -d dist/common/database/config/data-source.js && pm2 start -s dist/main.js --name paqad-api -i 1 --no-daemon"]

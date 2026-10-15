@@ -1,165 +1,199 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FindOptionsWhere, In, IsNull, type Repository } from 'typeorm';
+
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
 import { NotificationStatus } from '../../../../common/enums/notification-status.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
+import { ActivitiesService } from '../../activities/services/activities.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type {
   CreateBulkNotificationDto,
   CreateNotificationDto,
 } from '../dto/create-notification.dto';
 import { Notification } from '../entities/notification.entity';
 import { NotificationPreference } from '../entities/notification-preference.entity';
-import { SSENotificationService } from './sse-notification.service';
-import { ZeptomailEmailService } from './zeptomail-email.service';
+import { NotificationDeliveryService } from './notification-delivery.service';
 
 @Injectable()
 export class NotificationService {
-  private readonly logger = new Logger(NotificationService.name);
   constructor(
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
     @InjectRepository(NotificationPreference)
     _preferenceRepository: Repository<NotificationPreference>,
-    private emailService: ZeptomailEmailService,
-    private sseNotificationService: SSENotificationService,
+    private tenantMembersService: TenantMembersService,
+    private readonly activitiesService: ActivitiesService,
+    private readonly deliveryService: NotificationDeliveryService,
   ) {}
-  async createNotification(createNotificationDto: CreateNotificationDto): Promise<Notification> {
-    const notification = this.notificationRepository.create(createNotificationDto);
-    const savedNotification = await this.notificationRepository.save(notification);
-    await this.sendNotification(savedNotification);
-    return savedNotification;
+
+  async createNotification(dto: CreateNotificationDto): Promise<Notification> {
+    if (dto.recipientId && dto.tenantId) {
+      await this.assertRecipientIsTenantMember(dto.recipientId, dto.tenantId);
+    }
+
+    const notification = this.notificationRepository.create(dto);
+    const saved = await this.notificationRepository.save(notification);
+    await this.deliver(saved);
+    return saved;
   }
-  async createBulkNotifications(createBulkDto: CreateBulkNotificationDto): Promise<Notification[]> {
-    const notifications = createBulkDto.recipientIds.map((recipientId) =>
+
+  async createBulkNotifications(dto: CreateBulkNotificationDto): Promise<Notification[]> {
+    if (dto.tenantId) {
+      await this.assertRecipientsAreTenantMembers(dto.recipientIds, dto.tenantId);
+    }
+
+    const notifications = dto.recipientIds.map((recipientId) =>
       this.notificationRepository.create({
-        ...createBulkDto,
+        ...dto,
         type: NotificationType.USER,
         recipientId,
       }),
     );
-    const savedNotifications = await this.notificationRepository.save(notifications);
-    await Promise.allSettled(
-      savedNotifications.map((notification) => this.sendNotification(notification)),
-    );
-    return savedNotifications;
+
+    const saved = await this.notificationRepository.save(notifications);
+    await Promise.allSettled(saved.map((n) => this.deliver(n)));
+    return saved;
   }
+
   async sendSystemNotification(
     title: string,
     message: string,
     channel: NotificationChannel = NotificationChannel.IN_APP,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
-    const _notification = await this.createNotification({
+    await this.createNotification({
       type: NotificationType.SYSTEM,
       channel,
       title,
       message,
       metadata,
     });
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`System notification sent: ${title}`);
-    }
   }
+
   async sendTenantNotification(
     tenantId: string,
     title: string,
     message: string,
     channel: NotificationChannel = NotificationChannel.IN_APP,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
+    priority?: NotificationPriority,
   ): Promise<void> {
-    const _notification = await this.createNotification({
+    await this.createNotification({
       type: NotificationType.TENANT,
       channel,
       title,
       message,
       tenantId,
       metadata,
+      ...(priority ? { priority } : {}),
     });
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`Tenant notification sent to ${tenantId}: ${title}`);
-    }
   }
-  async getUserNotifications(
-    userId: string,
-    tenantId?: string,
-    options?: {
-      limit?: number;
-      offset?: number;
-      unreadOnly?: boolean;
+
+  async broadcastToTenant(
+    tenantId: string,
+    dto: {
+      title: string;
+      message: string;
+      channel: NotificationChannel;
+      priority?: NotificationPriority;
+      metadata?: Record<string, unknown>;
     },
+  ): Promise<{ recipients: number }> {
+    const members = await this.tenantMembersService.listActiveTenantMembers(tenantId);
+    if (members.length === 0) {
+      return { recipients: 0 };
+    }
+
+    await this.createBulkNotifications({
+      recipientIds: members.map((member) => member.id),
+      channel: dto.channel,
+      title: dto.title,
+      message: dto.message,
+      ...(dto.priority ? { priority: dto.priority } : {}),
+      metadata: dto.metadata,
+      tenantId,
+    });
+    return { recipients: members.length };
+  }
+
+  async getUserNotifications(
+    memberId: string,
+    tenantId?: string,
+    options?: { limit?: number; offset?: number; unreadOnly?: boolean },
   ): Promise<{ notifications: Notification[]; total: number }> {
-    const where: FindOptionsWhere<Notification>[] = [{ recipientId: userId }];
+    const where: FindOptionsWhere<Notification>[] = [];
+
     if (tenantId) {
       where.push(
+        { tenantId, recipientId: memberId },
         { tenantId, recipientId: IsNull() },
-        {
-          type: NotificationType.SYSTEM,
-          tenantId: IsNull(),
-          recipientId: IsNull(),
-        },
+        { type: NotificationType.SYSTEM, tenantId: IsNull(), recipientId: IsNull() },
       );
     } else {
-      where.push({
-        type: NotificationType.SYSTEM,
-        tenantId: IsNull(),
-        recipientId: IsNull(),
-      });
+      where.push({ type: NotificationType.SYSTEM, tenantId: IsNull(), recipientId: IsNull() });
     }
-    const queryBuilder = this.notificationRepository
-      .createQueryBuilder('notification')
+
+    const qb = this.notificationRepository
+      .createQueryBuilder('n')
       .where(where)
-      .orderBy('notification.createdAt', 'DESC');
-    if (options?.unreadOnly) {
-      queryBuilder.andWhere('notification.readAt IS NULL');
-    }
-    if (options?.limit) {
-      queryBuilder.limit(options.limit);
-    }
-    if (options?.offset) {
-      queryBuilder.offset(options.offset);
-    }
-    const [notifications, total] = await queryBuilder.getManyAndCount();
+      .orderBy('n.createdAt', 'DESC');
+
+    if (options?.unreadOnly) qb.andWhere('n.readAt IS NULL');
+    if (options?.limit) qb.limit(options.limit);
+    if (options?.offset) qb.offset(options.offset);
+
+    const [notifications, total] = await qb.getManyAndCount();
     return { notifications, total };
   }
-  async markAsRead(notificationId: string, userId: string): Promise<void> {
-    await this.notificationRepository.update(
-      {
-        id: notificationId,
-        recipientId: userId,
-      },
-      {
-        readAt: new Date(),
-        status: NotificationStatus.READ,
-      },
-    );
-  }
-  async markMultipleAsRead(notificationIds: string[], userId: string): Promise<void> {
-    await this.notificationRepository.update(
-      {
-        id: In(notificationIds),
-        recipientId: userId,
-      },
-      {
-        readAt: new Date(),
-        status: NotificationStatus.READ,
-      },
-    );
-  }
-  async markAllAsRead(userId: string, tenantId?: string): Promise<void> {
-    const where: FindOptionsWhere<Notification> = { recipientId: userId };
-    if (tenantId) {
-      where.tenantId = tenantId;
-    }
+
+  async markAsRead(notificationId: string, memberId: string, tenantId?: string): Promise<void> {
+    const where: FindOptionsWhere<Notification> = {
+      id: notificationId,
+      recipientId: memberId,
+    };
+    if (tenantId) where.tenantId = tenantId;
+
     await this.notificationRepository.update(where, {
       readAt: new Date(),
       status: NotificationStatus.READ,
     });
   }
-  async getUnreadCount(userId: string, tenantId?: string): Promise<number> {
-    const where: FindOptionsWhere<Notification>[] = [{ recipientId: userId, readAt: IsNull() }];
+
+  async markMultipleAsRead(
+    notificationIds: string[],
+    memberId: string,
+    tenantId?: string,
+  ): Promise<void> {
+    const where: FindOptionsWhere<Notification> = {
+      id: In(notificationIds),
+      recipientId: memberId,
+    };
+    if (tenantId) where.tenantId = tenantId;
+
+    await this.notificationRepository.update(where, {
+      readAt: new Date(),
+      status: NotificationStatus.READ,
+    });
+  }
+
+  async markAllAsRead(memberId: string, tenantId?: string): Promise<void> {
+    const where: FindOptionsWhere<Notification> = { recipientId: memberId };
+    if (tenantId) where.tenantId = tenantId;
+
+    await this.notificationRepository.update(where, {
+      readAt: new Date(),
+      status: NotificationStatus.READ,
+    });
+  }
+
+  async getUnreadCount(memberId: string, tenantId?: string): Promise<number> {
+    const where: FindOptionsWhere<Notification>[] = [];
+
     if (tenantId) {
       where.push(
+        { tenantId, recipientId: memberId, readAt: IsNull() },
         { tenantId, recipientId: IsNull(), readAt: IsNull() },
         {
           type: NotificationType.SYSTEM,
@@ -176,119 +210,61 @@ export class NotificationService {
         readAt: IsNull(),
       });
     }
-    return await this.notificationRepository.count({ where });
+
+    return this.notificationRepository.count({ where });
   }
-  async deleteNotification(notificationId: string, userId: string): Promise<void> {
+
+  async deleteNotification(
+    notificationId: string,
+    memberId: string,
+    tenantId?: string,
+  ): Promise<void> {
     const result = await this.notificationRepository.delete({
       id: notificationId,
-      recipientId: userId,
+      recipientId: memberId,
     });
+
     if (result.affected === 0) {
       throw new NotFoundException('Notification not found');
     }
-  }
-  private async sendNotification(notification: Notification): Promise<void> {
-    try {
-      if (
-        notification.channel === NotificationChannel.EMAIL ||
-        notification.channel === NotificationChannel.BOTH
-      ) {
-        await this.sendEmailNotification(notification);
-      }
-      if (
-        notification.channel === NotificationChannel.IN_APP ||
-        notification.channel === NotificationChannel.BOTH
-      ) {
-        await this.sendInAppNotification(notification);
-      }
-      await this.notificationRepository.update(notification.id, {
-        status: NotificationStatus.SENT,
-        sentAt: new Date(),
-      });
-    } catch (error) {
-      this.logger.error(`Failed to send notification ${notification.id}:`, error);
-      await this.notificationRepository.update(notification.id, {
-        status: NotificationStatus.FAILED,
-        errorMessage: error.message,
-        retryCount: notification.retryCount + 1,
-      });
+
+    if (tenantId) {
+      this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId: memberId,
+          action: 'notification.deleted',
+          description: 'Notification deleted',
+          metadata: { notificationId },
+        })
+        .catch(() => {});
     }
   }
-  private async sendEmailNotification(notification: Notification): Promise<void> {
-    if (!notification.recipientId) {
-      this.logger.warn('Cannot send email notification without recipient');
-      return;
-    }
-    const recipientEmail = await this.getRecipientEmail(notification.recipientId);
-    if (!recipientEmail) {
-      throw new NotFoundException('Recipient email not found');
-    }
-    if (notification.emailTemplate) {
-      await this.emailService.sendTemplateEmail(
-        recipientEmail,
-        notification.emailTemplate,
-        notification.emailContext || {},
-        {
-          subject: notification.emailSubject,
-        },
-      );
-    } else {
-      await this.emailService.sendEmail({
-        to: recipientEmail,
-        subject: notification.emailSubject || notification.title,
-        html: `
-          <h1>${notification.title}</h1>
-          <p>${notification.message}</p>
-          ${
-            notification.actionData?.url
-              ? `
-            <p><a href="${notification.actionData.url}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-              ${notification.actionData.buttonText || 'View'}
-            </a></p>
-          `
-              : ''
-          }
-        `,
-        text: `${notification.title}\n\n${notification.message}${notification.actionData?.url ? `\n\n${notification.actionData.buttonText || 'View'}: ${notification.actionData.url}` : ''}`,
-      });
+
+  // --- private helpers ---
+
+  private async deliver(notification: Notification): Promise<void> {
+    await this.deliveryService.deliver(this.notificationRepository, notification);
+  }
+
+  private async assertRecipientIsTenantMember(
+    recipientId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const exists = await this.tenantMembersService.memberExistsInTenant(tenantId, recipientId);
+    if (!exists) {
+      throw new BadRequestException('Recipient is not a member of this tenant');
     }
   }
-  private async sendInAppNotification(notification: Notification): Promise<void> {
-    if (notification.type === NotificationType.SYSTEM) {
-      this.sseNotificationService.sendSystemNotification({
-        id: notification.id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        metadata: notification.metadata,
-        actionData: notification.actionData,
-      });
-    } else if (notification.type === NotificationType.TENANT && notification.tenantId) {
-      this.sseNotificationService.sendToTenant(notification.tenantId, {
-        id: notification.id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        metadata: notification.metadata,
-        actionData: notification.actionData,
-      });
-    } else if (notification.recipientId) {
-      this.sseNotificationService.sendToUser(notification.recipientId, {
-        id: notification.id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        metadata: notification.metadata,
-        actionData: notification.actionData,
-      });
-    }
-  }
-  private async getRecipientEmail(recipientId: string): Promise<string | null> {
-    try {
-      return `user-${recipientId}@example.com`;
-    } catch (error) {
-      this.logger.error(`Failed to get recipient email for ${recipientId}:`, error);
-      return null;
+
+  private async assertRecipientsAreTenantMembers(
+    recipientIds: string[],
+    tenantId: string,
+  ): Promise<void> {
+    const memberIds = await this.tenantMembersService.filterTenantMemberIds(tenantId, recipientIds);
+    const invalid = recipientIds.find((id) => !memberIds.has(id));
+    if (invalid) {
+      throw new BadRequestException('Recipient is not a member of this tenant');
     }
   }
 }

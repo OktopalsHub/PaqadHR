@@ -19,6 +19,8 @@ export class TenantMemberPositionDto {
   color?: string;
 }
 export class TenantMemberDepartmentDto {
+  @ApiProperty({ description: 'Department ID' })
+  id: string;
   @ApiProperty({ description: 'Department name' })
   name: string;
   @ApiProperty({ description: 'Role in department', required: false })
@@ -51,6 +53,10 @@ export class TenantMemberResponseDto {
   isActive: boolean;
   @ApiProperty({ description: 'Avatar storage key', required: false })
   avatarKey?: string;
+  @ApiProperty({ description: 'Whether BVN is stored', required: false })
+  hasIdentityBvn?: boolean;
+  @ApiProperty({ description: 'Whether NIN is stored', required: false })
+  hasIdentityNin?: boolean;
   @ApiProperty({
     description: 'Avatar URL (constructed from avatarKey)',
     example: 'https://custom-domain.com/tenants/123/employees-avatar/avatar_1731668445123.jpg',
@@ -87,6 +93,7 @@ export class TenantMemberMapper {
   static toResponse(
     member: TenantMember,
     fileUrlService?: FileUrlService,
+    options?: { includeIdentityStatus?: boolean },
   ): ITenantMemberResponseDto {
     const currentPosition = member.positionHistory?.find((p) => p.isCurrent);
     const activeDepartmentMembership = member.departmentMemberships?.find((dm) => dm.isActive);
@@ -122,12 +129,17 @@ export class TenantMemberMapper {
         : undefined,
       department: activeDepartmentMembership?.department
         ? {
+            id: activeDepartmentMembership.department.id,
             name: activeDepartmentMembership.department.name,
             role: activeDepartmentMembership.role,
             color: activeDepartmentMembership.department.color,
           }
         : undefined,
     };
+    if (options?.includeIdentityStatus) {
+      response.hasIdentityBvn = Boolean(member.identityBvn?.trim());
+      response.hasIdentityNin = Boolean(member.identityNin?.trim());
+    }
     if (fileUrlService && member.avatarKey && member.tenantId) {
       response.avatarUrl =
         FileUrlMapper.mapMemberAvatar(member.avatarKey, {

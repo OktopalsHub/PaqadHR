@@ -1,12 +1,13 @@
 'use client';
 
+import { Suspense, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AttendanceExceptionsTab } from '@/features/attendance/components/attendance-exceptions-tab';
 import { AttendanceMyTab } from '@/features/attendance/components/attendance-my-tab';
+import { AttendanceReportsTab } from '@/features/attendance/components/attendance-reports-tab';
 import { AttendanceTeamTab } from '@/features/attendance/components/attendance-team-tab';
-import { useElapsedSince } from '@/features/attendance/hooks/use-elapsed-since';
-import { formatTimeOnly } from '@/features/attendance/lib/attendance-utils';
 import { useClockInInfo } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
@@ -22,8 +23,8 @@ export function AttendancePage() {
   const canViewTeam =
     isAdmin || (viewerMemberId ? hasDirectReports(viewerMemberId, employees) : false);
   const { enabled: clockInEnabled } = useClockInEnabled();
-  const { data: clockInfo, isLoading } = useClockInInfo();
-  const elapsed = useElapsedSince(clockInfo?.activeSession?.clockIn);
+  const { isLoading } = useClockInInfo();
+  const [activeTab, setActiveTab] = useState('mine');
 
   if (isLoading && clockInEnabled) {
     return (
@@ -34,46 +35,54 @@ export function AttendancePage() {
   }
 
   return (
-    <AppPage>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Attendance</h1>
-        <p className="text-sm text-muted-foreground">
-          {canViewTeam
-            ? 'Review your timesheet or browse attendance for your team'
-            : 'Filter and review your clock entries'}
-        </p>
-        {clockInEnabled && clockInfo ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {clockInfo.activeSession ? (
-              <>
-                On the clock for{' '}
-                <span className="font-medium tabular-nums text-green-700 dark:text-green-400">
-                  {elapsed || '—'}
-                </span>{' '}
-                (since {formatTimeOnly(clockInfo.activeSession.clockIn)})
-              </>
-            ) : clockInfo.canClockIn ? (
-              'Off the clock — use the green Clock in button in the header'
-            ) : (
-              clockInfo.reason
-            )}
-          </p>
-        ) : null}
-      </div>
+    <AppPage className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-5">
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="app-segmented-control">
+            <TabsTrigger value="mine" className="app-segmented-trigger sm:px-6">
+              My timesheet
+            </TabsTrigger>
+            {canViewTeam ? (
+              <TabsTrigger value="team" className="app-segmented-trigger sm:px-6">
+                Team
+              </TabsTrigger>
+            ) : null}
+            <TabsTrigger value="exceptions" className="app-segmented-trigger sm:px-6">
+              Exceptions
+            </TabsTrigger>
+            {isAdmin ? (
+              <TabsTrigger value="reports" className="app-segmented-trigger sm:px-6">
+                Reports
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+        </div>
 
-      <Tabs defaultValue="mine" className="w-full">
-        <TabsList>
-          <TabsTrigger value="mine">My timesheet</TabsTrigger>
-          {canViewTeam ? <TabsTrigger value="team">Team</TabsTrigger> : null}
-        </TabsList>
-
-        <TabsContent value="mine" className="mt-5">
-          <AttendanceMyTab />
+        <TabsContent value="mine" className="mt-0">
+          <Suspense fallback={<LoadingBlock />}>
+            <AttendanceMyTab />
+          </Suspense>
         </TabsContent>
 
         {canViewTeam ? (
-          <TabsContent value="team" className="mt-5">
-            <AttendanceTeamTab />
+          <TabsContent value="team" className="mt-0">
+            <Suspense fallback={<LoadingBlock />}>
+              <AttendanceTeamTab />
+            </Suspense>
+          </TabsContent>
+        ) : null}
+
+        <TabsContent value="exceptions" className="mt-0">
+          <Suspense fallback={<LoadingBlock />}>
+            <AttendanceExceptionsTab />
+          </Suspense>
+        </TabsContent>
+
+        {isAdmin ? (
+          <TabsContent value="reports" className="mt-0">
+            <Suspense fallback={<LoadingBlock />}>
+              <AttendanceReportsTab />
+            </Suspense>
           </TabsContent>
         ) : null}
       </Tabs>

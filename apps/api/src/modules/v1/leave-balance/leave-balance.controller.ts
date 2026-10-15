@@ -12,20 +12,22 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
-import type { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
+import { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
+import { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
 import { LeaveBalanceService } from './leave-balance.service';
 
 @ApiTags('Leave Balances')
 @Controller('tenants/:tenantId/leave-balances')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.LEAVE_MANAGEMENT)
 export class LeaveBalanceController {
   constructor(
     private readonly leaveBalanceService: LeaveBalanceService,
@@ -41,7 +43,13 @@ export class LeaveBalanceController {
     @Body() dto: CreateLeaveBalanceDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveBalanceService.createLeaveBalance(tenantId, member.id, leaveTypeId, dto);
+    return this.leaveBalanceService.createLeaveBalance(
+      tenantId,
+      member.id,
+      leaveTypeId,
+      dto,
+      member.id,
+    );
   }
 
   @Get()
@@ -103,8 +111,9 @@ export class LeaveBalanceController {
     @Param('tenantId') tenantId: string,
     @Param('balanceId') balanceId: string,
     @Body() dto: UpdateLeaveBalanceDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveBalanceService.updateLeaveBalance(balanceId, dto, tenantId);
+    return this.leaveBalanceService.updateLeaveBalance(balanceId, dto, tenantId, member.id);
   }
 
   @Delete(':balanceId')
@@ -113,7 +122,8 @@ export class LeaveBalanceController {
   async deleteLeaveBalance(
     @Param('tenantId') tenantId: string,
     @Param('balanceId') balanceId: string,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveBalanceService.deleteLeaveBalance(tenantId, balanceId);
+    return this.leaveBalanceService.deleteLeaveBalance(tenantId, balanceId, member.id);
   }
 }

@@ -77,6 +77,14 @@ export class UpdateEmploymentDto {
   payRate?: number;
   @IsString()
   @ApiProperty({
+    description: 'ISO 4217 salary currency',
+    required: false,
+    example: 'USD',
+  })
+  @IsOptional()
+  currency?: string;
+  @IsString()
+  @ApiProperty({
     description: 'comments',
     required: false,
   })

@@ -5,8 +5,9 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsDate,
   IsEnum,
-  IsISO4217CurrencyCode,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -14,11 +15,16 @@ import {
   IsUUID,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
+import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { TransactionType } from 'src/common/enums';
+import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
 import {
   IsAfterStartDate,
+  IsAfterToday,
   IsNotFuture,
+  IsNotPast,
   IsValidPayrollPeriod,
 } from 'src/common/validators/payroll-date.validator';
 export class PayrollItemDto {
@@ -87,15 +93,14 @@ export class CreatePayrollRunDto {
   title: string;
   @ApiProperty({
     description: 'Payroll frequency',
-    enum: ['weekly', 'biweekly', 'monthly', 'quarterly', 'annually'],
-    example: 'monthly',
+    enum: PayrollFrequency,
+    example: PayrollFrequency.MONTHLY,
   })
-  @IsString()
   @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
-  @IsEnum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually'], {
+  @IsEnum(PayrollFrequency, {
     message: 'Frequency must be one of: weekly, biweekly, monthly, quarterly, annually',
   })
-  frequency: string;
+  frequency: PayrollFrequency;
   @ApiProperty({ description: 'Pay period start date' })
   @Type(() => Date)
   @IsNotFuture({ message: 'Pay period start date cannot be in the future' })
@@ -109,17 +114,36 @@ export class CreatePayrollRunDto {
     message: 'Pay period length is invalid for the selected frequency',
   })
   periodEnd: Date;
-  @ApiProperty({ description: 'Scheduled payment date' })
-  @Type(() => Date)
-  @IsAfterStartDate('periodEnd', {
-    message: 'Payment date must be after pay period end date',
+  @ApiPropertyOptional({
+    description: 'Payment date. Required only for scheduled payouts; immediate payouts use today.',
   })
-  paymentDate: Date;
-  @ApiProperty({ description: 'Base currency for calculations' })
+  @ValidateIf((object: CreatePayrollRunDto) => object.payoutMode === 'scheduled')
+  @Type(() => Date)
+  @IsDate({ message: 'Expected pay date must be a valid date' })
+  @IsNotPast({ message: 'Payment date cannot be in the past' })
+  @IsAfterToday({ message: 'Scheduled payment date must be in the future' })
+  paymentDate?: Date;
+  @ApiPropertyOptional({
+    description: 'Whether the approved run should be paid immediately or on its payment date',
+    enum: ['immediate', 'scheduled'],
+    default: 'immediate',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
+  @IsIn(['immediate', 'scheduled'], {
+    message: 'Payout mode must be either immediate or scheduled',
+  })
+  payoutMode?: 'immediate' | 'scheduled';
+  @ApiProperty({
+    description:
+      'Payout currency for this run (one currency per run). NGN bank via Nomba; other fiat and crypto via Noah.',
+    example: 'NGN',
+  })
   @IsString()
   @IsNotEmpty()
-  @IsISO4217CurrencyCode({
-    message: 'Base currency must be a valid ISO 4217 currency code',
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
+  @IsIn(getSupportedPaymentCurrencies(), {
+    message: 'Base currency must be a supported payroll currency (NGN, USD, EUR, GBP, USDT, USDC)',
   })
   baseCurrency: string;
   @ApiProperty({

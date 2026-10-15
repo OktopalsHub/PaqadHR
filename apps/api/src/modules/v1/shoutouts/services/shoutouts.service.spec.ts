@@ -26,6 +26,7 @@ describe('ShoutoutsService Slack gating', () => {
 
     const tenantMembersService = {
       getTenantMemberId: jest.fn().mockResolvedValue('member-2'),
+      filterTenantMemberIds: jest.fn().mockResolvedValue(new Set(['member-2'])),
     } as unknown as TenantMembersService;
 
     const categoriesService = {
@@ -46,6 +47,7 @@ describe('ShoutoutsService Slack gating', () => {
       {} as EventEmitter2,
       dataSource,
       platformIntegrationService,
+      {} as never,
     );
 
     return { service, platformIntegrationService };
@@ -56,8 +58,7 @@ describe('ShoutoutsService Slack gating', () => {
 
     await expect(
       service.createShoutout('tenant-1', 'member-1', {
-        recipientIds: ['member-2'],
-        pointsPerRecipient: 10,
+        recipients: [{ recipientId: 'member-2', points: 10 }],
         message: 'Great job',
         source: 'api',
       }),

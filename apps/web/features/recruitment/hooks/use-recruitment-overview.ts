@@ -10,21 +10,58 @@ import {
   toApplicantRows,
 } from '../lib/recruitment-dashboard-metrics';
 import { calendarEventsToSchedule } from '../lib/recruitment-schedule-utils';
+import { getRecruitmentOverviewQueryOptions } from './recruitment-overview-query-options';
 
-export function useRecruitmentOverview() {
+type RecruitmentOverviewDependencies = {
+  useAllCandidates: typeof useAllCandidates;
+  useCalendarEvents: typeof useCalendarEvents;
+  useJobOpenings: typeof useJobOpenings;
+};
+
+const defaultRecruitmentOverviewDependencies: RecruitmentOverviewDependencies = {
+  useJobOpenings,
+  useAllCandidates,
+  useCalendarEvents,
+};
+
+export function useRecruitmentOverview(
+  options?: { enabled?: boolean },
+  dependencies: RecruitmentOverviewDependencies = defaultRecruitmentOverviewDependencies,
+) {
+  const queryOptions = getRecruitmentOverviewQueryOptions(options?.enabled);
+  const { enabled } = queryOptions;
   const {
     data: jobsData,
     isLoading: jobsLoading,
     isError: jobsError,
     error: jobsErrorObj,
-  } = useJobOpenings();
-  const { data: apiCandidates = [], isLoading: candidatesLoading } = useAllCandidates();
-  const { data: calendarEvents = [] } = useCalendarEvents();
+    refetch: refetchJobs,
+  } = dependencies.useJobOpenings(queryOptions);
+  const {
+    data: apiCandidates = [],
+    isLoading: candidatesLoading,
+    refetch: refetchCandidates,
+  } = dependencies.useAllCandidates(queryOptions);
+  const { data: calendarEvents = [], refetch: refetchCalendarEvents } =
+    dependencies.useCalendarEvents(queryOptions);
 
   const apiJobs = jobsData?.jobs ?? [];
-  const isLoading = jobsLoading || candidatesLoading;
+  const isLoading = enabled && (jobsLoading || candidatesLoading);
 
   const overview = useMemo(() => {
+    if (!enabled) {
+      return {
+        kpis: computeRecruitmentKpis([]),
+        applicationsChart: computeApplicationsChart([]),
+        departmentChart: computeDepartmentChart([], []),
+        sourceChart: computeSourceChart([]),
+        jobs: [],
+        applicantCounts: countApplicantsByJob([]),
+        applicantRows: toApplicantRows([], []),
+        schedule: [],
+        activity: [] as const,
+      };
+    }
     const jobs = apiJobs;
     return {
       kpis: computeRecruitmentKpis(apiCandidates),
@@ -37,12 +74,15 @@ export function useRecruitmentOverview() {
       schedule: calendarEventsToSchedule(calendarEvents),
       activity: [] as const,
     };
-  }, [apiCandidates, apiJobs, calendarEvents]);
+  }, [apiCandidates, apiJobs, calendarEvents, enabled]);
 
   return {
     overview,
     isLoading,
-    jobsError,
+    jobsError: enabled ? jobsError : false,
     jobsErrorObj,
+    refetch: async () => {
+      await Promise.all([refetchJobs(), refetchCandidates(), refetchCalendarEvents()]);
+    },
   };
 }
