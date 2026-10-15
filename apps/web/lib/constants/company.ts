@@ -1,11 +1,11 @@
 /**
  * Public company details for the marketing site.
- * Full Paqad↔Oktopals relationship belongs in the PSP business description — not here.
  */
 export const COMPANY = {
-  legalName: 'Oktopals',
+  legalName: 'Oktopals Limited',
   productName: 'Paqad',
   productFullName: 'PaqadHR',
-  poweredBy: 'Paqad powered by Oktopals',
+  poweredBy: 'Paqad powered by Oktopals Limited',
   email: 'info@paqadhr.com',
+  website: 'https://paqadhr.com',
 } as const;
