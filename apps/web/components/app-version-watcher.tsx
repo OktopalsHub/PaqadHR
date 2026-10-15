@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { APP_BUILD_ID } from '@/lib/app-version/build-id.generated';
 import {
   isStaleChunkError,
   markChunkReloadAttempted,
@@ -16,10 +17,6 @@ import {
 
 const POLL_MS = 5 * 60_000;
 const UPDATE_TOAST_ID = 'paqadhr-new-version';
-
-function getInitialBuildId(): string {
-  return process.env.NEXT_PUBLIC_APP_BUILD_ID?.trim() || 'dev';
-}
 
 async function fetchRemoteBuildId(): Promise<string | null> {
   try {
@@ -50,7 +47,7 @@ function showUpdatePrompt(): void {
 }
 
 export function AppVersionWatcher() {
-  const initialBuildId = getInitialBuildId();
+  const initialBuildId = APP_BUILD_ID;
   const promptedBuildIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -94,15 +91,15 @@ export function AppVersionWatcher() {
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [initialBuildId]);
+  }, []);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') return;
 
     const handleChunkFailure = (error: unknown) => {
       if (!isStaleChunkError(error)) return;
-      if (!shouldReloadForChunkError(initialBuildId)) return;
-      reloadIfMarked(() => markChunkReloadAttempted(initialBuildId));
+      if (!shouldReloadForChunkError(APP_BUILD_ID)) return;
+      reloadIfMarked(() => markChunkReloadAttempted(APP_BUILD_ID));
     };
 
     const onError = (event: ErrorEvent) => {
@@ -120,7 +117,7 @@ export function AppVersionWatcher() {
       window.removeEventListener('error', onError);
       window.removeEventListener('unhandledrejection', onRejection);
     };
-  }, [initialBuildId]);
+  }, []);
 
   return null;
 }

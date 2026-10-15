@@ -14,10 +14,24 @@ function withoutApiEnv(fn: () => void): void {
   }
 }
 
-test('resolveApiBaseUrl prefers an explicit URL over the request host', () => {
+test('known deployment host overrides a stale explicit URL', () => {
+  assert.equal(
+    resolveApiBaseUrl({ envUrl: 'https://api-dev.paqadhr.com/', requestHost: 'paqadhr.com' }),
+    'https://prod.paqadhr.com',
+  );
   assert.equal(
     resolveApiBaseUrl({ envUrl: 'https://prod.paqadhr.com/', requestHost: 'dev.paqadhr.com' }),
-    'https://prod.paqadhr.com',
+    'https://api-dev.paqadhr.com',
+  );
+});
+
+test('explicit URL is used for unknown deployment hosts', () => {
+  assert.equal(
+    resolveApiBaseUrl({
+      envUrl: 'https://custom-api.example.com/',
+      requestHost: 'preview.example.com',
+    }),
+    'https://custom-api.example.com',
   );
 });
 
