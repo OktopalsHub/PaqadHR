@@ -60,7 +60,6 @@ export const configureMiddleware = (app: NestExpressApplication) => {
       '/api/v1/auth/refresh',
       '/api/v1/auth/forgot-password',
       '/api/v1/auth/reset-password',
-      '/api/v1/auth/github/callback',
       '/api/v1/auth/google/callback',
       '/api/v1/integrations/oauth/callback',
       '/api/v1/invitations/details',
