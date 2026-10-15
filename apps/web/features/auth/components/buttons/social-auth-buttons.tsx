@@ -2,9 +2,8 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { getGoogleAuthUrl, prepareGoogleAuthConsent } from '@/lib/api/google-auth';
+import { getGoogleAuthUrl } from '@/lib/api/google-auth';
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -30,23 +29,17 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 type SocialAuthButtonsProps = {
-  /** Signup only — account-creation legal notice under the Google button. */
+  /** Show the legal notice alongside Google sign-in. */
   showAccountTermsNotice?: boolean;
 };
 
-export const SocialAuthButtons = ({ showAccountTermsNotice = false }: SocialAuthButtonsProps) => {
+export const SocialAuthButtons = ({ showAccountTermsNotice = true }: SocialAuthButtonsProps) => {
   const [starting, setStarting] = useState(false);
 
-  const handleGoogle = async () => {
+  const handleGoogle = () => {
     if (starting) return;
-    try {
-      setStarting(true);
-      await prepareGoogleAuthConsent();
-      window.location.assign(getGoogleAuthUrl());
-    } catch (err) {
-      setStarting(false);
-      toast.error(err instanceof Error ? err.message : 'Could not start Google sign-in');
-    }
+    setStarting(true);
+    window.location.assign(getGoogleAuthUrl());
   };
 
   return (
@@ -56,16 +49,14 @@ export const SocialAuthButtons = ({ showAccountTermsNotice = false }: SocialAuth
         variant="outline"
         disabled={starting}
         className="h-12 w-full rounded-[16px] border-slate-200/90 bg-white/92 text-[15px] font-semibold text-slate-800 shadow-[0_16px_38px_-30px_rgba(15,23,42,0.28)] hover:border-emerald-200 hover:bg-white disabled:opacity-60"
-        onClick={() => {
-          void handleGoogle();
-        }}
+        onClick={handleGoogle}
       >
         <GoogleIcon className="size-5" />
         {starting ? 'Continuing…' : 'Continue with Google'}
       </Button>
       {showAccountTermsNotice ? (
         <p className="text-center text-xs leading-5 text-slate-500">
-          By creating an account, you agree to our{' '}
+          By continuing, you agree to our{' '}
           <Link href="/terms" className="font-medium text-primary hover:text-primary/90">
             Terms
           </Link>{' '}
