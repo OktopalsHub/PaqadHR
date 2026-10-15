@@ -29,6 +29,7 @@ export const signupSchema = z.object({
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
+    .regex(/^\\S+$/, 'Password cannot contain spaces')
     .regex(/[A-Z]/, STRONG_PASSWORD_MESSAGE)
     .regex(/[a-z]/, STRONG_PASSWORD_MESSAGE)
     .regex(/\d/, STRONG_PASSWORD_MESSAGE)
