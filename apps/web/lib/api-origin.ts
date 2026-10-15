@@ -3,8 +3,8 @@ const DEFAULT_LOCAL_API_URL = 'http://localhost:9001';
 /** Known API origins when NEXT_PUBLIC_API_URL is missing at the edge. */
 const HOST_API_FALLBACK: Record<string, string> = {
   'dev.paqadhr.com': 'https://api-dev.paqadhr.com',
-  'paqadhr.com': 'https://api.paqadhr.com',
-  'www.paqadhr.com': 'https://api.paqadhr.com',
+  'paqadhr.com': 'https://prod.paqadhr.com',
+  'www.paqadhr.com': 'https://prod.paqadhr.com',
 };
 
 const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'paqadhr.com';
@@ -16,7 +16,7 @@ function apiFallbackForHost(host: string): string | undefined {
     return 'https://api-dev.paqadhr.com';
   }
   if (host.endsWith(`.${APP_DOMAIN}`) && host !== `www.${APP_DOMAIN}`) {
-    return 'https://api.paqadhr.com';
+    return 'https://prod.paqadhr.com';
   }
   if (host.endsWith('.localhost')) {
     return DEFAULT_LOCAL_API_URL;
@@ -36,13 +36,22 @@ export function resolveApiBaseUrl(options?: { envUrl?: string; requestHost?: str
   const fromEnv = options?.envUrl?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, '');
 
-  const host = options?.requestHost?.split(':')[0];
-  if (host) {
-    const fallback = apiFallbackForHost(host);
-    if (fallback) return fallback;
-  }
+  return resolveHostApiBaseUrl(options?.requestHost) ?? DEFAULT_LOCAL_API_URL;
+}
 
-  return DEFAULT_LOCAL_API_URL;
+/**
+ * API base URL derived from the request host alone, ignoring any env override.
+ *
+ * The client bundle resolves its API base from the same host when
+ * `NEXT_PUBLIC_API_URL` is not inlined, and the Worker runtime may hold a
+ * different (e.g. stale dashboard) value in `process.env`. Callers that need to
+ * allow every origin the browser could actually call — CSP connect-src — use
+ * this to union with the env-derived origin.
+ */
+export function resolveHostApiBaseUrl(requestHost?: string): string | undefined {
+  const host = requestHost?.split(':')[0];
+  if (!host) return undefined;
+  return apiFallbackForHost(host);
 }
 
 /** CSP connect-src origin (scheme + host, no /api path). */

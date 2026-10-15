@@ -6,7 +6,7 @@ test('resolves every env-driven value when provided', () => {
   const config = resolveWorkerConfig({
     CF_WORKER_NAME: 'paqadhr-main',
     CF_COMPAT_DATE: '2026-10-15',
-    NEXT_PUBLIC_API_URL: 'https://api.paqadhr.com',
+    NEXT_PUBLIC_API_URL: 'https://prod.paqadhr.com',
     NEXT_PUBLIC_APP_URL: 'https://paqadhr.com',
     NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'false',
     CF_ROUTES: '[{"pattern":"paqadhr.com","custom_domain":true}]',
@@ -14,7 +14,7 @@ test('resolves every env-driven value when provided', () => {
 
   assert.equal(config.name, 'paqadhr-main');
   assert.equal(config.compatibility_date, '2026-10-15');
-  assert.equal(config.vars.NEXT_PUBLIC_API_URL, 'https://api.paqadhr.com');
+  assert.equal(config.vars.NEXT_PUBLIC_API_URL, 'https://prod.paqadhr.com');
   assert.equal(config.vars.NEXT_PUBLIC_APP_URL, 'https://paqadhr.com');
   assert.equal(config.vars.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS, 'false');
   assert.deepEqual(config.routes, [{ pattern: 'paqadhr.com', custom_domain: true }]);

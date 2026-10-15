@@ -46,7 +46,7 @@ jobs:
         run: |
           TARGET="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
           if [ "$TARGET" = "main" ]; then
-            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "api_url=https://prod.paqadhr.com" >> "$GITHUB_OUTPUT"
             echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
           else
             echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
@@ -93,7 +93,7 @@ jobs:
         run: |
           TARGET="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
           if [ "$TARGET" = "main" ]; then
-            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "api_url=https://prod.paqadhr.com" >> "$GITHUB_OUTPUT"
             echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
           else
             echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
@@ -141,7 +141,7 @@ jobs:
         id: env
         run: |
           if [ "${GITHUB_REF_NAME}" = "main" ]; then
-            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "api_url=https://prod.paqadhr.com" >> "$GITHUB_OUTPUT"
             echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
           else
             echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"

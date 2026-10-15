@@ -7,7 +7,7 @@ describe('sanitizeSentryEvent', () => {
       extra: { salary: 500000 },
       breadcrumbs: [{ message: 'person@example.com opened payroll' }],
       request: {
-        url: 'https://api.paqadhr.com/api/v1/users?email=person@example.com',
+        url: 'https://prod.paqadhr.com/api/v1/users?email=person@example.com',
         headers: { authorization: 'Bearer secret' },
         cookies: 'session=secret',
         data: { password: 'secret' },

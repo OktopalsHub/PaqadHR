@@ -51,7 +51,7 @@ test('returns null for apex and reserved hosts', () => {
     assert.equal(getTenantSlugFromHost('paqadhr.com'), null);
     assert.equal(getTenantSlugFromHost('www.paqadhr.com'), null);
     assert.equal(getTenantSlugFromHost('dev.paqadhr.com'), null);
-    assert.equal(getTenantSlugFromHost('api.paqadhr.com'), null);
+    assert.equal(getTenantSlugFromHost('prod.paqadhr.com'), null);
   });
 });
 
