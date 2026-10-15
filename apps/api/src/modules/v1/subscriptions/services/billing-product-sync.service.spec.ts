@@ -1,5 +1,7 @@
 import { Logger } from '@nestjs/common';
-import type { PlanPrice } from '../../plans/entities/plan-price.entity';
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { BachsProductSyncService } from './bachs-product-sync.service';
 import { BillingProductSyncService } from './billing-product-sync.service';
 
@@ -92,5 +94,38 @@ describe('BillingProductSyncService startup self-heal', () => {
     await service.onApplicationBootstrap();
 
     expect(heal).not.toHaveBeenCalled();
+  });
+});
+
+describe('BachsProductSyncService dependency injection', () => {
+  const originalSecret = process.env.BACHS_SECRET_KEY;
+
+  afterEach(() => {
+    if (originalSecret === undefined) delete process.env.BACHS_SECRET_KEY;
+    else process.env.BACHS_SECRET_KEY = originalSecret;
+    jest.restoreAllMocks();
+  });
+
+  it('gets the PlanPrice repository from Nest, not an undefined stub', async () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    const priceRepo = {
+      find: jest.fn().mockResolvedValue([]),
+      save: jest.fn(),
+      count: jest.fn(),
+    };
+
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        BachsProductSyncService,
+        { provide: getRepositoryToken(PlanPrice), useValue: priceRepo },
+      ],
+    }).compile();
+
+    const service = moduleRef.get(BachsProductSyncService);
+    jest.spyOn(service as any, 'bachsRequest').mockResolvedValue({ items: [] });
+
+    await service.syncBachsProducts();
+
+    expect(priceRepo.find).toHaveBeenCalledTimes(1);
   });
 });

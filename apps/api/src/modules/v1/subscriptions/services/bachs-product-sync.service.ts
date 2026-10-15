@@ -1,4 +1,5 @@
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { getBachsBaseUrl, getBachsSecretKey } from 'src/common/config/bachs.config';
 import { Repository } from 'typeorm';
 import { PlanPrice } from '../../plans/entities/plan-price.entity';
@@ -18,10 +19,14 @@ function siblingCurrency(primary: string): 'NGN' | 'USD' | null {
   return null;
 }
 
+@Injectable()
 export class BachsProductSyncService {
   private readonly logger = new Logger(BachsProductSyncService.name);
 
-  constructor(private readonly priceRepo: Repository<PlanPrice>) {}
+  constructor(
+    @InjectRepository(PlanPrice)
+    private readonly priceRepo: Repository<PlanPrice>,
+  ) {}
 
   async syncBachsProducts(): Promise<{ updated: number }> {
     const secretKey = getBachsSecretKey();
