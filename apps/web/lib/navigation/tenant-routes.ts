@@ -19,8 +19,48 @@ export function isSubdomainTenantsEnabled(): boolean {
   return process.env.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS === 'true';
 }
 
-export function getAppDomain(): string {
-  return process.env.NEXT_PUBLIC_APP_DOMAIN || 'paqadhr.com';
+const KNOWN_APEX_DOMAINS = ['paqadhr.com', 'dev.paqadhr.com'] as const;
+
+/**
+ * Resolve the apex app domain from the request host.
+ * On known PaqadHR domains, the hostname is authoritative — this prevents
+ * a stale Cloudflare Worker NEXT_PUBLIC_APP_DOMAIN (preserved by --keep-vars)
+ * from misidentifying the production apex as a tenant subdomain.
+ */
+export function resolveAppDomain(requestHost?: string): string | undefined {
+  const host = requestHost?.split(':')[0]?.toLowerCase();
+  if (!host) return undefined;
+
+  // Exact apex matches
+  if (KNOWN_APEX_DOMAINS.includes(host as (typeof KNOWN_APEX_DOMAINS)[number])) {
+    return host;
+  }
+
+  // Tenant subdomain on production: tenant.paqadhr.com → paqadhr.com
+  if (host.endsWith('.paqadhr.com') && host !== 'www.paqadhr.com') {
+    return 'paqadhr.com';
+  }
+
+  // Tenant subdomain on dev: tenant.dev.paqadhr.com → dev.paqadhr.com
+  if (host.endsWith('.dev.paqadhr.com')) {
+    return 'dev.paqadhr.com';
+  }
+
+  // Localhost variants
+  if (host.endsWith('.localhost') || host === 'localhost') {
+    return 'localhost';
+  }
+
+  return undefined;
+}
+
+/**
+ * Get the app domain, preferring host-derived value over env.
+ * Client-side: uses window.location.hostname.
+ * Server-side: falls back to env var.
+ */
+export function getAppDomain(requestHost?: string): string {
+  return resolveAppDomain(requestHost) ?? process.env.NEXT_PUBLIC_APP_DOMAIN ?? 'paqadhr.com';
 }
 
 // Tenant slugs are used as DNS labels when subdomain routing is enabled. Keep
@@ -46,7 +86,7 @@ export function getTenantSlugFromHost(host: string): string | null {
     return null;
   }
 
-  const appDomain = getAppDomain();
+  const appDomain = getAppDomain(hostname);
 
   if (
     hostname === appDomain ||
@@ -77,10 +117,10 @@ export function isApexHost(host: string): boolean {
   return getTenantSlugFromHost(host) === null;
 }
 
-function inferTenantHostSuffix(): string {
+function inferTenantHostSuffix(requestHost?: string): string {
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
-    const appDomain = getAppDomain();
+    const appDomain = getAppDomain(hostname);
     if (hostname.endsWith('.localhost') || hostname === 'localhost') {
       const port = window.location.port;
       return `.localhost${port ? `:${port}` : ''}`;
@@ -91,11 +131,12 @@ function inferTenantHostSuffix(): string {
     return `.${appDomain}`;
   }
 
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configured) {
+  const host =
+    requestHost ?? (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_APP_URL : undefined);
+  if (host) {
     try {
-      const url = new URL(configured);
-      const appDomain = getAppDomain();
+      const url = new URL(host);
+      const appDomain = getAppDomain(url.hostname);
       if (url.hostname === `dev.${appDomain}` || url.hostname.endsWith(`.dev.${appDomain}`)) {
         return `.dev.${appDomain}`;
       }
@@ -107,7 +148,7 @@ function inferTenantHostSuffix(): string {
     }
   }
 
-  return `.${getAppDomain()}`;
+  return `.${getAppDomain(requestHost)}`;
 }
 
 export function buildTenantHost(slug: string, hostSuffix?: string): string {
@@ -306,7 +347,7 @@ export function getWorkspaceUrlSuffix(): string {
 
 export function marketingOriginFromHost(host: string): string {
   const hostname = stripPort(host);
-  const appDomain = getAppDomain();
+  const appDomain = getAppDomain(hostname);
 
   if (hostname === 'localhost') {
     const port = host.includes(':') ? host.split(':')[1] : '3000';
@@ -333,7 +374,7 @@ export function marketingOriginFromHost(host: string): string {
   return `https://${appDomain}`;
 }
 
-export function marketingOrigin(): string {
+export function marketingOrigin(requestHost?: string): string {
   if (typeof window !== 'undefined') {
     if (isApexHost(window.location.host)) {
       return window.location.origin;
@@ -350,7 +391,7 @@ export function marketingOrigin(): string {
     }
   }
 
-  return marketingOriginFromHost(getAppDomain());
+  return marketingOriginFromHost(getAppDomain(requestHost));
 }
 
 export const MARKETING_AUTH_SEGMENTS = new Set([
@@ -375,8 +416,9 @@ export function isMarketingAuthPath(pathname: string): boolean {
 export function authPageUrl(
   path: '/signin' | '/signup' | '/onboarding',
   returnTo?: string,
+  requestHost?: string,
 ): string {
-  const origin = marketingOrigin();
+  const origin = marketingOrigin(requestHost);
   if (!returnTo) return `${origin}${path}`;
   return `${origin}${path}?redirect=${encodeURIComponent(returnTo)}`;
 }
@@ -404,6 +446,6 @@ export function subscribePagePath(params?: SubscribePageParams): string {
   return `/subscribe${query ? `?${query}` : ''}`;
 }
 
-export function subscribePageUrl(params?: SubscribePageParams): string {
-  return `${marketingOrigin()}${subscribePagePath(params)}`;
+export function subscribePageUrl(params?: SubscribePageParams, requestHost?: string): string {
+  return `${marketingOrigin(requestHost)}${subscribePagePath(params)}`;
 }
