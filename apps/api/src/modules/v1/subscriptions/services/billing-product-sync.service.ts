@@ -21,36 +21,57 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    await this.warnMissingProductIds();
+    const shouldHeal = await this.warnMissingProductIds();
+    if (!shouldHeal) {
+      return;
+    }
+
+    // bachs_product_id is data stored on plan_prices — setting BILLING_*_PROVIDER=bachs
+    // and BACHS_SECRET_KEY only turns the check on. plan_prices are (re)seeded without it
+    // on every boot, so heal in the background using this process's credentials instead
+    // of forcing a manual `sync:bachs-products` run on each deploy.
+    void this.healMissingProductIds()
+      .then(({ bachsUpdated }) => {
+        if (bachsUpdated > 0) {
+          this.logger.log(`Auto-synced ${bachsUpdated} Bachs product id(s) on startup`);
+        }
+      })
+      .catch((error: Error) => {
+        this.logger.error(`Bachs product auto-sync failed: ${error.message}`);
+      });
   }
 
-  async warnMissingProductIds(): Promise<void> {
+  /** Warns about active plan_prices missing Bachs product IDs; true when a heal should run. */
+  async warnMissingProductIds(): Promise<boolean> {
     const preferred = new Set([getBillingNgProvider(), getBillingGlobalProvider()]);
 
-    if (preferred.has(BillingProvider.BACHS) && isBachsConfigured()) {
-      const missingNgn = await this.priceRepo.count({
-        where: { currency: 'NGN', bachsProductId: IsNull(), isActive: true },
-      });
-      const missingUsd = await this.priceRepo.count({
-        where: { currency: 'USD', bachsProductId: IsNull(), isActive: true },
-      });
+    if (!preferred.has(BillingProvider.BACHS) || !isBachsConfigured()) {
+      return false;
+    }
 
-      if (getBillingNgProvider() === BillingProvider.BACHS && missingNgn > 0) {
-        this.logger.error(
-          `${missingNgn} active NGN plan_prices row(s) missing bachs_product_id while BILLING_NG_PROVIDER=bachs. Run: pnpm --filter api sync:bachs-products`,
-        );
-      } else if (missingNgn > 0) {
-        this.logger.warn(
-          `${missingNgn} active NGN plan_prices row(s) missing bachs_product_id. Run: pnpm --filter api sync:bachs-products`,
-        );
-      }
+    const missingNgn = await this.priceRepo.count({
+      where: { currency: 'NGN', bachsProductId: IsNull(), isActive: true },
+    });
+    const missingUsd = await this.priceRepo.count({
+      where: { currency: 'USD', bachsProductId: IsNull(), isActive: true },
+    });
 
-      if (missingUsd > 0) {
-        this.logger.warn(
-          `${missingUsd} active USD plan_prices row(s) missing bachs_product_id. Run: pnpm --filter api sync:bachs-products`,
-        );
+    if (missingNgn > 0) {
+      const message = `${missingNgn} active NGN plan_prices row(s) missing bachs_product_id. Run: pnpm --filter api sync:bachs-products`;
+      if (getBillingNgProvider() === BillingProvider.BACHS) {
+        this.logger.error(`${message} (BILLING_NG_PROVIDER=bachs; auto-syncing)`);
+      } else {
+        this.logger.warn(message);
       }
     }
+
+    if (missingUsd > 0) {
+      this.logger.warn(
+        `${missingUsd} active USD plan_prices row(s) missing bachs_product_id. Run: pnpm --filter api sync:bachs-products`,
+      );
+    }
+
+    return missingNgn > 0 || missingUsd > 0;
   }
 
   async syncBachsProducts(): Promise<{ updated: number }> {
