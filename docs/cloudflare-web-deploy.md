@@ -23,7 +23,7 @@ runs `opennextjs-cloudflare deploy --config … --keep-vars`.
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `CF_WORKER_NAME` | **yes on `main` builds** | Worker to deploy to. Must match the Worker the build is connected to, otherwise Workers Builds overrides it and warns. `cf-deploy` fails fast on `main` when it is missing so a main build can never land on the dev worker. |
+| `CF_WORKER_NAME` | optional | Worker to deploy to. Defaults per branch: `paqadhr` on `main`, `paqadhr-dev` everywhere else (`dev`, previews). Set it to override — and make it match the Worker the build is connected to, otherwise Workers Builds overrides it and warns. |
 | `NEXT_PUBLIC_API_URL` | yes | API origin used by the app (`https://api-dev.paqadhr.com`, `https://api.paqadhr.com`, …). |
 | `NEXT_PUBLIC_APP_URL` | recommended | Public app URL, for metadata/absolute links. |
 | `NEXT_PUBLIC_APP_DOMAIN` | optional | Apex domain for tenant subdomains. Defaults to `paqadhr.com`. |
@@ -65,4 +65,4 @@ with the repo.
 | `Could not find zone for paqadhr.com` | A `custom_domain`/`zone_name` route was deployed with a token that cannot see the zone | Remove `CF_ROUTES` (dashboard domains instead) or use a token with zone access |
 | Worker name mismatch warning | `CF_WORKER_NAME` differs from the Worker the build is connected to | Set `CF_WORKER_NAME` to the connected Worker's name |
 | Build id shows `dev` | No `NEXT_PUBLIC_APP_BUILD_ID`/`GITHUB_SHA`/`WORKERS_CI_COMMIT_SHA` | Set `NEXT_PUBLIC_APP_BUILD_ID` (e.g. the commit SHA) |
-| `CF_WORKER_NAME is required for main builds` | Main build without a target worker | Set `CF_WORKER_NAME` in the build environment variables |
+| `CF_WORKER_NAME is required for main builds` | (legacy) Main build without a target worker | No longer required — `main` defaults to the `paqadhr` worker. Set `CF_WORKER_NAME` only to override |

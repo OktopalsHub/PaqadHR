@@ -13,7 +13,7 @@
  * and Sentry keys survive every deploy).
  *
  * Env vars:
- *   CF_WORKER_NAME                Worker to deploy (default: paqadhr-dev)
+ *   CF_WORKER_NAME                Worker to deploy (overrides the branch default)
  *   CF_COMPAT_DATE                compatibility_date (default: 2026-07-01)
  *   CF_WORKERS_DEV                "true" to also publish on workers.dev
  *   CF_ROUTES                     JSON array of route/custom-domain objects
@@ -31,6 +31,18 @@ const DEFAULTS = {
   appDomain: 'paqadhr.com',
   useSubdomainTenants: 'true',
 };
+
+/**
+ * Worker per branch. `main` is the production worker; every other branch
+ * (dev, previews) uses the dev worker. An explicit CF_WORKER_NAME always wins,
+ * so a build can still target another worker without code changes.
+ */
+const BRANCH_WORKER_NAMES = {
+  main: 'paqadhr',
+};
+
+const resolveBranch = (env) =>
+  (env.WORKERS_CI_BRANCH ?? env.GITHUB_REF_NAME ?? 'dev').trim() || 'dev';
 
 const firstEnv = (env, key) => {
   const value = env[key]?.trim();
@@ -66,7 +78,10 @@ const parseRoutes = (raw) => {
  */
 export function resolveWorkerConfig(env = process.env) {
   return {
-    name: firstEnv(env, 'CF_WORKER_NAME') ?? DEFAULTS.workerName,
+    name:
+      firstEnv(env, 'CF_WORKER_NAME') ??
+      BRANCH_WORKER_NAMES[resolveBranch(env)] ??
+      DEFAULTS.workerName,
     main: '.open-next/worker.js',
     compatibility_date: firstEnv(env, 'CF_COMPAT_DATE') ?? DEFAULTS.compatDate,
     compatibility_flags: ['nodejs_compat', 'global_fetch_strictly_public'],
