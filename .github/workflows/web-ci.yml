@@ -188,20 +188,32 @@ jobs:
 
       - name: Trigger Dokploy webhook
         env:
+          # Each Dokploy app has its own webhook URL, so dev and prod deploy
+          # triggers are separate secrets. DOKPLOY_WEB_WEBHOOK_URL is kept as
+          # the dev fallback for setups that only configured the dev app.
+          # Both also require Auto Deploy enabled on the Dokploy application.
           DOKPLOY_WEB_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEB_WEBHOOK_URL }}
+          DOKPLOY_WEB_WEBHOOK_URL_DEV: ${{ secrets.DOKPLOY_WEB_WEBHOOK_URL_DEV }}
+          DOKPLOY_WEB_WEBHOOK_URL_PROD: ${{ secrets.DOKPLOY_WEB_WEBHOOK_URL_PROD }}
         run: |
-          if [ -z "$DOKPLOY_WEB_WEBHOOK_URL" ]; then
-            echo "DOKPLOY_WEB_WEBHOOK_URL not set — skipping deploy trigger"
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            WEBHOOK="$DOKPLOY_WEB_WEBHOOK_URL_PROD"
+            TARGET=prod
+          else
+            WEBHOOK="${DOKPLOY_WEB_WEBHOOK_URL_DEV:-$DOKPLOY_WEB_WEBHOOK_URL}"
+            TARGET=dev
+          fi
+          if [ -z "$WEBHOOK" ]; then
+            echo "DOKPLOY_WEB_WEBHOOK_URL_${TARGET^^} not set — skipping $TARGET deploy trigger"
             exit 0
           fi
           # Dokploy expects a GitHub-style push payload (bare POST returns 400).
-          # Also requires Auto Deploy enabled on the Dokploy application.
           BODY=$(jq -nc \
             --arg ref "refs/heads/${GITHUB_REF_NAME}" \
             --arg id "${GITHUB_SHA}" \
             --arg msg "CI deploy ${GITHUB_SHA:0:7} (${GITHUB_REF_NAME})" \
             '{ref:$ref,head_commit:{id:$id,message:$msg}}')
-          RESP=$(curl -sS -w "\n%{http_code}" -X POST "$DOKPLOY_WEB_WEBHOOK_URL" \
+          RESP=$(curl -sS -w "\n%{http_code}" -X POST "$WEBHOOK" \
             -H "Content-Type: application/json" \
             -H "X-GitHub-Event: push" \
             -d "$BODY")
