@@ -171,9 +171,7 @@ We may share your personal information with the following parties (or as otherwi
 
 **Service providers.** Third parties that provide services on our behalf or help us operate the Service or our business (such as hosting, information technology, customer support, analytics and error-monitoring providers such as PostHog and Sentry, email delivery, marketing, consumer research and website analytics).
 
-**Payment processors**. Any payment card information you use to make a purchase on the Service is collected and processed directly by our payment processors, [such as Bachs, Nomba, Monnify, Fincra, or Noah (depending on region and product feature). Those providers process payment and payout data under their own privacy terms.
-
-**Advertising partners.** Third-party advertising companies for the interest-based advertising purposes described above.
+**Payment processors.** Where payment or payout features are enabled, payment data may be handled by payment partners such as Bachs, Nomba, Monnify, Fincra, or Noah, depending on the region and feature. Those providers process payment and payout data under their own privacy terms.
 
 **Third parties designated by you.** We may share your personal information with third parties where you have instructed us or provided your consent to do so.
 
@@ -206,7 +204,7 @@ In this section, we describe the rights and choices available to all users. User
 
 ## Privacy settings. Workspace admins control member access. Individuals can update profile details in Settings → Profile.
 
-## Do Not Track. Some Internet browsers may be configured to send "Do Not Track" signals to the online services that you visit. We currently do not respond to "Do Not Track" signals. To find out more about "Do Not Track," please visit .
+## Do Not Track. Some browsers send "Do Not Track" signals to websites. We currently do not respond to these signals. You can review your browser documentation for information about this setting.
 
 ## Declining to provide information. We need to collect personal information to provide certain services. If you do not provide the information we identify as required or mandatory, we may not be able to provide those services.
 
@@ -241,7 +239,6 @@ Users in Europe should read the [Notice to European users](#notice-to-european-u
 If you have questions about our practices or if you would like to exercise any privacy related right that may be available to you, please contact us via one of the methods listed below.
 1. **Email**: info@paqadhr.com
 2. **Mail**: Available on request via info@paqadhr.com
-3. **Phone**: N/A — email info@paqadhr.com
 **State privacy rights notice**
 
 Except as otherwise provided, this section applies to residents of U.S. states to the extent they have privacy laws applicable to us that grant their residents the rights described below (collectively the "**State Privacy Laws**").
