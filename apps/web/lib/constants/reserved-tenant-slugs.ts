@@ -19,11 +19,16 @@ export const RESERVED_ROUTE_SEGMENTS = new Set([
   'privacy',
   'terms',
   'contact',
+  'cookies',
   'dpa',
   'app',
   'api',
   '_next',
   'pricing',
+  // OAuth completion lives at /google/complete — without this the legacy
+  // path→subdomain redirect sends the browser to google.<appdomain>, which has
+  // no certificate (ERR_CERT_AUTHORITY_INVALID) and breaks Google sign-in.
+  'google',
 ]);
 
 /** Reserved subdomain labels (tenant slugs + infra hosts). */
