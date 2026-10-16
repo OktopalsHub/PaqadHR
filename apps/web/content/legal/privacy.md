@@ -95,7 +95,7 @@ Notice to European users (GDPR / UK GDPR)
 # Tracking & Other Technologies
 
 **Cookies and other technologies**. Some of our automatic data collection is facilitated by cookies and other technologies. For more information, see our [Cookie Notice](/cookies). We will also store a record of your preferences in respect of the use of these technologies in connection with the Service.
-**Chat and other artificial intelligence ("AI") technologies**, such as those provided by  that [employ cookies and software code] to operate the [chat and/or user input/prompt] features that you can use to [communicate with us and/or input your prompts and other data] through the Service.   and other third parties may access and use [information about webpages visited on our website, your IP address, your general geographic information (e.g., city, state), and other personal information you share through online chats or within inputs] to facilitate the provision of the Service/for the purposes described in this Privacy Policy.] [We contractually require these providers to maintain appropriate data protection safeguards and prohibit them from using your data for generalized AI model training.]
+
 For information concerning your choices with respect to the use of tracking technologies, see the Your choices section of our Cookie Notice.
 
 # How we use your personal information
@@ -292,9 +292,9 @@ Sensitive Personal Information. We may process bank account and similar financia
 
 **Nondiscrimination.** You are entitled to exercise the rights described above free from discrimination as prohibited by the State Privacy Laws.
 
-**Exercising your right to opt-out of the "sale" or "sharing" of your Personal Information.** While we do not sell personal information for money, like many companies, we use services that help deliver interest-based ads to you as described above. The State Privacy Laws may classify our use of some of these services as "selling" or "sharing" your Personal Information with the advertising partners that provide the services. You can submit requests to opt-out of tracking for targeted advertising purposes or other sales of Personal Information via email to info@paqadhr.com. We do not sell personal information for money and do not use advertising cookies. If applicable law treats analytics as a “sale” or “share,” email us to opt out.
+**Sale or sharing of personal information.** We do not sell personal information for money and do not use advertising cookies. If you believe a processing activity is covered by a right to opt out under applicable state privacy law, email info@paqadhr.com and describe your request.
 
-**Exercising other state privacy rights.** You may submit requests to exercise any of the other state privacy rights listed above at [link to webform], calling us toll free at [1-XXX-XXX-XXXX], or via email to [email for data requests].
+**Exercising other state privacy rights.** You may submit requests to exercise applicable privacy rights by emailing info@paqadhr.com. We may ask for information needed to verify your identity and understand your request.
 
 **Verification of Identity; Authorized agents.** We may need to verify your identity in order to process your information/know, access, appeal, correction, or deletion requests and reserve the right to confirm your residency. To verify your identity, we may require government identification, a declaration under penalty of perjury, or other information, where permitted by law.
 
@@ -308,22 +308,14 @@ Under some State Privacy Laws, you may enable an authorized agent to make a requ
 
 **Deidentification**. We do not attempt to reidentify deidentified information derived from personal information, except for the purpose of testing whether our deidentification processes comply with applicable law.
 
-**Personal information that we collect, use and disclose.** We have summarized the Personal Information we collect, the purposes for which we collect it and the third parties to whom we may disclose it by reference below to both the categories defined in the ["Personal information we collect"] section of this Privacy Policy above and the categories of Personal Information specified in the CCPA (Cal. Civ. Code §1798.140). This chart describes our practices currently and during the 12 months preceding the effective date of this Privacy Policy. Information you voluntarily provide to us, such as in free-form webforms, may contain other categories of personal information not described below.
-
-| Personal Information ("PI") we collect | CCPA statutory category | Purposes | Categories of third parties to whom we "disclose" PI for a business purpose | Categories of third parties to whom we "sell" or "share" PI |
-| --- | --- | --- | --- | --- |
-|  |  |  |  |  |
-|  |  |  |  |  |
-|  |  |  |  |  |
-|  |  |  |  |  |
-|  |  |  |  |  |
+**Personal information categories and purposes.** Depending on how you use Paqad, we may process account and contact details, device and usage information, support communications, workforce and recruitment records, and payroll or payout data. We use these categories to provide and secure the Service, support customers, process payments where enabled, and comply with legal obligations, as described above. We may disclose relevant information to service providers supporting hosting, authentication, monitoring, customer support, or payment processing, where those services are used. We do not sell personal information for money and do not use advertising cookies.
 
 **Additional information for California residents.**
 
 **Shine the light law.**  Under California's Shine the Light law (California Civil Code Section 1798.83), California residents may ask companies with whom they have formed a business relationship primarily for personal, family or household purposes to provide the names of third parties to which they have disclosed certain personal information (as defined under the Shine the Light law) during the preceding calendar year for their own direct marketing purposes, and the categories of personal information disclosed. You may send us requests for this information to info@paqadhr.com. In your request, you must include the statement "Shine the Light Request," and provide your first and last name and mailing address and certify that you are a California resident. We reserve the right to require additional information to confirm your identity and California residency. Please note that we will not accept requests via telephone, mail, or facsimile, and we are not responsible for notices that are not labeled or sent properly, or that do not have complete information.
-[**Additional information for Nevada residents.** Nevada residents have the right to opt-out of the sale of certain personal information for monetary consideration. While we do not currently engage in such sales, if you are a Nevada resident and would like to make a request to opt out of any potential future sales, please email info@paqadhr.com.]
 
-[**Additional information for Texas residents.** We may "sell" your sensitive personal data, as defined by the Texas Data Privacy and Security Act, by [DESCRIBE, e.g., using services that help deliver interest-based ads to you as described above].]
+
+
 
 **Contact Us.** If you have questions or concerns about our privacy policies or information practices, please contact us using the contact details set forth in the How to contact us section above.
 
@@ -455,7 +447,7 @@ Wilmslow - Cheshire SK9 5AF
 
 Tel. +44 303 123 1113
 
-Website: 
+Website: https://ico.org.uk/
 Data Processing outside Europe  
 
 Oktopals Limited operates from Nigeria and uses service providers in other countries, including the United States and elsewhere. If you use the Service, your personal information may be accessed and processed outside Europe.
@@ -480,4 +472,4 @@ You may contact us if you want further information on the specific mechanism use
 
 ---
 
-*Based on attorney-drafted templates from [General Legal](https://github.com/General-Legal/legal-templates) (CC0). Customize and have counsel review before relying on these terms—Counsel should review NDPR/NDPA, GDPR, and payroll-specific obligations before relying on this policy.*
+This policy should be reviewed when Paqad’s features, service providers, or data-processing practices change.
