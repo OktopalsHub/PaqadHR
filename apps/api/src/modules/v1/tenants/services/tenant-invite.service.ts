@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs';
 import { TenantMemberRole } from 'src/common/enums';
+import { WorkerDomainService } from 'src/common/services/worker-domain.service';
 import { StringUtility } from 'src/common/utils';
 import { DataSource } from 'typeorm';
 import {
@@ -27,6 +28,7 @@ export class TenantInviteService {
     private readonly userService: UsersService,
     private readonly eventEmitter: EventEmitter2,
     private readonly auditLogsService: AuditLogsService,
+    private readonly workerDomains: WorkerDomainService,
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
@@ -116,6 +118,9 @@ export class TenantInviteService {
 
         return { savedTenant, tenantMember };
       });
+
+      // The client navigates straight to the tenant subdomain, so attach it before responding.
+      await this.workerDomains.ensure(savedTenant.slug);
 
       try {
         this.eventEmitter.emit(

@@ -24,7 +24,7 @@ runs `opennextjs-cloudflare deploy --config … --keep-vars`.
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `CF_WORKER_NAME` | optional | Worker to deploy to. Defaults per branch: `paqadhr` on `main`, `paqadhr-dev` everywhere else (`dev`, previews). Set it to override — and make it match the Worker the build is connected to, otherwise Workers Builds overrides it and warns. |
-| `NEXT_PUBLIC_API_URL` | yes | API origin used by the app (`https://api-dev.paqadhr.com`, `https://api.paqadhr.com`, …). |
+| `NEXT_PUBLIC_API_URL` | yes | API origin used by the app (`https://api-dev.paqadhr.com`, `https://prod.paqadhr.com`, …). |
 | `NEXT_PUBLIC_APP_URL` | recommended | Public app URL, for metadata/absolute links. |
 | `NEXT_PUBLIC_APP_DOMAIN` | optional | Apex domain for tenant subdomains. Defaults to `paqadhr.com`. |
 | `NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS` | optional | `true`/`false`. Defaults to `true`. |
@@ -41,6 +41,36 @@ wrangler config.
 Deploys run with `--keep-vars`: any var set directly on the Worker in the
 Cloudflare dashboard wins over the config, and vars that only exist in the
 dashboard (PostHog, Sentry, …) survive every deploy.
+
+## Tenant subdomains
+
+Workspaces are served at `<slug>.<app-domain>` (`acme.paqadhr.com`, and
+`acme.dev.paqadhr.com` in dev). They are **not** a Worker route:
+
+- A `*.paqadhr.com/*` route matches every sub-host, including the API origins
+  (`prod.paqadhr.com`, `api-dev.paqadhr.com`) — a route cannot exclude a
+  hostname, so attaching one takes the API down.
+- Instead, each tenant hostname is attached to the web Worker as a **custom
+  domain**. Cloudflare then creates the DNS record and certificate, and the API
+  hosts keep resolving straight to the VPS.
+
+The API does this at workspace creation, and detaches it on permanent delete:
+
+| Variable | Purpose |
+|----------|---------|
+| `CF_WORKER_DOMAIN_API_TOKEN` | Cloudflare API token (Workers Scripts:Edit + Zone:Read for the app zone) |
+| `CF_WORKER_DOMAIN_ZONE_ID` | Zone the tenant hostnames live in |
+| `CF_WORKER_DOMAIN_WORKER_NAME` | Worker that serves tenants (`paqadhr` in prod, `paqadhr-dev` in dev) |
+| `CF_WORKER_DOMAIN_SUFFIX` | Tenant host suffix; defaults to `APP_DOMAIN` |
+| `CF_WORKER_DOMAIN_ACCOUNT_ID` | Optional; defaults to `R2_ACCOUNT_ID` |
+| `CF_WORKER_DOMAIN_ENABLED` | Optional `false` kill switch |
+
+If the credentials are unset the feature is a no-op, so dev keeps working purely
+on the `*.dev.paqadhr.com` route. Existing workspaces are backfilled with
+`pnpm --filter api provision:tenant-domains` (`:dist` in the container;
+`-- --dry-run` to preview). Cloudflare allows **100 custom domains per zone** by
+default — past that, request a limit increase before onboarding more workspaces,
+or move tenants behind a route plus an API proxy on a second zone.
 
 ## `CF_ROUTES` examples
 

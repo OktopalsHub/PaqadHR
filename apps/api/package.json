@@ -31,7 +31,9 @@
     "sync:bachs-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-products.ts",
     "sync:bachs-products:dist": "node dist/scripts/sync-bachs-products.js",
     "sync:bachs-wallet-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-wallet-products.ts",
-    "sync:billing-products": "ts-node -r tsconfig-paths/register src/scripts/sync-billing-products.ts"
+    "sync:billing-products": "ts-node -r tsconfig-paths/register src/scripts/sync-billing-products.ts",
+    "provision:tenant-domains": "ts-node -r tsconfig-paths/register src/scripts/provision-tenant-domains.ts",
+    "provision:tenant-domains:dist": "node dist/scripts/provision-tenant-domains.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1064.0",
