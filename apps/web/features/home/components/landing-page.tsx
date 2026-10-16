@@ -1,10 +1,29 @@
+import dynamic from 'next/dynamic';
 import { ForceLightTheme } from '@/providers/force-light-theme';
 import { LandingNav } from './sections/landing-nav';
-import { LandingHero } from './sections/landing-hero';
-import { LandingFeaturesSection } from './sections/landing-features-section';
-import { LandingShowcase } from './sections/landing-showcase';
-import { LandingCta } from './sections/landing-cta';
-import { LandingFooter } from './sections/landing-footer';
+
+function SectionFallback() {
+  return <div className="w-full h-64 animate-pulse bg-muted/30" />;
+}
+
+const LandingHero = dynamic(() => import('./sections/landing-hero').then((m) => m.LandingHero), {
+  loading: SectionFallback,
+});
+const LandingFeaturesSection = dynamic(
+  () => import('./sections/landing-features-section').then((m) => m.LandingFeaturesSection),
+  { loading: SectionFallback },
+);
+const LandingShowcase = dynamic(
+  () => import('./sections/landing-showcase').then((m) => m.LandingShowcase),
+  { loading: SectionFallback },
+);
+const LandingCta = dynamic(() => import('./sections/landing-cta').then((m) => m.LandingCta), {
+  loading: SectionFallback,
+});
+const LandingFooter = dynamic(
+  () => import('./sections/landing-footer').then((m) => m.LandingFooter),
+  { loading: SectionFallback },
+);
 
 export const LandingPage = () => {
   return (
