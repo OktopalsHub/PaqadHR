@@ -1,15 +1,16 @@
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
+import { loadEnvConfig } from '@next/env';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveWorkerConfig } from './cf-config.mjs';
 
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const branch = process.env.WORKERS_CI_BRANCH ?? process.env.GITHUB_REF_NAME ?? 'dev';
+loadEnvConfig(webRoot);
+const branch = process.env.WORKERS_CI_BRANCH ?? process.env.GITHUB_REF_NAME ?? 'local';
 
-// The target worker resolves from CF_WORKER_NAME, else the branch default
-// (main -> paqadhr, dev/previews -> paqadhr-dev) inside resolveWorkerConfig,
-// so a main build can never silently land on the dev worker.
+// The target worker and public URLs are required environment values. There are
+// no branch-specific URL or Worker defaults in the repository.
 const config = resolveWorkerConfig();
 
 // wrangler only auto-detects wrangler.json(c)/toml, so the env-resolved
