@@ -32,18 +32,6 @@ const DEFAULTS = {
   useSubdomainTenants: 'true',
 };
 
-/**
- * Worker per branch. `main` is the production worker; every other branch
- * (dev, previews) uses the dev worker. An explicit CF_WORKER_NAME always wins,
- * so a build can still target another worker without code changes.
- */
-const BRANCH_WORKER_NAMES = {
-  main: 'paqadhr',
-};
-
-const resolveBranch = (env) =>
-  (env.WORKERS_CI_BRANCH ?? env.GITHUB_REF_NAME ?? 'dev').trim() || 'dev';
-
 const firstEnv = (env, key) => {
   const value = env[key]?.trim();
   return value ? value : undefined;
@@ -77,11 +65,11 @@ const parseRoutes = (raw) => {
  * @returns {Record<string, unknown>} wrangler configuration object
  */
 export function resolveWorkerConfig(env = process.env) {
+  const branch = (env.WORKERS_CI_BRANCH ?? env.GITHUB_REF_NAME ?? 'dev').trim() || 'dev';
+  const branchWorkerName = branch === 'main' ? 'paqadhr' : undefined;
+
   return {
-    name:
-      firstEnv(env, 'CF_WORKER_NAME') ??
-      BRANCH_WORKER_NAMES[resolveBranch(env)] ??
-      DEFAULTS.workerName,
+    name: firstEnv(env, 'CF_WORKER_NAME') ?? branchWorkerName ?? DEFAULTS.workerName,
     main: '.open-next/worker.js',
     compatibility_date: firstEnv(env, 'CF_COMPAT_DATE') ?? DEFAULTS.compatDate,
     compatibility_flags: ['nodejs_compat', 'global_fetch_strictly_public'],
