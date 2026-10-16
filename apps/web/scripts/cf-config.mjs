@@ -1,52 +1,13 @@
 /**
- * Environment-driven Cloudflare Workers config for the web app.
- *
- * Every environment-specific value (worker name, vars, routes,
- * compatibility date) is read from the environment — `.env` for local runs,
- * or the per-build environment variables configured on Cloudflare Workers
- * Builds — so the dev, main and production Workers are all deployed from
- * this repo with zero code changes. Values left unset fall back to the dev
- * defaults below, so local `pnpm cf:preview` keeps working unchanged.
- *
- * Deploys run with `--keep-vars`, so any var set directly on the Worker in
- * the Cloudflare dashboard wins over these values (that is how the PostHog
- * and Sentry keys survive every deploy).
- *
- * Env vars:
- *   CF_WORKER_NAME                Worker to deploy (overrides the branch default)
- *   CF_COMPAT_DATE                compatibility_date (default: 2026-07-01)
- *   CF_WORKERS_DEV                "true" to also publish on workers.dev
- *   CF_ROUTES                     JSON array of route/custom-domain objects
- *   NEXT_PUBLIC_API_URL           API base URL used by the Worker
- *   NEXT_PUBLIC_APP_URL           App base URL used by the Worker
- *   NEXT_PUBLIC_APP_DOMAIN        Apex domain used for tenant subdomains
- *   NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS  "true"/"false"
+ * Cloudflare Workers configuration is supplied by the environment.
+ * Local values come from apps/web/.env; Workers Builds values come from the
+ * branch-specific build environment in the Cloudflare dashboard.
  */
 
-const DEFAULTS = {
-  workerName: 'paqadhr-dev',
-  compatDate: '2026-07-01',
-  apiUrl: 'https://api-dev.paqadhr.com',
-  appUrl: 'https://dev.paqadhr.com',
-  appDomain: 'paqadhr.com',
-  useSubdomainTenants: 'true',
-};
-
-/**
- * Worker per branch. `main` is the production worker; every other branch
- * (dev, previews) uses the dev worker. An explicit CF_WORKER_NAME always wins,
- * so a build can still target another worker without code changes.
- */
-const BRANCH_WORKER_NAMES = {
-  main: 'paqadhr',
-};
-
-const resolveBranch = (env) =>
-  (env.WORKERS_CI_BRANCH ?? env.GITHUB_REF_NAME ?? 'dev').trim() || 'dev';
-
-const firstEnv = (env, key) => {
+const requiredEnv = (env, key) => {
   const value = env[key]?.trim();
-  return value ? value : undefined;
+  if (!value) throw new Error(`Missing required environment variable: ${key}`);
+  return value;
 };
 
 const toBool = (raw, fallback = false) => {
@@ -71,19 +32,34 @@ const parseRoutes = (raw) => {
 };
 
 /**
- * Resolve the wrangler config from an environment map.
+ * Validate and normalize values before Next.js inlines public variables.
+ * No production/development URL or Worker name is embedded in this script.
  *
  * @param {Record<string, string | undefined>} [env]
- * @returns {Record<string, unknown>} wrangler configuration object
+ * @returns {Record<string, string | undefined>}
+ */
+export function resolveBuildEnvironment(env = process.env) {
+  return {
+    ...env,
+    NEXT_PUBLIC_API_URL: requiredEnv(env, 'NEXT_PUBLIC_API_URL'),
+    NEXT_PUBLIC_APP_URL: requiredEnv(env, 'NEXT_PUBLIC_APP_URL'),
+    NEXT_PUBLIC_APP_DOMAIN: requiredEnv(env, 'NEXT_PUBLIC_APP_DOMAIN'),
+    NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: requiredEnv(env, 'NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS'),
+  };
+}
+
+/**
+ * Resolve the Wrangler config exclusively from environment values.
+ *
+ * @param {Record<string, string | undefined>} [env]
+ * @returns {Record<string, unknown>}
  */
 export function resolveWorkerConfig(env = process.env) {
+  const buildEnv = resolveBuildEnvironment(env);
   return {
-    name:
-      firstEnv(env, 'CF_WORKER_NAME') ??
-      BRANCH_WORKER_NAMES[resolveBranch(env)] ??
-      DEFAULTS.workerName,
+    name: requiredEnv(env, 'CF_WORKER_NAME'),
     main: '.open-next/worker.js',
-    compatibility_date: firstEnv(env, 'CF_COMPAT_DATE') ?? DEFAULTS.compatDate,
+    compatibility_date: requiredEnv(env, 'CF_COMPAT_DATE'),
     compatibility_flags: ['nodejs_compat', 'global_fetch_strictly_public'],
     workers_dev: toBool(env.CF_WORKERS_DEV),
     preview_urls: false,
@@ -109,14 +85,11 @@ export function resolveWorkerConfig(env = process.env) {
       },
     },
     vars: {
-      NEXT_PUBLIC_API_URL: firstEnv(env, 'NEXT_PUBLIC_API_URL') ?? DEFAULTS.apiUrl,
-      NEXT_PUBLIC_APP_URL: firstEnv(env, 'NEXT_PUBLIC_APP_URL') ?? DEFAULTS.appUrl,
-      NEXT_PUBLIC_APP_DOMAIN: firstEnv(env, 'NEXT_PUBLIC_APP_DOMAIN') ?? DEFAULTS.appDomain,
-      NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS:
-        firstEnv(env, 'NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS') ?? DEFAULTS.useSubdomainTenants,
+      NEXT_PUBLIC_API_URL: buildEnv.NEXT_PUBLIC_API_URL,
+      NEXT_PUBLIC_APP_URL: buildEnv.NEXT_PUBLIC_APP_URL,
+      NEXT_PUBLIC_APP_DOMAIN: buildEnv.NEXT_PUBLIC_APP_DOMAIN,
+      NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: buildEnv.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS,
     },
-    // No routes by default: custom domains are per-deployment and require
-    // zone access, so they are set through CF_ROUTES instead of hardcoded.
     routes: parseRoutes(env.CF_ROUTES),
   };
 }

@@ -28,6 +28,7 @@ on:
 
 jobs:
   check-and-build:
+    environment: ${{ (github.base_ref == 'main' || github.ref_name == 'main') && 'production' || 'development' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -40,18 +41,6 @@ jobs:
         with:
           node-version: '24'
           cache: 'pnpm'
-
-      - name: Resolve public env for target branch
-        id: env
-        run: |
-          TARGET="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
-          if [ "$TARGET" = "main" ]; then
-            echo "api_url=https://prod.paqadhr.com" >> "$GITHUB_OUTPUT"
-            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
-          else
-            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
-            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -68,13 +57,14 @@ jobs:
       - name: Build web
         run: pnpm --filter web build
         env:
-          NEXT_PUBLIC_API_URL: ${{ steps.env.outputs.api_url }}
-          NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
-          NEXT_PUBLIC_APP_DOMAIN: paqadhr.com
-          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'true'
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_APP_DOMAIN: ${{ vars.NEXT_PUBLIC_APP_DOMAIN }}
+          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: ${{ vars.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS }}
           NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
 
   cf-build:
+    environment: ${{ (github.base_ref == 'main' || github.ref_name == 'main') && 'production' || 'development' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -88,33 +78,22 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
 
-      - name: Resolve public env for target branch
-        id: env
-        run: |
-          TARGET="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
-          if [ "$TARGET" = "main" ]; then
-            echo "api_url=https://prod.paqadhr.com" >> "$GITHUB_OUTPUT"
-            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
-          else
-            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
-            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: OpenNext Cloudflare build
         run: pnpm --filter web cf:build
         env:
-          NEXT_PUBLIC_API_URL: ${{ steps.env.outputs.api_url }}
-          NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
-          NEXT_PUBLIC_APP_DOMAIN: paqadhr.com
-          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'true'
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_APP_DOMAIN: ${{ vars.NEXT_PUBLIC_APP_DOMAIN }}
+          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: ${{ vars.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS }}
           NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
 
   build-and-publish:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     needs: check-and-build
+    environment: ${{ (github.ref_name == 'main') && 'production' || 'development' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -137,17 +116,6 @@ jobs:
           echo "REPO=${REPO_LC}" >> $GITHUB_ENV
           echo "PACKAGE_NAME=${REPO_LC##*/}-web" >> $GITHUB_ENV
 
-      - name: Resolve public env for branch
-        id: env
-        run: |
-          if [ "${GITHUB_REF_NAME}" = "main" ]; then
-            echo "api_url=https://prod.paqadhr.com" >> "$GITHUB_OUTPUT"
-            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
-          else
-            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
-            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -166,10 +134,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ steps.env.outputs.api_url }}
-            NEXT_PUBLIC_APP_URL=${{ steps.env.outputs.app_url }}
-            NEXT_PUBLIC_APP_DOMAIN=paqadhr.com
-            NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS=true
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_URL=${{ vars.NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_APP_DOMAIN=${{ vars.NEXT_PUBLIC_APP_DOMAIN }}
+            NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS=${{ vars.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS }}
             NEXT_PUBLIC_APP_BUILD_ID=${{ github.sha }}
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
             NEXT_PUBLIC_R2_PUBLIC_URL=${{ secrets.NEXT_PUBLIC_R2_PUBLIC_URL }}

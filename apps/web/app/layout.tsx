@@ -26,7 +26,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://paqadhr.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? ''),
   title: {
     default: 'PaqadHR',
     template: '%s · PaqadHR',
@@ -50,8 +50,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'PaqadHR',
-    description:
-      'Hire, pay, and support your team in one workspace with PaqadHR.',
+    description: 'Hire, pay, and support your team in one workspace with PaqadHR.',
     images: ['/opengraph-image'],
   },
   icons: {
