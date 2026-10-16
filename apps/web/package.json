@@ -17,7 +17,7 @@
     "lint": "biome check .",
     "check": "biome check . && pnpm run typecheck:tests",
     "format": "biome check --write .",
-    "cf:build": "node scripts/generate-build-version.mjs && opennextjs-cloudflare build",
+    "cf:build": "node scripts/cf-build.mjs",
     "cf:deploy": "node scripts/cf-deploy.mjs",
     "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "cf-deploy": "opennextjs-cloudflare deploy",
