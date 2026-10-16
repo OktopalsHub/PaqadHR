@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadLocalEnv } from './load-local-env.mjs';
 import { resolveWorkerConfig } from './cf-config.mjs';
+import { loadLocalEnv } from './load-local-env.mjs';
 
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 loadLocalEnv(webRoot);
