@@ -41,12 +41,10 @@ const parseRoutes = (raw) => {
 export function resolveBuildEnvironment(env = process.env) {
   return {
     ...env,
-    CF_WORKER_NAME: requiredEnv(env, 'CF_WORKER_NAME'),
     NEXT_PUBLIC_API_URL: requiredEnv(env, 'NEXT_PUBLIC_API_URL'),
     NEXT_PUBLIC_APP_URL: requiredEnv(env, 'NEXT_PUBLIC_APP_URL'),
     NEXT_PUBLIC_APP_DOMAIN: requiredEnv(env, 'NEXT_PUBLIC_APP_DOMAIN'),
     NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: requiredEnv(env, 'NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS'),
-    CF_COMPAT_DATE: requiredEnv(env, 'CF_COMPAT_DATE'),
   };
 }
 
@@ -59,9 +57,9 @@ export function resolveBuildEnvironment(env = process.env) {
 export function resolveWorkerConfig(env = process.env) {
   const buildEnv = resolveBuildEnvironment(env);
   return {
-    name: buildEnv.CF_WORKER_NAME,
+    name: requiredEnv(env, 'CF_WORKER_NAME'),
     main: '.open-next/worker.js',
-    compatibility_date: buildEnv.CF_COMPAT_DATE,
+    compatibility_date: requiredEnv(env, 'CF_COMPAT_DATE'),
     compatibility_flags: ['nodejs_compat', 'global_fetch_strictly_public'],
     workers_dev: toBool(env.CF_WORKERS_DEV),
     preview_urls: false,
