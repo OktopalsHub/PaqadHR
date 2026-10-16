@@ -35,7 +35,7 @@ test('reads Worker settings and public URLs from environment values', () => {
 
 test('requires environment values instead of using embedded URL or Worker defaults', () => {
   assert.throws(() => resolveBuildEnvironment({}), /NEXT_PUBLIC_API_URL/);
-  assert.throws(() => resolveWorkerConfig({}), /CF_WORKER_NAME/);
+  assert.throws(() => resolveWorkerConfig(envFixture({ CF_WORKER_NAME: '' })), /CF_WORKER_NAME/);
   assert.throws(
     () => resolveBuildEnvironment(envFixture({ NEXT_PUBLIC_APP_URL: '' })),
     /NEXT_PUBLIC_APP_URL/,
