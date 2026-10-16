@@ -15,12 +15,6 @@ const structuredData = {
     name: COMPANY.legalName,
     email: COMPANY.email,
   },
-  offers: {
-    '@type': 'Offer',
-    price: '0',
-    priceCurrency: 'USD',
-    description: '14-day free trial',
-  },
 };
 
 export async function LandingJsonLd({ children }: { children: ReactNode }) {

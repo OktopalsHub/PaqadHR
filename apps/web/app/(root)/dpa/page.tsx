@@ -4,6 +4,9 @@ import { LegalDocPage } from '@/components/legal-doc-page';
 export const metadata: Metadata = {
   title: 'Data Processing Addendum — Paqad',
   description: 'Data Processing Addendum for Paqad workspace customers.',
+  alternates: {
+    canonical: '/dpa',
+  },
 };
 
 export default function DpaPage() {

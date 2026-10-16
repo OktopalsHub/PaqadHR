@@ -7,7 +7,10 @@ import { COMPANY } from '@/lib/constants/company';
 
 export const metadata: Metadata = {
   title: 'Contact — Paqad',
-  description: 'Contact Paqad.',
+  description: 'Contact the Paqad team for product, HR, payroll, or account questions.',
+  alternates: {
+    canonical: '/contact',
+  },
 };
 
 export default function ContactPage() {
@@ -25,7 +28,9 @@ export default function ContactPage() {
       </header>
       <main className="mx-auto max-w-3xl px-6 py-12">
         <h1 className="text-3xl font-semibold tracking-tight">Contact</h1>
-        <p className="mt-2 text-muted-foreground">We reply immediately.</p>
+        <p className="mt-2 text-muted-foreground">
+          Have a question about Paqad? Send us a message or email our team.
+        </p>
 
         <div className="mt-10 grid gap-12 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="space-y-2 text-sm text-muted-foreground">
