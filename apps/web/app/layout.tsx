@@ -50,8 +50,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'PaqadHR',
-    description:
-      'Hire, pay, and support your team in one workspace with PaqadHR.',
+    description: 'Hire, pay, and support your team in one workspace with PaqadHR.',
     images: ['/opengraph-image'],
   },
   icons: {
