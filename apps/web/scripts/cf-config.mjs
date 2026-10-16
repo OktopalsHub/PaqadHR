@@ -1,39 +1,18 @@
 /**
- * Environment-driven Cloudflare Workers config for the web app.
- *
- * Branch defaults keep the main build on production URLs and all other
- * branches on development URLs. Explicit build variables are supported, but
- * known production/development URL mix-ups fail closed for main and dev.
- *
- * Deploys run with --keep-vars so dashboard-only observability keys survive.
+ * Cloudflare Workers configuration is supplied by the environment.
+ * Local values come from apps/web/.env; Workers Builds values come from the
+ * branch-specific build environment in the Cloudflare dashboard.
  */
 
-const DEV_DEFAULTS = {
-  workerName: 'paqadhr-dev',
-  compatDate: '2026-07-01',
-  apiUrl: 'https://api-dev.paqadhr.com',
-  appUrl: 'https://dev.paqadhr.com',
-  appDomain: 'paqadhr.com',
-  useSubdomainTenants: 'true',
+const requiredEnv = (env, key) => {
+  const value = env[key]?.trim();
+  if (!value) throw new Error(`Missing required environment variable: ${key}`);
+  return value;
 };
-
-const PROD_DEFAULTS = {
-  ...DEV_DEFAULTS,
-  workerName: 'paqadhr',
-  apiUrl: 'https://prod.paqadhr.com',
-  appUrl: 'https://paqadhr.com',
-};
-
-/**
- * The main branch targets production. The dev branch and feature previews
- * target the development Worker unless an explicit safe custom Worker is set.
- */
-const resolveBranch = (env) =>
-  (env.WORKERS_CI_BRANCH ?? env.GITHUB_REF_NAME ?? 'dev').trim() || 'dev';
 
 const firstEnv = (env, key) => {
   const value = env[key]?.trim();
-  return value ? value : undefined;
+  return value || undefined;
 };
 
 const toBool = (raw, fallback = false) => {
@@ -57,79 +36,40 @@ const parseRoutes = (raw) => {
   return parsed;
 };
 
-function assertBranchUrls(env, branch) {
-  if (branch === 'main') {
-    if (firstEnv(env, 'NEXT_PUBLIC_APP_URL') === DEV_DEFAULTS.appUrl) {
-      throw new Error(
-        'main build has NEXT_PUBLIC_APP_URL set to the dev URL. Set it to https://paqadhr.com in the production Workers Builds environment.',
-      );
-    }
-    if (firstEnv(env, 'NEXT_PUBLIC_API_URL') === DEV_DEFAULTS.apiUrl) {
-      throw new Error(
-        'main build has NEXT_PUBLIC_API_URL set to the dev API. Set it to https://prod.paqadhr.com in the production Workers Builds environment.',
-      );
-    }
-    if (firstEnv(env, 'CF_WORKER_NAME') === DEV_DEFAULTS.workerName) {
-      throw new Error('main build cannot target the dev Worker paqadhr-dev.');
-    }
-  }
-
-  if (branch === 'dev') {
-    if (firstEnv(env, 'NEXT_PUBLIC_APP_URL') === PROD_DEFAULTS.appUrl) {
-      throw new Error(
-        'dev build has NEXT_PUBLIC_APP_URL set to the production URL. Set it to https://dev.paqadhr.com in the dev Workers Builds environment.',
-      );
-    }
-    if (firstEnv(env, 'NEXT_PUBLIC_API_URL') === PROD_DEFAULTS.apiUrl) {
-      throw new Error(
-        'dev build has NEXT_PUBLIC_API_URL set to the production API. Set it to https://api-dev.paqadhr.com in the dev Workers Builds environment.',
-      );
-    }
-    if (firstEnv(env, 'CF_WORKER_NAME') === PROD_DEFAULTS.workerName) {
-      throw new Error('dev build cannot target the production Worker paqadhr.');
-    }
-  }
-}
+const resolveBranch = (env) =>
+  (env.WORKERS_CI_BRANCH ?? env.GITHUB_REF_NAME ?? 'local').trim() || 'local';
 
 /**
- * Apply branch-specific defaults to the build process before Next.js inlines
- * NEXT_PUBLIC_* values. Throws when main/dev has the known opposite-environment
- * URL configured, preventing a bad bundle from being deployed silently.
+ * Validate and normalize values before Next.js inlines public variables.
+ * No production/development URL or Worker name is embedded in this script.
  *
  * @param {Record<string, string | undefined>} [env]
  * @returns {Record<string, string | undefined>}
  */
 export function resolveBuildEnvironment(env = process.env) {
-  const branch = resolveBranch(env);
-  assertBranchUrls(env, branch);
-  const defaults = branch === 'main' ? PROD_DEFAULTS : DEV_DEFAULTS;
-
   return {
     ...env,
-    NEXT_PUBLIC_API_URL: firstEnv(env, 'NEXT_PUBLIC_API_URL') ?? defaults.apiUrl,
-    NEXT_PUBLIC_APP_URL: firstEnv(env, 'NEXT_PUBLIC_APP_URL') ?? defaults.appUrl,
-    NEXT_PUBLIC_APP_DOMAIN: firstEnv(env, 'NEXT_PUBLIC_APP_DOMAIN') ?? defaults.appDomain,
-    NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS:
-      firstEnv(env, 'NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS') ?? defaults.useSubdomainTenants,
+    CF_WORKER_NAME: requiredEnv(env, 'CF_WORKER_NAME'),
+    NEXT_PUBLIC_API_URL: requiredEnv(env, 'NEXT_PUBLIC_API_URL'),
+    NEXT_PUBLIC_APP_URL: requiredEnv(env, 'NEXT_PUBLIC_APP_URL'),
+    NEXT_PUBLIC_APP_DOMAIN: requiredEnv(env, 'NEXT_PUBLIC_APP_DOMAIN'),
+    NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: requiredEnv(env, 'NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS'),
+    CF_COMPAT_DATE: requiredEnv(env, 'CF_COMPAT_DATE'),
   };
 }
 
 /**
- * Resolve the Wrangler config from a build/deploy environment map.
+ * Resolve the Wrangler config exclusively from environment values.
  *
  * @param {Record<string, string | undefined>} [env]
  * @returns {Record<string, unknown>}
  */
 export function resolveWorkerConfig(env = process.env) {
-  const branch = resolveBranch(env);
-  assertBranchUrls(env, branch);
-  const defaults = branch === 'main' ? PROD_DEFAULTS : DEV_DEFAULTS;
-  const configuredWorkerName = firstEnv(env, 'CF_WORKER_NAME');
-
+  const buildEnv = resolveBuildEnvironment(env);
   return {
-    name: configuredWorkerName ?? defaults.workerName,
+    name: buildEnv.CF_WORKER_NAME,
     main: '.open-next/worker.js',
-    compatibility_date: firstEnv(env, 'CF_COMPAT_DATE') ?? defaults.compatDate,
+    compatibility_date: buildEnv.CF_COMPAT_DATE,
     compatibility_flags: ['nodejs_compat', 'global_fetch_strictly_public'],
     workers_dev: toBool(env.CF_WORKERS_DEV),
     preview_urls: false,
@@ -155,11 +95,10 @@ export function resolveWorkerConfig(env = process.env) {
       },
     },
     vars: {
-      NEXT_PUBLIC_API_URL: firstEnv(env, 'NEXT_PUBLIC_API_URL') ?? defaults.apiUrl,
-      NEXT_PUBLIC_APP_URL: firstEnv(env, 'NEXT_PUBLIC_APP_URL') ?? defaults.appUrl,
-      NEXT_PUBLIC_APP_DOMAIN: firstEnv(env, 'NEXT_PUBLIC_APP_DOMAIN') ?? defaults.appDomain,
-      NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS:
-        firstEnv(env, 'NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS') ?? defaults.useSubdomainTenants,
+      NEXT_PUBLIC_API_URL: buildEnv.NEXT_PUBLIC_API_URL,
+      NEXT_PUBLIC_APP_URL: buildEnv.NEXT_PUBLIC_APP_URL,
+      NEXT_PUBLIC_APP_DOMAIN: buildEnv.NEXT_PUBLIC_APP_DOMAIN,
+      NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: buildEnv.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS,
     },
     routes: parseRoutes(env.CF_ROUTES),
   };
