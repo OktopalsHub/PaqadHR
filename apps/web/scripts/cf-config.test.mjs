@@ -44,7 +44,10 @@ test('requires environment values instead of using embedded URL or Worker defaul
     () => resolveBuildEnvironment(envFixture({ NEXT_PUBLIC_API_URL: '' })),
     /NEXT_PUBLIC_API_URL/,
   );
-  assert.throws(() => resolveWorkerConfig(envFixture({ CF_COMPAT_DATE: '' })), /CF_COMPAT_DATE/);
+  assert.equal(
+    resolveWorkerConfig(envFixture({ CF_COMPAT_DATE: '' })).compatibility_date,
+    '2026-10-16',
+  );
 });
 
 test('preserves environment values while normalizing required variables', () => {
