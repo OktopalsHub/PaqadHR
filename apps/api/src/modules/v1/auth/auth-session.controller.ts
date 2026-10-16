@@ -172,7 +172,11 @@ export class AuthSessionController {
     this.setAuthCookies(res, accessToken, refreshToken, true);
     res.clearCookie(GOOGLE_OAUTH_CONSENT_COOKIE, this.cookieOptions());
     const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
-    res.redirect(`${frontend}/google/complete`);
+    // `/google/complete` used to be a permanent redirect to a tenant subdomain,
+    // and browsers cache permanent redirects. The `?provider` marker lands the
+    // browser on a URL that was never redirected, so clients holding the stale
+    // 301 recover without clearing their cache.
+    res.redirect(`${frontend}/google/complete?provider=google`);
   }
 
   @Post('clear-access')

@@ -101,6 +101,9 @@ export function middleware(request: NextRequest) {
         const rest = pathname.slice(`/${legacySlug}`.length) || '/';
         const destination = tenantUrl(legacySlug, rest);
         const redirect = NextResponse.redirect(destination, 301);
+        // Browsers cache permanent redirects aggressively; keep this one
+        // revalidatable so a routing fix never strands anyone on a stale 301.
+        redirect.headers.set('Cache-Control', 'no-store');
         applySecurityHeaders(redirect, requestHost, nonce);
         return redirect;
       }
