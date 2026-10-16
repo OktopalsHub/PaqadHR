@@ -37,8 +37,7 @@ export const metadata: Metadata = {
     type: 'website',
     siteName: 'PaqadHR',
     title: 'PaqadHR',
-    description:
-      'Hire, pay, and support your team in one workspace with PaqadHR.',
+    description: 'Hire, pay, and support your team in one workspace with PaqadHR.',
     images: [
       {
         url: '/opengraph-image',
