@@ -4,6 +4,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
+import { WorkerDomainService } from 'src/common/services/worker-domain.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { StringUtility } from 'src/common/utils/string.util';
 import { Repository } from 'typeorm';
@@ -43,6 +44,7 @@ export class TenantOnboardingService {
     private positionMemberService: PositionMemberService,
     private eventEmitter: EventEmitter2,
     private readonly productAnalytics: ProductAnalyticsService,
+    private readonly workerDomains: WorkerDomainService,
   ) {}
 
   async completeTenantOnboarding(
@@ -226,7 +228,10 @@ export class TenantOnboardingService {
       createdBy: { id: data.createdBy } as Tenant['createdBy'],
     });
     const saved = await this.tenantRepository.save(tenant);
-    return Array.isArray(saved) ? saved[0] : saved;
+    const created = Array.isArray(saved) ? saved[0] : saved;
+    // The client navigates straight to the tenant subdomain, so attach it before responding.
+    await this.workerDomains.ensure(created.slug);
+    return created;
   }
 
   private emitTenantSetupEvents(tenant: Tenant, member: TenantMember, companyName: string): void {
