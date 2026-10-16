@@ -7,7 +7,10 @@ import { COMPANY } from '@/lib/constants/company';
 
 export const metadata: Metadata = {
   title: 'Contact — Paqad',
-  description: 'Contact Paqad.',
+  description: 'Contact the Paqad team for product, HR, payroll, or account questions.',
+  alternates: {
+    canonical: '/contact',
+  },
 };
 
 export default function ContactPage() {
