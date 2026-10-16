@@ -4,6 +4,9 @@ import { LegalDocPage } from '@/components/legal-doc-page';
 export const metadata: Metadata = {
   title: 'Privacy Policy — Paqad',
   description: 'How Paqad collects, uses, and protects personal data.',
+  alternates: {
+    canonical: '/privacy',
+  },
 };
 
 export default function PrivacyPage() {
