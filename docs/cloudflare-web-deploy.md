@@ -1,28 +1,33 @@
 # Cloudflare Web Deploy (Workers Builds)
 
-The web app ships to Cloudflare Workers through Workers Builds. Environment-specific
-values are not embedded in the deployment scripts or Wrangler config. They must
-come from the local `apps/web/.env.local` file or the variables configured for
-each Cloudflare Workers Builds environment.
+The web app uses environment-driven configuration for Cloudflare Workers and CI.
+Environment-specific URLs and Worker names are not embedded in deployment scripts
+or Wrangler config. Local commands read `apps/web/.env.local` / `.env`; GitHub Actions
+reads public build values from the selected `production` or `development` environment.
 
 ## How a build runs
 
 | Stage | Command | Reads |
 |-------|---------|-------|
-| Build | `pnpm install --frozen-lockfile && pnpm --filter web run cf:build` | Required `CF_*` and `NEXT_PUBLIC_*` environment values |
+| Build | `pnpm install --frozen-lockfile && pnpm --filter web run cf:build` | Required `NEXT_PUBLIC_*` values |
 | Deploy | `pnpm --filter web run cf:deploy` | The same environment values, via `scripts/cf-config.mjs` |
 
-The build/deploy scripts load the app's local environment using Next.js's env
-loader, then validate required values. The deploy script generates
+The scripts load local env files without overriding variables already supplied by
+the process, then validate required values. The deploy script generates
 `apps/web/.wrangler.deploy.jsonc` at deploy time and passes it to Wrangler.
 The generated file is ignored by git.
 
 ## Required environment variables
 
-Configure these separately for each branch in Cloudflare Workers Builds. The
-production build should use the production values; the development build should
-use the development values. Values are intentionally not provided as repository
-defaults.
+For GitHub Actions, create the `production` and `development` environments in
+Repository Settings → Environments. Add the public build variables listed below
+to each environment, using the correct URLs for that environment. The workflow
+selects `production` for `main` and PRs targeting `main`; it selects `development`
+for `dev` and PRs targeting `dev`. Do not set the same URLs for both environments.
+
+For direct Cloudflare Workers Builds or local deploys, set the additional `CF_*`
+values in that build environment or `.env.local`. No environment-specific values
+are supplied by repository defaults.
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
@@ -47,9 +52,9 @@ In Workers & Pages → Workers Builds:
 
 - Connect the production build to branch `main` and the production Worker.
 - Connect the development build to branch `dev` and the development Worker.
-- Set each build's `CF_WORKER_NAME`, `NEXT_PUBLIC_APP_URL`, and
-  `NEXT_PUBLIC_API_URL` in that build's variables/secrets. Do not use one
-  shared value set for both environments.
+- Set each build's `CF_WORKER_NAME`, `CF_COMPAT_DATE`, and public URL/domain
+  variables in that build's variables/secrets. Do not use one shared value set
+  for both environments.
 - Under each Worker’s Settings → Domains & Routes, attach the production
   domain only to the production Worker and the development domain only to the
   development Worker.
