@@ -1,11 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadEnvConfig } from '@next/env';
+import { loadLocalEnv } from './load-local-env.mjs';
 import { resolveBuildEnvironment, resolveWorkerConfig } from './cf-config.mjs';
 
 const webRoot = process.cwd();
-loadEnvConfig(webRoot);
+loadLocalEnv(webRoot);
 const buildEnv = resolveBuildEnvironment(process.env);
 const configPath = join(webRoot, '.wrangler.preview.jsonc');
 writeFileSync(configPath, `${JSON.stringify(resolveWorkerConfig(buildEnv), null, 2)}\n`);
