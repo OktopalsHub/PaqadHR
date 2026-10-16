@@ -10,11 +10,6 @@ const requiredEnv = (env, key) => {
   return value;
 };
 
-const firstEnv = (env, key) => {
-  const value = env[key]?.trim();
-  return value || undefined;
-};
-
 const toBool = (raw, fallback = false) => {
   const value = raw?.trim().toLowerCase();
   if (!value) return fallback;
@@ -35,9 +30,6 @@ const parseRoutes = (raw) => {
   }
   return parsed;
 };
-
-const resolveBranch = (env) =>
-  (env.WORKERS_CI_BRANCH ?? env.GITHUB_REF_NAME ?? 'local').trim() || 'local';
 
 /**
  * Validate and normalize values before Next.js inlines public variables.
