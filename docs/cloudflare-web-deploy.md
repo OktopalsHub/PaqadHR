@@ -10,7 +10,7 @@ from the same code with no per-branch config in git.
 
 | Stage | Command (set in the build configuration) | Reads |
 |-------|------------------------------------------|------|
-| Build | `pnpm install --frozen-lockfile && pnpm --filter web run cf:build` | `NEXT_PUBLIC_*` env vars (inlined at build time) |
+| Build | `pnpm install --frozen-lockfile && pnpm --filter web run cf:build` | Branch-aware URL defaults plus `NEXT_PUBLIC_*` build variables |
 | Deploy | `pnpm --filter web run cf:deploy` | the same env vars, via `scripts/cf-config.mjs` |
 
 `cf:deploy` resolves the wrangler config from the environment, writes it to
@@ -23,9 +23,9 @@ runs `opennextjs-cloudflare deploy --config … --keep-vars`.
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `CF_WORKER_NAME` | optional | Worker to deploy to. Defaults per branch: `paqadhr` on `main`, `paqadhr-dev` everywhere else (`dev`, previews). Set it to override — and make it match the Worker the build is connected to, otherwise Workers Builds overrides it and warns. |
-| `NEXT_PUBLIC_API_URL` | yes | API origin used by the app (`https://api-dev.paqadhr.com`, `https://api.paqadhr.com`, …). |
-| `NEXT_PUBLIC_APP_URL` | recommended | Public app URL, for metadata/absolute links. |
+| `CF_WORKER_NAME` | optional | Defaults to `paqadhr` on `main` and `paqadhr-dev` on other branches. The build fails if `main` is explicitly set to `paqadhr-dev` or `dev` is set to `paqadhr`. Make the Worker name match the Worker connected to that Workers Builds project. |
+| `NEXT_PUBLIC_API_URL` | optional | Defaults to `https://prod.paqadhr.com` on `main` and `https://api-dev.paqadhr.com` on `dev`/previews. If explicitly set to the opposite known environment on `main` or `dev`, the build fails instead of publishing a mismatched bundle. |
+| `NEXT_PUBLIC_APP_URL` | optional | Defaults to `https://paqadhr.com` on `main` and `https://dev.paqadhr.com` on `dev`/previews. Explicit production/development URL mix-ups on `main`/`dev` fail the build. |
 | `NEXT_PUBLIC_APP_DOMAIN` | optional | Apex domain for tenant subdomains. Defaults to `paqadhr.com`. |
 | `NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS` | optional | `true`/`false`. Defaults to `true`. |
 | `CF_ROUTES` | optional | JSON array of route/custom-domain objects (see below). Omit for no routes. |
@@ -41,6 +41,19 @@ wrangler config.
 Deploys run with `--keep-vars`: any var set directly on the Worker in the
 Cloudflare dashboard wins over the config, and vars that only exist in the
 dashboard (PostHog, Sentry, …) survive every deploy.
+
+
+### Required Cloudflare separation
+
+In **Workers & Pages → Workers Builds**, make sure production and development do not deploy through the same connected Worker:
+
+- Production build: production branch `main`, connected Worker `paqadhr`.
+- Development build: branch `dev`, connected Worker `paqadhr-dev`.
+- Set `NEXT_PUBLIC_APP_URL` and `NEXT_PUBLIC_API_URL` in each build's build variables/secrets if you want explicit values. Do not set the development URLs as shared values for the production build.
+- Keep `CF_WORKER_NAME` unset unless you need an override. A global `CF_WORKER_NAME=paqadhr-dev` or `NEXT_PUBLIC_APP_URL=https://dev.paqadhr.com` can make production target or advertise development.
+- Attach `paqadhr.com` only to the production Worker and `dev.paqadhr.com` only to the development Worker under each Worker’s **Settings → Domains & Routes**.
+
+The `cf:build` script now applies branch defaults before OpenNext builds the bundle and fails on the known `main`/ `dev` URL mix-ups. This catches bad build variables, but cannot correct a Cloudflare dashboard domain attached to the wrong Worker.
 
 ## `CF_ROUTES` examples
 
