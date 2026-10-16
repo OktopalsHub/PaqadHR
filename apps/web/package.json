@@ -10,7 +10,7 @@
     "dev:clean": "rm -rf .next .turbo && next dev --turbopack",
     "clean": "rm -rf .next .turbo",
     "typecheck:tests": "tsc --noEmit --pretty false -p tsconfig.test.json",
-    "prebuild": "node scripts/generate-build-version.mjs",
+    "prebuild": "node scripts/generate-build-version.mjs && node scripts/generate-legal-content.mjs",
     "build": "pnpm run typecheck:tests && next build --webpack",
     "test": "node --test scripts/cf-config.test.mjs && tsx --test \"**/*.test.ts\"",
     "start": "next start",

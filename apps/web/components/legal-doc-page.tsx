@@ -1,40 +1,28 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import Link from 'next/link';
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
+import { LEGAL_CONTENT } from '@/lib/legal-content.generated';
 import { legalMarkdownToReact } from '@/lib/legal-markdown';
+
+type LegalDocFile = 'terms.md' | 'privacy.md' | 'dpa.md' | 'cookies.md';
 
 type LegalDocPageProps = {
   title: string;
   description: string;
-  file: 'terms.md' | 'privacy.md' | 'dpa.md' | 'cookies.md';
+  file: LegalDocFile;
 };
 
-/**
- * The legal markdown is traced into the server bundle, but its runtime location
- * depends on the host. Under OpenNext on Cloudflare Workers `process.cwd()` is
- * the bundle root and traced files keep their monorepo-relative path
- * (`apps/web/content/legal/...`); in local dev cwd is the app directory. Try
- * both so the page renders in every runtime.
- */
-async function readLegalDoc(file: LegalDocPageProps['file']): Promise<string> {
-  const candidates = [
-    path.join(process.cwd(), 'content/legal', file),
-    path.join(process.cwd(), 'apps/web/content/legal', file),
-  ];
-  for (const candidate of candidates) {
-    try {
-      return await readFile(candidate, 'utf8');
-    } catch {
-      // Try the next candidate location.
-    }
-  }
-  throw new Error(`Legal document not found: ${file}`);
-}
+// The markdown is inlined at build time (see scripts/generate-legal-content.mjs)
+// because the Cloudflare Worker bundle does not ship runtime `fs` reads.
+const LEGAL_DOCS: Record<LegalDocFile, string> = {
+  'terms.md': LEGAL_CONTENT.terms,
+  'privacy.md': LEGAL_CONTENT.privacy,
+  'dpa.md': LEGAL_CONTENT.dpa,
+  'cookies.md': LEGAL_CONTENT.cookies,
+};
 
 export async function LegalDocPage({ title, description, file }: LegalDocPageProps) {
-  const markdown = await readLegalDoc(file);
+  const markdown = LEGAL_DOCS[file];
 
   return (
     <div className="theme-marketing min-h-screen bg-background text-foreground">

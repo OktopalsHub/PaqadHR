@@ -138,6 +138,15 @@
       }
     },
     {
+      "includes": ["apps/web/**/*.generated.ts"],
+      "linter": {
+        "enabled": false
+      },
+      "formatter": {
+        "enabled": false
+      }
+    },
+    {
       "includes": ["apps/api/test/**", "apps/api/**/*.spec.ts"],
       "linter": {
         "rules": {
