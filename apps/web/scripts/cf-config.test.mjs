@@ -34,7 +34,8 @@ test('reads Worker settings and public URLs from environment values', () => {
 });
 
 test('requires environment values instead of using embedded URL or Worker defaults', () => {
-  assert.throws(() => resolveBuildEnvironment({}), /CF_WORKER_NAME/);
+  assert.throws(() => resolveBuildEnvironment({}), /NEXT_PUBLIC_API_URL/);
+  assert.throws(() => resolveWorkerConfig({}), /CF_WORKER_NAME/);
   assert.throws(
     () => resolveBuildEnvironment(envFixture({ NEXT_PUBLIC_APP_URL: '' })),
     /NEXT_PUBLIC_APP_URL/,
@@ -44,7 +45,7 @@ test('requires environment values instead of using embedded URL or Worker defaul
     /NEXT_PUBLIC_API_URL/,
   );
   assert.throws(
-    () => resolveBuildEnvironment(envFixture({ CF_COMPAT_DATE: '' })),
+    () => resolveWorkerConfig(envFixture({ CF_COMPAT_DATE: '' })),
     /CF_COMPAT_DATE/,
   );
 });
@@ -56,7 +57,7 @@ test('preserves environment values while normalizing required variables', () => 
   assert.equal(resolved.CUSTOM_VALUE, 'preserved');
   assert.equal(resolved.NEXT_PUBLIC_APP_URL, env.NEXT_PUBLIC_APP_URL);
   assert.equal(resolved.NEXT_PUBLIC_API_URL, env.NEXT_PUBLIC_API_URL);
-  assert.equal(resolved.CF_WORKER_NAME, env.CF_WORKER_NAME);
+  assert.equal(resolved.NEXT_PUBLIC_APP_DOMAIN, env.NEXT_PUBLIC_APP_DOMAIN);
 });
 
 test('supports omitted routes and disables workers.dev by default', () => {
