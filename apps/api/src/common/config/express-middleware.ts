@@ -7,7 +7,14 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import passport from 'passport';
 import { correlationIdMiddleware } from '../observability/correlation-id.middleware';
-import { resolveCookieDomain, usesCrossSiteCookies, usesSecureCookies } from './cookie-deployment';
+import {
+  ACCESS_TOKEN_COOKIE,
+  CSRF_COOKIE,
+  cookieName,
+  resolveCookieDomain,
+  usesCrossSiteCookies,
+  usesSecureCookies,
+} from './cookie-deployment';
 import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
 type RequestWithRawBody = Request & { rawBody?: Buffer };
@@ -44,6 +51,7 @@ export const configureMiddleware = (app: NestExpressApplication) => {
   const cookieDomain = resolveCookieDomain();
   const csrfProtection = csurf({
     cookie: {
+      key: cookieName(CSRF_COOKIE),
       httpOnly: true,
       sameSite: crossSiteCookies ? 'none' : 'lax',
       secure: secureCookies,
@@ -73,7 +81,7 @@ export const configureMiddleware = (app: NestExpressApplication) => {
     ];
     const isExcludedPath = excludedPaths.some((path) => req.path.startsWith(path));
     const hasBearerAuth = req.headers.authorization?.startsWith('Bearer ') ?? false;
-    const hasAuthCookie = req.cookies?.access_token !== undefined;
+    const hasAuthCookie = req.cookies?.[cookieName(ACCESS_TOKEN_COOKIE)] !== undefined;
     if (isExcludedPath || (hasBearerAuth && !hasAuthCookie)) {
       return next();
     }

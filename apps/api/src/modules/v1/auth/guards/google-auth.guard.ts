@@ -2,13 +2,14 @@ import { ExecutionContext, Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import {
+  cookieName,
   resolveCookieDomain,
   usesCrossSiteCookies,
   usesSecureCookies,
 } from 'src/common/config/cookie-deployment';
 import {
   createGoogleOAuthConsentClaims,
-  GOOGLE_OAUTH_CONSENT_COOKIE,
+  GOOGLE_OAUTH_CONSENT_COOKIE_BASE,
   GOOGLE_OAUTH_CONSENT_TTL_MS,
   signGoogleOAuthConsent,
 } from '../utils/google-oauth-state.util';
@@ -30,7 +31,7 @@ export class GoogleAuthGuard extends AuthGuard('google') {
     const crossSiteCookies = usesCrossSiteCookies();
     const domain = resolveCookieDomain();
 
-    response.cookie(GOOGLE_OAUTH_CONSENT_COOKIE, token, {
+    response.cookie(cookieName(GOOGLE_OAUTH_CONSENT_COOKIE_BASE), token, {
       httpOnly: true,
       secure: usesSecureCookies(),
       sameSite: crossSiteCookies ? 'none' : 'lax',

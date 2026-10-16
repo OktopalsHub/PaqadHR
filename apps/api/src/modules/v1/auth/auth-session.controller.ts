@@ -18,6 +18,9 @@ import { AuthOnly, CurrentUser, Public } from 'src/common/decorators';
 import type { IAuthenticatedUserRequest, JwtPayload } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import {
+  ACCESS_TOKEN_COOKIE,
+  cookieName,
+  REFRESH_TOKEN_COOKIE,
   resolveCookieDomain,
   usesCrossSiteCookies,
   usesSecureCookies,
@@ -33,7 +36,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { AuthSessionService } from './services/auth-session.service';
 import {
   createGoogleOAuthConsentClaims,
-  GOOGLE_OAUTH_CONSENT_COOKIE,
+  GOOGLE_OAUTH_CONSENT_COOKIE_BASE,
   GOOGLE_OAUTH_CONSENT_TTL_MS,
   signGoogleOAuthConsent,
 } from './utils/google-oauth-state.util';
@@ -142,7 +145,7 @@ export class AuthSessionController {
   ): { ok: true } {
     void body;
     const token = signGoogleOAuthConsent(createGoogleOAuthConsentClaims());
-    res.cookie(GOOGLE_OAUTH_CONSENT_COOKIE, token, {
+    res.cookie(cookieName(GOOGLE_OAUTH_CONSENT_COOKIE_BASE), token, {
       ...this.cookieOptions(),
       maxAge: GOOGLE_OAUTH_CONSENT_TTL_MS,
     });
@@ -170,7 +173,7 @@ export class AuthSessionController {
       true,
     );
     this.setAuthCookies(res, accessToken, refreshToken, true);
-    res.clearCookie(GOOGLE_OAUTH_CONSENT_COOKIE, this.cookieOptions());
+    res.clearCookie(cookieName(GOOGLE_OAUTH_CONSENT_COOKIE_BASE), this.cookieOptions());
     const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     // `/google/complete` used to be a permanent redirect to a tenant subdomain,
     // and browsers cache permanent redirects. The `?provider` marker lands the
@@ -182,7 +185,7 @@ export class AuthSessionController {
   @Post('clear-access')
   @Public()
   clearAccess(@Res({ passthrough: true }) res: Response): { message: string } {
-    res.clearCookie('access_token', this.cookieOptions());
+    res.clearCookie(cookieName(ACCESS_TOKEN_COOKIE), this.cookieOptions());
     return { message: 'Access cleared' };
   }
 
@@ -193,7 +196,7 @@ export class AuthSessionController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
-    const refreshToken = req.cookies.refresh_token;
+    const refreshToken = req.cookies[cookieName(REFRESH_TOKEN_COOKIE)];
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
@@ -209,7 +212,7 @@ export class AuthSessionController {
   @Post('logout')
   @Public()
   async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
-    const refreshToken = req.cookies.refresh_token;
+    const refreshToken = req.cookies[cookieName(REFRESH_TOKEN_COOKIE)];
     const user = req.user as JwtPayload | undefined;
     if (refreshToken) {
       await this.authService.logoutByRefreshToken(refreshToken);
@@ -279,11 +282,11 @@ export class AuthSessionController {
     _rememberMe = true,
   ) {
     const options = this.cookieOptions();
-    res.cookie('access_token', accessToken, {
+    res.cookie(cookieName(ACCESS_TOKEN_COOKIE), accessToken, {
       ...options,
       maxAge: AuthSessionService.getAccessDurationMs(),
     });
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie(cookieName(REFRESH_TOKEN_COOKIE), refreshToken, {
       ...options,
       maxAge: AuthSessionService.getRefreshDurationMs(),
     });
@@ -291,7 +294,7 @@ export class AuthSessionController {
 
   private clearAuthCookies(res: Response) {
     const options = this.cookieOptions();
-    res.clearCookie('access_token', options);
-    res.clearCookie('refresh_token', options);
+    res.clearCookie(cookieName(ACCESS_TOKEN_COOKIE), options);
+    res.clearCookie(cookieName(REFRESH_TOKEN_COOKIE), options);
   }
 }

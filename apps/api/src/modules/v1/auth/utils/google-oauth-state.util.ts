@@ -2,7 +2,11 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 
-export const GOOGLE_OAUTH_CONSENT_COOKIE = 'google_oauth_consent';
+/**
+ * Base name for the Google OAuth consent cookie. Resolve it through
+ * `cookieName()` before reading or writing the cookie — see cookie-deployment.
+ */
+export const GOOGLE_OAUTH_CONSENT_COOKIE_BASE = 'google_oauth_consent';
 export const GOOGLE_OAUTH_CONSENT_TTL_MS = 10 * 60 * 1000;
 
 export interface GoogleOAuthConsentClaims {

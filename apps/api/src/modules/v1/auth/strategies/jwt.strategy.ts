@@ -3,6 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ACCESS_TOKEN_COOKIE, cookieName } from 'src/common/config/cookie-deployment';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import type { JwtPayload } from 'src/common/interfaces';
 import { Repository } from 'typeorm';
@@ -25,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (req: Request) => req?.cookies?.access_token ?? null,
+        (req: Request) => req?.cookies?.[cookieName(ACCESS_TOKEN_COOKIE)] ?? null,
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
       ignoreExpiration: false,

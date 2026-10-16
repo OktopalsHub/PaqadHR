@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { PassportStrategy } from '@nestjs/passport';
 import type { Request } from 'express';
 import { Strategy } from 'passport-google-oauth20';
+import { cookieName } from 'src/common/config/cookie-deployment';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import { StringUtility } from 'src/common/utils';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
@@ -9,7 +10,7 @@ import type { User } from '../../users/entities/user.entity';
 import { AuthService } from '../auth.service';
 import {
   consentTokensMatch,
-  GOOGLE_OAUTH_CONSENT_COOKIE,
+  GOOGLE_OAUTH_CONSENT_COOKIE_BASE,
   verifyGoogleOAuthConsent,
 } from '../utils/google-oauth-state.util';
 
@@ -38,8 +39,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, req.ip);
     const stateParam = typeof req.query?.state === 'string' ? req.query.state : undefined;
     const cookieToken =
-      typeof req.cookies?.[GOOGLE_OAUTH_CONSENT_COOKIE] === 'string'
-        ? req.cookies[GOOGLE_OAUTH_CONSENT_COOKIE]
+      typeof req.cookies?.[cookieName(GOOGLE_OAUTH_CONSENT_COOKIE_BASE)] === 'string'
+        ? req.cookies[cookieName(GOOGLE_OAUTH_CONSENT_COOKIE_BASE)]
         : undefined;
 
     if (!consentTokensMatch(cookieToken, stateParam)) {
