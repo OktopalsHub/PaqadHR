@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { loadEnvConfig } from '@next/env';
+import { loadLocalEnv } from './load-local-env.mjs';
 import { resolveBuildEnvironment } from './cf-config.mjs';
 
 const webRoot = process.cwd();
-loadEnvConfig(webRoot);
+loadLocalEnv(webRoot);
 const buildEnv = resolveBuildEnvironment(process.env);
 
 console.log(
