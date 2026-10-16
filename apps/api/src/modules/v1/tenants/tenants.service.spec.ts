@@ -74,6 +74,7 @@ describe('TenantsService', () => {
       subscriptionsService as never,
       fileUrlService as never,
       { queueAuditLog: jest.fn().mockResolvedValue(undefined) } as never,
+      { ensure: jest.fn(), remove: jest.fn() } as never,
       employmentRepository as never,
       walletRepository as never,
       walletTransactionRepository as never,
@@ -83,6 +84,7 @@ describe('TenantsService', () => {
       {} as never,
       {} as never,
       { queueAuditLog: jest.fn().mockResolvedValue(undefined) } as never,
+      { ensure: jest.fn(), remove: jest.fn() } as never,
       {} as never,
     );
     service = new TenantsService(invite, management);
@@ -343,6 +345,7 @@ describe('TenantsService', () => {
     let eventEmitter: { emit: jest.Mock };
     let dataSource: { transaction: jest.Mock };
     let auditLogsService: { queueAuditLog: jest.Mock };
+    let tenantDomainService: { ensure: jest.Mock; remove: jest.Mock };
     let savedMember: Record<string, unknown> | undefined;
 
     beforeEach(() => {
@@ -392,6 +395,7 @@ describe('TenantsService', () => {
 
       eventEmitter = { emit: jest.fn() };
       auditLogsService = { queueAuditLog: jest.fn().mockResolvedValue(undefined) };
+      tenantDomainService = { ensure: jest.fn().mockResolvedValue('created'), remove: jest.fn() };
 
       const management = new TenantManagementService(
         tenantRepository as never,
@@ -399,6 +403,7 @@ describe('TenantsService', () => {
         subscriptionsService as never,
         fileUrlService as never,
         auditLogsService as never,
+        tenantDomainService as never,
         employmentRepository as never,
         walletRepository as never,
         walletTransactionRepository as never,
@@ -408,6 +413,7 @@ describe('TenantsService', () => {
         userService as never,
         eventEmitter as never,
         auditLogsService as never,
+        tenantDomainService as never,
         dataSource as never,
       );
       service = new TenantsService(invite, management);
@@ -425,6 +431,12 @@ describe('TenantsService', () => {
           role: TenantMemberRole.OWNER,
         }),
       );
+    });
+
+    it('attaches the workspace subdomain before returning', async () => {
+      await service.createTenant('user-1', { name: 'New Workspace', slug: 'new-workspace' });
+
+      expect(tenantDomainService.ensure).toHaveBeenCalledWith('new-workspace');
     });
   });
 });

@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs';
 import { FileUrlService } from 'src/common/services/file-url.service';
+import { WorkerDomainService } from 'src/common/services/worker-domain.service';
 import { StringUtility } from 'src/common/utils';
 import { isWalletCurrencyLocked } from 'src/common/utils/rewards-defaults.util';
 import { IsNull, Repository } from 'typeorm';
@@ -34,6 +35,7 @@ export class TenantManagementService {
     private readonly subscriptionsService: SubscriptionsService,
     readonly _fileUrlService: FileUrlService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly workerDomains: WorkerDomainService,
     @InjectRepository(Employment)
     private readonly employmentRepository: Repository<Employment>,
     @InjectRepository(TenantWallet)
@@ -212,9 +214,20 @@ export class TenantManagementService {
   }
 
   async permanentDeleteTenant(tenantId: string): Promise<void> {
+    // Read the slug first: the row is gone after the delete, and its subdomain must go too.
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      withDeleted: true,
+      select: ['id', 'slug'],
+    });
+
     const result = await this.tenantRepository.delete(tenantId);
     if (result.affected === 0) {
       throw new NotFoundException(`Tenant not found`);
+    }
+
+    if (tenant?.slug) {
+      await this.workerDomains.remove(tenant.slug);
     }
 
     void this.auditLogsService

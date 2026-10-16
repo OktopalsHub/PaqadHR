@@ -36,14 +36,15 @@ export function resolveAppDomain(requestHost?: string): string | undefined {
     return host;
   }
 
+  // Tenant subdomain on dev: tenant.dev.paqadhr.com → dev.paqadhr.com.
+  // Checked before the production suffix, which also matches this host.
+  if (host.endsWith('.dev.paqadhr.com')) {
+    return 'dev.paqadhr.com';
+  }
+
   // Tenant subdomain on production: tenant.paqadhr.com → paqadhr.com
   if (host.endsWith('.paqadhr.com') && host !== 'www.paqadhr.com') {
     return 'paqadhr.com';
-  }
-
-  // Tenant subdomain on dev: tenant.dev.paqadhr.com → dev.paqadhr.com
-  if (host.endsWith('.dev.paqadhr.com')) {
-    return 'dev.paqadhr.com';
   }
 
   // Localhost variants
@@ -143,6 +144,9 @@ function inferTenantHostSuffix(requestHost?: string): string {
       if (url.hostname.endsWith('.localhost') || url.hostname === 'localhost') {
         return `.localhost${url.port ? `:${url.port}` : ''}`;
       }
+      // Derive from the host itself: on the dev apex the env domain is production's,
+      // which would send dev tenant links to prod hosts.
+      return `.${appDomain}`;
     } catch {
       // fall through
     }

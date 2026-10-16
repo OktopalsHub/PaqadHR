@@ -63,6 +63,51 @@ The repository validates that required values exist, but cannot inspect or
 change Cloudflare dashboard settings. A domain attached to the wrong Worker
 must be corrected in Cloudflare.
 
+## Tenant subdomains
+
+Workspaces are served at `<slug>.<app-domain>` (`acme.paqadhr.com`, and
+`acme.dev.paqadhr.com` in dev). They are **not** a Worker route:
+
+- A `*.paqadhr.com/*` route matches every sub-host, including the API origins
+  (`prod.paqadhr.com`, `api-dev.paqadhr.com`) — a route cannot exclude a
+  hostname, so attaching one takes the API down.
+- Instead, each tenant hostname is attached to the web Worker as a **custom
+  domain**. Cloudflare then creates the DNS record and certificate, and the API
+  hosts keep resolving straight to the VPS.
+
+The API does this at workspace creation, and detaches it on permanent delete:
+
+| Variable | Purpose |
+|----------|---------|
+| `CF_WORKER_DOMAIN_API_TOKEN` | Cloudflare API token (Workers Scripts:Edit + Zone:Read for the app zone) |
+| `CF_WORKER_DOMAIN_ZONE_ID` | Zone the tenant hostnames live in |
+| `CF_WORKER_DOMAIN_WORKER_NAME` | Worker that serves tenants (`paqadhr` in prod, `paqadhr-dev` in dev) |
+| `CF_WORKER_DOMAIN_SUFFIX` | Tenant host suffix; defaults to `APP_DOMAIN` |
+| `CF_WORKER_DOMAIN_ACCOUNT_ID` | Optional; defaults to `R2_ACCOUNT_ID` |
+| `CF_WORKER_DOMAIN_ENABLED` | Optional `false` kill switch |
+
+If the credentials are unset the feature is a no-op, so dev keeps working purely
+on the `*.dev.paqadhr.com` route. Existing workspaces are backfilled with
+`pnpm --filter api provision:tenant-domains` (`:dist` in the container;
+`-- --dry-run` to preview). Cloudflare allows **100 custom domains per zone** by
+default — past that, request a limit increase before onboarding more workspaces,
+or move tenants behind a route plus an API proxy on a second zone.
+
+## `CF_ROUTES` examples
+
+- Connect the production build to branch `main` and the production Worker.
+- Connect the development build to branch `dev` and the development Worker.
+- Set each build's `CF_WORKER_NAME`, `CF_COMPAT_DATE`, and public URL/domain
+  variables in that build's variables/secrets. Do not use one shared value set
+  for both environments.
+- Under each Worker’s Settings → Domains & Routes, attach the production
+  domain only to the production Worker and the development domain only to the
+  development Worker.
+
+The repository validates that required values exist, but cannot inspect or
+change Cloudflare dashboard settings. A domain attached to the wrong Worker
+must be corrected in Cloudflare.
+
 ## Local setup
 
 Copy `apps/web/.env.example` to `apps/web/.env.local` and fill in the values

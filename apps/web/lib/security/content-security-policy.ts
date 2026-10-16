@@ -16,7 +16,11 @@ function getR2PublicOrigin(): string | undefined {
  * host-derived one to avoid blocking a first-party API call the browser makes.
  */
 function collectApiOrigins(requestHost?: string): string[] {
-  const envOrigin = apiOriginFromBase(resolveApiBaseUrl({ requestHost }));
+  // Read the env origin directly: resolveApiBaseUrl() already prefers the host-derived
+  // origin, which would hide the value inlined at build time.
+  const envOrigin = apiOriginFromBase(
+    process.env.NEXT_PUBLIC_API_URL?.trim() || resolveApiBaseUrl(),
+  );
   const hostBaseUrl = resolveHostApiBaseUrl(requestHost);
   const hostOrigin = hostBaseUrl ? apiOriginFromBase(hostBaseUrl) : undefined;
 
