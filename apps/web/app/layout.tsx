@@ -26,6 +26,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://paqadhr.com'),
   title: {
     default: 'PaqadHR',
     template: '%s · PaqadHR',
