@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { loadLocalEnv } from './load-local-env.mjs';
 import { resolveBuildEnvironment } from './cf-config.mjs';
+import { loadLocalEnv } from './load-local-env.mjs';
 
 const webRoot = process.cwd();
 loadLocalEnv(webRoot);
