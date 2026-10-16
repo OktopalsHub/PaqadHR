@@ -11,8 +11,30 @@ type LegalDocPageProps = {
   file: 'terms.md' | 'privacy.md' | 'dpa.md' | 'cookies.md';
 };
 
+/**
+ * The legal markdown is traced into the server bundle, but its runtime location
+ * depends on the host. Under OpenNext on Cloudflare Workers `process.cwd()` is
+ * the bundle root and traced files keep their monorepo-relative path
+ * (`apps/web/content/legal/...`); in local dev cwd is the app directory. Try
+ * both so the page renders in every runtime.
+ */
+async function readLegalDoc(file: LegalDocPageProps['file']): Promise<string> {
+  const candidates = [
+    path.join(process.cwd(), 'content/legal', file),
+    path.join(process.cwd(), 'apps/web/content/legal', file),
+  ];
+  for (const candidate of candidates) {
+    try {
+      return await readFile(candidate, 'utf8');
+    } catch {
+      // Try the next candidate location.
+    }
+  }
+  throw new Error(`Legal document not found: ${file}`);
+}
+
 export async function LegalDocPage({ title, description, file }: LegalDocPageProps) {
-  const markdown = await readFile(path.join(process.cwd(), 'content/legal', file), 'utf8');
+  const markdown = await readLegalDoc(file);
 
   return (
     <div className="theme-marketing min-h-screen bg-background text-foreground">
