@@ -62,10 +62,6 @@ jobs:
           NEXT_PUBLIC_APP_DOMAIN: ${{ vars.NEXT_PUBLIC_APP_DOMAIN }}
           NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: ${{ vars.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS }}
           NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
-          CF_WORKER_NAME: ${{ vars.CF_WORKER_NAME }}
-          CF_COMPAT_DATE: ${{ vars.CF_COMPAT_DATE }}
-          CF_ROUTES: ${{ vars.CF_ROUTES }}
-          CF_WORKERS_DEV: ${{ vars.CF_WORKERS_DEV }}
 
   cf-build:
     environment: ${{ (github.base_ref == 'main' || github.ref_name == 'main') && 'production' || 'development' }}
@@ -93,10 +89,6 @@ jobs:
           NEXT_PUBLIC_APP_DOMAIN: ${{ vars.NEXT_PUBLIC_APP_DOMAIN }}
           NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: ${{ vars.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS }}
           NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
-          CF_WORKER_NAME: ${{ vars.CF_WORKER_NAME }}
-          CF_COMPAT_DATE: ${{ vars.CF_COMPAT_DATE }}
-          CF_ROUTES: ${{ vars.CF_ROUTES }}
-          CF_WORKERS_DEV: ${{ vars.CF_WORKERS_DEV }}
 
   build-and-publish:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
