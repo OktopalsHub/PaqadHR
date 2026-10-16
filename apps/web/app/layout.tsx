@@ -26,12 +26,34 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://paqadhr.com'),
   title: {
     default: 'PaqadHR',
     template: '%s · PaqadHR',
   },
   description:
     'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition',
+  openGraph: {
+    type: 'website',
+    siteName: 'PaqadHR',
+    title: 'PaqadHR',
+    description: 'Hire, pay, and support your team in one workspace with PaqadHR.',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'PaqadHR: hire, pay, and support your team in one workspace',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PaqadHR',
+    description:
+      'Hire, pay, and support your team in one workspace with PaqadHR.',
+    images: ['/opengraph-image'],
+  },
   icons: {
     icon: [{ url: brandFaviconUrls.light, type: 'image/png' }],
     apple: [{ url: brandFaviconUrls.light, type: 'image/png' }],

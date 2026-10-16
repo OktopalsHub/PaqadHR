@@ -4,6 +4,9 @@ import { LegalDocPage } from '@/components/legal-doc-page';
 export const metadata: Metadata = {
   title: 'Cookie Notice — Paqad',
   description: 'How Paqad uses cookies and similar technologies.',
+  alternates: {
+    canonical: '/cookies',
+  },
 };
 
 export default function CookiesPage() {

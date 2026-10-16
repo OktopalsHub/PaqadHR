@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowDownRight, ArrowUpRight, Check, Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { fadeUp, stagger } from '../../constants/landing-motion';
 
@@ -18,6 +19,32 @@ const ProductDemoShell = dynamic(
 );
 
 export const LandingHero = () => {
+  const [shouldLoadProductDemo, setShouldLoadProductDemo] = useState(false);
+  const productDemoRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const target = productDemoRef.current;
+    if (!target) return;
+
+    if (typeof IntersectionObserver === 'undefined') {
+      setShouldLoadProductDemo(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setShouldLoadProductDemo(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <section className="landing-hero-shell relative overflow-hidden pb-10 pt-8 md:pb-14 md:pt-12">
       <div className="landing-hero-grid pointer-events-none absolute inset-0" />
@@ -155,7 +182,16 @@ export const LandingHero = () => {
             Payroll · Hiring · Time off · Recognition
           </p>
         </div>
-        <ProductDemoShell className="landing-product-frame" />
+        <div ref={productDemoRef}>
+          {shouldLoadProductDemo ? (
+            <ProductDemoShell className="landing-product-frame" />
+          ) : (
+            <div
+              className="mx-auto mt-12 h-[420px] max-w-6xl animate-pulse rounded-2xl bg-muted/40 px-6 md:mt-16"
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </div>
     </section>
   );

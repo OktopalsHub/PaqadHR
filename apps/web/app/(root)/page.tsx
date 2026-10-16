@@ -16,18 +16,31 @@ export const metadata: Metadata = {
     'HR platform',
     'workforce management',
   ],
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     title: 'PaqadHR',
     description:
       'Hire, pay, and recognize your people in one workspace. Recruitment, payroll, leave, and shoutouts.',
     type: 'website',
-    siteName: 'Paqad',
+    siteName: 'PaqadHR',
+    url: 'https://paqadhr.com/',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'PaqadHR: hire, pay, and support your team in one workspace',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'PaqadHR',
     description:
       'Hire, pay, and recognize your people in one workspace. Recruitment, payroll, leave, and shoutouts.',
+    images: ['/opengraph-image'],
   },
   robots: {
     index: true,
