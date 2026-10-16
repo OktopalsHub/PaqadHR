@@ -1,21 +1,19 @@
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-import { loadEnvConfig } from '@next/env';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadLocalEnv } from './load-local-env.mjs';
 import { resolveWorkerConfig } from './cf-config.mjs';
 
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-loadEnvConfig(webRoot);
+loadLocalEnv(webRoot);
 const branch = process.env.WORKERS_CI_BRANCH ?? process.env.GITHUB_REF_NAME ?? 'local';
 
 // The target worker and public URLs are required environment values. There are
 // no branch-specific URL or Worker defaults in the repository.
 const config = resolveWorkerConfig();
 
-// wrangler only auto-detects wrangler.json(c)/toml, so the env-resolved
-// config is materialised here and passed through `--config`. wrangler.jsonc
-// stays the static local-dev baseline used by `wrangler dev`/`cf:preview`.
+// Wrangler receives a generated config based on the selected environment.
 const configPath = join(webRoot, '.wrangler.deploy.jsonc');
 writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 
