@@ -10,6 +10,7 @@ node_modules
 !PERFORMANCE.md
 !apps/api/README.md
 !apps/web/README.md
+!apps/web/content/legal/*.md
 
 # turbo
 .turbo
