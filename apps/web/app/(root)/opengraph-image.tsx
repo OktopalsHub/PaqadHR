@@ -9,7 +9,6 @@ export const contentType = 'image/png';
 
 export default function OpenGraphImage() {
   return new ImageResponse(
-    (
       <div
         style={{
           width: '100%',
@@ -69,8 +68,7 @@ export default function OpenGraphImage() {
           </div>
         </div>
         <div style={{ fontSize: 20, color: '#477866' }}>paqadhr.com</div>
-      </div>
-    ),
+      </div>,
     size,
   );
 }
