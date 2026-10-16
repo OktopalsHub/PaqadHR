@@ -1,11 +1,13 @@
 import { spawnSync } from 'node:child_process';
+import { loadEnvConfig } from '@next/env';
 import { resolveBuildEnvironment } from './cf-config.mjs';
 
 const webRoot = process.cwd();
+loadEnvConfig(webRoot);
 const buildEnv = resolveBuildEnvironment(process.env);
 
 console.log(
-  `[cf-build] branch=${buildEnv.WORKERS_CI_BRANCH ?? buildEnv.GITHUB_REF_NAME ?? 'dev'} app=${buildEnv.NEXT_PUBLIC_APP_URL} api=${buildEnv.NEXT_PUBLIC_API_URL}`,
+  `[cf-build] branch=${buildEnv.WORKERS_CI_BRANCH ?? buildEnv.GITHUB_REF_NAME ?? 'local'} app=${buildEnv.NEXT_PUBLIC_APP_URL} api=${buildEnv.NEXT_PUBLIC_API_URL}`,
 );
 
 const versionResult = spawnSync(process.execPath, ['scripts/generate-build-version.mjs'], {
