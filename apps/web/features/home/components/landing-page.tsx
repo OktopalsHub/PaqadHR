@@ -1,40 +1,10 @@
-'use client';
-
-import dynamic from 'next/dynamic';
 import { ForceLightTheme } from '@/providers/force-light-theme';
-// import { LandingLogoStrip } from './sections/landing-logo-strip';
 import { LandingNav } from './sections/landing-nav';
-
-function SectionFallback() {
-  return <div className="w-full h-64 animate-pulse bg-muted/30" />;
-}
-
-const LandingHero = dynamic(() => import('./sections/landing-hero').then((m) => m.LandingHero), {
-  ssr: false,
-  loading: SectionFallback,
-});
-const LandingFeaturesSection = dynamic(
-  () => import('./sections/landing-features-section').then((m) => m.LandingFeaturesSection),
-  { ssr: false, loading: SectionFallback },
-);
-const LandingShowcase = dynamic(
-  () => import('./sections/landing-showcase').then((m) => m.LandingShowcase),
-  { ssr: false, loading: SectionFallback },
-);
-// Temporarily removed — the "Trusted by people teams." testimonials section.
-// Restore the dynamic import and the <LandingTestimonials /> usage in the page below.
-// const LandingTestimonials = dynamic(
-//   () => import('./sections/landing-testimonials-row').then((m) => m.LandingTestimonials),
-//   { ssr: false, loading: SectionFallback },
-// );
-const LandingCta = dynamic(() => import('./sections/landing-cta').then((m) => m.LandingCta), {
-  ssr: false,
-  loading: SectionFallback,
-});
-const LandingFooter = dynamic(
-  () => import('./sections/landing-footer').then((m) => m.LandingFooter),
-  { ssr: false, loading: SectionFallback },
-);
+import { LandingHero } from './sections/landing-hero';
+import { LandingFeaturesSection } from './sections/landing-features-section';
+import { LandingShowcase } from './sections/landing-showcase';
+import { LandingCta } from './sections/landing-cta';
+import { LandingFooter } from './sections/landing-footer';
 
 export const LandingPage = () => {
   return (
@@ -42,12 +12,8 @@ export const LandingPage = () => {
       <LandingNav />
       <main>
         <LandingHero />
-        {/* <LandingLogoStrip /> */}
         <LandingShowcase />
         <LandingFeaturesSection />
-        {/* Temporarily removed — the "Trusted by people teams." testimonials section.
-        <LandingTestimonials />
-        */}
         <LandingCta />
       </main>
       <LandingFooter />
