@@ -34,7 +34,8 @@ import { DepartmentUtils } from './utils/department.utils';
     ActivitiesModule,
     NotificationsModule,
   ],
-  controllers: [AttendanceClockController, AttendanceReportsController],
+  // Register static report/policy routes before the clock controller's :attendanceId routes.
+  controllers: [AttendanceReportsController, AttendanceClockController],
   providers: [
     AttendanceService,
     AttendanceRepository,

@@ -743,17 +743,55 @@ export class BachsApiService {
       body: options?.body ? JSON.stringify(options.body) : undefined,
     });
 
-    const payload = (await response.json().catch(() => ({}))) as T & {
-      detail?: string;
-      error_code?: string;
-    };
+    const responseText = await response.text();
+    let payload:
+      | (T & {
+          detail?: string;
+          message?: string;
+          error?: string | { message?: string };
+          error_description?: string;
+          error_code?: string;
+        })
+      | Record<string, unknown> = {};
 
-    if (!response.ok) {
-      const detail = payload.detail ?? response.statusText;
-      this.logger.warn(`Bachs API ${options?.method ?? 'GET'} ${path} failed: ${detail}`);
-      throw new BachsApiError(detail || 'bachs_api_error', payload.error_code, response.status);
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText) as typeof payload;
+      } catch {
+        // Some upstream failures return plain text or an empty body instead of JSON.
+        payload = {};
+      }
     }
 
-    return payload;
+    if (!response.ok) {
+      const errorPayload = payload as {
+        detail?: unknown;
+        message?: unknown;
+        error?: unknown;
+        error_description?: unknown;
+        error_code?: unknown;
+      };
+      const nestedError =
+        errorPayload.error && typeof errorPayload.error === 'object'
+          ? (errorPayload.error as { message?: unknown }).message
+          : errorPayload.error;
+      const providerMessage = [
+        errorPayload.detail,
+        errorPayload.message,
+        errorPayload.error_description,
+        nestedError,
+      ].find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+      const errorCode =
+        typeof errorPayload.error_code === 'string' ? errorPayload.error_code : undefined;
+      const statusMessage = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      const detail = (providerMessage ?? statusMessage).trim().slice(0, 300);
+
+      this.logger.warn(
+        `Bachs API ${options?.method ?? 'GET'} ${path} failed (${statusMessage}${errorCode ? `, code=${errorCode}` : ''}): ${detail}`,
+      );
+      throw new BachsApiError(detail || 'bachs_api_error', errorCode, response.status);
+    }
+
+    return payload as T;
   }
 }
