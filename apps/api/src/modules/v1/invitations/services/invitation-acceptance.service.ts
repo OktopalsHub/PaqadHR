@@ -69,12 +69,8 @@ export class InvitationAcceptanceService {
       if (existingMember) {
         throw new ConflictException('User is already a member of this tenant');
       }
-      if (acceptInvitationDto.password) {
-        const hashedPassword = await PasswordService.hashPassword(acceptInvitationDto.password);
-        await this.usersService.updateUser(existingUser.id, {
-          password: hashedPassword,
-        });
-      }
+      // Invitation acceptance must never reset an existing account's password.
+      // Existing users should authenticate with their established sign-in method.
       const member = await this.tenantMembersService.createTenantMember(
         existingUser.id,
         invitation.tenantId,
@@ -97,6 +93,8 @@ export class InvitationAcceptanceService {
       password,
       name: `${firstName} ${lastName}`,
       role: invitation.role,
+      // A valid invitation token sent to this address proves control of the invited email.
+      emailVerified: true,
       isActive: true,
     });
     const member = await this.tenantMembersService.createTenantMember(

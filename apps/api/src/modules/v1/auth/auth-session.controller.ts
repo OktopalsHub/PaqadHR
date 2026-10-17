@@ -174,7 +174,12 @@ export class AuthSessionController {
     );
     this.setAuthCookies(res, accessToken, refreshToken, true);
     res.clearCookie(cookieName(GOOGLE_OAUTH_CONSENT_COOKIE_BASE), this.cookieOptions());
-    const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const configuredFrontendUrl =
+      process.env.NODE_ENV === 'production'
+        ? 'https://paqadhr.com'
+        : process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = new URL(configuredFrontendUrl);
+    const frontend = frontendUrl.toString().replace(/\/$/, '');
     // `/google/complete` used to be a permanent redirect to a tenant subdomain,
     // and browsers cache permanent redirects. The `?provider` marker lands the
     // browser on a URL that was never redirected, so clients holding the stale

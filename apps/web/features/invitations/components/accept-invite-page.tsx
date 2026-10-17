@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/features/auth/components/form-fields/password-input';
 import { useAuth } from '@/hooks/use-auth';
 import { login } from '@/lib/api/auth';
+import { getApiOrigin } from '@/lib/api/client';
 import {
   acceptInvitation,
   declineInvitation,
@@ -294,6 +295,32 @@ export function AcceptInvitePage() {
             <Link href={`/signin?redirect=${encodeURIComponent(invitePath)}`}>
               Sign in to accept
             </Link>
+          </Button>
+        </div>
+      ) : null}
+
+      {!isAuthenticated && !signedInWrongAccount ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="h-px flex-1 bg-border" />
+            <span>or</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 w-full"
+            disabled={isSubmitting}
+            onClick={() => {
+              if (!token || !email) return;
+              window.sessionStorage.setItem(
+                'paqadhr:pending-invite-return',
+                buildAcceptInvitePath(token, email),
+              );
+              window.location.assign(`${getApiOrigin()}/api/v1/auth/google`);
+            }}
+          >
+            Continue with Google
           </Button>
         </div>
       ) : null}
