@@ -11,9 +11,9 @@ import {
   pickBachsFundingCurrency,
   sumBachsFundingSourceAmount,
 } from 'src/common/config/bachs-funding-quote.util';
+import { calculatePayrollPayoutFeeReserve } from 'src/common/config/payroll-payout-fee.util';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import { calculatePayrollPayoutFeeReserve } from 'src/common/config/payroll-payout-fee.util';
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
@@ -106,7 +106,11 @@ export class PayrollFloatTopupService {
     const feePercentage = await this.payrollFeeService.getPayrollFeePercentage(tenantId);
     const platformFee = Math.round(employeeTotal * (feePercentage / 100) * 100) / 100;
     const payoutTransferCount = currency === 'NGN' ? this.countPayableNgnTransfers(run) : 0;
-    const payoutFee = calculatePayrollPayoutFeeReserve({ currency, provider, transferCount: payoutTransferCount });
+    const payoutFee = calculatePayrollPayoutFeeReserve({
+      currency,
+      provider,
+      transferCount: payoutTransferCount,
+    });
     const payoutFeeReserve = payoutFee.total;
     const requiredAmount = Math.round((employeeTotal + platformFee + payoutFeeReserve) * 100) / 100;
     const dashboardUrl = this.balanceService.providerDashboardUrl(provider);
@@ -700,7 +704,8 @@ export class PayrollFloatTopupService {
           balanceSupported: true,
           canCheckout,
           dashboardUrl: '',
-          message: 'Bachs balance already covers this payroll run, including the PaqadHR fee and payout-fee reserve.',
+          message:
+            'Bachs balance already covers this payroll run, including the PaqadHR fee and payout-fee reserve.',
           employeeTotal: fee.employeeTotal,
           platformFee: fee.platformFee,
           feePercentage: fee.feePercentage,
