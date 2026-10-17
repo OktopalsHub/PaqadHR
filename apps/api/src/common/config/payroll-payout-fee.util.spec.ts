@@ -24,11 +24,19 @@ describe('payroll payout fee reserve', () => {
   });
 
   it('supports disabling or changing a provider fee without code changes', () => {
-    expect(getPayrollPayoutFeePerTransfer('NGN', 'bachs', { PAYROLL_PAYOUT_FEE_BACHS_NGN: '0' })).toBe(0);
+    expect(
+      getPayrollPayoutFeePerTransfer('NGN', 'bachs', {
+        PAYROLL_PAYOUT_FEE_BACHS_NGN: '0',
+      }),
+    ).toBe(0);
     expect(getPayrollPayoutFeePerTransfer('USD', 'bachs', {})).toBe(0);
   });
 
   it('ignores invalid configuration and uses the safe default', () => {
-    expect(getPayrollPayoutFeePerTransfer('NGN', 'bachs', { PAYROLL_PAYOUT_FEE_BACHS_NGN: '-10' })).toBe(100);
+    expect(
+      getPayrollPayoutFeePerTransfer('NGN', 'bachs', {
+        PAYROLL_PAYOUT_FEE_BACHS_NGN: '-10',
+      }),
+    ).toBe(100);
   });
 });
