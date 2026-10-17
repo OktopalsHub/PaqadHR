@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
+import { getPayrollPayoutFeePerTransfer } from '../../../../common/config/payroll-payout-fee.util';
 
 @Injectable()
 export class PayrollFeeService {
@@ -14,23 +15,30 @@ export class PayrollFeeService {
     totalPayrollAmount: number;
     currency: string;
     tenantId: string;
+    provider?: string;
   }) {
     const feePercentage = await this.getPayrollFeePercentage(params.tenantId);
     const platformFee = Math.round(params.totalPayrollAmount * (feePercentage / 100) * 100) / 100;
+    const payoutFeePerTransfer = getPayrollPayoutFeePerTransfer(params.currency, params.provider);
+    const payoutFeeReserve = payoutFeePerTransfer;
     return {
       originalAmount: params.totalPayrollAmount,
       currency: params.currency,
       platformFee,
-      totalAmountToCharge: params.totalPayrollAmount + platformFee,
+      payoutFeePerTransfer,
+      payoutFeeReserve,
+      totalAmountToCharge:
+        Math.round((params.totalPayrollAmount + platformFee + payoutFeeReserve) * 100) / 100,
       feePercentage,
       breakdown: {
         employeePayments: params.totalPayrollAmount,
         platformFee,
+        payoutFeeReserve,
       },
     };
   }
   async previewPayrollFees(
-    payrollItems: Array<{ amount: number; currency: string }>,
+    payrollItems: Array<{ amount: number; currency: string; provider?: string }>,
     tenantId: string,
   ) {
     const byCurrency: Array<{
@@ -39,20 +47,27 @@ export class PayrollFeeService {
       platformFee: number;
       totalAmountToCharge: number;
       feePercentage: number;
-      breakdown: { employeePayments: number; platformFee: number };
+      payoutFeePerTransfer: number;
+      payoutFeeReserve: number;
+      breakdown: { employeePayments: number; platformFee: number; payoutFeeReserve: number };
     }> = [];
-    const totals: Record<string, { original: number; fee: number; charge: number }> = {};
+    const totals: Record<
+      string,
+      { original: number; fee: number; payoutFeeReserve: number; charge: number }
+    > = {};
     for (const item of payrollItems) {
       const calc = await this.calculatePayrollFee({
         totalPayrollAmount: item.amount,
         currency: item.currency,
         tenantId,
+        provider: item.provider,
       });
       if (!totals[item.currency]) {
-        totals[item.currency] = { original: 0, fee: 0, charge: 0 };
+        totals[item.currency] = { original: 0, fee: 0, payoutFeeReserve: 0, charge: 0 };
       }
       totals[item.currency].original += calc.originalAmount;
       totals[item.currency].fee += calc.platformFee;
+      totals[item.currency].payoutFeeReserve += calc.payoutFeeReserve;
       totals[item.currency].charge += calc.totalAmountToCharge;
       byCurrency.push({
         originalAmount: calc.originalAmount,
@@ -60,17 +75,27 @@ export class PayrollFeeService {
         platformFee: calc.platformFee,
         totalAmountToCharge: calc.totalAmountToCharge,
         feePercentage: calc.feePercentage,
+        payoutFeePerTransfer: calc.payoutFeePerTransfer,
+        payoutFeeReserve: calc.payoutFeeReserve,
         breakdown: calc.breakdown,
       });
     }
     const totalOriginalAmount: Record<string, number> = {};
     const totalPlatformFees: Record<string, number> = {};
+    const totalPayoutFeeReserves: Record<string, number> = {};
     const totalChargeAmount: Record<string, number> = {};
     for (const [currency, value] of Object.entries(totals)) {
       totalOriginalAmount[currency] = value.original;
       totalPlatformFees[currency] = value.fee;
+      totalPayoutFeeReserves[currency] = value.payoutFeeReserve;
       totalChargeAmount[currency] = value.charge;
     }
-    return { totalOriginalAmount, totalPlatformFees, totalChargeAmount, byCurrency };
+    return {
+      totalOriginalAmount,
+      totalPlatformFees,
+      totalPayoutFeeReserves,
+      totalChargeAmount,
+      byCurrency,
+    };
   }
 }
