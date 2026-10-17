@@ -175,12 +175,10 @@ export class AuthSessionController {
     this.setAuthCookies(res, accessToken, refreshToken, true);
     res.clearCookie(cookieName(GOOGLE_OAUTH_CONSENT_COOKIE_BASE), this.cookieOptions());
     const configuredFrontendUrl =
-      process.env.FRONTEND_URL ||
-      (process.env.NODE_ENV === 'production' ? 'https://paqadhr.com' : 'http://localhost:3000');
+      process.env.NODE_ENV === 'production'
+        ? 'https://paqadhr.com'
+        : process.env.FRONTEND_URL || 'http://localhost:3000';
     const frontendUrl = new URL(configuredFrontendUrl);
-    if (frontendUrl.hostname.toLowerCase() === 'www.paqadhr.com') {
-      frontendUrl.hostname = 'paqadhr.com';
-    }
     const frontend = frontendUrl.toString().replace(/\/$/, '');
     // `/google/complete` used to be a permanent redirect to a tenant subdomain,
     // and browsers cache permanent redirects. The `?provider` marker lands the
