@@ -191,8 +191,14 @@ export class PayrollFloatTopupService {
       canCheckout,
       dashboardUrl,
       message: canCheckout
-        ? `Could not read provider balance. Checkout will fund ${requiredAmount} ${currency}, then payout starts automatically.`
-        : `${balance.reason} Open ${dashboardUrl || 'the provider dashboard'}, fund at least ${requiredAmount} ${currency}, then retry.`,
+        ? `Could not read provider balance. Checkout will fund ${requiredAmount} ${currency}, including the PaqadHR fee and payout-fee reserve, then payout starts automatically.`
+        : `${balance.reason} Open ${dashboardUrl || 'the provider dashboard'}, fund at least ${requiredAmount} ${currency}, including fees, then retry.`,
+      employeeTotal,
+      platformFee,
+      feePercentage,
+      payoutFeeReserve,
+      payoutFeePerTransfer: payoutFee.feePerTransfer,
+      payoutTransferCount,
     };
   }
 
@@ -217,10 +223,15 @@ export class PayrollFloatTopupService {
     const preflight = await this.preflight(payrollRunId, tenantId);
 
     if (preflight.canCheckout && preflight.requiredAmount > 0) {
-      const feeNote =
+      const feeParts = [
         preflight.platformFee != null && preflight.platformFee > 0
-          ? ` (includes ${preflight.platformFee} ${preflight.currency} Paqad fee)`
-          : '';
+          ? `${preflight.platformFee} ${preflight.currency} PaqadHR fee`
+          : null,
+        preflight.payoutFeeReserve != null && preflight.payoutFeeReserve > 0
+          ? `${preflight.payoutFeeReserve} ${preflight.currency} payout-fee reserve`
+          : null,
+      ].filter((part): part is string => part != null);
+      const feeNote = feeParts.length > 0 ? ` (includes ${feeParts.join(' + ')})` : '';
       const checkoutPreflight: PayrollFundPreflight = {
         ...preflight,
         ok: false,
@@ -703,7 +714,7 @@ export class PayrollFloatTopupService {
         ok: false,
         provider: PaymentProvider.BACHS,
         currency: fundingCurrency,
-        requiredAmount: fee.checkoutTotal,
+        requiredAmount,
         availableBalance: available,
         shortfall,
         balanceSupported: balance.supported,
