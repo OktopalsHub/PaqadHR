@@ -200,13 +200,10 @@ export class InvitationManagementService {
   ): Promise<{ emailSent: boolean; emailError?: string }> {
     const tenant = await this.tenantsService.getTenant(invitation.tenantId);
     const configuredFrontendUrl =
-      process.env.FRONTEND_URL ||
-      (process.env.NODE_ENV === 'production' ? 'https://paqadhr.com' : 'http://localhost:3000');
+      process.env.NODE_ENV === 'production'
+        ? 'https://paqadhr.com'
+        : process.env.FRONTEND_URL || 'http://localhost:3000';
     const frontendUrl = new URL(configuredFrontendUrl);
-    // Keep invite links on the canonical apex host so they match the production Worker route.
-    if (frontendUrl.hostname.toLowerCase() === 'www.paqadhr.com') {
-      frontendUrl.hostname = 'paqadhr.com';
-    }
     const baseUrl = frontendUrl.toString().replace(/\/$/, '');
     const inviteUrl = new URL('/accept-invite', baseUrl);
     inviteUrl.searchParams.set('token', invitation.token);
