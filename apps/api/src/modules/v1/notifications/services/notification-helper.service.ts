@@ -222,11 +222,7 @@ export class NotificationHelperService {
     newMemberId: string,
     variables: { newMemberName: string; department?: string; role?: string },
   ): Promise<void> {
-    return this.memberNotifications.sendNewTeamMemberNotification(
-      tenantId,
-      newMemberId,
-      variables,
-    );
+    return this.memberNotifications.sendNewTeamMemberNotification(tenantId, newMemberId, variables);
   }
 
   async sendBirthdayNotification(
