@@ -37,6 +37,7 @@ export class MemberNotificationsService {
 
   async sendNewTeamMemberNotification(
     tenantId: string,
+    newMemberId: string,
     variables: {
       newMemberName: string;
       department?: string;
@@ -46,17 +47,20 @@ export class MemberNotificationsService {
     const departmentText = variables.department ? ` in ${variables.department}` : '';
     const roleText = variables.role ? ` as ${variables.role}` : '';
 
-    await this.notificationService.sendTenantNotification(
+    await this.notificationService.broadcastToTenant(
       tenantId,
-      'New team member',
-      `${variables.newMemberName} has joined${departmentText}${roleText}. Say hello!`,
-      NotificationChannel.IN_APP,
       {
-        type: 'new_team_member',
-        newMemberName: variables.newMemberName,
-        department: variables.department,
-        role: variables.role,
+        title: 'New team member',
+        message: `${variables.newMemberName} has joined${departmentText}${roleText}. Say hello!`,
+        channel: NotificationChannel.IN_APP,
+        metadata: {
+          type: 'new_team_member',
+          newMemberName: variables.newMemberName,
+          department: variables.department,
+          role: variables.role,
+        },
       },
+      [newMemberId],
     );
   }
 

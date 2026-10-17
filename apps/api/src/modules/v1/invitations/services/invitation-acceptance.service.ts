@@ -139,7 +139,7 @@ export class InvitationAcceptanceService {
       });
 
     void this.notificationHelperService
-      .sendNewTeamMemberNotification(invitation.tenantId, {
+      .sendNewTeamMemberNotification(invitation.tenantId, tenantMemberId, {
         newMemberName: inviteeName,
         role: invitation.role,
       })
