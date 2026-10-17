@@ -100,8 +100,12 @@ export class NotificationService {
       priority?: NotificationPriority;
       metadata?: Record<string, unknown>;
     },
+    excludedRecipientIds: string[] = [],
   ): Promise<{ recipients: number }> {
-    const members = await this.tenantMembersService.listActiveTenantMembers(tenantId);
+    const excludedIds = new Set(excludedRecipientIds);
+    const members = (await this.tenantMembersService.listActiveTenantMembers(tenantId)).filter(
+      (member) => !excludedIds.has(member.id),
+    );
     if (members.length === 0) {
       return { recipients: 0 };
     }

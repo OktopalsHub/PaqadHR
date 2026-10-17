@@ -777,6 +777,15 @@ export function PayrollRunDetail({
                   (item.metadata?.adjustmentLines as PayrollAdjustmentLine[] | undefined) ?? [];
                 const name = employeeName(item);
                 const employee = employees.find((emp) => emp.id === item.memberId);
+                const currentSalary = currentSalaries.find(
+                  (salary) => salary.memberId === item.memberId,
+                );
+                const baseSalary =
+                  Number(item.baseSalary ?? 0) > 0
+                    ? Number(item.baseSalary)
+                    : Number(currentSalary?.payRate ?? 0);
+                const baseSalaryCurrency =
+                  item.baseSalaryCurrency || currentSalary?.currency || detail.baseCurrency;
                 return (
                   <AppTableBodyRow key={item.id}>
                     <AppTableCell>
@@ -791,8 +800,7 @@ export function PayrollRunDetail({
                       </div>
                     </AppTableCell>
                     <AppTableCell>
-                      {Number(item.baseSalary ?? 0).toLocaleString()}{' '}
-                      {item.baseSalaryCurrency || detail.baseCurrency}
+                      {baseSalary.toLocaleString()} {baseSalaryCurrency}
                     </AppTableCell>
                     <AppTableCell>
                       <div className="space-y-1">
