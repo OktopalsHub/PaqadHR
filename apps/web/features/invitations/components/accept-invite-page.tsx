@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/features/auth/components/form-fields/password-input';
 import { useAuth } from '@/hooks/use-auth';
 import { login } from '@/lib/api/auth';
+import { getApiOrigin } from '@/lib/api/client';
 import {
   acceptInvitation,
   declineInvitation,
@@ -22,7 +23,6 @@ import { fetchUserTenants } from '@/lib/api/tenants';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
-import { getApiOrigin } from '@/lib/api/client';
 
 function buildAcceptInvitePath(token: string, email: string) {
   return `/accept-invite?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
