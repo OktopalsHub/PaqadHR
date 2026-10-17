@@ -24,7 +24,10 @@ export function getPayrollPayoutFeePerTransfer(
   env: Environment = process.env,
 ): number {
   const currencyCode = currency.trim().toUpperCase();
-  const providerCode = provider?.trim().replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
+  const providerCode = provider
+    ?.trim()
+    .replace(/[^a-zA-Z0-9]/g, '_')
+    .toUpperCase();
   const providerAmount = providerCode
     ? parseNonNegativeAmount(env[`PAYROLL_PAYOUT_FEE_${providerCode}_${currencyCode}`])
     : null;
