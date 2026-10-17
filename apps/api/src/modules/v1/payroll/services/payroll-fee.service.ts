@@ -19,8 +19,7 @@ export class PayrollFeeService {
     transferCount?: number;
   }) {
     const feePercentage = await this.getPayrollFeePercentage(params.tenantId);
-    const platformFee =
-      Math.round(params.totalPayrollAmount * (feePercentage / 100) * 100) / 100;
+    const platformFee = Math.round(params.totalPayrollAmount * (feePercentage / 100) * 100) / 100;
     const payoutFeePerTransfer = getPayrollPayoutFeePerTransfer(params.currency, params.provider);
     const payoutTransferCount = Math.max(1, Math.floor(params.transferCount ?? 1));
     const payoutFeeReserve = Math.round(payoutFeePerTransfer * payoutTransferCount * 100) / 100;
