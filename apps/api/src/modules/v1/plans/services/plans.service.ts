@@ -58,6 +58,21 @@ export class PlansService {
     });
   }
 
+  /**
+   * Active price row for a plan in one currency, ignoring country. Used to validate a
+   * payment settled in a sibling currency (a USD plan paid in NGN, for example) against
+   * the same figure we publish as that plan's Bachs currency option.
+   */
+  async getActivePlanPriceForCurrency(planId: string, currency: string): Promise<PlanPrice | null> {
+    const normalized = (currency || '').trim().toUpperCase();
+    if (!normalized) return null;
+    return this.planPriceRepository.findOne({
+      where: { planId, currency: normalized, isActive: true },
+      // GLOBAL sorts ahead of region codes, so the worldwide price wins deterministically.
+      order: { countryCode: 'ASC' },
+    });
+  }
+
   async getPlanPrice(
     planSlug: string,
     countryCode: string,
