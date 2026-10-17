@@ -207,9 +207,9 @@ export class PayrollFloatTopupService {
   }
 
   /**
-   * Hosted checkout providers: company funds the run (Bachs quotes mixed currencies into
-   * one checkout + Paqad fee), webhook then auto-pays each employee’s payment method.
-   * Other providers: pay from balance when covered; otherwise error with dashboard guidance.
+   * Hosted checkout providers use a one-time checkout for each payroll run. The verified
+   * checkout webhook starts immediate payroll payouts; scheduled runs remain funded and wait
+   * for the scheduled-payout processor. PaqadHR does not maintain a reusable company wallet.
    */
   async fundAndPay(
     payrollRunId: string,
@@ -461,7 +461,8 @@ export class PayrollFloatTopupService {
       fundingCurrency: meta.fundingCurrency,
     });
     if (!claimed) {
-      return { received: true, paid: true };
+      // Duplicate webhook delivery must not imply that a scheduled run was paid early.
+      return { received: true, paid: run.payoutMode !== 'scheduled' };
     }
 
     if (claimed.payoutMode === 'scheduled') {
