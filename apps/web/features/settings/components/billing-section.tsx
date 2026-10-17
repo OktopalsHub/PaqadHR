@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CreditCard, Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -48,9 +48,6 @@ function BillingContactForm({
   const [addressLine2, setAddressLine2] = useState(initial.addressLine2 ?? '');
   const [city, setCity] = useState(initial.city ?? '');
   const [country, setCountry] = useState(initial.country ?? '');
-  const [identityBvn, setIdentityBvn] = useState('');
-  const [identityNin, setIdentityNin] = useState('');
-  const [showIdentity, setShowIdentity] = useState(false);
 
   useEffect(() => {
     setContactName(initial.contactName ?? '');
@@ -60,8 +57,6 @@ function BillingContactForm({
     setAddressLine2(initial.addressLine2 ?? '');
     setCity(initial.city ?? '');
     setCountry(initial.country ?? '');
-    setIdentityBvn('');
-    setIdentityNin('');
   }, [initial, ownerEmail]);
 
   const save = async () => {
@@ -79,8 +74,6 @@ function BillingContactForm({
           addressLine2: addressLine2.trim() || undefined,
           city: city.trim() || undefined,
           country: country.trim() || undefined,
-          identityBvn: identityBvn.trim() || undefined,
-          identityNin: identityNin.trim() || undefined,
         },
       });
       toast.success('Billing contact saved');
@@ -131,58 +124,6 @@ function BillingContactForm({
       <SettingsFieldHint label="City">
         <Input value={city} onChange={(e) => setCity(e.target.value)} />
       </SettingsFieldHint>
-      <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-muted/20 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold text-foreground">Identity verification (BVN / NIN)</p>
-          {initial.hasIdentityBvn ? <Badge variant="secondary">BVN stored</Badge> : null}
-          {initial.hasIdentityNin ? <Badge variant="secondary">NIN stored</Badge> : null}
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Used for payroll compliance. Leave blank to keep existing values.
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <SettingsFieldHint label="BVN">
-            <div className="relative">
-              <Input
-                type={showIdentity ? 'text' : 'password'}
-                inputMode="numeric"
-                maxLength={11}
-                placeholder={initial.hasIdentityBvn ? 'Stored securely' : '11-digit BVN'}
-                value={identityBvn}
-                onChange={(e) => setIdentityBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowIdentity(!showIdentity)}
-                className="absolute right-0 top-0 flex h-full cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground"
-              >
-                {showIdentity ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-          </SettingsFieldHint>
-          <SettingsFieldHint label="NIN">
-            <div className="relative">
-              <Input
-                type={showIdentity ? 'text' : 'password'}
-                inputMode="numeric"
-                maxLength={11}
-                placeholder={initial.hasIdentityNin ? 'Stored securely' : '11-digit NIN'}
-                value={identityNin}
-                onChange={(e) => setIdentityNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowIdentity(!showIdentity)}
-                className="absolute right-0 top-0 flex h-full cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground"
-              >
-                {showIdentity ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-          </SettingsFieldHint>
-        </div>
-      </div>
       <div className="sm:col-span-2">
         <SettingsFormActions onSave={save} isPending={patchSettings.isPending} />
       </div>

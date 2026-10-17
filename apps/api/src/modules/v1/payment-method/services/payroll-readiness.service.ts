@@ -14,7 +14,6 @@ import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provide
 import { In, Not, Repository } from 'typeorm';
 import { resolveBachsUsdBankAddress } from '../../payroll/utils/payroll-payment.util';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { PaymentMethod } from '../entities/payment-method.entity';
 import { requiresGlobalInstitutionCode } from '../utils/global-bank-validation.util';
 import { PaymentSecurityService } from './payment-security.service';
@@ -25,7 +24,6 @@ export class PayrollReadinessService {
     @InjectRepository(PaymentMethod) private readonly paymentMethodRepo: Repository<PaymentMethod>,
     @InjectRepository(TenantMember) private readonly tenantMemberRepo: Repository<TenantMember>,
     private readonly paymentSecurityService: PaymentSecurityService,
-    private readonly tenantConfigService: TenantConfigService,
     private readonly encryptionService: EncryptionService,
   ) {}
 
@@ -90,15 +88,11 @@ export class PayrollReadinessService {
     const lockedMembers = await this.paymentSecurityService.getLockedMemberIds(tenantId, memberIds);
     const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
 
-    const employeeSettings = await this.tenantConfigService.requireIdentityForPayroll(tenantId);
     const usdOnBachs =
       resolvePaymentProvider('USD', PaymentMethodType.BANK) === PaymentProvider.BACHS;
-    const needsMemberRows =
-      employeeSettings || usdOnBachs || !normalizedCurrency || normalizedCurrency === 'USD';
+    const needsMemberRows = usdOnBachs || !normalizedCurrency || normalizedCurrency === 'USD';
     let members: Array<{
       id: string;
-      identityBvn?: string;
-      identityNin?: string;
       address: {
         street?: string | null;
         city?: string | null;
@@ -115,8 +109,6 @@ export class PayrollReadinessService {
               relations: ['address'],
               select: {
                 id: true,
-                identityBvn: true,
-                identityNin: true,
                 address: {
                   id: true,
                   street: true,
@@ -127,12 +119,10 @@ export class PayrollReadinessService {
                 },
               },
             }
-          : { select: ['id', 'identityBvn', 'identityNin'] as const }),
+          : { select: ['id'] as const }),
       });
       members = tm.map((m) => ({
         id: m.id,
-        identityBvn: m.identityBvn ?? undefined,
-        identityNin: m.identityNin ?? undefined,
         address: m.address ?? null,
       }));
     }
@@ -201,12 +191,6 @@ export class PayrollReadinessService {
       if (!getSupportedPaymentCurrencies().includes(methodCurrency) && !payoutIsCrypto)
         issues.push('UNSUPPORTED_CURRENCY' as PayrollPaymentIssue);
 
-      if (employeeSettings) {
-        const member = memberMap.get(memberId);
-        if (!member?.identityBvn?.trim() && !member?.identityNin?.trim())
-          issues.push('MISSING_IDENTITY' as PayrollPaymentIssue);
-      }
-
       const ready = issues.length === 0 && method.isVerified && !lockedMembers.has(memberId);
       results.push({
         memberId,
@@ -251,8 +235,6 @@ export class PayrollReadinessService {
       return 'Bank account details are incomplete.';
     if (issues.includes('UNSUPPORTED_CURRENCY' as PayrollPaymentIssue))
       return 'Primary payout currency is not supported for automated payouts.';
-    if (issues.includes('MISSING_IDENTITY' as PayrollPaymentIssue))
-      return 'BVN or NIN is required on this employee profile before payroll.';
     if (payoutIsCrypto) return 'Complete crypto wallet details for the primary payout method.';
     return 'Employee is not ready to receive payroll.';
   }
