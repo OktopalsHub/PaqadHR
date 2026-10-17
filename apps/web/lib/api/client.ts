@@ -163,8 +163,18 @@ const AUTH_PATHS_WITHOUT_REFRESH = [
 
 const REFRESH_RETRY_DELAYS_MS = [500, 1000];
 
+function normalizeApiPath(path: string): string {
+  try {
+    const pathname = new URL(path, resolveApiV1Base()).pathname;
+    return pathname.replace(/^\/api\/v1(?=\/|$)/, '') || '/';
+  } catch {
+    return path;
+  }
+}
+
 function shouldAttemptAuthRefresh(path: string): boolean {
-  return !AUTH_PATHS_WITHOUT_REFRESH.some((prefix) => path.startsWith(prefix));
+  const normalizedPath = normalizeApiPath(path);
+  return !AUTH_PATHS_WITHOUT_REFRESH.some((prefix) => normalizedPath.startsWith(prefix));
 }
 
 function sleep(ms: number): Promise<void> {
@@ -218,7 +228,7 @@ http.interceptors.response.use(
     if (!config) return Promise.reject(error);
     const requestConfig = config as ApiRequestConfig;
 
-    const path = requestConfig.url ?? '';
+    const path = normalizeApiPath(requestConfig.url ?? '');
     const status = error.response?.status ?? 0;
     const isRetry = requestConfig._isRetry ?? false;
 

@@ -15,7 +15,41 @@ import { leaveBalanceSchema, leaveRequestSchema } from '@/lib/schemas/leave';
 
 type PaginatedLeaves = {
   records: unknown[];
+  /** Effective page size the API applied, after its own clamping. */
+  limit?: number;
+  page?: number;
+  pageCount?: number;
+  totalItems?: number;
+  nextPage?: number | null;
 };
+
+/** Matches the API's `PAGINATION_MAX_LIMIT`; the server clamps and echoes its own back. */
+const LEAVES_PAGE_SIZE = 200;
+
+/** Bound the page walk so a bad `pageCount` can never spin forever. */
+const MAX_LEAVE_PAGES = 20;
+
+type PageResult = { records: unknown[]; nextPage: number | null };
+
+/**
+ * Walk paginated pages and concatenate them. Follows the server's own `nextPage`
+ * rather than assuming a page size, so lowering the API cap can never silently
+ * truncate the calendar. An empty first page yields `[]` with no second request.
+ */
+export async function collectAllPages(
+  fetchPage: (page: number) => Promise<PageResult>,
+  maxPages = MAX_LEAVE_PAGES,
+): Promise<unknown[]> {
+  const records: unknown[] = [];
+  let page = 1;
+  for (let fetched = 0; fetched < maxPages; fetched += 1) {
+    const result = await fetchPage(page);
+    records.push(...result.records);
+    if (result.nextPage == null) break;
+    page = result.nextPage;
+  }
+  return records;
+}
 
 async function resolveViewerCanViewTeamLeaves(): Promise<boolean> {
   const tenantId = await resolveTenantId();
@@ -51,6 +85,11 @@ export async function fetchMyLeaves(): Promise<LeaveRequest[]> {
   return mapLeaveRecords(data);
 }
 
+/**
+ * Approved leave for the calendar window. Requests the API's maximum page size (200)
+ * and still walks pages, so a tenant with more approved leave than one page holds is
+ * complete rather than truncated.
+ */
 export async function fetchLeavesForCalendar(options: {
   status?: string;
   from?: string;
@@ -58,19 +97,21 @@ export async function fetchLeavesForCalendar(options: {
   limit?: number;
 }): Promise<LeaveRequest[]> {
   const tenantId = await resolveTenantId();
-  const params = new URLSearchParams();
-  params.set('limit', String(options.limit ?? 200));
-  if (options.status) params.set('status', options.status);
-  if (options.from) params.set('from', options.from);
-  if (options.to) params.set('to', options.to);
-
   const canViewTeamLeaves = await resolveViewerCanViewTeamLeaves();
-  const path = canViewTeamLeaves
-    ? `${tenantPath(tenantId, 'leaves')}?${params.toString()}`
-    : `${tenantPath(tenantId, 'leaves/me')}?${params.toString()}`;
+  const basePath = tenantPath(tenantId, canViewTeamLeaves ? 'leaves' : 'leaves/me');
+  // Clamp rather than trust the caller: the API rejects limit above its max with a 400.
+  const pageSize = Math.min(Math.max(options.limit ?? LEAVES_PAGE_SIZE, 1), LEAVES_PAGE_SIZE);
 
-  const data = await apiClient<PaginatedLeaves>(path);
-  return mapLeaveRecords(data);
+  const records = await collectAllPages(async (page) => {
+    const params = new URLSearchParams({ limit: String(pageSize), page: String(page) });
+    if (options.status) params.set('status', options.status);
+    if (options.from) params.set('from', options.from);
+    if (options.to) params.set('to', options.to);
+    const data = await apiClient<PaginatedLeaves>(`${basePath}?${params.toString()}`);
+    return { records: data.records ?? [], nextPage: data.nextPage ?? null };
+  });
+
+  return mapLeaveRecords({ records });
 }
 
 export async function fetchMyLeaveBalances(): Promise<LeaveBalance[]> {

@@ -62,7 +62,6 @@ export function SettingsWorkspaceTab() {
   const [payrollCurrencies, setPayrollCurrencies] = useState<string[]>(['USD']);
   const [cryptoEnabled, setCryptoEnabled] = useState(false);
   const [emailPayslipOnPublish, setEmailPayslipOnPublish] = useState(false);
-  const [requireIdentityForPayroll, setRequireIdentityForPayroll] = useState(false);
   const [deleteWorkspaceOpen, setDeleteWorkspaceOpen] = useState(false);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
@@ -80,7 +79,6 @@ export function SettingsWorkspaceTab() {
 
     const general = settings?.settings?.general;
     setEmailPayslipOnPublish(general?.emailPayslipOnPublish ?? false);
-    setRequireIdentityForPayroll(settings?.settings?.employee?.requireIdentityForPayroll ?? false);
     setCryptoEnabled(general?.cryptoEnabled ?? false);
     setPayrollCurrencies(
       resolveInitialPayrollCurrencies({
@@ -179,21 +177,6 @@ export function SettingsWorkspaceTab() {
       toast.success('Email settings saved');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save email settings');
-    }
-  };
-
-  const savePayrollIdentitySettings = async (value: boolean) => {
-    try {
-      const existingEmployee = settings?.settings?.employee;
-      await patchSettings.mutateAsync({
-        employee: {
-          ...existingEmployee,
-          requireIdentityForPayroll: value,
-        },
-      });
-      toast.success('Payroll identity settings saved');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save payroll identity settings');
     }
   };
 
@@ -333,25 +316,6 @@ export function SettingsWorkspaceTab() {
             />
           </div>
         </div>
-      </ContentCard>
-
-      <ContentCard title="Payroll identity">
-        <SettingsFieldHint label="Require BVN or NIN for payroll">
-          <div className="flex items-center gap-3">
-            <Switch
-              id="require-identity-for-payroll"
-              checked={requireIdentityForPayroll}
-              onCheckedChange={(checked) => {
-                setRequireIdentityForPayroll(checked);
-                void savePayrollIdentitySettings(checked);
-              }}
-              disabled={!isAdmin || patchSettings.isPending}
-            />
-            <label htmlFor="require-identity-for-payroll" className="text-sm text-muted-foreground">
-              {requireIdentityForPayroll ? 'Required' : 'Optional'}
-            </label>
-          </div>
-        </SettingsFieldHint>
       </ContentCard>
 
       <ContentCard title="Email Settings">

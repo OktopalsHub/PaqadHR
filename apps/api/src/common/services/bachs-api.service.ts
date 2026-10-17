@@ -145,7 +145,7 @@ export interface BachsPayoutResult {
 @Injectable()
 export class BachsApiService {
   private readonly logger = new Logger(BachsApiService.name);
-  private adaptivePricingEnsured = false;
+  private adaptivePricingEnabled: boolean | null = null;
 
   isConfigured(): boolean {
     return Boolean(getBachsSecretKey());
@@ -182,7 +182,8 @@ export class BachsApiService {
     checkout_url: string;
     reference?: string;
   }> {
-    await this.ensureAdaptivePricingEnabled();
+    // Warn (do not block) when the chooser will not be offered on a USD checkout.
+    void this.isAdaptivePricingEnabled();
     const metadata = Object.fromEntries(
       Object.entries(input.metadata ?? {}).filter(([, value]) => value != null),
     );
@@ -222,7 +223,7 @@ export class BachsApiService {
       throw new Error('bachs_wallet_topup_product_not_configured');
     }
 
-    await this.ensureAdaptivePricingEnabled();
+    void this.isAdaptivePricingEnabled();
     const metadata = Object.fromEntries(
       Object.entries(input.metadata ?? {}).filter(([, value]) => value != null),
     );
@@ -332,30 +333,42 @@ export class BachsApiService {
   }
 
   /**
-   * Org-level adaptive pricing lets USD checkouts show a local-currency chooser.
-   * NGN-priced checkouts stay NGN regardless — Bachs does not convert those at the page.
+   * Reads the account's adaptive_pricing flag. This is an account-level setting that
+   * is **read-only over the API**: `GET /v1/accounts/checkout/settings` does not return
+   * it, and the matching PUT accepts only `enabled_payment_methods` and
+   * `fee_preference`, so the previous PUT of `adaptive_pricing` there was always
+   * rejected. Enabling it is a dashboard step under checkout settings.
+   *
+   * Note this only governs the price *display* and currency chooser. It does not add
+   * payment rails: a recurring checkout can only be backed by a USD card today, so a
+   * USD subscription correctly shows a single USD card option regardless of this flag.
    */
-  async ensureAdaptivePricingEnabled(): Promise<void> {
-    if (this.adaptivePricingEnsured) return;
+  async isAdaptivePricingEnabled(): Promise<boolean> {
+    if (this.adaptivePricingEnabled !== null) return this.adaptivePricingEnabled;
     try {
-      const settings = await this.request<{ adaptive_pricing?: boolean }>(
-        '/v1/accounts/checkout/settings',
-      );
-      if (settings.adaptive_pricing === true) {
-        this.adaptivePricingEnsured = true;
-        return;
+      const account = await this.request<{
+        adaptive_pricing?: boolean;
+        balance_currencies?: string[];
+      }>('/v1/accounts/me');
+      const enabled = account?.adaptive_pricing === true;
+      // Only cache a successful read, so a transient failure can recover next call.
+      this.adaptivePricingEnabled = enabled;
+      if (!enabled) {
+        this.logger.warn(
+          'Bachs adaptive pricing is OFF — one-time USD checkouts will show no local-currency ' +
+            'chooser. It cannot be enabled over the API; turn it on in the Bachs dashboard under ' +
+            'checkout settings. Currencies held: ' +
+            `${account?.balance_currencies?.join(',') || 'unknown'}.`,
+        );
       }
-      await this.request('/v1/accounts/checkout/settings', {
-        method: 'PUT',
-        body: { adaptive_pricing: true },
-      });
-      this.adaptivePricingEnsured = true;
+      return enabled;
     } catch (error) {
       this.logger.warn(
-        `Could not enable Bachs adaptive_pricing: ${
+        `Could not read Bachs adaptive_pricing: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      return false;
     }
   }
 
@@ -730,17 +743,55 @@ export class BachsApiService {
       body: options?.body ? JSON.stringify(options.body) : undefined,
     });
 
-    const payload = (await response.json().catch(() => ({}))) as T & {
-      detail?: string;
-      error_code?: string;
-    };
+    const responseText = await response.text();
+    let payload:
+      | (T & {
+          detail?: string;
+          message?: string;
+          error?: string | { message?: string };
+          error_description?: string;
+          error_code?: string;
+        })
+      | Record<string, unknown> = {};
 
-    if (!response.ok) {
-      const detail = payload.detail ?? response.statusText;
-      this.logger.warn(`Bachs API ${options?.method ?? 'GET'} ${path} failed: ${detail}`);
-      throw new BachsApiError(detail || 'bachs_api_error', payload.error_code, response.status);
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText) as typeof payload;
+      } catch {
+        // Some upstream failures return plain text or an empty body instead of JSON.
+        payload = {};
+      }
     }
 
-    return payload;
+    if (!response.ok) {
+      const errorPayload = payload as {
+        detail?: unknown;
+        message?: unknown;
+        error?: unknown;
+        error_description?: unknown;
+        error_code?: unknown;
+      };
+      const nestedError =
+        errorPayload.error && typeof errorPayload.error === 'object'
+          ? (errorPayload.error as { message?: unknown }).message
+          : errorPayload.error;
+      const providerMessage = [
+        errorPayload.detail,
+        errorPayload.message,
+        errorPayload.error_description,
+        nestedError,
+      ].find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+      const errorCode =
+        typeof errorPayload.error_code === 'string' ? errorPayload.error_code : undefined;
+      const statusMessage = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+      const detail = (providerMessage ?? statusMessage).trim().slice(0, 300);
+
+      this.logger.warn(
+        `Bachs API ${options?.method ?? 'GET'} ${path} failed (${statusMessage}${errorCode ? `, code=${errorCode}` : ''}): ${detail}`,
+      );
+      throw new BachsApiError(detail || 'bachs_api_error', errorCode, response.status);
+    }
+
+    return payload as T;
   }
 }

@@ -73,13 +73,15 @@ export class AuthPasswordService {
     );
     const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const resetLink = `${frontendBase}/reset-password?token=${encodeURIComponent(resetToken)}`;
-    try {
-      await this.zeptomailEmailService.sendTemplateEmail(normalizedEmail, 'password-reset', {
-        resetLink,
-      });
-    } catch (error) {
-      this.logger.error('Failed to send password reset email', error);
-    }
+    // The response stays generic on purpose so it cannot be used to enumerate
+    // registered emails, but a delivery failure must still be visible in the logs.
+    await this.trySendTemplateEmail(
+      normalizedEmail,
+      'password-reset',
+      { resetLink },
+      'password reset email',
+    );
+
     return { message: 'If email exists, a reset link was sent' };
   }
 
@@ -138,11 +140,49 @@ export class AuthPasswordService {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       }),
     );
-    await this.zeptomailEmailService.sendTemplateEmail(email, 'otp-verification', {
-      code,
-      purposeLabel: this.otpPurposeLabel(purpose),
-    });
+    const otpSent = await this.trySendTemplateEmail(
+      email,
+      'otp-verification',
+      {
+        code,
+        purposeLabel: this.otpPurposeLabel(purpose),
+      },
+      'OTP email',
+    );
+    if (!otpSent) {
+      // The caller asked for a code and will not receive one, so say so instead of
+      // returning success for an email that will never arrive.
+      throw new BadRequestException(
+        'Could not send the verification code. Please try again in a moment.',
+      );
+    }
     return { message: 'Verification code sent' };
+  }
+
+  /**
+   * sendTemplateEmail reports provider failure in its result rather than throwing, so
+   * callers that only await it see nothing wrong. This normalises both shapes — a
+   * failed result and an unexpected throw — into a boolean, and logs either one.
+   */
+  private async trySendTemplateEmail(
+    to: string,
+    templateKey: string,
+    variables: Record<string, unknown>,
+    label: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.zeptomailEmailService.sendTemplateEmail(to, templateKey, variables);
+      if (!result?.success) {
+        this.logger.error(`Failed to send ${label}: ${result?.error ?? 'unknown error'}`);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send ${label}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
   async verifyOtp(userId: string, purpose: OtpPurpose, code: string) {

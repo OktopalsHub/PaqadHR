@@ -1,6 +1,9 @@
 export interface EmployeeSettings {
   numberPrefix: string;
   numberPadding: number;
-  /** When true, employees must have BVN or NIN on profile before payroll payout. */
+  /**
+   * Retained for a workspace's prior choice. No longer honoured: BVN/NIN collection is
+   * hidden from the UI, so see `TenantConfigService.requireIdentityForPayroll`.
+   */
   requireIdentityForPayroll?: boolean;
 }
