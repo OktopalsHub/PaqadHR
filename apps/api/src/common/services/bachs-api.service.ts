@@ -744,13 +744,15 @@ export class BachsApiService {
     });
 
     const responseText = await response.text();
-    let payload: (T & {
-      detail?: string;
-      message?: string;
-      error?: string | { message?: string };
-      error_description?: string;
-      error_code?: string;
-    }) | Record<string, unknown> = {};
+    let payload:
+      | (T & {
+          detail?: string;
+          message?: string;
+          error?: string | { message?: string };
+          error_description?: string;
+          error_code?: string;
+        })
+      | Record<string, unknown> = {};
 
     if (responseText) {
       try {
