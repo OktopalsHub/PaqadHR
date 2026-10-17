@@ -133,9 +133,14 @@ export class TenantConfigService {
     return settings?.settings.general?.emailPayslipOnPublish === true;
   }
 
-  async requireIdentityForPayroll(tenantId: string): Promise<boolean> {
-    const settings = await this.getSettingsRecord(tenantId);
-    return settings?.settings.employee?.requireIdentityForPayroll === true;
+  /**
+   * Employee BVN/NIN collection is not exposed in the UI, so nothing can supply these
+   * numbers and the payroll readiness gate would block every run. Always false until the
+   * collection UI ships again; the stored `requireIdentityForPayroll` setting is kept so
+   * a workspace's prior choice survives.
+   */
+  async requireIdentityForPayroll(_tenantId: string): Promise<boolean> {
+    return false;
   }
 
   getGloballySupportedFiatCurrencies(): readonly string[] {
