@@ -5,6 +5,7 @@ import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import {
   normalizeRewardsCatalogCountries,
   resolveGiftCardProviderFromEnv,
+  resolveInitialWalletCurrency,
 } from 'src/common/utils/rewards-defaults.util';
 import { DataSource } from 'typeorm';
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
@@ -44,7 +45,7 @@ export class RewardsCatalogQueryService {
     const tenantCountry = GeoLocationHelper.toStoredCountryCode(tenant?.countryCode) ?? 'US';
     const rewardsCurrency = wallet
       ? wallet.currencyCode.toUpperCase()
-      : this.resolveInitialWalletCurrency(tenant?.countryCode, tenant?.preferredCurrency);
+      : resolveInitialWalletCurrency(tenant?.countryCode, tenant?.preferredCurrency);
 
     return {
       countryCode: tenant?.countryCode ?? null,
@@ -283,14 +284,5 @@ export class RewardsCatalogQueryService {
     }
     catalog.push(...this.deduplicateTremendousCatalog(tremendousItems));
     return catalog;
-  }
-
-  private resolveInitialWalletCurrency(
-    countryCode?: string | null,
-    preferredCurrency?: string | null,
-  ): string {
-    if (preferredCurrency) return preferredCurrency.toUpperCase();
-    if (countryCode?.toUpperCase() === 'NG') return 'NGN';
-    return 'USD';
   }
 }

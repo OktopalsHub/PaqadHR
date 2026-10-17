@@ -15,7 +15,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { defaultPayrollCurrency } from 'src/common/config/nomba.config';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { AuthOnly, CurrentUser, Public } from 'src/common/decorators';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
@@ -26,6 +25,7 @@ import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
+import { resolveTenantDefaultCurrency } from 'src/common/utils/tenant-currency.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { PublicTenantResponseDto } from './dto/public-tenant-response.dto';
@@ -179,7 +179,10 @@ export class TenantsController {
   async getPaymentCurrency(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     const tenant = await this.tenantsService.getTenant(tenantId);
     return {
-      currency: tenant.preferredCurrency || defaultPayrollCurrency(),
+      currency: resolveTenantDefaultCurrency({
+        countryCode: tenant.countryCode,
+        preferredCurrency: tenant.preferredCurrency,
+      }),
       supportedCurrencies: getSupportedPaymentCurrencies(),
     };
   }

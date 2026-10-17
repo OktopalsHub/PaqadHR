@@ -37,11 +37,11 @@ test('saved payroll currencies keep tenant preferred as primary without forcing 
   );
 });
 
-test('initial payroll currencies fall back to configured primary then country default', () => {
+test('initial payroll currencies fall back to the country default', () => {
   assert.deepEqual(
     resolveInitialPayrollCurrencies({
       countryCode: 'DE',
-      settingsCurrency: 'GBP',
+      tenantPreferredCurrency: 'GBP',
     }),
     ['EUR', 'GBP'],
   );
@@ -49,10 +49,19 @@ test('initial payroll currencies fall back to configured primary then country de
   assert.deepEqual(
     resolveInitialPayrollCurrencies({
       countryCode: null,
-      settingsCurrency: null,
       tenantPreferredCurrency: null,
     }),
     ['USD'],
+  );
+});
+
+test('an NG workspace ignores a stale preferred currency and defaults to NGN', () => {
+  assert.deepEqual(
+    resolveInitialPayrollCurrencies({
+      countryCode: 'NG',
+      tenantPreferredCurrency: 'USD',
+    }),
+    ['NGN'],
   );
 });
 

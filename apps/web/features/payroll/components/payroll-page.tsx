@@ -42,6 +42,7 @@ import { PaymentAdminSection } from '@/features/settings/components/payment-admi
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useCurrentSalaries } from '@/hooks/queries/use-employment';
+import { useSupportedPaymentCurrencies } from '@/hooks/queries/use-payment-methods';
 import {
   useMemberPublishedPayslips,
   usePayrollActions,
@@ -55,6 +56,7 @@ import { openCheckoutUrlWithOptionalTab } from '@/lib/bachs-checkout';
 import { formatDate } from '@/lib/format-date';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
 import type { PayrollRun, PublishedPayslip } from '@/lib/schemas/payroll';
+import { resolvePrimaryPayrollCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
 import { payrollRowAction } from './payroll-payout-action';
 
@@ -368,6 +370,13 @@ export function PayrollPage() {
 
   const { data: employees = [], isLoading: employeesLoading } = useEmployees();
   const { tenant, isLoading: tenantLoading } = useTenant();
+  const { data: supportedCurrencies } = useSupportedPaymentCurrencies();
+  // Payroll run currency follows the workspace payroll setting, never the region.
+  const payrollFallbackCurrency = resolvePrimaryPayrollCurrency({
+    enabledPayrollCurrencies: supportedCurrencies?.fiat,
+    countryCode: tenant?.countryCode,
+    preferredCurrency: tenant?.preferredCurrency,
+  });
   const role = tenant?.member?.role;
   const viewerMemberId = tenant?.member?.id;
   const isAdmin = isTenantAdmin(role);
@@ -635,7 +644,7 @@ export function PayrollPage() {
                 onOpenChange={setOpen}
                 activeEmployees={activeEmployees}
                 currentSalaries={currentSalaries}
-                fallbackCurrency={tenant?.preferredCurrency?.toUpperCase() ?? 'USD'}
+                fallbackCurrency={payrollFallbackCurrency}
                 paymentReadyMemberIds={
                   new Set((setupSummary?.readyMemberIds ?? []).map((id) => id))
                 }

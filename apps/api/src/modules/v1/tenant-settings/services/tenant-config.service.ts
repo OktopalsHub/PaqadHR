@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { defaultPayrollCurrency } from 'src/common/config/nomba.config';
 import { normalizeFiatCurrencies } from 'src/common/constants/supported-fiat-currencies.constant';
 import {
   getSupportedPaymentCurrencies,
@@ -9,6 +8,10 @@ import {
 import type { PointsSettings } from 'src/common/interfaces/points-settings.interface';
 import type { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';
 import { PAGINATION_DEFAULT_LIMIT } from 'src/common/utils/pagination.util';
+import {
+  resolveTenantDefaultCurrency,
+  type TenantCurrencyInput,
+} from 'src/common/utils/tenant-currency.util';
 import { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
@@ -98,7 +101,7 @@ export class TenantConfigService {
 
   async getPayrollCurrencies(
     tenantId: string,
-    preferredCurrency?: string | null,
+    tenant?: TenantCurrencyInput | null,
   ): Promise<string[]> {
     const allowed = new Set(getSupportedPaymentCurrencies());
     const settings = await this.getSettingsRecord(tenantId);
@@ -110,11 +113,12 @@ export class TenantConfigService {
       }
     }
 
-    const primary = (
-      settings?.settings.general?.currency ??
-      preferredCurrency ??
-      defaultPayrollCurrency()
-    ).toUpperCase();
+    // Region-derived currency is authoritative. `settings.general.currency` is a
+    // legacy field seeded to 'USD' and must never shadow it.
+    const primary = resolveTenantDefaultCurrency({
+      countryCode: tenant?.countryCode,
+      preferredCurrency: tenant?.preferredCurrency,
+    });
     const fallback = normalizeFiatCurrencies([primary]).filter((code) => allowed.has(code));
     return fallback.length > 0 ? fallback : ['NGN'];
   }

@@ -43,7 +43,7 @@ export class PmCreationService {
   async getAllowedCurrencies(tenantId: string): Promise<string[]> {
     try {
       const t = await this.tenantsService.getTenant(tenantId);
-      return this.tenantConfigService.getPayrollCurrencies(tenantId, t.preferredCurrency);
+      return this.tenantConfigService.getPayrollCurrencies(tenantId, t);
     } catch {
       return this.tenantConfigService.getPayrollCurrencies(tenantId);
     }

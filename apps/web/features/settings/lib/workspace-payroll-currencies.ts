@@ -1,44 +1,7 @@
-const EURO_COUNTRY_CODES = new Set([
-  'AD',
-  'AT',
-  'BE',
-  'BG',
-  'CY',
-  'DE',
-  'EE',
-  'ES',
-  'FI',
-  'FR',
-  'GR',
-  'HR',
-  'IE',
-  'IT',
-  'LT',
-  'LU',
-  'LV',
-  'MC',
-  'ME',
-  'MT',
-  'NL',
-  'PT',
-  'SI',
-  'SK',
-  'SM',
-  'VA',
-  'XK',
-]);
+import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
+import { getDefaultCurrencyForCountry, resolveTenantDefaultCurrency } from '@/lib/tenant-currency';
 
-const GBP_COUNTRY_CODES = new Set(['GB', 'GG', 'IM', 'JE']);
-const SUPPORTED_FIAT_CURRENCIES = ['NGN', 'USD', 'EUR', 'GBP'] as const;
-
-export function getDefaultPayrollCurrencyForCountry(countryCode?: string | null): string {
-  const code = countryCode?.trim().toUpperCase();
-  if (!code) return 'USD';
-  if (code === 'NG') return 'NGN';
-  if (GBP_COUNTRY_CODES.has(code)) return 'GBP';
-  if (EURO_COUNTRY_CODES.has(code)) return 'EUR';
-  return 'USD';
-}
+export { getDefaultCurrencyForCountry as getDefaultPayrollCurrencyForCountry };
 
 export function withDefaultCurrencyFirst(
   currencies: readonly string[],
@@ -56,17 +19,15 @@ export function withDefaultCurrencyFirst(
 interface ResolveInitialPayrollCurrenciesInput {
   countryCode?: string | null;
   settingsPayrollCurrencies?: readonly string[] | null;
-  settingsCurrency?: string | null;
   tenantPreferredCurrency?: string | null;
 }
 
 export function resolveInitialPayrollCurrencies({
   countryCode,
   settingsPayrollCurrencies,
-  settingsCurrency,
   tenantPreferredCurrency,
 }: ResolveInitialPayrollCurrenciesInput): string[] {
-  const defaultCurrency = getDefaultPayrollCurrencyForCountry(countryCode);
+  const defaultCurrency = getDefaultCurrencyForCountry(countryCode);
   const allowed = new Set<string>(SUPPORTED_FIAT_CURRENCIES);
   const fromSettings = settingsPayrollCurrencies
     ?.map((code) => code.toUpperCase())
@@ -84,7 +45,12 @@ export function resolveInitialPayrollCurrencies({
     return unique;
   }
 
-  const primary = (settingsCurrency ?? tenantPreferredCurrency ?? defaultCurrency).toUpperCase();
+  // Region-derived currency is authoritative; settings.general.currency is a legacy
+  // field seeded to USD and must not shadow it.
+  const primary = resolveTenantDefaultCurrency({
+    countryCode,
+    preferredCurrency: tenantPreferredCurrency,
+  });
   return withDefaultCurrencyFirst([primary], defaultCurrency);
 }
 
@@ -92,5 +58,5 @@ export function reprioritizePayrollCurrenciesForCountry(
   currencies: readonly string[],
   countryCode?: string | null,
 ): string[] {
-  return withDefaultCurrencyFirst(currencies, getDefaultPayrollCurrencyForCountry(countryCode));
+  return withDefaultCurrencyFirst(currencies, getDefaultCurrencyForCountry(countryCode));
 }

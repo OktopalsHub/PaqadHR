@@ -1,22 +1,22 @@
-import { GeoLocationHelper, getDefaultFiatCurrencyForCountry } from './geo-location.util';
+import { GeoLocationHelper } from './geo-location.util';
+import { resolveTenantDefaultCurrency } from './tenant-currency.util';
 
 /** Fallback when wallet.currencyCode is missing; matches ensureWallet resolution-failure default. */
 export const DEFAULT_WALLET_CURRENCY_FALLBACK = 'USD';
 
-/** Currency for a new or unfunded wallet before any activity. */
+/**
+ * Currency for a new or unfunded wallet before any activity.
+ * Delegates to the shared workspace-currency resolver so wallets, payroll and
+ * billing always agree on the same currency.
+ */
 export function resolveInitialWalletCurrency(
   tenantCountryCode?: string | null,
   tenantPreferredCurrency?: string | null,
 ): string {
-  const country = GeoLocationHelper.toStoredCountryCode(tenantCountryCode ?? '') ?? '';
-  if (country === 'NG') {
-    return 'NGN';
-  }
-  const preferred = tenantPreferredCurrency?.trim().toUpperCase();
-  if (preferred) {
-    return preferred;
-  }
-  return getDefaultFiatCurrencyForCountry(country) || DEFAULT_WALLET_CURRENCY_FALLBACK;
+  return resolveTenantDefaultCurrency({
+    countryCode: tenantCountryCode,
+    preferredCurrency: tenantPreferredCurrency,
+  });
 }
 
 /** @deprecated Use resolveInitialWalletCurrency for new wallets; funded wallets use tenant_wallets.currency_code. */

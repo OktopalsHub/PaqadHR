@@ -84,7 +84,6 @@ export function SettingsWorkspaceTab() {
       resolveInitialPayrollCurrencies({
         countryCode: workspaceCountry,
         settingsPayrollCurrencies: general?.payrollCurrencies,
-        settingsCurrency: general?.currency,
         tenantPreferredCurrency: tenant.preferredCurrency,
       }),
     );
