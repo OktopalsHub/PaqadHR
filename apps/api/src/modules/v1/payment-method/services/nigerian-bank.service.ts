@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { NIGERIAN_BANKS_FALLBACK } from 'src/common/constants/nigerian-banks.constant';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
+import { BachsApiError, BachsApiService } from 'src/common/services/bachs-api.service';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import {
@@ -16,20 +17,46 @@ import {
   shouldPreferMonnifyForBankLookup,
 } from '../utils/nigerian-bank-lookup.util';
 
+/**
+ * Paqad only resolves and pays out Nigerian bank destinations here, so the
+ * reference list and the account lookup are both pinned to NG.
+ */
+const NG_BANK_COUNTRY = 'NG';
+
 @Injectable()
 export class NigerianBankService {
   private readonly logger = new Logger(NigerianBankService.name);
 
   constructor(
+    private readonly bachsApi: BachsApiService,
     private readonly nombaTransferApi: NombaTransferApiService,
     private readonly monnifyApi: MonnifyApiService,
   ) {}
 
+  /**
+   * Bank list backing the account-lookup dropdown.
+   *
+   * Bachs `GET /v1/reference/banks` is the default because it is the list Bachs
+   * itself pays out to and the code set it expects back when resolving. Monnify,
+   * then Nomba, then the static NIP fallback cover a Bachs outage or an
+   * unconfigured Bachs key.
+   */
   async listBanks(): Promise<BankListItem[]> {
     let primary: BankListItem[] = [];
     let logoSources: BankListItem[] = [];
 
-    if (this.monnifyApi.isConfigured()) {
+    if (this.bachsApi.isConfigured()) {
+      try {
+        const { banks } = await this.bachsApi.listBanks(NG_BANK_COUNTRY);
+        primary = banks.map((bank) => ({ code: bank.code, name: bank.name, logoUrl: null }));
+      } catch (error) {
+        this.logger.warn(
+          `Bachs bank list unavailable: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+
+    if (primary.length === 0 && this.monnifyApi.isConfigured()) {
       try {
         primary = await this.monnifyApi.listBanks();
       } catch (error) {
@@ -112,13 +139,18 @@ export class NigerianBankService {
       monnifyConfigured: this.monnifyApi.isConfigured(),
     });
 
-    const order = preferMonnify ? (['monnify', 'nomba'] as const) : (['nomba', 'monnify'] as const);
+    const order: Array<'bachs' | 'monnify' | 'nomba'> = [
+      'bachs',
+      ...(preferMonnify ? (['monnify', 'nomba'] as const) : (['nomba', 'monnify'] as const)),
+    ];
 
     for (const provider of order) {
       const result =
-        provider === 'monnify'
-          ? await this.tryMonnifyLookup(normalized, trimmedCode, bankName)
-          : await this.tryNombaLookup(normalized, trimmedCode, bankName);
+        provider === 'bachs'
+          ? await this.tryBachsLookup(normalized, trimmedCode, bankName)
+          : provider === 'monnify'
+            ? await this.tryMonnifyLookup(normalized, trimmedCode, bankName)
+            : await this.tryNombaLookup(normalized, trimmedCode, bankName);
       if (result) {
         if (provider === 'nomba' && preferMonnify) {
           this.logger.warn(
@@ -130,6 +162,68 @@ export class NigerianBankService {
     }
 
     throw new ServiceUnavailableException('Bank lookup is not available in this environment');
+  }
+
+  /**
+   * Resolve through Bachs `POST /v1/misc/bank-accounts/resolve`, the same source
+   * as the bank list, so the code the user picked is the code we verify against.
+   *
+   * A `resolved: false` payload is a genuine rejection (wrong number, unsupported
+   * country) and throws so the caller surfaces it inline. Transport and
+   * auth/provider failures return `null` so the next provider can be tried.
+   */
+  private async tryBachsLookup(
+    accountNumber: string,
+    bankCode: string,
+    bankName?: string,
+  ): Promise<{
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+    bankName: string;
+  } | null> {
+    if (!this.bachsApi.isConfigured()) return null;
+
+    let resolution: {
+      resolved: boolean;
+      accountName: string | null;
+      accountNumber: string | null;
+      message: string | null;
+    };
+    try {
+      resolution = await this.bachsApi.resolveBankAccount({
+        accountNumber,
+        bankCode,
+        country: NG_BANK_COUNTRY,
+      });
+    } catch (error) {
+      if (
+        error instanceof BachsApiError &&
+        (error.httpStatus === 400 || error.httpStatus === 404)
+      ) {
+        throw new BadRequestException(error.message || 'Could not resolve this bank account');
+      }
+      this.logger.warn(
+        `Bachs bank lookup unavailable for bankCode=${bankCode}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
+
+    const accountName = resolution.accountName?.trim();
+    if (resolution.resolved && accountName) {
+      return {
+        accountNumber: resolution.accountNumber?.trim() || accountNumber,
+        accountName,
+        bankCode,
+        bankName: bankName?.trim() || bankCode,
+      };
+    }
+
+    throw new BadRequestException(
+      resolution.message?.trim() || 'Could not resolve this bank account number',
+    );
   }
 
   private async tryNombaLookup(

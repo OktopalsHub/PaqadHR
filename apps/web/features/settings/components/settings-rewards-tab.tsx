@@ -26,7 +26,6 @@ import {
   SettingsSwitchRow,
 } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
-import { getDefaultPayrollCurrencyForCountry } from '@/features/settings/lib/workspace-payroll-currencies';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import {
   useCreateCustomReward,
@@ -48,6 +47,7 @@ import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { formatPlanMoney } from '@/lib/format-plan-money';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
+import { resolveTenantDefaultCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
 
 function walletAmountExamples(currency: string) {
@@ -115,8 +115,10 @@ export function SettingsRewardsTab() {
   const billingSettingsHref = tenant?.slug ? tenantPath(tenant.slug, 'settings?tab=billing') : null;
   const rewardsCurrency = (
     wallet?.currencyCode ??
-    tenant?.preferredCurrency ??
-    getDefaultPayrollCurrencyForCountry(tenant?.countryCode)
+    resolveTenantDefaultCurrency({
+      countryCode: tenant?.countryCode,
+      preferredCurrency: tenant?.preferredCurrency,
+    })
   ).toUpperCase();
   const { thresholdPlaceholder, amountPlaceholder } = walletAmountExamples(rewardsCurrency);
   const topupAmountValue = Number(topupAmount);

@@ -2,7 +2,7 @@
 
 import { Loader2, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
@@ -42,6 +42,7 @@ import { useAddCompensation, useCurrentSalaries } from '@/hooks/queries/use-empl
 import { useSupportedPaymentCurrencies } from '@/hooks/queries/use-payment-methods';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { numberToWords } from '@/lib/number-to-words';
+import { resolvePrimaryPayrollCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
@@ -75,7 +76,13 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
   const tenantHref = useTenantHref();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
-  const defaultCurrency = tenant?.preferredCurrency ?? 'USD';
+  const { data: supportedCurrencies } = useSupportedPaymentCurrencies();
+  // Salary currency belongs to the workspace payroll setting, never the region.
+  const defaultCurrency = resolvePrimaryPayrollCurrency({
+    enabledPayrollCurrencies: supportedCurrencies?.fiat,
+    countryCode: tenant?.countryCode,
+    preferredCurrency: tenant?.preferredCurrency,
+  });
 
   const { data: employees = [], isLoading, isError, error } = useEmployees();
   const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);
@@ -89,6 +96,11 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
   const [paySchedule, setPaySchedule] = useState('Monthly');
   const [salaryCurrency, setSalaryCurrency] = useState(defaultCurrency);
   const [comments, setComments] = useState('');
+
+  useEffect(() => {
+    // Keep the dialog currency on the workspace payroll setting once it loads.
+    if (!salaryMember) setSalaryCurrency(defaultCurrency);
+  }, [defaultCurrency, salaryMember]);
 
   const resetSalaryDialog = () => {
     setEffectiveDate('');

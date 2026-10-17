@@ -38,6 +38,7 @@ import { fetchTenantMembers } from '@/lib/api/employees';
 import { formatDate } from '@/lib/format-date';
 import { numberToWords } from '@/lib/number-to-words';
 import { queryKeys } from '@/lib/query/keys';
+import { resolvePrimaryPayrollCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
@@ -77,15 +78,17 @@ export function EmploymentTab({
 }: EmploymentTabProps) {
   const { employee, handleInputChange } = form;
   const { tenant, tenantId } = useTenant();
-  const preferredCurrency = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
   const { data: supportedCurrencies } = useSupportedPaymentCurrencies();
+  // Salary currency belongs to the workspace payroll setting, never the region.
+  const preferredCurrency = resolvePrimaryPayrollCurrency({
+    enabledPayrollCurrencies: supportedCurrencies?.fiat,
+    countryCode: tenant?.countryCode,
+    preferredCurrency: tenant?.preferredCurrency,
+  });
   const salaryCurrencyOptions = useMemo(() => {
     const fiat = supportedCurrencies?.fiat ?? [];
     const crypto = supportedCurrencies?.crypto ?? [];
     const merged = [...fiat, ...crypto].map((code) => code.toUpperCase());
-    if (preferredCurrency && !merged.includes(preferredCurrency)) {
-      merged.unshift(preferredCurrency);
-    }
     return Array.from(new Set(merged.length > 0 ? merged : [preferredCurrency]));
   }, [supportedCurrencies, preferredCurrency]);
   const [salaryCurrency, setSalaryCurrency] = useState(preferredCurrency);

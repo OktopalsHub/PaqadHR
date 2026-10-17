@@ -1,4 +1,4 @@
-export const BRAND_ORIGIN = 'https://cdn.paqadhr.com';
+export const BRAND_ORIGIN = 'https://pub-aa92a7d639fd40aab9505685d7e75215.r2.dev';
 
 export type BrandMode = 'light' | 'dark';
 export type BrandVariant = 'icon' | 'lockup';

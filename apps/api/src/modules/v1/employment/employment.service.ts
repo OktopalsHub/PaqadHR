@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { resolveTenantDefaultCurrency } from 'src/common/utils/tenant-currency.util';
 import { In, IsNull, Repository } from 'typeorm';
 import { ActivitiesService } from '../activities/services/activities.service';
 import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantConfigService } from '../tenant-settings/services/tenant-config.service';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import type { CreateCompensationDto } from './dto/create-compensation.dto';
 import type { CreateEmploymentDto } from './dto/create-employment.dto';
@@ -26,7 +28,29 @@ export class EmploymentService {
     private readonly tenantMembersService: TenantMembersService,
     private readonly positionMemberService: PositionMemberService,
     private readonly activitiesService: ActivitiesService,
+    private readonly tenantConfigService: TenantConfigService,
   ) {}
+
+  /**
+   * Currency a salary is denominated in when neither the request nor an existing
+   * employment supplies one. This is the workspace's *payroll* setting
+   * (`settings.general.payrollCurrencies`, primary entry first) — not the region.
+   * The region only supplies the seed when payroll currencies are unset.
+   */
+  private async resolveWorkspacePayrollCurrency(
+    tenantId: string,
+    tenant?: Tenant | null,
+  ): Promise<string> {
+    const currencies = await this.tenantConfigService.getPayrollCurrencies(tenantId, tenant);
+    return (
+      currencies[0] ??
+      resolveTenantDefaultCurrency({
+        countryCode: tenant?.countryCode,
+        preferredCurrency: tenant?.preferredCurrency,
+      })
+    );
+  }
+
   async createEmployment(
     tenantId: string,
     tenantMemberId: string,
@@ -39,8 +63,7 @@ export class EmploymentService {
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const currency = (
       (employmentData as { currency?: string }).currency ||
-      tenant?.preferredCurrency ||
-      'USD'
+      (await this.resolveWorkspacePayrollCurrency(tenantId, tenant))
     ).toUpperCase();
 
     const employment = await this.employmentRepository.createEmployment({
@@ -99,8 +122,7 @@ export class EmploymentService {
     const salaryCurrency = (
       currency ||
       currentEmployment?.currency ||
-      tenant?.preferredCurrency ||
-      'USD'
+      (await this.resolveWorkspacePayrollCurrency(tenantId, tenant))
     ).toUpperCase();
 
     const inheritedPositionId: string | null | undefined = currentEmployment?.positionId ?? null;
@@ -227,7 +249,9 @@ export class EmploymentService {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
     });
-    const currency = (employment.currency || tenant?.preferredCurrency || 'USD').toUpperCase();
+    const currency = (
+      employment.currency || (await this.resolveWorkspacePayrollCurrency(tenantId, tenant))
+    ).toUpperCase();
     return {
       employment,
       baseSalary: Number(employment.payRate),
@@ -274,8 +298,9 @@ export class EmploymentService {
       }),
       this.tenantRepository.findOne({ where: { id: tenantId } }),
     ]);
+    const fallbackCurrency = await this.resolveWorkspacePayrollCurrency(tenantId, tenant);
     for (const employment of employments) {
-      const currency = (employment.currency || tenant?.preferredCurrency || 'USD').toUpperCase();
+      const currency = (employment.currency || fallbackCurrency).toUpperCase();
       salaryMap.set(employment.tenantMemberId, {
         employment,
         baseSalary: Number(employment.payRate),
@@ -297,12 +322,14 @@ export class EmploymentService {
     }>
   > {
     const employments = await this.employmentRepository.findCurrentEmploymentsByTenantId(tenantId);
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const fallbackCurrency = await this.resolveWorkspacePayrollCurrency(tenantId, tenant);
     return employments.map((employment) => ({
       memberId: employment.tenantMemberId,
       payRate: Number(employment.payRate),
       payType: employment.payType,
       paySchedule: employment.paySchedule,
-      currency: (employment.currency || 'USD').toUpperCase(),
+      currency: (employment.currency || fallbackCurrency).toUpperCase(),
     }));
   }
 }
