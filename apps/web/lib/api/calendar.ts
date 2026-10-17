@@ -215,7 +215,7 @@ export async function fetchCalendarEvents(dateRange?: {
   const to = dateRange?.to ?? `${year + 1}-12-31`;
 
   const [leaves, celebrations, interviews, holidays, manualEvents] = await Promise.all([
-    fetchLeavesForCalendar({ status: 'approved', from, to, limit: 200 }).catch(() => []),
+    fetchLeavesForCalendar({ status: 'approved', from, to }).catch(() => []),
     apiClient<ApiCelebration[]>(tenantPath(tenantId, 'celebrations')).catch(() => []),
     fetchUpcomingInterviews(365).catch(() => []),
     fetchHolidayEvents(year - 1, year + 1),
