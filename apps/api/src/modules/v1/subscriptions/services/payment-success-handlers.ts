@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
@@ -11,12 +11,12 @@ import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import type { SubscriptionWebhookPayment } from '../interfaces/subscription-billing.interface';
 import { advanceBillingPeriod, isValidUuid } from '../utils/billing-utils';
 import {
-  calculatePerSeatTotal,
   calculateProratedSeatCharge,
   isAmountWithinTolerance,
   normalizeWebhookAmount,
   resolveSeatCount,
 } from '../utils/per-seat-pricing.util';
+import { resolveSettledAmount } from '../utils/settled-amount.util';
 import { BillingEventStore } from './billing-event-store';
 import { PaymentVerifier } from './payment-verifier';
 import { RenewalProcessor } from './renewal-processor';
@@ -24,6 +24,8 @@ import { SeatPricingCalculator } from './seat-pricing-calculator';
 
 @Injectable()
 export class PaymentSuccessHandlers {
+  private readonly logger = new Logger(PaymentSuccessHandlers.name);
+
   constructor(
     @InjectRepository(TenantSubscription)
     private readonly subscriptionRepo: Repository<TenantSubscription>,
@@ -78,16 +80,32 @@ export class PaymentSuccessHandlers {
     const seatCount = resolveSeatCount(
       payment.quantity ?? (await this.seatPricing.getTenantSeatCount(payment.tenantId)),
     );
-    const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
     // The provider does not always verify the amount for us (Bachs does not), so compare the
     // settled figure against what this tenant owes before activating anything. Discarding it
     // would let an understated-but-validly-signed webhook activate a full-price plan.
-    const normalizedPaid = normalizeWebhookAmount(payment.amount, expectedAmount, payment.currency);
-    if (
-      !Number.isFinite(normalizedPaid) ||
-      !isAmountWithinTolerance(normalizedPaid, expectedAmount)
-    )
+    // Adaptive pricing settles USD plans in local currencies, so compare in whichever
+    // currency the payment actually arrived in.
+    const paidCurrency = payment.currency?.toUpperCase();
+    const settled = resolveSettledAmount({
+      paidAmount: payment.amount,
+      paidCurrency: payment.currency,
+      planPrice,
+      planPriceInPaidCurrency:
+        paidCurrency && paidCurrency !== planPrice.currency.toUpperCase()
+          ? await this.plansService.getActivePlanPriceForCurrency(planPrice.planId, paidCurrency)
+          : null,
+      seatCount,
+    });
+    if (settled.basis === 'provider_reported') {
+      this.logger.warn(
+        `Subscription settled in unpriced currency ${settled.currency}: ${settled.amount} ` +
+          `tenant=${payment.tenantId} plan=${planPrice.planId} (price row is ` +
+          `${planPrice.currency}). Accepted on provider conversion — no local row to reconcile.`,
+      );
+    }
+    if (!settled.withinTolerance) {
       throw new BadRequestException('Subscription amount mismatch');
+    }
 
     if (
       existing &&
@@ -154,8 +172,8 @@ export class PaymentSuccessHandlers {
         ...(sub.billingHistory ?? []),
         {
           date: now,
-          amount: Number(payment.amount),
-          currency: payment.currency,
+          amount: settled.amount,
+          currency: settled.currency,
           status: 'paid' as const,
           invoiceId: payment.reference,
         },

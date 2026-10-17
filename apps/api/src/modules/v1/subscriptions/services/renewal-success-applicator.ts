@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { DataSource, Repository } from 'typeorm';
@@ -8,13 +8,15 @@ import { BillingEvent } from '../entities/billing-event.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import type { SubscriptionWebhookPayment } from '../interfaces/subscription-billing.interface';
 import { advanceBillingPeriod } from '../utils/billing-utils';
-import { calculatePerSeatTotal, normalizeWebhookAmount } from '../utils/per-seat-pricing.util';
+import { resolveSettledAmount } from '../utils/settled-amount.util';
 import { BillingEventStore } from './billing-event-store';
 import { RenewalLifecycleService } from './renewal-lifecycle.service';
 import { SeatPricingCalculator } from './seat-pricing-calculator';
 
 @Injectable()
 export class RenewalSuccessApplicator {
+  private readonly logger = new Logger(RenewalSuccessApplicator.name);
+
   constructor(
     @InjectRepository(TenantSubscription)
     private readonly subscriptionRepo: Repository<TenantSubscription>,
@@ -69,15 +71,27 @@ export class RenewalSuccessApplicator {
     const liveSeatCount = await this.seatPricing.getTenantSeatCount(tenantId);
     const chargedSeatCount =
       payment.quantity != null ? payment.quantity : (subscription.currentUsers ?? 1);
-    const expectedAmount = calculatePerSeatTotal(planPrice, chargedSeatCount);
-    const normalizedPaid = normalizeWebhookAmount(
-      payment.amount ?? 0,
-      expectedAmount,
-      payment.currency ?? planPrice.currency,
-    );
-    const paidAmount = Number.isFinite(normalizedPaid)
-      ? normalizedPaid
-      : Number(payment.amount ?? 0);
+    // A subscription keeps billing in the currency it was created in, which adaptive
+    // pricing may have made a local one. Validate in that currency so the recorded
+    // figure is the amount actually charged, not the plan's currency restated.
+    const paidCurrency = payment.currency?.toUpperCase();
+    const settled = resolveSettledAmount({
+      paidAmount: payment.amount ?? 0,
+      paidCurrency: payment.currency,
+      planPrice,
+      planPriceInPaidCurrency:
+        paidCurrency && paidCurrency !== planPrice.currency.toUpperCase()
+          ? await this.plansService.getActivePlanPriceForCurrency(planPrice.planId, paidCurrency)
+          : null,
+      seatCount: chargedSeatCount,
+    });
+    if (settled.basis === 'provider_reported') {
+      this.logger.warn(
+        `Renewal settled in unpriced currency ${settled.currency}: ${settled.amount} ` +
+          `tenant=${tenantId} plan=${planPrice.planId} (price row is ${planPrice.currency}). ` +
+          'Accepted on provider conversion — no local row to reconcile.',
+      );
+    }
 
     await this.dataSource.transaction(async (manager) => {
       const billingEventRepo = manager.getRepository(BillingEvent);
@@ -111,8 +125,8 @@ export class RenewalSuccessApplicator {
         ...(locked.billingHistory ?? []),
         {
           date: new Date(),
-          amount: paidAmount,
-          currency: payment.currency ?? 'USD',
+          amount: settled.amount,
+          currency: settled.currency,
           status: 'paid' as const,
           invoiceId: payment.reference,
         },
