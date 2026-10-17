@@ -59,7 +59,7 @@ export function resolveWorkerConfig(env = process.env) {
   return {
     name: requiredEnv(env, 'CF_WORKER_NAME'),
     main: '.open-next/worker.js',
-    compatibility_date: requiredEnv(env, 'CF_COMPAT_DATE'),
+    compatibility_date: env.CF_COMPAT_DATE?.trim() || '2026-10-16',
     compatibility_flags: ['nodejs_compat', 'global_fetch_strictly_public'],
     workers_dev: toBool(env.CF_WORKERS_DEV),
     preview_urls: false,
