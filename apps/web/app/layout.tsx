@@ -25,8 +25,15 @@ const inter = Inter({
   display: 'swap',
 });
 
+// NEXT_PUBLIC_APP_URL can be absent or malformed (CI passes it through from repo
+// vars), and this runs at module scope while Next collects page data, so an
+// unparseable value here fails the whole build. Fall back to Next's default.
+const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+const metadataBase =
+  appUrl && URL.canParse(appUrl) ? new URL(appUrl) : new URL('http://localhost:3000');
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? ''),
+  metadataBase,
   title: {
     default: 'PaqadHR',
     template: '%s · PaqadHR',
