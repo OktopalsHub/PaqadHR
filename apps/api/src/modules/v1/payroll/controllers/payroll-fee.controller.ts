@@ -9,7 +9,9 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
+  IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -19,6 +21,11 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import { PayrollFeeService } from '../services/payroll-fee.service';
 
 class PayrollFeeItemDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  provider?: string;
+
   @IsNumber()
   @Min(0.01)
   @Max(10_000_000)
@@ -38,6 +45,11 @@ export class PayrollFeePreviewDto {
 }
 
 class SingleFeeCalculationDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  provider?: string;
+
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -73,6 +85,7 @@ export class PayrollFeeController {
       totalPayrollAmount: body.amount,
       currency: body.currency,
       tenantId,
+      provider: body.provider,
       transferCount: body.transferCount,
     });
   }
