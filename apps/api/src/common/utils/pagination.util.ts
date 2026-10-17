@@ -1,7 +1,9 @@
 import type { IPaginatedData, IPaginationOption } from '../interfaces/pagination.interface';
 
 export const PAGINATION_DEFAULT_LIMIT = 10;
-export const PAGINATION_MAX_LIMIT = 100;
+// Must stay in sync with @Max() on PaginationDto.limit. The calendar fetches a
+// 3-year leave window, so 200 is the agreed ceiling for this API.
+export const PAGINATION_MAX_LIMIT = 200;
 
 export function normalizePaginationLimit(limit?: string | number): number {
   const parsed = parseInt(String(limit), 10);

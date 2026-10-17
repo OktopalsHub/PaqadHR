@@ -15,28 +15,38 @@ import { leaveBalanceSchema, leaveRequestSchema } from '@/lib/schemas/leave';
 
 type PaginatedLeaves = {
   records: unknown[];
+  /** Effective page size the API applied, after its own clamping. */
+  limit?: number;
+  page?: number;
+  pageCount?: number;
+  totalItems?: number;
+  nextPage?: number | null;
 };
 
-/** `PaginationDto.limit` is `@Max(100)`; anything larger is rejected with a 400. */
-const LEAVES_PAGE_SIZE = 100;
+/** Matches the API's `PAGINATION_MAX_LIMIT`; the server clamps and echoes its own back. */
+const LEAVES_PAGE_SIZE = 200;
 
-/** Bound the page walk so a bad `totalItems` can never spin forever. */
+/** Bound the page walk so a bad `pageCount` can never spin forever. */
 const MAX_LEAVE_PAGES = 20;
 
+type PageResult = { records: unknown[]; nextPage: number | null };
+
 /**
- * Walk paginated pages and concatenate them. Stops on the first short page, so an
- * empty first page yields `[]` without a further request.
+ * Walk paginated pages and concatenate them. Follows the server's own `nextPage`
+ * rather than assuming a page size, so lowering the API cap can never silently
+ * truncate the calendar. An empty first page yields `[]` with no second request.
  */
 export async function collectAllPages(
-  fetchPage: (page: number) => Promise<unknown[]>,
-  pageSize: number,
+  fetchPage: (page: number) => Promise<PageResult>,
   maxPages = MAX_LEAVE_PAGES,
 ): Promise<unknown[]> {
   const records: unknown[] = [];
-  for (let page = 1; page <= maxPages; page += 1) {
-    const pageRecords = await fetchPage(page);
-    records.push(...pageRecords);
-    if (pageRecords.length < pageSize) break;
+  let page = 1;
+  for (let fetched = 0; fetched < maxPages; fetched += 1) {
+    const result = await fetchPage(page);
+    records.push(...result.records);
+    if (result.nextPage == null) break;
+    page = result.nextPage;
   }
   return records;
 }
@@ -76,9 +86,9 @@ export async function fetchMyLeaves(): Promise<LeaveRequest[]> {
 }
 
 /**
- * Approved leave for the calendar window. Walks pages because the API caps `limit` at
- * 100 — asking for more in one request is a 400, and asking for the default 10 would
- * silently truncate a busy tenant's calendar.
+ * Approved leave for the calendar window. Requests the API's maximum page size (200)
+ * and still walks pages, so a tenant with more approved leave than one page holds is
+ * complete rather than truncated.
  */
 export async function fetchLeavesForCalendar(options: {
   status?: string;
@@ -89,7 +99,7 @@ export async function fetchLeavesForCalendar(options: {
   const tenantId = await resolveTenantId();
   const canViewTeamLeaves = await resolveViewerCanViewTeamLeaves();
   const basePath = tenantPath(tenantId, canViewTeamLeaves ? 'leaves' : 'leaves/me');
-  // Clamp rather than trust the caller: the API rejects limit > 100 with a 400.
+  // Clamp rather than trust the caller: the API rejects limit above its max with a 400.
   const pageSize = Math.min(Math.max(options.limit ?? LEAVES_PAGE_SIZE, 1), LEAVES_PAGE_SIZE);
 
   const records = await collectAllPages(async (page) => {
@@ -98,8 +108,8 @@ export async function fetchLeavesForCalendar(options: {
     if (options.from) params.set('from', options.from);
     if (options.to) params.set('to', options.to);
     const data = await apiClient<PaginatedLeaves>(`${basePath}?${params.toString()}`);
-    return data.records ?? [];
-  }, pageSize);
+    return { records: data.records ?? [], nextPage: data.nextPage ?? null };
+  });
 
   return mapLeaveRecords({ records });
 }
