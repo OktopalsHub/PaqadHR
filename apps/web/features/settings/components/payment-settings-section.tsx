@@ -563,7 +563,7 @@ export function PaymentSettingsSection() {
       setWalletAddress('');
       setCryptoNetwork('');
       setPasscode('');
-      toast.success('Payment account saved and submitted for admin verification.');
+      toast.success('Payment account saved as draft.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save payment settings');
     }
