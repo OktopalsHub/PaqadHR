@@ -7,6 +7,8 @@ import {
   IsArray,
   IsIn,
   IsNumber,
+  IsOptional,
+  IsInt,
   Max,
   Min,
   ValidateNested,
@@ -36,6 +38,12 @@ export class PayrollFeePreviewDto {
 }
 
 class SingleFeeCalculationDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  transferCount?: number;
+
   @IsNumber()
   @Min(0.01)
   @Max(10_000_000)
@@ -65,6 +73,7 @@ export class PayrollFeeController {
       totalPayrollAmount: body.amount,
       currency: body.currency,
       tenantId,
+      transferCount: body.transferCount,
     });
   }
 }
