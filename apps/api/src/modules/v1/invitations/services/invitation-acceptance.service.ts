@@ -97,6 +97,8 @@ export class InvitationAcceptanceService {
       password,
       name: `${firstName} ${lastName}`,
       role: invitation.role,
+      // A valid invitation token sent to this address proves control of the invited email.
+      emailVerified: true,
       isActive: true,
     });
     const member = await this.tenantMembersService.createTenantMember(
