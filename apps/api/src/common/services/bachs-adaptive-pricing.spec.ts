@@ -17,6 +17,9 @@ function stubFetch(responses: Record<string, unknown>): { calls: FetchCall[] } {
       ok: true,
       status: 200,
       statusText: 'OK',
+      // request() reads the body as text before parsing, so the stub has to
+      // expose text() as well as json().
+      text: async () => JSON.stringify(payload),
       json: async () => payload,
     } as unknown as Response;
   });
@@ -70,6 +73,7 @@ describe('BachsApiService.isAdaptivePricingEnabled', () => {
           ok: true,
           status: 200,
           statusText: 'OK',
+          text: async () => JSON.stringify({ adaptive_pricing: true }),
           json: async () => ({ adaptive_pricing: true }),
         }) as unknown as Response,
     ) as unknown as typeof fetch;
