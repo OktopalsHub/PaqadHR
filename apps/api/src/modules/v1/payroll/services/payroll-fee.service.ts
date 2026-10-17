@@ -16,17 +16,20 @@ export class PayrollFeeService {
     currency: string;
     tenantId: string;
     provider?: string;
+    transferCount?: number;
   }) {
     const feePercentage = await this.getPayrollFeePercentage(params.tenantId);
     const platformFee = Math.round(params.totalPayrollAmount * (feePercentage / 100) * 100) / 100;
     const payoutFeePerTransfer = getPayrollPayoutFeePerTransfer(params.currency, params.provider);
-    const payoutFeeReserve = payoutFeePerTransfer;
+    const payoutTransferCount = Math.max(1, Math.floor(params.transferCount ?? 1));
+    const payoutFeeReserve = Math.round(payoutFeePerTransfer * payoutTransferCount * 100) / 100;
     return {
       originalAmount: params.totalPayrollAmount,
       currency: params.currency,
       platformFee,
       payoutFeePerTransfer,
       payoutFeeReserve,
+      payoutTransferCount,
       totalAmountToCharge:
         Math.round((params.totalPayrollAmount + platformFee + payoutFeeReserve) * 100) / 100,
       feePercentage,
@@ -49,6 +52,7 @@ export class PayrollFeeService {
       feePercentage: number;
       payoutFeePerTransfer: number;
       payoutFeeReserve: number;
+      payoutTransferCount: number;
       breakdown: { employeePayments: number; platformFee: number; payoutFeeReserve: number };
     }> = [];
     const totals: Record<
@@ -61,6 +65,7 @@ export class PayrollFeeService {
         currency: item.currency,
         tenantId,
         provider: item.provider,
+        transferCount: 1,
       });
       if (!totals[item.currency]) {
         totals[item.currency] = { original: 0, fee: 0, payoutFeeReserve: 0, charge: 0 };
@@ -77,6 +82,7 @@ export class PayrollFeeService {
         feePercentage: calc.feePercentage,
         payoutFeePerTransfer: calc.payoutFeePerTransfer,
         payoutFeeReserve: calc.payoutFeeReserve,
+        payoutTransferCount: calc.payoutTransferCount,
         breakdown: calc.breakdown,
       });
     }
