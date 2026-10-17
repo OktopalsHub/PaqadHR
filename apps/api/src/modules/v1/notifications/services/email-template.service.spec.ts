@@ -12,7 +12,9 @@ describe('EmailTemplateService', () => {
     });
 
     expect(rendered.subject).toBe("You're invited to join Acme Corp");
-    expect(rendered.html).toContain('https://pub-aa92a7d639fd40aab9505685d7e75215.r2.dev/logo-lockup-light.png');
+    expect(rendered.html).toContain(
+      'https://pub-aa92a7d639fd40aab9505685d7e75215.r2.dev/logo-lockup-light.png',
+    );
     expect(rendered.html).toContain('#00a070');
     expect(rendered.html).toContain('Jane Doe');
     expect(rendered.html).not.toContain('founder of PaqadHR');

@@ -5,7 +5,9 @@ export const EMAIL_FOUNDER = {
 } as const;
 
 export const EMAIL_BRAND = {
-  logoUrl: process.env.EMAIL_LOGO_URL?.trim() || 'https://pub-aa92a7d639fd40aab9505685d7e75215.r2.dev/logo-lockup-light.png',
+  logoUrl:
+    process.env.EMAIL_LOGO_URL?.trim() ||
+    'https://pub-aa92a7d639fd40aab9505685d7e75215.r2.dev/logo-lockup-light.png',
   primary: '#00a070',
   pageBg: '#f4f4f5',
   cardBg: '#ffffff',
