@@ -3,14 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
-import { TenantMemberRole } from 'src/common/enums/tenant-member.enum';
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
 import { EncryptionService } from 'src/common/services/encryption.service';
 import { Not, Repository } from 'typeorm';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { AuthService } from '../../auth/auth.service';
-import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
-import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import type { CreatePaymentMethodDto, UpdatePaymentMethodDto } from '../dto/payment-method.dto';
@@ -34,8 +31,6 @@ export class PmCreationService {
   private readonly logger = new Logger(PmCreationService.name);
   constructor(
     @InjectRepository(PaymentMethod) private readonly repo: Repository<PaymentMethod>,
-    @InjectRepository(TenantMember) private readonly memberRepo: Repository<TenantMember>,
-    private readonly notificationHelper: NotificationHelperService,
     private readonly encryptionService: EncryptionService,
     private readonly auditLogsService: AuditLogsService,
     private readonly paymentSecurityService: PaymentSecurityService,
@@ -73,7 +68,7 @@ export class PmCreationService {
       const makePrimary = Boolean(dto.isPrimary) || existingCount === 0;
       if (makePrimary) await this.unsetPrimaryMethods(tenantId, memberId);
 
-      const status = PaymentMethodStatus.PENDING_VERIFICATION;
+      const status = PaymentMethodStatus.DRAFT;
       let accountName = dto.accountName;
       if (dto.currency.toUpperCase() === 'NGN') {
         if (!dto.bankCode) throw new BadRequestException('Bank is required for NGN');
@@ -119,7 +114,6 @@ export class PmCreationService {
         country: dto.country,
         isPrimary: makePrimary,
         status,
-        submittedAt: new Date(),
         verifiedAt: null,
         passcodeHash: null,
         passcodeSetAt: null,
@@ -148,55 +142,11 @@ export class PmCreationService {
           },
         })
         .catch(() => {});
-      void this.notifyAdmins(
-        tenantId,
-        memberId,
-        saved.id,
-        normalizedCurrency,
-      ).catch((error: unknown) => {
-        this.logger.warn('Failed to notify admins about submitted payment method', error);
-      });
       return saved;
     } catch (error) {
       this.logger.error('Error creating payment method:', error);
       throw error;
     }
-  }
-
-  private async notifyAdmins(
-    tenantId: string,
-    submitterMemberId: string,
-    paymentMethodId: string,
-    currency: string,
-  ): Promise<void> {
-    const [admins, submitter] = await Promise.all([
-      this.memberRepo.find({
-        where: [
-          { tenantId, role: TenantMemberRole.ADMIN },
-          { tenantId, role: TenantMemberRole.OWNER },
-        ],
-        select: ['id'],
-      }),
-      this.memberRepo.findOne({
-        where: { id: submitterMemberId, tenantId },
-        select: ['firstName', 'lastName'],
-      }),
-    ]);
-    const recipientIds = admins
-      .map((admin) => admin.id)
-      .filter((id) => id !== submitterMemberId);
-    if (recipientIds.length === 0) return;
-
-    const employeeName = `${submitter?.firstName ?? ''} ${submitter?.lastName ?? ''}`.trim();
-    await this.notificationHelper.sendPaymentMethodSubmittedAdminNotification(
-      recipientIds,
-      tenantId,
-      {
-        employeeName: employeeName || 'An employee',
-        currency,
-        paymentMethodId,
-      },
-    );
   }
 
   async updatePaymentMethod(
