@@ -309,7 +309,11 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
     expect(outcome.checkoutUrl).toBe('https://checkout.nomba.com/pay');
     expect(outcome.preflight.shortfall).toBe(50_000);
     expect(createCheckout).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: 50_000, currency: 'NGN' }),
+      expect.objectContaining({
+        amount: 50_000,
+        currency: 'NGN',
+        savePaymentMethod: false,
+      }),
     );
     expect(paymentOrchestrator.payNowPayroll).not.toHaveBeenCalled();
   });
