@@ -100,6 +100,11 @@ export async function fulfillTremendous(
         html: rendered.html,
         text: rendered.text,
       })
+      .then((result) => {
+        if (!result.success) {
+          logger.warn(`Failed to send reward claim email: ${result.error ?? 'unknown error'}`);
+        }
+      })
       .catch((err) =>
         logger.warn(
           `Failed to send reward claim email: ${err instanceof Error ? err.message : err}`,

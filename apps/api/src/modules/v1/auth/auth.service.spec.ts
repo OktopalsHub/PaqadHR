@@ -18,6 +18,7 @@ import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
 import { UserRepository } from '../users/repositories/users.repository';
 import { AuthService } from './auth.service';
+import { OTP_PURPOSES } from './dto/otp.dto';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
@@ -570,7 +571,11 @@ describe('AuthService', () => {
     it('persists the code but does not fail registration when email delivery is unavailable', async () => {
       const user = { id: 'user-1', email: 'test@example.com' } as User;
       verificationRepository.create.mockImplementation((data) => data);
-      zeptomailEmailService.sendTemplateEmail.mockRejectedValue(new Error('provider down'));
+      // The real service reports provider failure in its result; it does not throw.
+      zeptomailEmailService.sendTemplateEmail.mockResolvedValue({
+        success: false,
+        error: 'Zeptomail API key not configured',
+      });
 
       await expect(authService.sendEmailVerificationOtp(user)).resolves.toBeUndefined();
 
@@ -579,6 +584,29 @@ describe('AuthService', () => {
         'test@example.com',
         'otp-verification',
         expect.objectContaining({ purposeLabel: 'verifying your email address' }),
+      );
+    });
+
+    it('also survives an unexpected throw from the email service', async () => {
+      const user = { id: 'user-1', email: 'test@example.com' } as User;
+      verificationRepository.create.mockImplementation((data) => data);
+      zeptomailEmailService.sendTemplateEmail.mockRejectedValue(new Error('provider down'));
+
+      await expect(authService.sendEmailVerificationOtp(user)).resolves.toBeUndefined();
+
+      expect(verificationRepository.save).toHaveBeenCalled();
+    });
+
+    it('reports failure instead of success when the OTP email is not delivered', async () => {
+      const user = { id: 'user-1', email: 'test@example.com' } as User;
+      verificationRepository.create.mockImplementation((data) => data);
+      zeptomailEmailService.sendTemplateEmail.mockResolvedValue({
+        success: false,
+        error: 'Zeptomail API key not configured',
+      });
+
+      await expect(authService.sendOtp('user-1', user.email, OTP_PURPOSES[0])).rejects.toThrow(
+        'Could not send the verification code. Please try again in a moment.',
       );
     });
   });
@@ -611,6 +639,24 @@ describe('AuthService', () => {
     });
 
     it('returns generic message when email send fails', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com' } as User;
+      userRepository.findUserByEmail.mockResolvedValue(mockUser);
+      verificationRepository.create.mockImplementation((data) => data);
+      verificationRepository.save.mockResolvedValue(undefined);
+      verificationRepository.delete.mockResolvedValue(undefined);
+      // Provider failure arrives as a result, not a throw, and must not leak
+      // whether the address is registered.
+      zeptomailEmailService.sendTemplateEmail.mockResolvedValue({
+        success: false,
+        error: 'Zeptomail API key not configured',
+      });
+
+      const result = await authService.forgotPassword('test@example.com');
+
+      expect(result).toEqual({ message: 'If email exists, a reset link was sent' });
+    });
+
+    it('returns generic message when the email service throws', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com' } as User;
       userRepository.findUserByEmail.mockResolvedValue(mockUser);
       verificationRepository.create.mockImplementation((data) => data);
