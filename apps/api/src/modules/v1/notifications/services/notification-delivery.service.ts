@@ -47,22 +47,26 @@ export class NotificationDeliveryService {
 
   private async sendEmail(notification: Notification): Promise<void> {
     if (!notification.recipientId || !notification.tenantId) {
-      this.logger.warn('Cannot send email without recipient and tenant');
-      return;
+      throw new Error('Cannot send email without recipient and tenant');
     }
 
     const email = await this.getRecipientEmail(notification.recipientId, notification.tenantId);
     if (!email) {
-      this.logger.warn(`No email found for recipient ${notification.recipientId}`);
-      return;
+      throw new Error(`No email found for recipient ${notification.recipientId}`);
     }
 
-    await this.emailService.sendTemplateEmail(email, 'notification', {
+    // sendTemplateEmail reports provider failures in its result rather than throwing,
+    // so an unchecked result marks the notification SENT when nothing was delivered.
+    const result = await this.emailService.sendTemplateEmail(email, 'notification', {
       title: notification.title,
       message: notification.message,
       actionUrl: notification.actionData?.url,
       actionLabel: notification.actionData?.buttonText,
     });
+
+    if (!result?.success) {
+      throw new Error(result?.error ?? 'Email provider reported failure');
+    }
   }
 
   private sendInApp(notification: Notification): void {

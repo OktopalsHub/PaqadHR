@@ -114,6 +114,18 @@ export function formatZeptomailSdkError(error: unknown, status = 500): string {
   return String(error);
 }
 
+/**
+ * Recipients are PII and must not reach the log verbatim. Keep only the domain so a
+ * delivery failure can still be traced to a provider (Gmail, Outlook, ...).
+ */
+function toArrayForLog(to: string | string[]): string {
+  const list = Array.isArray(to) ? to : [to];
+  const domains = [
+    ...new Set(list.map((email) => email.split('@')[1]?.toLowerCase()).filter(Boolean)),
+  ];
+  return domains.length ? domains.join(',') : 'unknown';
+}
+
 export function toUserFacingEmailError(technicalMessage: string): string {
   const lower = technicalMessage.toLowerCase();
 
@@ -245,7 +257,7 @@ export class ZeptomailEmailService {
     try {
       if (this.emailTemplateService.hasTemplate(templateKey)) {
         const rendered = this.emailTemplateService.render(templateKey, variables);
-        return await this.sendEmail({
+        const result = await this.sendEmail({
           to,
           subject: options?.subject || rendered.subject,
           html: rendered.html,
@@ -253,6 +265,17 @@ export class ZeptomailEmailService {
           from: options?.from,
           replyTo: options?.replyTo,
         });
+        // sendEmail reports provider failures in its result rather than throwing.
+        // Log here too, so a caller that ignores the result still leaves a trace
+        // instead of the email failing with no visible error anywhere.
+        if (!result.success) {
+          this.logger.warn(
+            `Failed to send template email '${templateKey}' to ${toArrayForLog(to)}: ${
+              result.error ?? 'unknown error'
+            }`,
+          );
+        }
+        return result;
       }
 
       throw new NotFoundException(`Template '${templateKey}' not found`);

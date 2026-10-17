@@ -720,7 +720,7 @@ export class TenantWalletTopupService {
     const settingsUrl = tenant?.slug
       ? tenantFrontendUrl(tenant.slug, '/settings?tab=rewards')
       : tenantFrontendUrl('', '/settings?tab=rewards');
-    await this.emailService.sendEmail({
+    const result = await this.emailService.sendEmail({
       to: email,
       subject: 'Paqad: Rewards wallet payment failed',
       text: [
@@ -734,5 +734,10 @@ export class TenantWalletTopupService {
 <p>Reason: ${escapeHtml(reason)}</p>
 <p><a href="${escapeHtml(settingsUrl)}">Open Rewards settings</a></p>`,
     });
+    if (!result.success) {
+      this.logger.warn(
+        `Failed to send rewards wallet failure email: ${result.error ?? 'unknown error'}`,
+      );
+    }
   }
 }
