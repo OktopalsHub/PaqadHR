@@ -496,6 +496,9 @@ export class PayrollFloatTopupService {
       currency: preflight.currency,
       callbackUrl,
       customerName: resolveCheckoutCustomerFullName(tenant?.name, customerEmail),
+      // Payroll float funding is a one-time payment. Do not request a saved payment
+      // method: Bachs bank transfer is not supported when saving a method for later.
+      savePaymentMethod: false,
       meta,
     });
 
