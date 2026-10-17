@@ -2,6 +2,7 @@ interface ToastMessageProps {
   title: string;
   description?: string;
 }
+
 export const ToastMessage = ({ title, description }: ToastMessageProps) => {
   return (
     <div>
