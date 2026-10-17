@@ -34,6 +34,13 @@ export default function GoogleCompletePage() {
       queryClient.setQueryData(queryKeys.auth.session, bootstrap);
       queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
 
+      const pendingInvitePath = window.sessionStorage.getItem('paqadhr:pending-invite-return');
+      if (pendingInvitePath?.startsWith('/accept-invite?')) {
+        window.sessionStorage.removeItem('paqadhr:pending-invite-return');
+        router.replace(pendingInvitePath);
+        return;
+      }
+
       const href = await resolvePostAuthHref({
         tenants: bootstrap.workspaces,
         paymentsEnabled: bootstrap.paymentsEnabled,
