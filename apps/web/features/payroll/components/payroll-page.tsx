@@ -922,7 +922,13 @@ export function PayrollPage() {
             <Button
               variant="brandSolid"
               className="w-full"
-              disabled={actions.fundAndPay.isPending || fundingPreflightLoading || fundingPreflightError || !fundingPreflight}
+              disabled={
+                actions.fundAndPay.isPending ||
+                fundingPreflightLoading ||
+                fundingPreflightError ||
+                !fundingPreflight ||
+                (!fundingPreflight.ok && !fundingPreflight.canCheckout)
+              }
               onClick={() => void confirmPayNow()}
             >
               Pay now
@@ -992,7 +998,13 @@ export function PayrollPage() {
             <Button
               variant="brandSolid"
               className="w-full"
-              disabled={actions.schedule.isPending || fundingPreflightLoading || fundingPreflightError || !fundingPreflight}
+              disabled={
+                actions.schedule.isPending ||
+                fundingPreflightLoading ||
+                fundingPreflightError ||
+                !fundingPreflight ||
+                (!fundingPreflight.ok && !fundingPreflight.canCheckout)
+              }
               onClick={() => void confirmSchedule()}
             >
               Schedule for {scheduleDate ? formatDate(scheduleDate) : '…'}
