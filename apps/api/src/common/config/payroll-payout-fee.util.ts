@@ -39,6 +39,26 @@ export function getPayrollPayoutFeePerTransfer(
   return currencyCode === 'NGN' ? DEFAULT_NGN_PAYOUT_FEE_RESERVE : 0;
 }
 
+/** True when a currency or provider-specific payout fee was explicitly configured. */
+export function hasConfiguredPayrollPayoutFee(
+  currency: string,
+  provider?: string | null,
+  env: Environment = process.env,
+): boolean {
+  const currencyCode = currency.trim().toUpperCase();
+  const providerCode = provider
+    ?.trim()
+    .replace(/[^a-zA-Z0-9]/g, '_')
+    .toUpperCase();
+  if (
+    providerCode &&
+    parseNonNegativeAmount(env[`PAYROLL_PAYOUT_FEE_${providerCode}_${currencyCode}`]) != null
+  ) {
+    return true;
+  }
+  return parseNonNegativeAmount(env[`PAYROLL_PAYOUT_FEE_${currencyCode}`]) != null;
+}
+
 export function calculatePayrollPayoutFeeReserve(params: {
   currency: string;
   transferCount: number;
