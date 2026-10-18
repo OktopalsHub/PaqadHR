@@ -427,7 +427,7 @@ export function PayrollPage() {
   const fundingPreflightRunId = payNowRunId ?? scheduleRunId ?? undefined;
   const {
     data: fundingPreflight,
-    isLoading: fundingPreflightLoading,
+    isFetching: fundingPreflightLoading,
     isError: fundingPreflightError,
     error: fundingPreflightQueryError,
     refetch: refetchFundingPreflight,
@@ -904,17 +904,30 @@ export function PayrollPage() {
                       ? ` (${fundingPreflight.feePercentage}%)`
                       : ''}
                   </span>
-                  <span>{formatFundingAmount(fundingPreflight.platformFee ?? 0, fundingPreflight.currency)}</span>
+                  <span>
+                    {formatFundingAmount(
+                      fundingPreflight.platformFee ?? 0,
+                      fundingPreflight.currency,
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-500">Additional payout-fee reserve</span>
                   <span>
-                    {formatFundingAmount(fundingPreflight.payoutFeeReserve ?? 0, fundingPreflight.currency)}
+                    {formatFundingAmount(
+                      fundingPreflight.payoutFeeReserve ?? 0,
+                      fundingPreflight.currency,
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
                   <span>Total funding required</span>
-                  <span>{formatFundingAmount(fundingPreflight.requiredAmount, fundingPreflight.currency)}</span>
+                  <span>
+                    {formatFundingAmount(
+                      fundingPreflight.requiredAmount,
+                      fundingPreflight.currency,
+                    )}
+                  </span>
                 </div>
                 <p className="text-xs text-slate-500">{fundingPreflight.message}</p>
               </div>
@@ -970,7 +983,12 @@ export function PayrollPage() {
               <div className="space-y-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-500">Payout funding</span>
-                  <span>{formatFundingAmount(fundingPreflight.employeeTotal ?? fundingPreflight.requiredAmount, fundingPreflight.currency)}</span>
+                  <span>
+                    {formatFundingAmount(
+                      fundingPreflight.employeeTotal ?? fundingPreflight.requiredAmount,
+                      fundingPreflight.currency,
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-500">PaqadHR fee</span>
@@ -987,7 +1005,12 @@ export function PayrollPage() {
               </div>
             ) : null}
             <div className="space-y-2">
-              <Label>Payment date</Label>
+              {fundingPreflight && !fundingPreflight.ok && !fundingPreflight.canCheckout ? (
+                 <p className="text-sm text-amber-700 dark:text-amber-300" role="alert">
+                   {fundingPreflight.message}
+                 </p>
+               ) : null}
+               <Label>Payment date</Label>
               <Input
                 type="date"
                 value={scheduleDate}
