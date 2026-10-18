@@ -97,8 +97,7 @@ export class PayrollFeeService {
     for (const [currency, value] of Object.entries(totals)) {
       totalOriginalAmount[currency] = value.original;
       totalPlatformFees[currency] = value.fee;
-      totalPayoutFeeReserves[currency] =
-        Math.round(value.payoutFeeReserve * 100) / 100;
+      totalPayoutFeeReserves[currency] = Math.round(value.payoutFeeReserve * 100) / 100;
       totalChargeAmount[currency] = Math.round(value.charge * 100) / 100;
     }
     return {
