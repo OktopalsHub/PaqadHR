@@ -15,6 +15,16 @@ describe('payroll payout fee reserve', () => {
     ).toEqual({ feePerTransfer: 100, transferCount: 3, total: 300 });
   });
 
+  it('rounds each transfer reserve before combining them, matching previews', () => {
+    expect(
+      calculatePayrollPayoutFeeReserve({
+        currency: 'NGN',
+        transferCount: 2,
+        env: { PAYROLL_PAYOUT_FEE_NGN: '0.015' },
+      }),
+    ).toEqual({ feePerTransfer: 0.015, transferCount: 2, total: 0.04 });
+  });
+
   it('allows provider-specific values to override currency defaults', () => {
     const env = {
       PAYROLL_PAYOUT_FEE_NGN: '100',
