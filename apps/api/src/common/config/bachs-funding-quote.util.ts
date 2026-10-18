@@ -159,6 +159,17 @@ export async function sourceAmountForBachsFundingItem(params: {
       // is handled by the configured payout-fee reserve in payroll preflight.
       return Math.round(amount * 100) / 100;
     }
+    if (isCryptoDestination) {
+      // A USD-denominated salary paid in a stablecoin still needs a destination-targeted
+      // quote so the employee receives the intended amount after Bachs' payout costs.
+      const quoted = await quoteSourceAmountForDestination({
+        createQuote,
+        fromCurrency: fundingCurrency,
+        toCurrency: destination,
+        targetToAmount: amount,
+      });
+      return quoted.sourceAmount;
+    }
     const quote = await createQuote({
       fromCurrency: fundingCurrency,
       toCurrency: destination,
