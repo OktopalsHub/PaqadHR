@@ -108,7 +108,7 @@ export class PayrollFloatTopupService {
     const employeeTotal = this.payableNet(run);
     const feePercentage = await this.payrollFeeService.getPayrollFeePercentage(tenantId);
     const platformFee = Math.round(employeeTotal * (feePercentage / 100) * 100) / 100;
-    const payoutTransferCount = currency === 'NGN' ? this.countPayableNgnTransfers(run) : 0;
+    const payoutTransferCount = this.countPayableTransfers(run, currency);
     const payoutFee = calculatePayrollPayoutFeeReserve({
       currency,
       provider,
@@ -598,12 +598,13 @@ export class PayrollFloatTopupService {
     return Math.round(sum * 100) / 100;
   }
 
-  private countPayableNgnTransfers(run: PayrollRun): number {
+  private countPayableTransfers(run: PayrollRun, currency: string): number {
+    const currencyCode = currency.toUpperCase();
     return (run.items ?? []).filter(
       (item) =>
         (item.status === PayrollItemStatus.PENDING || item.status === PayrollItemStatus.FAILED) &&
         item.metadata?.excludedFromRun !== true &&
-        (item.paymentCurrency || run.baseCurrency).toUpperCase() === 'NGN' &&
+        (item.paymentCurrency || run.baseCurrency).toUpperCase() === currencyCode &&
         Number(resolvePayrollPayoutAmount(item)) > 0,
     ).length;
   }
@@ -743,7 +744,7 @@ export class PayrollFloatTopupService {
         canCheckout,
         dashboardUrl: '',
         message: canCheckout
-          ? `Your company pays ${requiredAmount} ${fundingCurrency} in one checkout (${fee.employeeTotal} employee pay + ${fee.platformFee} PaqadHR fee at ${fee.feePercentage}% + ${payoutFeeReserve} payout-fee reserve for ${payoutTransferCount} NGN transfer(s)). We then route each salary via Bachs.`
+          ? `Your company pays ${requiredAmount} ${fundingCurrency} in one checkout (${fee.employeeTotal} employee pay + ${fee.platformFee} PaqadHR fee at ${fee.feePercentage}% + ${payoutFeeReserve} payout-fee reserve for ${payoutTransferCount} same-currency transfer(s)). We then route each salary via Bachs.`
           : `Fund ${requiredAmount} ${fundingCurrency} on Bachs, including the payout-fee reserve, then retry.`,
         employeeTotal: fee.employeeTotal,
         platformFee: fee.platformFee,
