@@ -992,15 +992,30 @@ export function PayrollPage() {
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-500">PaqadHR fee</span>
-                  <span>{formatFundingAmount(fundingPreflight.platformFee ?? 0, fundingPreflight.currency)}</span>
+                  <span>
+                    {formatFundingAmount(
+                      fundingPreflight.platformFee ?? 0,
+                      fundingPreflight.currency,
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-slate-500">Payout-fee reserve</span>
-                  <span>{formatFundingAmount(fundingPreflight.payoutFeeReserve ?? 0, fundingPreflight.currency)}</span>
+                  <span>
+                    {formatFundingAmount(
+                      fundingPreflight.payoutFeeReserve ?? 0,
+                      fundingPreflight.currency,
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
                   <span>Total funding required</span>
-                  <span>{formatFundingAmount(fundingPreflight.requiredAmount, fundingPreflight.currency)}</span>
+                  <span>
+                    {formatFundingAmount(
+                      fundingPreflight.requiredAmount,
+                      fundingPreflight.currency,
+                    )}
+                  </span>
                 </div>
               </div>
             ) : null}
