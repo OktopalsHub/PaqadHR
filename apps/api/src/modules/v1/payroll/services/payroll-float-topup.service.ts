@@ -10,9 +10,12 @@ import {
   type BachsFundingItem,
   pickBachsFundingCurrency,
   sumBachsFundingSourceAmount,
+  quoteSourceAmountForDestination,
+  resolveBachsQuoteDestinationCurrency,
 } from 'src/common/config/bachs-funding-quote.util';
 import {
   calculatePayrollPayoutFeeReserve,
+  getPayrollPayoutFeePerTransfer,
   hasConfiguredPayrollPayoutFee,
 } from 'src/common/config/payroll-payout-fee.util';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
@@ -136,7 +139,7 @@ export class PayrollFloatTopupService {
         platformFee,
         feePercentage,
         payoutFeeReserve,
-        payoutFeePerTransfer: payoutFee.feePerTransfer,
+        payoutFeePerTransfer,
         payoutTransferCount,
       };
     }
@@ -679,26 +682,56 @@ export class PayrollFloatTopupService {
       // live quote, which includes the current FX and payout costs in the source amount.
       // Same-currency payouts cannot be quoted, so require an explicit per-transfer reserve
       // rather than silently undercharging USD payouts.
-      const payoutTransferCount = fundingItems.filter(
-        (item) =>
-          item.paymentCurrency.toUpperCase() === fundingCurrency &&
-          item.amountCurrency.toUpperCase() === fundingCurrency,
+      // A configured reserve applies to same-currency payouts in their payout currency,
+      // not just payouts whose currency matches the checkout balance. Convert each reserve
+      // into the funding currency before calculating the checkout total.
+      const sameCurrencyItems = fundingItems.filter(
+        (item) => item.paymentCurrency.toUpperCase() === item.amountCurrency.toUpperCase(),
+      );
+      const payoutTransferCount = sameCurrencyItems.filter((item) =>
+        hasConfiguredPayrollPayoutFee(item.paymentCurrency, PaymentProvider.BACHS),
       ).length;
       if (
-        fundingCurrency === 'USD' &&
-        payoutTransferCount > 0 &&
-        !hasConfiguredPayrollPayoutFee(fundingCurrency, PaymentProvider.BACHS)
+        sameCurrencyItems.some((item) => item.paymentCurrency.toUpperCase() === 'USD') &&
+        !hasConfiguredPayrollPayoutFee('USD', PaymentProvider.BACHS)
       ) {
         throw new Error(
           'Set PAYROLL_PAYOUT_FEE_BACHS_USD to the confirmed Bachs fee per same-currency USD payout before pricing this payroll.',
         );
       }
-      const payoutFee = calculatePayrollPayoutFeeReserve({
-        currency: fundingCurrency,
-        provider: PaymentProvider.BACHS,
-        transferCount: payoutTransferCount,
-      });
-      const payoutFeeReserve = payoutFee.total;
+      let payoutFeeReserve = 0;
+      for (const item of sameCurrencyItems) {
+        const payoutCurrency = item.paymentCurrency.toUpperCase();
+        const feeAmount = getPayrollPayoutFeePerTransfer(payoutCurrency, PaymentProvider.BACHS);
+        if (feeAmount <= 0) continue;
+        if (payoutCurrency === fundingCurrency) {
+          payoutFeeReserve += feeAmount;
+          continue;
+        }
+        const destination = resolveBachsQuoteDestinationCurrency(
+          payoutCurrency,
+          item.cryptoNetwork,
+        );
+        if (!destination) {
+          throw new Error(
+            `Cannot convert the ${payoutCurrency} payout-fee reserve into ${fundingCurrency}`,
+          );
+        }
+        const quotedReserve = await quoteSourceAmountForDestination({
+          createQuote: (input) => this.bachsApi.createPayoutQuote(input),
+          fromCurrency: fundingCurrency,
+          toCurrency: destination,
+          targetToAmount: feeAmount,
+          payoutMethod: destination.startsWith('USDT_') || destination.startsWith('USDC_')
+            ? undefined
+            : 'BANK_TRANSFER',
+        });
+        payoutFeeReserve += quotedReserve.sourceAmount;
+      }
+      payoutFeeReserve = Math.round(payoutFeeReserve * 100) / 100;
+      const payoutFeePerTransfer = fundingCurrency === 'USD'
+        ? getPayrollPayoutFeePerTransfer('USD', PaymentProvider.BACHS)
+        : getPayrollPayoutFeePerTransfer(fundingCurrency, PaymentProvider.BACHS);
       const requiredAmount = Math.round((fee.checkoutTotal + payoutFeeReserve) * 100) / 100;
       const balance = await this.balanceService.getAvailableBalance(
         PaymentProvider.BACHS,
