@@ -74,6 +74,7 @@ export function calculatePayrollPayoutFeeReserve(params: {
   return {
     feePerTransfer,
     transferCount,
-    total: Math.round(feePerTransfer * transferCount * 100) / 100,
+    // Match previews: round each transfer's reserve to the currency's minor unit first.
+    total: Math.round(feePerTransfer * 100) / 100 * transferCount,
   };
 }
