@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { getPayrollPayoutFeePerTransfer } from '../../../../common/config/payroll-payout-fee.util';
+import { calculatePayrollPayoutFeeReserve } from '../../../../common/config/payroll-payout-fee.util';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 
 @Injectable()
@@ -20,9 +20,14 @@ export class PayrollFeeService {
   }) {
     const feePercentage = await this.getPayrollFeePercentage(params.tenantId);
     const platformFee = Math.round(params.totalPayrollAmount * (feePercentage / 100) * 100) / 100;
-    const payoutFeePerTransfer = getPayrollPayoutFeePerTransfer(params.currency, params.provider);
-    const payoutTransferCount = Math.max(1, Math.floor(params.transferCount ?? 1));
-    const payoutFeeReserve = Math.round(payoutFeePerTransfer * payoutTransferCount * 100) / 100;
+    const payoutFee = calculatePayrollPayoutFeeReserve({
+      currency: params.currency,
+      provider: params.provider,
+      transferCount: params.transferCount ?? 1,
+    });
+    const payoutFeePerTransfer = payoutFee.feePerTransfer;
+    const payoutTransferCount = Math.max(1, payoutFee.transferCount);
+    const payoutFeeReserve = payoutFee.total;
     return {
       originalAmount: params.totalPayrollAmount,
       currency: params.currency,
