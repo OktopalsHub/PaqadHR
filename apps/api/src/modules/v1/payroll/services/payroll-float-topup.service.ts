@@ -139,7 +139,7 @@ export class PayrollFloatTopupService {
         platformFee,
         feePercentage,
         payoutFeeReserve,
-        payoutFeePerTransfer,
+        payoutFeePerTransfer: payoutFee.feePerTransfer,
         payoutTransferCount,
       };
     }
@@ -761,7 +761,7 @@ export class PayrollFloatTopupService {
           platformFee: fee.platformFee,
           feePercentage: fee.feePercentage,
           payoutFeeReserve,
-          payoutFeePerTransfer: payoutFee.feePerTransfer,
+          payoutFeePerTransfer,
           payoutTransferCount,
         };
       }
@@ -783,7 +783,7 @@ export class PayrollFloatTopupService {
         platformFee: fee.platformFee,
         feePercentage: fee.feePercentage,
         payoutFeeReserve,
-        payoutFeePerTransfer: payoutFee.feePerTransfer,
+        payoutFeePerTransfer,
         payoutTransferCount,
       };
     } catch (error) {
