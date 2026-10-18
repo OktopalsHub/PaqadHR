@@ -129,7 +129,8 @@ export async function quoteSourceAmountForDestination(params: {
 
 /**
  * How much of `fundingCurrency` must sit on the Bachs balance to pay one item.
- * Stablecoins are treated as 1:1 with USD for funding (peg); exact chain quote happens at payout.
+ * Use Bachs quotes for cross-currency bank and stablecoin payouts so the checkout amount
+ * includes the provider's current FX rate and payout costs.
  */
 export async function sourceAmountForBachsFundingItem(params: {
   item: BachsFundingItem;
@@ -154,12 +155,9 @@ export async function sourceAmountForBachsFundingItem(params: {
 
   // Amount already in the funding balance currency (incl. FX-at-payout salary in USD).
   if (amountCurrency === fundingCurrency) {
-    if (destinationBase === fundingCurrency || paymentCurrency === 'USDT') {
-      // Stablecoins settle ~1:1 against USD, so no chain quote is needed here. This assumes
-      // `amountCurrency` is already USD — see pickBachsFundingCurrency: Bachs holds USD + NGN
-      // and any non-NGN destination is funded in USD. An NGN-denominated amount reaching this
-      // branch would be treated as USD and under/over-fund the checkout, so callers must fund
-      // cross-currency runs in USD (BACHS_PAYOUT_SOURCE_CURRENCY=USD) rather than in NGN.
+    if (destinationBase === fundingCurrency) {
+      // Same-currency bank payouts cannot use a conversion quote. Their per-transfer fee
+      // is handled by the configured payout-fee reserve in payroll preflight.
       return Math.round(amount * 100) / 100;
     }
     const quote = await createQuote({
@@ -176,9 +174,6 @@ export async function sourceAmountForBachsFundingItem(params: {
   // Amount is what the employee receives in the destination currency.
   if (amountCurrency === paymentCurrency || amountCurrency === destinationBase) {
     if (destinationBase === fundingCurrency) {
-      return Math.round(amount * 100) / 100;
-    }
-    if (paymentCurrency === 'USDT' && fundingCurrency === BACHS_INTL_BANK_SOURCE_CURRENCY) {
       return Math.round(amount * 100) / 100;
     }
     const quoted = await quoteSourceAmountForDestination({
