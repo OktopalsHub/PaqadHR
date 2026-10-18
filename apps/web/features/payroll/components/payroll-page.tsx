@@ -46,6 +46,7 @@ import { useSupportedPaymentCurrencies } from '@/hooks/queries/use-payment-metho
 import {
   useMemberPublishedPayslips,
   usePayrollActions,
+  usePayrollFundingPreflight,
   usePayrollReadiness,
   usePayrollRuns,
   usePayrollSetupSummary,
@@ -59,6 +60,15 @@ import type { PayrollRun, PublishedPayslip } from '@/lib/schemas/payroll';
 import { resolvePrimaryPayrollCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
 import { payrollRowAction } from './payroll-payout-action';
+
+function formatFundingAmount(amount: number, currency: string) {
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
 
 function statusVariant(status: string) {
   switch (status) {
@@ -414,6 +424,14 @@ export function PayrollPage() {
   const [scheduleDate, setScheduleDate] = useState(defaultPayDate);
   const [reopenRunId, setReopenRunId] = useState<string | null>(null);
   const [payNowRunId, setPayNowRunId] = useState<string | null>(null);
+  const fundingPreflightRunId = payNowRunId ?? scheduleRunId ?? undefined;
+  const {
+    data: fundingPreflight,
+    isLoading: fundingPreflightLoading,
+    isError: fundingPreflightError,
+    error: fundingPreflightQueryError,
+    refetch: refetchFundingPreflight,
+  } = usePayrollFundingPreflight(fundingPreflightRunId);
 
   const handleAction = async (action: string, id: string, paymentDateOverride?: string) => {
     try {
@@ -843,14 +861,68 @@ export function PayrollPage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              Your company pays one checkout to fund this run (including Paqad&apos;s fee when
-              applicable). We then send each employee&apos;s salary to their bank or wallet
-              automatically.
+              Review the payout funding estimate and fees before opening checkout. We then send
+              each employee&apos;s salary to their bank or wallet automatically.
             </p>
+            {fundingPreflightLoading ? (
+              <p className="text-sm text-slate-500">Calculating payroll and provider fees…</p>
+            ) : fundingPreflightError ? (
+              <div className="space-y-2 text-sm text-red-600" role="alert">
+                <p>
+                  {fundingPreflightQueryError instanceof Error
+                    ? fundingPreflightQueryError.message
+                    : 'Could not calculate the payroll funding total.'}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void refetchFundingPreflight()}
+                >
+                  Retry fee estimate
+                </Button>
+              </div>
+            ) : fundingPreflight ? (
+              <div className="space-y-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">
+                    {fundingPreflight.provider === 'bachs'
+                      ? 'Payout funding incl. Bachs quote costs'
+                      : 'Employee payout funding'}
+                  </span>
+                  <span className="text-right font-medium">
+                    {formatFundingAmount(
+                      fundingPreflight.employeeTotal ?? fundingPreflight.requiredAmount,
+                      fundingPreflight.currency,
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">
+                    PaqadHR fee
+                    {fundingPreflight.feePercentage != null
+                      ? ` (${fundingPreflight.feePercentage}%)`
+                      : ''}
+                  </span>
+                  <span>{formatFundingAmount(fundingPreflight.platformFee ?? 0, fundingPreflight.currency)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">Additional payout-fee reserve</span>
+                  <span>
+                    {formatFundingAmount(fundingPreflight.payoutFeeReserve ?? 0, fundingPreflight.currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
+                  <span>Total funding required</span>
+                  <span>{formatFundingAmount(fundingPreflight.requiredAmount, fundingPreflight.currency)}</span>
+                </div>
+                <p className="text-xs text-slate-500">{fundingPreflight.message}</p>
+              </div>
+            ) : null}
             <Button
               variant="brandSolid"
               className="w-full"
-              disabled={actions.fundAndPay.isPending}
+              disabled={actions.fundAndPay.isPending || fundingPreflightLoading || fundingPreflightError || !fundingPreflight}
               onClick={() => void confirmPayNow()}
             >
               Pay now
@@ -870,6 +942,44 @@ export function PayrollPage() {
             <DialogTitle>Schedule payout</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
+            {fundingPreflightLoading ? (
+              <p className="text-sm text-slate-500">Calculating payroll and provider fees…</p>
+            ) : fundingPreflightError ? (
+              <div className="space-y-2 text-sm text-red-600" role="alert">
+                <p>
+                  {fundingPreflightQueryError instanceof Error
+                    ? fundingPreflightQueryError.message
+                    : 'Could not calculate the payroll funding total.'}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void refetchFundingPreflight()}
+                >
+                  Retry fee estimate
+                </Button>
+              </div>
+            ) : fundingPreflight ? (
+              <div className="space-y-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">Payout funding</span>
+                  <span>{formatFundingAmount(fundingPreflight.employeeTotal ?? fundingPreflight.requiredAmount, fundingPreflight.currency)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">PaqadHR fee</span>
+                  <span>{formatFundingAmount(fundingPreflight.platformFee ?? 0, fundingPreflight.currency)}</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500">Payout-fee reserve</span>
+                  <span>{formatFundingAmount(fundingPreflight.payoutFeeReserve ?? 0, fundingPreflight.currency)}</span>
+                </div>
+                <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
+                  <span>Total funding required</span>
+                  <span>{formatFundingAmount(fundingPreflight.requiredAmount, fundingPreflight.currency)}</span>
+                </div>
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label>Payment date</Label>
               <Input
@@ -882,7 +992,7 @@ export function PayrollPage() {
             <Button
               variant="brandSolid"
               className="w-full"
-              disabled={actions.schedule.isPending}
+              disabled={actions.schedule.isPending || fundingPreflightLoading || fundingPreflightError || !fundingPreflight}
               onClick={() => void confirmSchedule()}
             >
               Schedule for {scheduleDate ? formatDate(scheduleDate) : '…'}
