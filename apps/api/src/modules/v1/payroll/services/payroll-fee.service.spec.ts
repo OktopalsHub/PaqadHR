@@ -52,6 +52,31 @@ describe('PayrollFeeService', () => {
     expect(result.byCurrency).toHaveLength(2);
   });
 
+  it('keeps preview totals equal to the sum of individually rounded reserves', async () => {
+    const previous = process.env.PAYROLL_PAYOUT_FEE_NGN;
+    process.env.PAYROLL_PAYOUT_FEE_NGN = '0.015';
+
+    try {
+      const service = createService(0);
+      const result = await service.previewPayrollFees(
+        [
+          { amount: 100, currency: 'NGN' },
+          { amount: 100, currency: 'NGN' },
+        ],
+        'tenant-1',
+      );
+
+      expect(result.byCurrency.map((item) => item.payoutFeeReserve)).toEqual([0.02, 0.02]);
+      expect(result.totalPayoutFeeReserves).toEqual({ NGN: 0.04 });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYROLL_PAYOUT_FEE_NGN;
+      } else {
+        process.env.PAYROLL_PAYOUT_FEE_NGN = previous;
+      }
+    }
+  });
+
   it('does not add an NGN reserve to other currencies by default', async () => {
     const service = createService(2);
 
