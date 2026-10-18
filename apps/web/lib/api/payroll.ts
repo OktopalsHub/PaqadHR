@@ -227,7 +227,7 @@ export async function fetchPayrollFundingPreflight(
   id: string,
 ): Promise<PayrollFundingPreflight> {
   const tenantId = await resolveTenantId();
-  return apiClient(
+  return apiClient<PayrollFundingPreflight>(
     tenantPath(tenantId, `payroll/runs/${id}/fund-and-pay/preflight`),
   );
 }
