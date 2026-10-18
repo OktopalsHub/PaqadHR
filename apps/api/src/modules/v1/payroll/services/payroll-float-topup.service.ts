@@ -11,7 +11,10 @@ import {
   pickBachsFundingCurrency,
   sumBachsFundingSourceAmount,
 } from 'src/common/config/bachs-funding-quote.util';
-import { calculatePayrollPayoutFeeReserve } from 'src/common/config/payroll-payout-fee.util';
+import {
+  calculatePayrollPayoutFeeReserve,
+  hasConfiguredPayrollPayoutFee,
+} from 'src/common/config/payroll-payout-fee.util';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
@@ -671,10 +674,24 @@ export class PayrollFloatTopupService {
       });
       const feePercentage = await this.payrollFeeService.getPayrollFeePercentage(tenantId);
       const fee = applyPayrollFee(employeeTotal, feePercentage);
-      const payoutTransferCount =
-        fundingCurrency === 'NGN'
-          ? fundingItems.filter((item) => item.paymentCurrency.toUpperCase() === 'NGN').length
-          : 0;
+      // Cross-currency payouts (GBP/EUR/USDT/USDC and USD-funded NGN) use Bachs'
+      // live quote, which includes the current FX and payout costs in the source amount.
+      // Same-currency payouts cannot be quoted, so require an explicit per-transfer reserve
+      // rather than silently undercharging USD payouts.
+      const payoutTransferCount = fundingItems.filter(
+        (item) =>
+          item.paymentCurrency.toUpperCase() === fundingCurrency &&
+          item.amountCurrency.toUpperCase() === fundingCurrency,
+      ).length;
+      if (
+        fundingCurrency === 'USD' &&
+        payoutTransferCount > 0 &&
+        !hasConfiguredPayrollPayoutFee(fundingCurrency, PaymentProvider.BACHS)
+      ) {
+        throw new Error(
+          'Set PAYROLL_PAYOUT_FEE_BACHS_USD to the confirmed Bachs fee per same-currency USD payout before pricing this payroll.',
+        );
+      }
       const payoutFee = calculatePayrollPayoutFeeReserve({
         currency: fundingCurrency,
         provider: PaymentProvider.BACHS,
