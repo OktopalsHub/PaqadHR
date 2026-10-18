@@ -125,13 +125,10 @@ export async function quoteSourceAmountForDestination(params: {
     quotedFrom = Number(quote.from_amount);
   }
 
-  if (
-    !Number.isFinite(got) ||
-    got < targetToAmount ||
-    !Number.isFinite(quotedFrom) ||
-    quotedFrom <= 0 ||
-    !quote.quote_id
-  ) {
+  if (!Number.isFinite(quotedFrom) || quotedFrom <= 0 || !quote.quote_id) {
+    throw new Error('Bachs payout quote missing source amount');
+  }
+  if (!Number.isFinite(got) || got < targetToAmount) {
     throw new Error('Bachs payout quote does not cover the requested recipient amount');
   }
   return { sourceAmount: Math.round(quotedFrom * 100) / 100, quoteId: quote.quote_id };
