@@ -1,5 +1,4 @@
 import {
-  BACHS_INTL_BANK_SOURCE_CURRENCY,
   isBachsCryptoAsset,
   isBachsIntlBankCurrency,
   mapBachsCryptoDestinationCurrency,
