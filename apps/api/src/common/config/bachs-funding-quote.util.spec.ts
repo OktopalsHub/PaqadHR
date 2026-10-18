@@ -100,6 +100,37 @@ describe('bachs-funding-quote.util', () => {
       expect(createQuote).toHaveBeenCalledTimes(2);
     });
 
+    it('rejects a final quote below the destination target after retry', async () => {
+      const createQuote = jest
+        .fn()
+        .mockResolvedValueOnce({
+          quote_id: 'pqt_probe',
+          from_amount: '100.00',
+          to_amount: '100.00',
+        })
+        .mockResolvedValueOnce({
+          quote_id: 'pqt_under_target',
+          from_amount: '250.00',
+          to_amount: '249.50',
+        })
+        .mockResolvedValueOnce({
+          quote_id: 'pqt_still_under_target',
+          from_amount: '250.50',
+          to_amount: '249.99',
+        });
+
+      await expect(
+        quoteSourceAmountForDestination({
+          createQuote,
+          fromCurrency: 'USD',
+          toCurrency: 'USDT_TRC20',
+          targetToAmount: 250,
+        }),
+      ).rejects.toThrow(/does not cover the requested recipient amount/i);
+
+      expect(createQuote).toHaveBeenCalledTimes(3);
+    });
+
     it('does not send amount NaN when a refinement quote lacks from_amount', async () => {
       const createQuote = jest
         .fn()
