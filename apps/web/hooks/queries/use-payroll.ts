@@ -10,6 +10,7 @@ import {
   downloadPayrollBankFile,
   fetchMemberPublishedPayslips,
   fetchPayrollReadiness,
+  fetchPayrollFundingPreflight,
   fetchPayrollRun,
   fetchPayrollRuns,
   fetchPayrollSetupSummary,
@@ -64,6 +65,18 @@ export function useMemberPublishedPayslips(memberId?: string, enabled = true) {
     queryKey: [...queryKeys.payroll.all, tenantId, 'published-payslips', memberId],
     queryFn: () => fetchMemberPublishedPayslips(memberId!),
     enabled: enabled && !tenantLoading && Boolean(tenantId && memberId),
+  });
+}
+
+export function usePayrollFundingPreflight(runId?: string) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.payroll.all, tenantId, 'funding-preflight', runId],
+    queryFn: () => fetchPayrollFundingPreflight(runId!),
+    enabled: !tenantLoading && Boolean(tenantId && runId),
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 }
 
