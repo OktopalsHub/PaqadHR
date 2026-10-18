@@ -159,8 +159,20 @@ describe('bachs-funding-quote.util', () => {
       expect(source).toBe(125);
     });
 
-    it('treats USDT as 1:1 with USD for funding', async () => {
-      const createQuote = jest.fn();
+    it('quotes USDT payouts from USD so current provider costs are included', async () => {
+      const createQuote = jest
+        .fn()
+        .mockResolvedValueOnce({
+          quote_id: 'pqt_probe',
+          from_amount: '100.00',
+          to_amount: '98.00',
+        })
+        .mockResolvedValueOnce({
+          quote_id: 'pqt_final',
+          from_amount: '255.11',
+          to_amount: '250.00',
+        });
+
       const source = await sourceAmountForBachsFundingItem({
         fundingCurrency: 'USD',
         createQuote,
@@ -171,8 +183,12 @@ describe('bachs-funding-quote.util', () => {
           cryptoNetwork: 'TRC20',
         },
       });
-      expect(source).toBe(250);
-      expect(createQuote).not.toHaveBeenCalled();
+
+      expect(source).toBe(255.11);
+      expect(createQuote).toHaveBeenCalledTimes(2);
+      expect(createQuote).toHaveBeenCalledWith(
+        expect.objectContaining({ fromCurrency: 'USD', toCurrency: 'USDT_TRC20' }),
+      );
     });
   });
 
