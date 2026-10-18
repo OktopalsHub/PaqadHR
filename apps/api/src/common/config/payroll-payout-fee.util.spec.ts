@@ -2,6 +2,7 @@ import {
   calculatePayrollPayoutFeeReserve,
   DEFAULT_NGN_PAYOUT_FEE_RESERVE,
   getPayrollPayoutFeePerTransfer,
+  hasConfiguredPayrollPayoutFee,
 } from './payroll-payout-fee.util';
 
 describe('payroll payout fee reserve', () => {
@@ -30,6 +31,20 @@ describe('payroll payout fee reserve', () => {
       }),
     ).toBe(0);
     expect(getPayrollPayoutFeePerTransfer('USD', 'bachs', {})).toBe(0);
+  });
+
+  it('requires an explicit configured fee when no safe currency default exists', () => {
+    expect(hasConfiguredPayrollPayoutFee('USD', 'bachs', {})).toBe(false);
+    expect(
+      hasConfiguredPayrollPayoutFee('USD', 'bachs', {
+        PAYROLL_PAYOUT_FEE_BACHS_USD: '0.75',
+      }),
+    ).toBe(true);
+    expect(
+      hasConfiguredPayrollPayoutFee('USD', 'bachs', {
+        PAYROLL_PAYOUT_FEE_USD: '1',
+      }),
+    ).toBe(true);
   });
 
   it('ignores invalid configuration and uses the safe default', () => {
