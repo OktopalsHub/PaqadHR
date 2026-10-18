@@ -688,8 +688,9 @@ export class PayrollFloatTopupService {
       const sameCurrencyItems = fundingItems.filter(
         (item) => item.paymentCurrency.toUpperCase() === item.amountCurrency.toUpperCase(),
       );
-      const payoutTransferCount = sameCurrencyItems.filter((item) =>
-        hasConfiguredPayrollPayoutFee(item.paymentCurrency, PaymentProvider.BACHS),
+      const payoutTransferCount = sameCurrencyItems.filter(
+        (item) =>
+          getPayrollPayoutFeePerTransfer(item.paymentCurrency, PaymentProvider.BACHS) > 0,
       ).length;
       if (
         sameCurrencyItems.some((item) => item.paymentCurrency.toUpperCase() === 'USD') &&
@@ -729,9 +730,10 @@ export class PayrollFloatTopupService {
         payoutFeeReserve += quotedReserve.sourceAmount;
       }
       payoutFeeReserve = Math.round(payoutFeeReserve * 100) / 100;
-      const payoutFeePerTransfer = fundingCurrency === 'USD'
-        ? getPayrollPayoutFeePerTransfer('USD', PaymentProvider.BACHS)
-        : getPayrollPayoutFeePerTransfer(fundingCurrency, PaymentProvider.BACHS);
+      const payoutFeePerTransfer =
+        payoutTransferCount > 0
+          ? Math.round((payoutFeeReserve / payoutTransferCount) * 100) / 100
+          : 0;
       const requiredAmount = Math.round((fee.checkoutTotal + payoutFeeReserve) * 100) / 100;
       const balance = await this.balanceService.getAvailableBalance(
         PaymentProvider.BACHS,
