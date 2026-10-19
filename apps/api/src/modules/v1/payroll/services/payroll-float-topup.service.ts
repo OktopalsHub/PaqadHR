@@ -493,6 +493,12 @@ export class PayrollFloatTopupService {
     if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
       throw new BadRequestException('Retry funding requires an approved or processing payroll run');
     }
+    const existingRetryFunding = this.readRetryFundingMeta(run);
+    if (existingRetryFunding.status === 'pending') {
+      throw new BadRequestException(
+        'A retry funding checkout is already pending. Complete or reconcile it before creating another.',
+      );
+    }
     const selected = run.items.filter((item) => uniqueIds.includes(item.id));
     if (
       selected.length !== uniqueIds.length ||
@@ -628,6 +634,18 @@ export class PayrollFloatTopupService {
     const callbackUrl = tenant?.slug
       ? tenantFrontendUrl(tenant.slug, `/payroll?retry_funding=done&runId=${payrollRunId}`)
       : tenantFrontendUrl('', `/payroll?retry_funding=done&runId=${payrollRunId}`);
+    // Persist the order reference before calling the provider. If the provider creates
+    // the checkout but this request times out, the webhook can still resolve the pending
+    // retry-funding attempt and repeated calls will reuse the same reference.
+    run.metadata = {
+      ...run.metadata,
+      retryFunding: {
+        ...meta,
+        status: 'pending',
+      } satisfies RetryFundingMeta,
+    };
+    await this.payrollRunRepository.save(run);
+
     const checkout = await adapter.createCheckout({
       orderReference: meta.orderReference,
       customerEmail,
@@ -647,11 +665,15 @@ export class PayrollFloatTopupService {
       },
     });
 
+    if (checkout.orderReference !== meta.orderReference) {
+      throw new BadRequestException(
+        'Bachs checkout returned a different order reference. Reconcile this checkout before retrying.',
+      );
+    }
     run.metadata = {
       ...run.metadata,
       retryFunding: {
         ...meta,
-        orderReference: checkout.orderReference,
         status: 'pending',
         checkoutUrl: checkout.checkoutLink,
       } satisfies RetryFundingMeta,
