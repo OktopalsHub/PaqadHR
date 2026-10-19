@@ -181,36 +181,9 @@ export class MultiPaymentService {
           periodStart: payrollRun.periodStart,
           periodEnd: payrollRun.periodEnd,
           baseCurrency: payrollRun.baseCurrency,
-          bachsSourceCurrency: isBachsRetry
-            ? ((payrollRun.metadata?.retryFunding as { currency?: string } | undefined)?.currency ??
-              bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup))
-            : bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
+          bachsSourceCurrency: bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
         },
       );
-      if (isBachsRetry && this.fundingLedger) {
-        const fundingMeta = payrollRun.metadata?.retryFunding as { orderReference: string };
-        for (const item of payable) {
-          if (
-            item.status !== PayrollItemStatus.FAILED ||
-            !item.failureReason?.includes(
-              'The current Bachs source quote exceeds the approved retry funding allocation',
-            )
-          ) {
-            continue;
-          }
-          await this.fundingLedger.releaseUnsubmittedPayoutReservation({
-            tenantId,
-            payrollRunId,
-            payrollItemId: item.id,
-            reservationKey: `${fundingMeta.orderReference}:${item.id}`,
-            evidence: {
-              validationStage: 'provider_quote_guard',
-              submissionAttempted: false,
-              reason: 'current_source_quote_exceeds_approved_allocation',
-            },
-          });
-        }
-      }
       const summary = this.validation.calculatePaymentSummary(payoutResults);
       await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
       return {
@@ -373,9 +346,36 @@ export class MultiPaymentService {
           periodStart: payrollRun.periodStart,
           periodEnd: payrollRun.periodEnd,
           baseCurrency: payrollRun.baseCurrency,
-          bachsSourceCurrency: bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
+          bachsSourceCurrency: isBachsRetry
+            ? ((payrollRun.metadata?.retryFunding as { currency?: string } | undefined)?.currency ??
+              bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup))
+            : bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
         },
       );
+      if (isBachsRetry && this.fundingLedger) {
+        const fundingMeta = payrollRun.metadata?.retryFunding as { orderReference: string };
+        for (const item of payable) {
+          if (
+            item.status !== PayrollItemStatus.FAILED ||
+            !item.failureReason?.includes(
+              'The current Bachs source quote exceeds the approved retry funding allocation',
+            )
+          ) {
+            continue;
+          }
+          await this.fundingLedger.releaseUnsubmittedPayoutReservation({
+            tenantId,
+            payrollRunId,
+            payrollItemId: item.id,
+            reservationKey: `${fundingMeta.orderReference}:${item.id}`,
+            evidence: {
+              validationStage: 'provider_quote_guard',
+              submissionAttempted: false,
+              reason: 'current_source_quote_exceeds_approved_allocation',
+            },
+          });
+        }
+      }
       const summary = this.validation.calculatePaymentSummary(payoutResults);
       await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
       return {
