@@ -91,6 +91,7 @@ type RetryFundingMeta = {
   provider?: string;
   approvedById?: string;
   approvedAt?: string;
+  payoutFeeReserve?: number;
   checkoutUrl?: string;
   fundedAt?: string;
   itemFundingAmounts?: Record<string, number>;
@@ -691,6 +692,7 @@ export class PayrollFloatTopupService {
           provider: PaymentProvider.BACHS,
           approvedById,
           approvedAt: new Date().toISOString(),
+          payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
           itemFundingAmounts,
         } satisfies RetryFundingMeta,
       };
