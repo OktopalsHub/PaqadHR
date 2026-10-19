@@ -11,6 +11,7 @@ export class PayrollRunFundingLedger1792000000000 implements MigrationInterface 
         updated_at TIMESTAMP NOT NULL DEFAULT now(),
         tenant_id uuid NOT NULL,
         payroll_run_id uuid NOT NULL,
+        payroll_item_id uuid NULL,
         event_type varchar(32) NOT NULL,
         amount numeric(15, 2) NOT NULL CHECK (amount > 0),
         currency varchar(10) NOT NULL,
