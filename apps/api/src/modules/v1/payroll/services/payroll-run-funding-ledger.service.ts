@@ -115,6 +115,26 @@ export class PayrollRunFundingLedgerService {
   }
 
   /**
+   * Check whether a paid item already has a confirmed debit in its own run ledger.
+   * Used by reconciliation to find gaps without assuming payroll status proves money movement.
+   */
+  async hasConfirmedPayoutDebit(input: {
+    tenantId: string;
+    payrollRunId: string;
+    payrollItemId: string;
+  }): Promise<boolean> {
+    const entry = await this.ledgerRepository.findOne({
+      where: {
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: input.payrollItemId,
+        eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+      },
+    });
+    return Boolean(entry);
+  }
+
+  /**
    * Record a debit only when the provider reports the amount removed from its source float.
    * Destination salary amounts are not a safe substitute for cross-currency Bachs debits.
    */

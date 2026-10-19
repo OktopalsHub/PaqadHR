@@ -4,6 +4,7 @@ import {
   quoteSourceAmountForDestination,
   resolveBachsQuoteDestinationCurrency,
   sourceAmountForBachsFundingItem,
+  sourceAmountWithPayoutFeeForBachsFundingItem,
   sumBachsFundingSourceAmount,
 } from './bachs-funding-quote.util';
 import { mapBachsCryptoDestinationCurrency } from './bachs-payout.util';
@@ -287,6 +288,47 @@ describe('bachs-funding-quote.util', () => {
       const fee = applyPayrollFee(employeeTotal, 3);
       expect(fee.platformFee).toBe(18);
       expect(fee.checkoutTotal).toBe(618);
+    });
+  });
+
+  describe('sourceAmountWithPayoutFeeForBachsFundingItem', () => {
+    it('adds the doubled Bachs withdrawal fee on top of the quoted source amount', async () => {
+      // $500 USD → USD needs no quote; Bachs charges 1% ($5), PaqadHR reserves $10.
+      await expect(
+        sourceAmountWithPayoutFeeForBachsFundingItem({
+          fundingCurrency: 'USD',
+          createQuote: jest.fn(),
+          item: { amount: 500, amountCurrency: 'USD', paymentCurrency: 'USD' },
+        }),
+      ).resolves.toEqual({ sourceAmount: 500, payoutFeeReserve: 10 });
+    });
+
+    it('reserves a doubled ₦50 fee for NGN payouts', async () => {
+      await expect(
+        sourceAmountWithPayoutFeeForBachsFundingItem({
+          fundingCurrency: 'NGN',
+          createQuote: jest.fn(),
+          item: { amount: 250_000, amountCurrency: 'NGN', paymentCurrency: 'NGN' },
+        }),
+      ).resolves.toEqual({ sourceAmount: 250_000, payoutFeeReserve: 100 });
+    });
+
+    it('reserves the fee for cross-currency quotes too', async () => {
+      // Quote $500 for £380 (a converted payout). Fee is still 1% of the $500 debited.
+      const createQuote = jest.fn().mockResolvedValue({
+        quote_id: 'q',
+        from_amount: '500.00',
+        to_amount: '380.00',
+        exchange_rate: '0.76',
+      });
+
+      await expect(
+        sourceAmountWithPayoutFeeForBachsFundingItem({
+          fundingCurrency: 'USD',
+          createQuote,
+          item: { amount: 380, amountCurrency: 'GBP', paymentCurrency: 'GBP' },
+        }),
+      ).resolves.toEqual({ sourceAmount: 500, payoutFeeReserve: 10 });
     });
   });
 });

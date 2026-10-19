@@ -10,6 +10,7 @@ import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
+import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
@@ -25,6 +26,16 @@ const PAYROLL_AMOUNT_TOLERANCE = 1;
  * reconciliation declares it failed. Nothing was ever submitted for these, so the only
  * reason to wait is to let a slow provider error land first. */
 const NULL_TRANSACTION_STUCK_GRACE_MS = 60 * 60 * 1000;
+
+/**
+ * How far back the paid-item Bachs debit sweep looks. Older rows are left alone: either the
+ * ledger write succeeded, or the provider no longer returns the evidence needed to repair it,
+ * and re-querying that history on every run only burns provider rate limit.
+ */
+const BACHS_DEBIT_RECOVERY_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+
+/** Page size for the paid-item debit sweep. */
+const BACHS_DEBIT_RECOVERY_PAGE_SIZE = 50;
 
 const SUCCESS_STATUSES = new Set([
   'SUCCESS',
@@ -75,6 +86,17 @@ export class PayoutReconciliation {
     return run?.tenantId;
   }
 
+  /**
+   * True when the provider string persisted on an item resolves to `provider`.
+   *
+   * Items store `paymentProvider` as the display label (for example "Bachs transfer"), while
+   * webhook and query paths pass a `PaymentProvider`. Comparing the raw strings (or the label)
+   * silently skips recovery, so always compare through the resolver.
+   */
+  private isSameProvider(stored: string | null | undefined, provider: PaymentProvider): boolean {
+    return (stored ?? '').trim().length > 0 && this.resolveStoredProvider(stored) === provider;
+  }
+
   resolveStoredProvider(stored: string | null | undefined): PaymentProvider {
     const value = (stored ?? '').toLowerCase();
     if (value.includes('fincra')) return PaymentProvider.FINCRA;
@@ -120,7 +142,104 @@ export class PayoutReconciliation {
       }
     }
 
+    // Payroll status and ledger writes are separate operations. If the provider confirms a
+    // payout after the item was marked PAID but the ledger write failed, no PROCESSING sweep
+    // will ever see it again. Periodically scan paid Bachs items for a missing debit and let
+    // applyTransferStatus re-query Bachs before attempting the idempotent ledger write.
+    if (this.fundingLedger) {
+      const paidTenantIds =
+        await this.payrollRunRepository.findDistinctTenantIdsWithPaidBachsItems();
+      const recoverySince = new Date(Date.now() - BACHS_DEBIT_RECOVERY_WINDOW_MS);
+      for (const tenantId of paidTenantIds) {
+        // Keyset pagination, not OFFSET: a repaired item drops out of the NOT EXISTS filter,
+        // so offset paging would skip candidates on the next page. The cursor is stable
+        // because updatedAt/id never change while this sweep runs.
+        let cursor: { updatedAt: Date; id: string } | null = null;
+        while (true) {
+          const paidItems = await this.findPaidBachsItemsMissingDebit(
+            tenantId,
+            recoverySince,
+            cursor,
+          );
+          checked += paidItems.length;
+
+          for (const item of paidItems) {
+            if (!item.transactionId) continue;
+            try {
+              const retryAttempt =
+                typeof item.metadata?.payoutRetryCount === 'number'
+                  ? item.metadata.payoutRetryCount
+                  : 0;
+              const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
+              await this.applyTransferStatus(
+                merchantRef,
+                'COMPLETED',
+                item.transactionId,
+                PaymentProvider.BACHS,
+                tenantId,
+              );
+            } catch (error) {
+              this.logger.warn(
+                `Could not reconcile missing Bachs ledger debit for payroll item ${item.id}: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+          }
+
+          const last = paidItems[paidItems.length - 1];
+          if (paidItems.length < BACHS_DEBIT_RECOVERY_PAGE_SIZE || !last?.updatedAt) break;
+          cursor = { updatedAt: last.updatedAt, id: last.id };
+        }
+      }
+    }
+
     return { checked, updated };
+  }
+
+  /**
+   * Paid Bachs items in one tenant that still have no confirmed ledger debit.
+   *
+   * The NOT EXISTS filter runs in Postgres: without it every sweep loaded the tenant's full
+   * paid history and issued one `hasConfirmedPayoutDebit` query per row (N+1), then queried
+   * Bachs again for rows recovery can never fix. The recovery window keeps legacy and
+   * long-settled history out of the provider path entirely.
+   */
+  private async findPaidBachsItemsMissingDebit(
+    tenantId: string,
+    recoverySince: Date,
+    cursor: { updatedAt: Date; id: string } | null,
+  ): Promise<PayrollItem[]> {
+    const query = this.payrollItemRepo
+      .createQueryBuilder('paid_item')
+      .innerJoinAndSelect('paid_item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
+      .where('paid_item.status = :paidStatus', { paidStatus: PayrollItemStatus.PAID })
+      .andWhere('LOWER(paid_item.payment_provider) LIKE :bachsProvider', {
+        bachsProvider: '%bachs%',
+      })
+      .andWhere('paid_item.transaction_id IS NOT NULL')
+      .andWhere('COALESCE(paid_item.paid_at, paid_item.updated_at) >= :recoverySince', {
+        recoverySince,
+      })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM payroll_run_funding_ledger ledger
+          WHERE ledger.payroll_item_id = paid_item.id
+            AND ledger.payroll_run_id = paid_item.payroll_run_id
+            AND ledger.event_type = :confirmedDebit
+        )`,
+        { confirmedDebit: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED },
+      )
+      .orderBy('paid_item.updated_at', 'ASC')
+      .addOrderBy('paid_item.id', 'ASC')
+      .take(BACHS_DEBIT_RECOVERY_PAGE_SIZE);
+
+    if (cursor) {
+      query.andWhere('(paid_item.updated_at, paid_item.id) > (:cursorUpdatedAt, :cursorId)', {
+        cursorUpdatedAt: cursor.updatedAt,
+        cursorId: cursor.id,
+      });
+    }
+
+    return query.getMany();
   }
 
   /** Reconcile one stuck item inside its own tenant scope. Returns true when it transitioned. */
@@ -402,6 +521,39 @@ export class PayoutReconciliation {
       return false;
     }
     const resolvedTenantId = tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
+    // A FAILED item may still represent a payout that Bachs completed while PaqadHR
+    // was processing a failure webhook. Only permit that recovery after a fresh provider
+    // lookup confirms both the exact merchant reference and a terminal success status.
+    let verifiedFailedBachsSuccess = false;
+    if (provider === PaymentProvider.BACHS && normalizedStatus === 'completed') {
+      const existingItem = await this.payrollItemRepo.findOne({
+        where: {
+          id: itemId,
+          ...(payrollRunId ? { payrollRunId } : {}),
+          ...(resolvedTenantId ? { payrollRun: { tenantId: resolvedTenantId } } : {}),
+        },
+        relations: ['payrollRun'],
+      });
+      if (
+        existingItem?.status === PayrollItemStatus.FAILED &&
+        existingItem.transactionId === transactionId &&
+        this.isSameProvider(existingItem.paymentProvider, provider)
+      ) {
+        const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
+        const payout = await querier?.queryStatus(transactionId, merchantRef);
+        const verifiedStatus = payout?.status?.trim().toUpperCase();
+        verifiedFailedBachsSuccess =
+          payout?.reference === merchantRef &&
+          !!verifiedStatus &&
+          SUCCESS_STATUSES.has(verifiedStatus);
+        if (!verifiedFailedBachsSuccess) {
+          this.logger.warn(
+            `Bachs success could not be verified for failed payroll item ${itemId}; leaving it failed`,
+          );
+        }
+      }
+    }
+
     const outcome: { item: PayrollItem | null; kind: 'paid' | 'failed' | null } = {
       item: null,
       kind: null,
@@ -429,7 +581,20 @@ export class PayoutReconciliation {
       if (!item) return false;
 
       if (normalizedStatus === 'completed') {
-        if (item.status === PayrollItemStatus.PAID) return false;
+        if (item.status === PayrollItemStatus.PAID) {
+          // A repeated provider success must not notify or mutate payroll state again.
+          // Keep the persisted item available to the ledger-recovery step below, but only
+          // when this success belongs to the exact payout already recorded on the item.
+          if (
+            provider === PaymentProvider.BACHS &&
+            this.isSameProvider(item.paymentProvider, provider) &&
+            item.transactionId === transactionId
+          ) {
+            outcome.item = item;
+            outcome.kind = 'paid';
+          }
+          return false;
+        }
         if (
           item.metadata?.fxAtPayout !== true &&
           amount != null &&
@@ -449,7 +614,14 @@ export class PayoutReconciliation {
 
         if (
           item.status !== PayrollItemStatus.PENDING &&
-          item.status !== PayrollItemStatus.PROCESSING
+          item.status !== PayrollItemStatus.PROCESSING &&
+          !(
+            item.status === PayrollItemStatus.FAILED &&
+            verifiedFailedBachsSuccess &&
+            provider === PaymentProvider.BACHS &&
+            item.transactionId === transactionId &&
+            this.isSameProvider(item.paymentProvider, provider)
+          )
         ) {
           return false;
         }
@@ -537,33 +709,57 @@ export class PayoutReconciliation {
       }
     }
 
+    // A compact `pi_...` merchant ref does not encode the run id, so resolve it from the item
+    // that was just confirmed paid. Without this the ledger recovery is unreachable for the
+    // ref format we actually mint, and a paid item can stay without its confirmed debit.
+    const debitPayrollRunId = parsed.payrollRunId ?? outcome.item?.payrollRunId ?? null;
+
     if (
-      changed &&
       changedKind === 'paid' &&
+      outcome.item?.status === PayrollItemStatus.PAID &&
+      outcome.item.transactionId === transactionId &&
       provider === PaymentProvider.BACHS &&
-      parsed.payrollRunId &&
+      debitPayrollRunId &&
       resolvedTenantId &&
       this.fundingLedger
     ) {
       try {
+        // Query the provider even for repeated success events. This repairs the case where
+        // the payroll state committed but the separate ledger write failed on an earlier
+        // webhook. The ledger service makes this write idempotent.
         const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
         const payout = await querier?.queryStatus(transactionId, merchantRef);
+        const verifiedStatus = payout?.status?.trim().toUpperCase();
+        const terminalSuccessStatuses = new Set([
+          'SUCCESS',
+          'SUCCESSFUL',
+          'SUCCEEDED',
+          'COMPLETED',
+          'PAID',
+          'SETTLED',
+          'ACCEPTED',
+        ]);
+        const referenceMatches = payout?.reference === merchantRef;
         if (
-          payout?.sourceDebitedAmount != null &&
+          payout &&
+          referenceMatches &&
+          verifiedStatus &&
+          terminalSuccessStatuses.has(verifiedStatus) &&
+          payout.sourceDebitedAmount != null &&
           Number.isFinite(payout.sourceDebitedAmount) &&
           payout.sourceDebitedAmount > 0 &&
           payout.sourceCurrency
         ) {
           await this.fundingLedger.recordConfirmedPayoutDebit({
             tenantId: resolvedTenantId,
-            payrollRunId: parsed.payrollRunId,
+            payrollRunId: debitPayrollRunId,
             payrollItemId: itemId,
             amount: payout.sourceDebitedAmount,
             currency: payout.sourceCurrency,
             provider: PaymentProvider.BACHS,
             providerReference: transactionId,
             evidence: {
-              verifiedStatus: payout.status,
+              verifiedStatus,
               merchantReference: merchantRef,
               destinationAmount: amount ?? null,
               sourceDebitedAmount: payout.sourceDebitedAmount,
@@ -572,7 +768,7 @@ export class PayoutReconciliation {
           });
         } else {
           this.logger.warn(
-            `Bachs payout ${transactionId} completed but source debit could not be verified; payroll retry remains blocked`,
+            `Bachs payout ${transactionId} completed but provider reference, terminal status, or source debit could not be verified; ledger recovery remains pending`,
           );
         }
       } catch (error) {

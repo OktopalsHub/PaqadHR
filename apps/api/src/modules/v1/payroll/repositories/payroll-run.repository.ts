@@ -111,6 +111,23 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     return rows.map((row) => row.tenantId).filter((tenantId): tenantId is string => !!tenantId);
   }
 
+  /**
+   * Tenant ids with paid Bachs items. The payout reconciliation sweep uses this list to
+   * recover provider-confirmed debits if the payroll state committed but the ledger write
+   * failed, including when no new webhook is delivered.
+   */
+  async findDistinctTenantIdsWithPaidBachsItems(): Promise<string[]> {
+    const rows = await this.createQueryBuilder('run')
+      .select('DISTINCT run.tenant_id', 'tenantId')
+      .innerJoin('run.items', 'item', 'item.status = :status', {
+        status: PayrollItemStatus.PAID,
+      })
+      .andWhere('LOWER(item.payment_provider) LIKE :provider', { provider: '%bachs%' })
+      .getRawMany<{ tenantId: string }>();
+
+    return rows.map((row) => row.tenantId).filter((tenantId): tenantId is string => !!tenantId);
+  }
+
   async findAllPaginated(
     page: number,
     limit: number,

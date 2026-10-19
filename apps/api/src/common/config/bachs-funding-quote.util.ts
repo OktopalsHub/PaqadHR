@@ -3,6 +3,7 @@ import {
   isBachsIntlBankCurrency,
   mapBachsCryptoDestinationCurrency,
 } from './bachs-payout.util';
+import { resolvePayrollPayoutFeePerTransfer } from './payroll-payout-fee.util';
 
 export type BachsFundingCurrency = 'USD' | 'NGN';
 
@@ -223,6 +224,33 @@ export async function sumBachsFundingSourceAmount(params: {
     });
   }
   return Math.round(total * 100) / 100;
+}
+
+/**
+ * Source amount plus the per-payout provider-fee reserve for one item.
+ *
+ * Bachs quotes `from_amount` before its withdrawal fee, and charges that fee in the currency
+ * the balance is debited in. Sizing a checkout from quoted source amounts alone therefore
+ * leaves the run short by one fee per payout. Every funding calculation (preflight, retry
+ * allocation, and retry revalidation) must use this helper so the reserved amount can never
+ * drift from the amount actually debited.
+ */
+export async function sourceAmountWithPayoutFeeForBachsFundingItem(params: {
+  item: BachsFundingItem;
+  fundingCurrency: BachsFundingCurrency;
+  createQuote: BachsFundingQuoteFn;
+}): Promise<{ sourceAmount: number; payoutFeeReserve: number }> {
+  const sourceAmount = await sourceAmountForBachsFundingItem(params);
+  if (!(sourceAmount > 0)) return { sourceAmount: 0, payoutFeeReserve: 0 };
+  const payoutFeeReserve = resolvePayrollPayoutFeePerTransfer({
+    currency: params.fundingCurrency,
+    provider: 'bachs',
+    sourceAmount,
+  });
+  return {
+    sourceAmount: Math.round(sourceAmount * 100) / 100,
+    payoutFeeReserve: Math.round(Math.max(0, payoutFeeReserve) * 100) / 100,
+  };
 }
 
 export function applyPayrollFee(

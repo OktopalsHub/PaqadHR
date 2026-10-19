@@ -3,7 +3,7 @@ import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.
 import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import { updatePayrollItemScoped } from '../repositories/payroll-item-write.util';
+import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
 
 interface PaymentSummary {
   bankSuccess: number;
@@ -53,26 +53,38 @@ export class PaymentValidation {
     };
   }
 
-  async resetItemsForRetry(items: PayrollItem[], tenantId: string): Promise<void> {
+  async resetItemsForRetry(items: PayrollItem[], tenantId: string): Promise<PayrollItem[]> {
+    const claimedItems: PayrollItem[] = [];
     for (const item of items) {
       const priorRetry =
         typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
       const metadata = { ...(item.metadata ?? {}), payoutRetryCount: priorRetry + 1 };
+      // A success webhook can arrive after provider status was checked but before this reset.
+      // Only transition rows that are still FAILED; never overwrite a concurrently PAID item.
+      const claimed = await updatePayrollItemScopedIfStatus(
+        this.payrollItemRepository,
+        item.id,
+        tenantId,
+        PayrollItemStatus.FAILED,
+        {
+          status: PayrollItemStatus.PENDING,
+          failureReason: null,
+          transactionId: null,
+          paymentProvider: null,
+          paidAt: null,
+          metadata,
+        },
+      );
+      if (!claimed) continue;
       item.status = PayrollItemStatus.PENDING;
       item.failureReason = null;
       item.transactionId = null;
       item.paymentProvider = null;
       item.paidAt = null;
       item.metadata = metadata;
-      await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
-        status: PayrollItemStatus.PENDING,
-        failureReason: null,
-        transactionId: null,
-        paymentProvider: null,
-        paidAt: null,
-        metadata,
-      });
+      claimedItems.push(item);
     }
+    return claimedItems;
   }
 
   async getPaymentTypeBreakdown(items: PayrollItem[]) {

@@ -125,7 +125,7 @@ describe('MultiPaymentService', () => {
           claimIds.length = 0;
           claimIds.push(...ids);
         }
-        return { raw: claimIds.map((id) => ({ id })) };
+        return { raw: claimIds.map((id) => ({ id })), affected: 1 };
       }),
     );
 
@@ -853,6 +853,67 @@ describe('MultiPaymentService', () => {
         userId: 'u1',
       } as never),
     ).rejects.toThrow(/Bachs retry remains blocked/);
+
+    expect(paymentProvider.createPayment).not.toHaveBeenCalled();
+    expect(paymentProvider.createBulkTransfer).not.toHaveBeenCalled();
+  });
+
+  it('does not reset a failed item if a success webhook wins the race before retry claim', async () => {
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
+    const {
+      service,
+      payrollRunRepository,
+      payrollItemRepository,
+      makeItemQb,
+      paymentMethodService,
+      paymentProvider,
+      payrollPayoutService,
+    } = createService();
+
+    const failedItem = {
+      id: 'item-race-retry',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      paymentCurrency: 'NGN',
+      paymentAmount: 1000,
+      status: PayrollItemStatus.FAILED,
+      transactionId: 'old-provider-reference',
+      employee: { firstName: 'Ada', lastName: 'Lovelace' },
+      metadata: {},
+    } as PayrollItem;
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-1',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.PROCESSING,
+      baseCurrency: 'NGN',
+      items: [failedItem],
+      tenant: { name: 'Acme' },
+    });
+    (paymentMethodService.assessPayrollReadiness as jest.Mock).mockResolvedValue({
+      ready: true,
+      paymentMethodId: 'pm-1',
+    });
+    (paymentMethodService.findById as jest.Mock).mockReturnValue({
+      id: 'pm-1',
+      accountNumber: '1234567890',
+      accountName: 'Ada',
+      bankCode: '058',
+      bankName: 'GTBank',
+      currency: 'NGN',
+      country: 'NG',
+    });
+    (payrollPayoutService.reconcileFailedItemBeforeRetry as jest.Mock).mockResolvedValue(true);
+    // The item was marked PAID by a concurrent success webhook after it was read as FAILED.
+    // The conditional FAILED -> PENDING update must lose and prevent a second payout.
+    (payrollItemRepository.createQueryBuilder as jest.Mock).mockImplementation(() =>
+      makeItemQb(async () => ({ affected: 0, raw: [] })),
+    );
+
+    await expect(
+      service.retryFailedPayments('run-1', 'tenant-1', { userId: 'u1' } as never),
+    ).rejects.toThrow(/status changed during reconciliation/);
 
     expect(paymentProvider.createPayment).not.toHaveBeenCalled();
     expect(paymentProvider.createBulkTransfer).not.toHaveBeenCalled();
