@@ -866,6 +866,7 @@ describe('MultiPaymentService', () => {
       service,
       payrollRunRepository,
       payrollItemRepository,
+      makeItemQb,
       paymentMethodService,
       paymentProvider,
       payrollPayoutService,
