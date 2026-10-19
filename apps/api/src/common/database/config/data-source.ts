@@ -109,6 +109,7 @@ const AppDataSource = {
     Migrations.SessionExpiryIndex1789923584684,
     Migrations.PayrollWebhookEventProcessing1789930060361,
     Migrations.DropPlanPricePolarProductId1791581394524,
+    Migrations.PayrollRunFundingLedger1792000000000,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,
