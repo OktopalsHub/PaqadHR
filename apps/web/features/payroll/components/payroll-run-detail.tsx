@@ -336,6 +336,14 @@ export function PayrollRunDetail({
     () => (detail?.items ?? []).filter((item) => item.status !== 'cancelled'),
     [detail?.items],
   );
+  const [statusFilter, setStatusFilter] = useState('all');
+  const visibleItems = useMemo(
+    () =>
+      statusFilter === 'all'
+        ? activeItems
+        : activeItems.filter((item) => item.status.toLowerCase() === statusFilter),
+    [activeItems, statusFilter],
+  );
 
   const hasPaidOrInFlight = activeItems.some(
     (item) => item.status === 'paid' || item.status === 'processing',
@@ -344,6 +352,27 @@ export function PayrollRunDetail({
     detail && detail.status !== 'completed' && onDelete && !hasPaidOrInFlight,
   );
   const hasFailedItems = activeItems.some((item) => item.status === 'failed');
+  const paymentCounts = useMemo(() => {
+    const sum = (items: PayrollItem[]) =>
+      items.reduce((total, item) => total + Number(item.netAmount ?? 0), 0);
+    const paid = activeItems.filter((item) => item.status === 'paid');
+    const failed = activeItems.filter((item) => item.status === 'failed');
+    const pending = activeItems.filter((item) => item.status === 'pending');
+    const processing = activeItems.filter((item) => item.status === 'processing');
+    return {
+      total: activeItems.length,
+      paidCount: paid.length,
+      failedCount: failed.length,
+      pendingCount: pending.length,
+      processingCount: processing.length,
+      paidAmount: sum(paid),
+      failedAmount: sum(failed),
+      pendingAmount: sum([...pending, ...processing]),
+      expectedAmount: sum(activeItems),
+    };
+  }, [activeItems]);
+  const formatMoney = (amount: number, currency = detail?.baseCurrency ?? '') =>
+    `${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
   const hasPendingItems = activeItems.some((item) => item.status === 'pending');
   const hasInFlightItems = activeItems.some((item) => item.status === 'processing');
   const fundingPending = isPayrollFundingPending(detail?.metadata);
@@ -438,9 +467,9 @@ export function PayrollRunDetail({
     }
   };
 
-  const handleRetryFailed = async () => {
+  const handleRetryFailed = async (itemIds?: string[]) => {
     try {
-      const response = await actions.retryFailed.mutateAsync(runId);
+      const response = await actions.retryFailed.mutateAsync({ id: runId, itemIds });
       toastPayrollPayoutResult(response.result, 'retry');
       await refetch();
     } catch (err) {
@@ -758,8 +787,66 @@ export function PayrollRunDetail({
           </Alert>
         ) : null}
 
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div className="dashboard-panel rounded-[8px] p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400">Recipients</p>
+            <p className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-100">
+              {paymentCounts.total}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Expected: {formatMoney(paymentCounts.expectedAmount)}
+            </p>
+          </div>
+          <div className="dashboard-panel rounded-[8px] p-4">
+            <p className="text-xs text-green-700 dark:text-green-400">Paid</p>
+            <p className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-100">
+              {paymentCounts.paidCount}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {formatMoney(paymentCounts.paidAmount)}
+            </p>
+          </div>
+          <div className="dashboard-panel rounded-[8px] p-4">
+            <p className="text-xs text-red-700 dark:text-red-400">Failed</p>
+            <p className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-100">
+              {paymentCounts.failedCount}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {formatMoney(paymentCounts.failedAmount)}
+            </p>
+          </div>
+          <div className="dashboard-panel rounded-[8px] p-4">
+            <p className="text-xs text-amber-700 dark:text-amber-400">Outstanding</p>
+            <p className="mt-1 text-xl font-semibold text-slate-950 dark:text-slate-100">
+              {paymentCounts.pendingCount + paymentCounts.processingCount}
+            </p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {formatMoney(paymentCounts.pendingAmount)}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Showing {visibleItems.length} of {activeItems.length} recipients. Amounts in the summary
+            use the run currency.
+          </p>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <AppTablePanel>
-          <AppTable className="min-w-[880px]">
+          <AppTable className="min-w-[1050px]">
             <AppTableHeaderSection>
               <AppTableHeaderRow>
                 <AppTableHeadCell>Employee</AppTableHeadCell>
@@ -768,11 +855,13 @@ export function PayrollRunDetail({
                 <AppTableHeadCell>Deductions</AppTableHeadCell>
                 <AppTableHeadCell>Net</AppTableHeadCell>
                 <AppTableHeadCell>Status</AppTableHeadCell>
-                {isAdmin && isDraft ? <AppTableHeadCell>Actions</AppTableHeadCell> : null}
+                {isAdmin && (isDraft || canRetry) ? (
+                  <AppTableHeadCell>Actions</AppTableHeadCell>
+                ) : null}
               </AppTableHeaderRow>
             </AppTableHeaderSection>
             <AppTableBodySection>
-              {activeItems.map((item) => {
+              {visibleItems.map((item) => {
                 const lines =
                   (item.metadata?.adjustmentLines as PayrollAdjustmentLine[] | undefined) ?? [];
                 const name = employeeName(item);
@@ -862,16 +951,41 @@ export function PayrollRunDetail({
                             {item.failureReason}
                           </p>
                         ) : null}
+                        {item.status === 'paid' && item.paidAt ? (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Paid {formatDate(item.paidAt)}
+                          </p>
+                        ) : null}
+                        {item.transactionId ? (
+                          <p className="max-w-[220px] break-all text-xs text-slate-500 dark:text-slate-400">
+                            Ref: {item.transactionId}
+                          </p>
+                        ) : null}
                       </div>
                     </AppTableCell>
-                    {isAdmin && isDraft ? (
+                    {isAdmin && (isDraft || (canRetry && item.status === 'failed')) ? (
                       <AppTableCell>
-                        <BonusDialog
-                          item={item}
-                          runId={runId}
-                          currency={detail.baseCurrency}
-                          onSaved={() => void refetch()}
-                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isDraft ? (
+                            <BonusDialog
+                              item={item}
+                              runId={runId}
+                              currency={detail.baseCurrency}
+                              onSaved={() => void refetch()}
+                            />
+                          ) : null}
+                          {canRetry && item.status === 'failed' ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => void handleRetryFailed([item.id])}
+                            >
+                              <RefreshCw className="mr-1 size-3.5" />
+                              Retry
+                            </Button>
+                          ) : null}
+                        </div>
                       </AppTableCell>
                     ) : null}
                   </AppTableBodyRow>

@@ -204,6 +204,32 @@ export async function fundAndPayPayroll(id: string): Promise<{
   });
 }
 
+export type PayrollFundingPreflight = {
+  ok: boolean;
+  provider: string;
+  currency: string;
+  requiredAmount: number;
+  availableBalance: number | null;
+  shortfall: number;
+  balanceSupported: boolean;
+  canCheckout: boolean;
+  dashboardUrl: string;
+  message: string;
+  employeeTotal?: number;
+  platformFee?: number;
+  feePercentage?: number;
+  payoutFeeReserve?: number;
+  payoutFeePerTransfer?: number;
+  payoutTransferCount?: number;
+};
+
+export async function fetchPayrollFundingPreflight(id: string): Promise<PayrollFundingPreflight> {
+  const tenantId = await resolveTenantId();
+  return apiClient<PayrollFundingPreflight>(
+    tenantPath(tenantId, `payroll/runs/${id}/fund-and-pay/preflight`),
+  );
+}
+
 export async function payNowPayroll(id: string): Promise<{
   message: string;
   result: {
@@ -220,7 +246,10 @@ export async function payNowPayroll(id: string): Promise<{
   });
 }
 
-export async function retryFailedPayrollPayments(id: string): Promise<{
+export async function retryFailedPayrollPayments(
+  id: string,
+  itemIds?: string[],
+): Promise<{
   message: string;
   result: {
     totalItems: number;
@@ -233,7 +262,7 @@ export async function retryFailedPayrollPayments(id: string): Promise<{
   const tenantId = await resolveTenantId();
   return apiClient(tenantPath(tenantId, `payroll/runs/${id}/retry-failed-payments`), {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify(itemIds?.length ? { itemIds } : {}),
   });
 }
 

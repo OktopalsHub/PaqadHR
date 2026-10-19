@@ -8,6 +8,7 @@ import type { IAuthenticatedMemberRequest } from '../../../../common/interfaces'
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
+import { RetryFailedPaymentsDto } from '../dto/retry-failed-payments.dto';
 import { SchedulePayrollPayoutDto } from '../dto/schedule-payroll-payout.dto';
 import { MultiPaymentService } from '../services/multi-payment.service';
 import { PayrollService } from '../services/payroll.service';
@@ -196,7 +197,7 @@ export class PayrollPayoutController {
   async retryFailedPayments(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() retryDto: { itemIds?: string[] },
+    @Body() retryDto: RetryFailedPaymentsDto,
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
@@ -208,6 +209,7 @@ export class PayrollPayoutController {
         ipAddress: req.ip,
         userAgent: req.get('User-Agent'),
       };
+      await this.payrollService.assertRetryPayrollFunded(id, tenantId, retryDto.itemIds);
       const result = await this.multiPaymentService.retryFailedPayments(
         id,
         tenantId,
