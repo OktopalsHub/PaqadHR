@@ -852,7 +852,7 @@ describe('MultiPaymentService', () => {
       service.retryFailedPayments(failedItem.payrollRunId!, 'tenant-1', {
         userId: 'u1',
       } as never),
-    ).rejects.toThrow(/Bachs retry is blocked until the selected failed payouts/);
+    ).rejects.toThrow(/Bachs retry remains blocked/);
 
     expect(paymentProvider.createPayment).not.toHaveBeenCalled();
     expect(paymentProvider.createBulkTransfer).not.toHaveBeenCalled();
