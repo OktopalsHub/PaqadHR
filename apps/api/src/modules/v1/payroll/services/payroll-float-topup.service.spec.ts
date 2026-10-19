@@ -507,7 +507,7 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
     return { service, paymentOrchestrator, createCheckout, payrollRunRepository };
   };
 
-  it('always opens checkout for full run amount when hosted top-up is supported', async () => {
+  it('opens checkout for the full run amount including platform and payout fees', async () => {
     jest.spyOn(payrollDisbursementConfig, 'isPayrollGatewayEnabled').mockReturnValue(true);
     const { service, paymentOrchestrator, createCheckout, payrollRunRepository } =
       createFundService();
@@ -530,10 +530,11 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
     expect(outcome.action).toBe('checkout');
     if (outcome.action !== 'checkout') return;
     expect(outcome.checkoutUrl).toBe('https://checkout.nomba.com/pay');
-    expect(outcome.preflight.shortfall).toBe(50_000);
+    // Checkout must cover employee net pay plus the 3% PaqadHR fee and payout-fee reserve.
+    expect(outcome.preflight.shortfall).toBe(51_600);
     expect(createCheckout).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: 50_000,
+        amount: 51_600,
         currency: 'NGN',
         savePaymentMethod: false,
       }),
