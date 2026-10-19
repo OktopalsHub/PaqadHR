@@ -590,6 +590,95 @@ export class PayrollRunFundingLedgerService {
    * The database transaction prevents a partial reservation set or a retry-ready item without
    * its corresponding funding reservation.
    */
+  /**
+   * Release a reservation when local readiness validation proves that no provider submission
+   * was made for this item. This path is intentionally separate from provider-failure release.
+   */
+  async releaseUnsubmittedPayoutReservation(input: {
+    tenantId: string;
+    payrollRunId: string;
+    payrollItemId: string;
+    reservationKey: string;
+    evidence: Record<string, string | number | boolean | null>;
+  }): Promise<boolean> {
+    if (input.evidence.submissionAttempted !== false) {
+      throw new Error('An unsubmitted reservation release requires proof no payout was submitted');
+    }
+    return this.ledgerRepository.manager.transaction(async (manager) => {
+      const run = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!run) throw new Error('Payroll run not found for reservation release');
+      const item = await manager.getRepository(PayrollItem).findOne({
+        where: { id: input.payrollItemId, payrollRunId: input.payrollRunId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!item || item.status !== PayrollItemStatus.FAILED) {
+        throw new Error('Only a locally rejected failed item can release an unsubmitted reservation');
+      }
+      if (item.metadata?.payoutSubmissionPending === true) {
+        throw new Error('Cannot release a reservation while payout submission is unresolved');
+      }
+      const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const reservationIdempotencyKey = `reservation:${input.payrollRunId}:${input.reservationKey}`;
+      const reservation = await ledger.findOne({
+        where: { idempotencyKey: reservationIdempotencyKey },
+      });
+      if (
+        !reservation ||
+        reservation.tenantId !== input.tenantId ||
+        reservation.payrollRunId !== input.payrollRunId ||
+        reservation.payrollItemId !== input.payrollItemId
+      ) {
+        throw new Error('Matching run-scoped reservation was not found');
+      }
+      const entries = await ledger.find({
+        where: { tenantId: input.tenantId, payrollRunId: input.payrollRunId },
+      });
+      if (
+        entries.some(
+          (entry) =>
+            entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED &&
+            entry.payrollItemId === input.payrollItemId,
+        )
+      ) {
+        return false;
+      }
+      const alreadyReleased = entries.some(
+        (entry) =>
+          entry.eventType === PayrollFundingLedgerEventType.RESERVATION_RELEASED &&
+          entry.evidence?.releasedReservationKey === input.reservationKey,
+      );
+      if (alreadyReleased) return false;
+      await ledger.insert({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: input.payrollItemId,
+        eventType: PayrollFundingLedgerEventType.RESERVATION_RELEASED,
+        amount: reservation.amount,
+        currency: reservation.currency,
+        provider: reservation.provider,
+        providerReference: null,
+        idempotencyKey: reservationReleaseIdempotencyKey(
+          input.reservationKey,
+          'failure',
+          reservation.provider,
+          'local-not-submitted',
+        ),
+        performedById: null,
+        approvedById: null,
+        evidence: {
+          ...input.evidence,
+          releasedReservationKey: input.reservationKey,
+          reason: 'local_validation_prevented_submission',
+          submissionAttempted: false,
+        },
+      });
+      return true;
+    });
+  }
+
   async reserveFailedPayoutsForRetry(input: {
     tenantId: string;
     payrollRunId: string;
