@@ -74,8 +74,10 @@ describe('PayrollRunFundingLedgerService', () => {
 
   it('does not create a duplicate entry for the same verified checkout', async () => {
     repository.findOne.mockResolvedValue({
+      eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
       tenantId: input.tenantId,
       payrollRunId: input.payrollRunId,
+      provider: input.provider,
       amount: '1250.50',
       currency: 'NGN',
     });
@@ -87,8 +89,10 @@ describe('PayrollRunFundingLedgerService', () => {
 
   it('rejects reusing a checkout reference for another run', async () => {
     repository.findOne.mockResolvedValue({
+      eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
       tenantId: input.tenantId,
       payrollRunId: 'another-run',
+      provider: input.provider,
       amount: '1250.50',
       currency: 'NGN',
     });
