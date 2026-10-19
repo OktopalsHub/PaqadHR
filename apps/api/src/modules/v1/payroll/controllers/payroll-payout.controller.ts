@@ -11,6 +11,7 @@ import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import { RetryFailedPaymentsDto } from '../dto/retry-failed-payments.dto';
 import { SchedulePayrollPayoutDto } from '../dto/schedule-payroll-payout.dto';
 import { MultiPaymentService } from '../services/multi-payment.service';
+import { PayrollRunFundingLedgerService } from '../services/payroll-run-funding-ledger.service';
 import { PayrollService } from '../services/payroll.service';
 
 @ApiTags('Payroll')
@@ -22,6 +23,7 @@ export class PayrollPayoutController {
   constructor(
     private payrollService: PayrollService,
     private multiPaymentService: MultiPaymentService,
+    private payrollRunFundingLedger: PayrollRunFundingLedgerService,
   ) {}
 
   @Post('runs/:id/disburse')
@@ -225,6 +227,13 @@ export class PayrollPayoutController {
       this.logger.error(`Failed to retry payments for payroll run: ${id}`, error);
       throw error;
     }
+  }
+
+  @Get('runs/:id/funding-ledger')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async getFundingLedger(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.payrollRunFundingLedger.getRunLedger(tenantId, id);
   }
 
   @Get('runs/:id/payment-status')
