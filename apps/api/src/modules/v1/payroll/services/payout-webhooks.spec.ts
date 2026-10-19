@@ -8,7 +8,10 @@ import { PayoutWebhooks } from './payout-webhooks';
 describe('PayoutWebhooks Bachs status verification', () => {
   const merchantRef = 'pi_aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa';
 
-  const createService = (verifiedStatus: string | null) => {
+  const createService = (
+    verifiedStatus: string | null,
+    verifiedReference = merchantRef,
+  ) => {
     const eventRepository = {
       createQueryBuilder: jest.fn(() => ({
         insert: jest.fn().mockReturnThis(),
@@ -37,7 +40,7 @@ describe('PayoutWebhooks Bachs status verification', () => {
           .fn()
           .mockResolvedValue(
             verifiedStatus
-              ? { status: verifiedStatus, amount: 1000, reference: merchantRef }
+              ? { status: verifiedStatus, amount: 1000, reference: verifiedReference }
               : null,
           ),
       })),
@@ -130,6 +133,27 @@ describe('PayoutWebhooks Bachs status verification', () => {
       '"received_at" <= :leaseCutoff',
       expect.objectContaining({ leaseCutoff: expect.any(Date) }),
     );
+  });
+
+  it('rejects a verified provider payout whose merchant reference belongs to another payroll item', async () => {
+    const { service, reconciliation, eventRepository } = createService(
+      'COMPLETED',
+      'pi_bbbbbbbbbbbb4bbb8bbbbbbbbbbbbbbb',
+    );
+
+    await service.processBachsPayload({
+      type: 'payout.paid',
+      data: {
+        withdrawal_id: 'bachs-withdrawal-cross-item',
+        reference: merchantRef,
+        status: 'completed',
+        amount: '1000.00',
+        to_amount: '1000.00',
+      },
+    });
+
+    expect(reconciliation.applyTransferStatus).not.toHaveBeenCalled();
+    expect(eventRepository.update).not.toHaveBeenCalled();
   });
 
   it('does not change payroll state when Bachs status cannot be verified', async () => {
