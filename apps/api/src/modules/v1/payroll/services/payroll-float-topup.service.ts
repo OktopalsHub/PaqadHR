@@ -488,11 +488,82 @@ export class PayrollFloatTopupService {
     }
   }
 
+  async previewRetryShortfall(
+    payrollRunId: string,
+    tenantId: string,
+    selectedItemIds: string[],
+  ): Promise<{
+    amount: number;
+    currency: string;
+    selectedItemIds: string[];
+    platformFee: 0;
+    payoutFeeReserve: number;
+  }> {
+    const uniqueIds = [...new Set(selectedItemIds)].sort();
+    if (uniqueIds.length === 0) {
+      throw new BadRequestException('Select at least one failed payout to preview retry funding');
+    }
+    const run = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
+    if (!run) throw new NotFoundException('Payroll run not found');
+    if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
+      throw new BadRequestException('Retry funding requires an approved or processing payroll run');
+    }
+    await this.assertRetryRunSettled(run, tenantId);
+    const existingRetryFunding = this.readRetryFundingMeta(run);
+    if (existingRetryFunding.status === 'pending' || existingRetryFunding.status === 'approved') {
+      throw new BadRequestException(
+        'A retry funding approval or checkout is already active. Complete or reconcile it first.',
+      );
+    }
+    const selected = run.items.filter((item) => uniqueIds.includes(item.id));
+    if (
+      selected.length !== uniqueIds.length ||
+      selected.some((item) => item.status !== PayrollItemStatus.FAILED)
+    ) {
+      throw new BadRequestException('Retry funding can only be previewed for failed items in this run');
+    }
+    if (selected.some((item) => item.metadata?.payoutSubmissionPending === true)) {
+      throw new BadRequestException('A payout with unresolved submission cannot be funded for retry');
+    }
+
+    const preflight = await this.preflight(payrollRunId, tenantId, true, uniqueIds);
+    if (preflight.provider !== PaymentProvider.BACHS) {
+      throw new BadRequestException('This retry funding preview is only available for Bachs payouts');
+    }
+    if (!preflight.canCheckout || preflight.requiredAmount <= 0) {
+      throw new BadRequestException(
+        preflight.message || 'Bachs hosted checkout is unavailable for retry funding',
+      );
+    }
+    const allocations = await this.calculateBachsRetryItemFundingAmounts(
+      run,
+      selected,
+      preflight.currency,
+    );
+    const amount =
+      Math.round(Object.values(allocations).reduce((sum, value) => sum + value, 0) * 100) / 100;
+    if (!(amount > 0)) {
+      throw new BadRequestException('Could not calculate a positive retry funding amount');
+    }
+    return {
+      amount,
+      currency: preflight.currency.toUpperCase(),
+      selectedItemIds: uniqueIds,
+      platformFee: 0,
+      payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
+    };
+  }
+
   async approveRetryShortfall(
     payrollRunId: string,
     tenantId: string,
     approvedById: string,
     selectedItemIds: string[],
+    expectedAmount: number,
+    expectedCurrency: string,
   ): Promise<{
     approved: true;
     orderReference: string;
@@ -563,6 +634,15 @@ export class PayrollFloatTopupService {
       100;
     if (!(approvedAmount > 0)) {
       throw new BadRequestException('Could not calculate a positive Bachs retry funding amount');
+    }
+    if (
+      expectedCurrency.toUpperCase() !== preflight.currency.toUpperCase() ||
+      !Number.isFinite(expectedAmount) ||
+      Math.abs(approvedAmount - expectedAmount) > 0.01
+    ) {
+      throw new BadRequestException(
+        'The Bachs quote changed after preview. Review the updated retry funding amount before approving again.',
+      );
     }
 
     const orderReference = buildPayrollFloatOrderRef(PaymentProvider.BACHS, tenantId);
