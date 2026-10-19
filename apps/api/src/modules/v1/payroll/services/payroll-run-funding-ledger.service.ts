@@ -615,7 +615,9 @@ export class PayrollRunFundingLedgerService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!item || item.status !== PayrollItemStatus.FAILED) {
-        throw new Error('Only a locally rejected failed item can release an unsubmitted reservation');
+        throw new Error(
+          'Only a locally rejected failed item can release an unsubmitted reservation',
+        );
       }
       if (item.metadata?.payoutSubmissionPending === true) {
         throw new Error('Cannot release a reservation while payout submission is unresolved');
@@ -772,11 +774,7 @@ export class PayrollRunFundingLedgerService {
           .filter((id): id is string => Boolean(id)),
       );
       if (
-        items.some(
-          (item) =>
-            item.status === PayrollItemStatus.PAID &&
-            !paidItemIds.has(item.id),
-        )
+        items.some((item) => item.status === PayrollItemStatus.PAID && !paidItemIds.has(item.id))
       ) {
         throw new Error('Cannot reserve funds until every paid payout has a confirmed debit');
       }
@@ -795,7 +793,9 @@ export class PayrollRunFundingLedgerService {
           ) {
             throw new Error('Reservation key was already used for a different payout');
           }
-          throw new Error('A reservation already exists for this retry attempt; reconcile it before retrying');
+          throw new Error(
+            'A reservation already exists for this retry attempt; reconcile it before retrying',
+          );
         }
         newReservationTotal += reservation.amount;
       }
