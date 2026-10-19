@@ -37,6 +37,7 @@ import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 import {
   buildPayrollFloatOrderRef,
   type PayrollFloatOrderRefProvider,
@@ -88,6 +89,7 @@ export class PayrollFloatTopupService {
     private readonly balanceService: PayrollFloatBalanceService,
     private readonly paymentFactory: PaymentProviderFactoryService,
     private readonly paymentOrchestrator: PayrollPaymentOrchestrator,
+    private readonly fundingLedger: PayrollRunFundingLedgerService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly payrollFeeService: PayrollFeeService,
     private readonly bachsApi: BachsApiService,
@@ -414,6 +416,14 @@ export class PayrollFloatTopupService {
     retryItemIds?: string[],
   ): Promise<void> {
     const preflight = await this.preflight(payrollRunId, tenantId, true, retryItemIds);
+    // A shared Bachs balance is not proof that this run owns the funds. Until confirmed payout
+    // debits and unresolved transfers are reconciled against this run's ledger, fail closed even
+    // if a provider balance endpoint or stale run metadata suggests sufficient float.
+    if (preflight.provider === PaymentProvider.BACHS) {
+      throw new BadRequestException(
+        'Bachs retry is blocked until this payroll run has reconciled funding allocations, confirmed payout debits, and all pending payout statuses. Funded shared Bachs float alone is not sufficient.',
+      );
+    }
     if (!preflight.ok) {
       throw new BadRequestException(
         `Retry blocked because provider funding is insufficient or cannot be verified. ${preflight.message}`,
@@ -503,6 +513,24 @@ export class PayrollFloatTopupService {
         `Payroll float top-up overpaid for ${input.orderReference}: expected ${expected}, got ${paidAmount}`,
       );
     }
+
+    // Persist the provider-verified credit before triggering payouts. The unique provider
+    // reference makes webhook retries idempotent and binds this credit to this payroll run.
+    await this.fundingLedger.recordVerifiedFunding({
+      tenantId: run.tenantId,
+      payrollRunId: run.id,
+      amount: paidAmount,
+      currency: expectedCurrency,
+      provider,
+      providerReference: input.orderReference,
+      performedById: input.initiatedByMemberId,
+      evidence: {
+        verifiedStatus: verified.status,
+        verifiedAmount,
+        expectedAmount: expected,
+        currencyReportedByProvider: verifiedCurrency ?? null,
+      },
+    });
 
     const claimed = await this.claimFloatTopupCompleted({
       runId: run.id,
