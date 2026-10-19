@@ -229,13 +229,8 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
   });
 
   it('records verified retry funding without auto-paying the payroll run', async () => {
-    const {
-      service,
-      payrollRunRepository,
-      verifyCheckout,
-      paymentOrchestrator,
-      fundingLedger,
-    } = createService();
+    const { service, payrollRunRepository, verifyCheckout, paymentOrchestrator, fundingLedger } =
+      createService();
     const item = {
       id: 'item-failed',
       status: 'FAILED',
