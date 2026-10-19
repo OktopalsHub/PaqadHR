@@ -398,7 +398,7 @@ export class PaymentBatching {
             payrollItemId: item.id,
             transactionId: result.transactionId,
             merchantReference: entry.paymentData.merchantTxRef,
-            destinationAmount: result.amount,
+            destinationAmount: Number(item.paymentAmount),
           });
         }
 
