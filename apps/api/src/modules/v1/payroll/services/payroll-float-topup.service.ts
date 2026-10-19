@@ -435,9 +435,30 @@ export class PayrollFloatTopupService {
     // debits and unresolved transfers are reconciled against this run's ledger, fail closed even
     // if a provider balance endpoint or stale run metadata suggests sufficient float.
     if (preflight.provider === PaymentProvider.BACHS) {
-      throw new BadRequestException(
-        'Bachs retry is blocked until this payroll run has reconciled funding allocations, confirmed payout debits, and all pending payout statuses. Funded shared Bachs float alone is not sufficient.',
-      );
+      const run = await this.payrollRunRepository.findOne({
+        where: { id: payrollRunId, tenantId },
+        relations: ['items'],
+      });
+      const retryFunding = run ? this.readRetryFundingMeta(run) : {};
+      const selectedItemIds = [...(retryFunding.selectedItemIds ?? [])].sort();
+      const requestedItemIds = (retryItemIds ??
+        run?.items
+          .filter((item) => item.status === PayrollItemStatus.FAILED)
+          .map((item) => item.id) ??
+        []).sort();
+      if (
+        retryFunding.status !== 'funded' ||
+        !retryFunding.orderReference ||
+        selectedItemIds.length !== requestedItemIds.length ||
+        selectedItemIds.some((id, index) => id !== requestedItemIds[index])
+      ) {
+        throw new BadRequestException(
+          'Bachs retry requires approved, provider-verified run-scoped funding for exactly the selected failed payouts. Shared Bachs float alone is not sufficient.',
+        );
+      }
+      // MultiPaymentService independently verifies the approval and funding ledger entries,
+      // provider terminal failure, and reservations before it can submit a payout.
+      return;
     }
     if (!preflight.ok) {
       throw new BadRequestException(
