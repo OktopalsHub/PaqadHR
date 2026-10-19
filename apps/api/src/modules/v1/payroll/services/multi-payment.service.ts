@@ -317,7 +317,9 @@ export class MultiPaymentService {
         });
         for (const item of retriableItems) {
           const priorRetry =
-            typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
+            typeof item.metadata?.payoutRetryCount === 'number'
+              ? item.metadata.payoutRetryCount
+              : 0;
           item.status = PayrollItemStatus.PENDING;
           item.failureReason = null;
           item.transactionId = null;
