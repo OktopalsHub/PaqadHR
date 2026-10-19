@@ -557,6 +557,92 @@ export class PayrollRunFundingLedgerService {
     });
   }
 
+  async recordRetryShortfallApproval(input: {
+    tenantId: string;
+    payrollRunId: string;
+    selectedItemIds: string[];
+    amount: number;
+    currency: string;
+    approvedById: string;
+    provider: string;
+    approvalReference: string;
+    evidence?: Record<string, string | number | boolean | null>;
+  }): Promise<void> {
+    const amount = Math.round(input.amount * 100) / 100;
+    const currency = input.currency.trim().toUpperCase();
+    const selectedItemIds = [...new Set(input.selectedItemIds)].sort();
+    const approvalReference = input.approvalReference.trim();
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      !currency ||
+      !approvalReference ||
+      !input.approvedById ||
+      selectedItemIds.length === 0
+    ) {
+      throw new Error('Retry shortfall approval requires selected items, a positive amount, currency, and approver');
+    }
+
+    await this.ledgerRepository.manager.transaction(async (manager) => {
+      const run = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!run) throw new Error('Payroll run not found for retry shortfall approval');
+      if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
+        throw new Error('Retry shortfall can only be approved for an approved or processing run');
+      }
+
+      const items = await manager.getRepository(PayrollItem).find({
+        where: { payrollRunId: input.payrollRunId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const selected = items.filter((item) => selectedItemIds.includes(item.id));
+      if (
+        selected.length !== selectedItemIds.length ||
+        selected.some((item) => item.status !== PayrollItemStatus.FAILED)
+      ) {
+        throw new Error('Retry shortfall approval is limited to failed items in this payroll run');
+      }
+
+      const idempotencyKey = `shortfall-approval:${input.payrollRunId}:${approvalReference}`;
+      const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const existing = await ledger.findOne({ where: { idempotencyKey } });
+      if (existing) {
+        if (
+          existing.tenantId !== input.tenantId ||
+          existing.payrollRunId !== input.payrollRunId ||
+          Number(existing.amount) !== amount ||
+          existing.currency !== currency ||
+          existing.approvedById !== input.approvedById ||
+          existing.evidence?.selectedItemIds !== selectedItemIds.join(',')
+        ) {
+          throw new Error('Retry shortfall approval reference was reused with different details');
+        }
+        return;
+      }
+
+      await ledger.insert({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: null,
+        eventType: PayrollFundingLedgerEventType.SHORTFALL_APPROVED,
+        amount: amount.toFixed(2),
+        currency,
+        provider: input.provider,
+        providerReference: approvalReference,
+        idempotencyKey,
+        performedById: input.approvedById,
+        approvedById: input.approvedById,
+        evidence: {
+          ...input.evidence,
+          selectedItemIds: selectedItemIds.join(','),
+          approvalStatus: 'approved',
+        },
+      });
+    });
+  }
+
   async getRunLedger(tenantId: string, payrollRunId: string) {
     const entries = await this.ledgerRepository.find({
       where: { tenantId, payrollRunId },
