@@ -501,6 +501,11 @@ export class PayrollFloatTopupService {
         'A retry funding checkout is already pending. Complete or reconcile it before creating another.',
       );
     }
+    if (existingRetryFunding.status === 'approved') {
+      throw new BadRequestException(
+        'Retry shortfall funding is already approved. Continue to checkout instead of creating another approval.',
+      );
+    }
     const selected = run.items.filter((item) => uniqueIds.includes(item.id));
     if (
       selected.length !== uniqueIds.length ||
@@ -557,21 +562,34 @@ export class PayrollFloatTopupService {
       },
     });
 
-    run.metadata = {
-      ...run.metadata,
-      retryFunding: {
-        orderReference,
-        status: 'approved',
-        selectedItemIds: uniqueIds,
-        amount: approvedAmount,
-        currency: preflight.currency,
-        provider: PaymentProvider.BACHS,
-        approvedById,
-        approvedAt: new Date().toISOString(),
-        itemFundingAmounts,
-      } satisfies RetryFundingMeta,
-    };
-    await this.payrollRunRepository.save(run);
+    await this.payrollRunRepository.manager.transaction(async (manager) => {
+      const locked = await manager.getRepository(PayrollRun).findOne({
+        where: { id: payrollRunId, tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Payroll run not found');
+      const latest = this.readRetryFundingMeta(locked);
+      if (latest.status === 'approved' || latest.status === 'pending') {
+        throw new BadRequestException(
+          'Another retry funding approval or checkout is already active for this payroll run.',
+        );
+      }
+      locked.metadata = {
+        ...locked.metadata,
+        retryFunding: {
+          orderReference,
+          status: 'approved',
+          selectedItemIds: uniqueIds,
+          amount: approvedAmount,
+          currency: preflight.currency,
+          provider: PaymentProvider.BACHS,
+          approvedById,
+          approvedAt: new Date().toISOString(),
+          itemFundingAmounts,
+        } satisfies RetryFundingMeta,
+      };
+      await manager.save(locked);
+    });
     return {
       approved: true,
       orderReference,
@@ -614,6 +632,19 @@ export class PayrollFloatTopupService {
       throw new BadRequestException(
         'Selected failed payouts changed after approval. Approve funding again.',
       );
+    }
+    const ledger = await this.fundingLedger.getRunLedger(tenantId, payrollRunId);
+    const approval = ledger.entries.find(
+      (entry) =>
+        entry.eventType === PayrollFundingLedgerEventType.SHORTFALL_APPROVED &&
+        entry.providerReference === meta.orderReference &&
+        entry.approvedById === meta.approvedById &&
+        Number(entry.amount) === Number(meta.amount) &&
+        entry.currency === meta.currency?.toUpperCase() &&
+        entry.evidence?.selectedItemIds === [...meta.selectedItemIds!].sort().join(','),
+    );
+    if (!approval) {
+      throw new BadRequestException('Retry funding approval evidence is missing or does not match this checkout.');
     }
     if (meta.status === 'pending' && meta.checkoutUrl) {
       return {
