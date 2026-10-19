@@ -76,6 +76,58 @@ describe('PayoutWebhooks Bachs status verification', () => {
     );
   });
 
+  it.each([1, 0])(
+    'atomically reclaims an expired webhook lease only when the update affects one row (affected=%s)',
+    async (affected) => {
+      const insertBuilder = {
+        insert: jest.fn().mockReturnThis(),
+        into: jest.fn().mockReturnThis(),
+        values: jest.fn().mockReturnThis(),
+        orIgnore: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ identifiers: [] }),
+      };
+      const updateBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected }),
+      };
+      const eventRepository = {
+        createQueryBuilder: jest
+          .fn()
+          .mockReturnValueOnce(insertBuilder)
+          .mockReturnValueOnce(updateBuilder),
+      };
+      const service = new PayoutWebhooks(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        eventRepository as never,
+        {} as never,
+      );
+      const claim = (service as unknown as {
+        claimWebhookEvent: (provider: PaymentProvider, payload: unknown) => Promise<boolean>;
+      }).claimWebhookEvent;
+
+      await expect(
+        claim.call(service, PaymentProvider.BACHS, { id: 'duplicate-event-1' }),
+      ).resolves.toBe(affected === 1);
+      expect(updateBuilder.where).toHaveBeenCalledWith(
+        '"provider" = :provider',
+        { provider: PaymentProvider.BACHS },
+      );
+      expect(updateBuilder.andWhere).toHaveBeenCalledWith('"processed_at" IS NULL');
+      expect(updateBuilder.andWhere).toHaveBeenCalledWith(
+        '"received_at" <= :leaseCutoff',
+        expect.objectContaining({ leaseCutoff: expect.any(Date) }),
+      );
+    },
+  );
+
   it('does not change payroll state when Bachs status cannot be verified', async () => {
     const { service, reconciliation, eventRepository } = createService(null);
 
