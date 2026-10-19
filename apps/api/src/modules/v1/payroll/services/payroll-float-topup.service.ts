@@ -37,7 +37,6 @@ import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 import {
   buildPayrollFloatOrderRef,
   type PayrollFloatOrderRefProvider,
@@ -46,6 +45,7 @@ import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
 import { PayrollFeeService } from './payroll-fee.service';
 import { PayrollFloatBalanceService } from './payroll-float-balance.service';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
+import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 const SUCCESSFUL_CHECKOUT_STATUSES = new Set(['success', 'successful', 'succeeded', 'accepted']);
 
@@ -484,8 +484,15 @@ export class PayrollFloatTopupService {
     // The webhook payload is only a notification. Never use its amount as proof of payment:
     // only the provider's server-to-server verification response may fund a payroll run.
     const verifiedAmount = Number(verified.amount);
-    if (!Number.isFinite(verifiedAmount) || verifiedAmount <= 0 || !Number.isFinite(expected) || expected <= 0) {
-      this.logger.warn(`Payroll float top-up missing a valid verified amount or expected amount for ${input.orderReference}`);
+    if (
+      !Number.isFinite(verifiedAmount) ||
+      verifiedAmount <= 0 ||
+      !Number.isFinite(expected) ||
+      expected <= 0
+    ) {
+      this.logger.warn(
+        `Payroll float top-up missing a valid verified amount or expected amount for ${input.orderReference}`,
+      );
       return { received: true, paid: false };
     }
     const verifiedCurrency =
