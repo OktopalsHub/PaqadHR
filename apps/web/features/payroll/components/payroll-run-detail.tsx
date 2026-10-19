@@ -1106,8 +1106,8 @@ export function PayrollRunDetail({
                   ))}
                 {fundingLedgerQuery.data.retryAuthorization === 'blocked' ? (
                   <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Retry authorization remains blocked until all funding, debits, and reservations
-                    are reconciled.
+                    This ledger is evidence, not spending approval. Bachs retries must use the
+                    selected-item approval and reservation flow.
                   </p>
                 ) : null}
               </div>
