@@ -7,9 +7,10 @@ import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { normalizePayoutStatus } from 'src/common/utils/normalize-payout-status.util';
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
-import { ILike, LessThan, Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
+import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
@@ -25,6 +26,16 @@ const PAYROLL_AMOUNT_TOLERANCE = 1;
  * reconciliation declares it failed. Nothing was ever submitted for these, so the only
  * reason to wait is to let a slow provider error land first. */
 const NULL_TRANSACTION_STUCK_GRACE_MS = 60 * 60 * 1000;
+
+/**
+ * How far back the paid-item Bachs debit sweep looks. Older rows are left alone: either the
+ * ledger write succeeded, or the provider no longer returns the evidence needed to repair it,
+ * and re-querying that history on every run only burns provider rate limit.
+ */
+const BACHS_DEBIT_RECOVERY_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+
+/** Page size for the paid-item debit sweep. */
+const BACHS_DEBIT_RECOVERY_PAGE_SIZE = 50;
 
 const SUCCESS_STATUSES = new Set([
   'SUCCESS',
@@ -138,34 +149,23 @@ export class PayoutReconciliation {
     if (this.fundingLedger) {
       const paidTenantIds =
         await this.payrollRunRepository.findDistinctTenantIdsWithPaidBachsItems();
+      const recoverySince = new Date(Date.now() - BACHS_DEBIT_RECOVERY_WINDOW_MS);
       for (const tenantId of paidTenantIds) {
-        // Paginate because paid rows do not change during ledger recovery. Without an offset,
-        // the first 50 paid rows could permanently starve later rows in large payroll tenants.
-        let offset = 0;
+        // Keyset pagination, not OFFSET: a repaired item drops out of the NOT EXISTS filter,
+        // so offset paging would skip candidates on the next page. The cursor is stable
+        // because updatedAt/id never change while this sweep runs.
+        let cursor: { updatedAt: Date; id: string } | null = null;
         while (true) {
-          const paidItems = await this.payrollItemRepo.find({
-            where: {
-              status: PayrollItemStatus.PAID,
-              paymentProvider: ILike('%bachs%'),
-              payrollRun: { tenantId },
-            },
-            relations: ['payrollRun'],
-            order: { updatedAt: 'ASC', id: 'ASC' },
-            skip: offset,
-            take: 50,
-          });
+          const paidItems = await this.findPaidBachsItemsMissingDebit(
+            tenantId,
+            recoverySince,
+            cursor,
+          );
           checked += paidItems.length;
 
           for (const item of paidItems) {
             if (!item.transactionId) continue;
             try {
-              const hasDebit = await this.fundingLedger.hasConfirmedPayoutDebit({
-                tenantId,
-                payrollRunId: item.payrollRunId,
-                payrollItemId: item.id,
-              });
-              if (hasDebit) continue;
-
               const retryAttempt =
                 typeof item.metadata?.payoutRetryCount === 'number'
                   ? item.metadata.payoutRetryCount
@@ -185,13 +185,61 @@ export class PayoutReconciliation {
             }
           }
 
-          if (paidItems.length < 50) break;
-          offset += paidItems.length;
+          const last = paidItems[paidItems.length - 1];
+          if (paidItems.length < BACHS_DEBIT_RECOVERY_PAGE_SIZE || !last?.updatedAt) break;
+          cursor = { updatedAt: last.updatedAt, id: last.id };
         }
       }
     }
 
     return { checked, updated };
+  }
+
+  /**
+   * Paid Bachs items in one tenant that still have no confirmed ledger debit.
+   *
+   * The NOT EXISTS filter runs in Postgres: without it every sweep loaded the tenant's full
+   * paid history and issued one `hasConfirmedPayoutDebit` query per row (N+1), then queried
+   * Bachs again for rows recovery can never fix. The recovery window keeps legacy and
+   * long-settled history out of the provider path entirely.
+   */
+  private async findPaidBachsItemsMissingDebit(
+    tenantId: string,
+    recoverySince: Date,
+    cursor: { updatedAt: Date; id: string } | null,
+  ): Promise<PayrollItem[]> {
+    const query = this.payrollItemRepo
+      .createQueryBuilder('paid_item')
+      .innerJoinAndSelect('paid_item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
+      .where('paid_item.status = :paidStatus', { paidStatus: PayrollItemStatus.PAID })
+      .andWhere('LOWER(paid_item.payment_provider) LIKE :bachsProvider', {
+        bachsProvider: '%bachs%',
+      })
+      .andWhere('paid_item.transaction_id IS NOT NULL')
+      .andWhere('COALESCE(paid_item.paid_at, paid_item.updated_at) >= :recoverySince', {
+        recoverySince,
+      })
+      .andWhere(
+        `NOT EXISTS (
+          SELECT 1 FROM payroll_run_funding_ledger ledger
+          WHERE ledger.payroll_item_id = paid_item.id
+            AND ledger.payroll_run_id = paid_item.payroll_run_id
+            AND ledger.event_type = :confirmedDebit
+        )`,
+        { confirmedDebit: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED },
+      )
+      .orderBy('paid_item.updated_at', 'ASC')
+      .addOrderBy('paid_item.id', 'ASC')
+      .take(BACHS_DEBIT_RECOVERY_PAGE_SIZE);
+
+    if (cursor) {
+      query.andWhere('(paid_item.updated_at, paid_item.id) > (:cursorUpdatedAt, :cursorId)', {
+        cursorUpdatedAt: cursor.updatedAt,
+        cursorId: cursor.id,
+      });
+    }
+
+    return query.getMany();
   }
 
   /** Reconcile one stuck item inside its own tenant scope. Returns true when it transitioned. */

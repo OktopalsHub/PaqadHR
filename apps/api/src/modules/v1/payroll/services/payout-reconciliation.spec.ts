@@ -200,20 +200,23 @@ describe('PayoutReconciliation', () => {
       andWhere: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
+    const paidItemQueryBuilder = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(overrides?.paidBachsItems ?? []),
+    };
     const payrollItemRepo = {
       findOne: jest
         .fn()
         .mockImplementation(() => Promise.resolve(overrides?.transactionItem ?? savedItem)),
-      find: jest
-        .fn()
-        .mockImplementation((options: { where?: { status?: PayrollItemStatus } }) =>
-          Promise.resolve(
-            options.where?.status === PayrollItemStatus.PAID
-              ? (overrides?.paidBachsItems ?? [])
-              : stuckItems,
-          ),
-        ),
-      createQueryBuilder: jest.fn().mockReturnValue(itemQueryBuilder),
+      find: jest.fn().mockImplementation(() => Promise.resolve(stuckItems)),
+      createQueryBuilder: jest.fn((alias?: string) =>
+        alias === 'paid_item' ? paidItemQueryBuilder : itemQueryBuilder,
+      ),
       update: jest.fn().mockResolvedValue(undefined),
       manager: {
         transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<boolean>) =>
@@ -264,7 +267,14 @@ describe('PayoutReconciliation', () => {
       overrides?.fundingLedger as never,
     );
 
-    return { service, payrollItemRepo, itemQueryBuilder, lifecycleNotify, queryStatus };
+    return {
+      service,
+      payrollItemRepo,
+      itemQueryBuilder,
+      paidItemQueryBuilder,
+      lifecycleNotify,
+      queryStatus,
+    };
   };
 
   const stuckProcessingItem = (overrides?: Partial<PayrollItem>) =>
@@ -429,7 +439,7 @@ describe('PayoutReconciliation', () => {
       hasConfirmedPayoutDebit: jest.fn().mockResolvedValue(false),
       recordConfirmedPayoutDebit: jest.fn().mockResolvedValue(undefined),
     };
-    const { service, payrollItemRepo } = buildRequeryService([], {
+    const { service, paidItemQueryBuilder } = buildRequeryService([], {
       queryStatus,
       paidBachsTenantIds: ['tenant-1'],
       paidBachsItems: [paidItem],
@@ -439,19 +449,22 @@ describe('PayoutReconciliation', () => {
 
     const result = await service.requeryStuckPayouts();
 
-    expect(payrollItemRepo.find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: PayrollItemStatus.PAID,
-          payrollRun: { tenantId: 'tenant-1' },
-        }),
-      }),
+    // The missing-debit filter must run in the database, scoped to the owning tenant, so the
+    // sweep never loads items that were already reconciled or falls outside the window.
+    expect(paidItemQueryBuilder.innerJoinAndSelect).toHaveBeenCalledWith(
+      'paid_item.payrollRun',
+      'run',
+      expect.stringContaining('run.tenantId'),
+      { tenantId: 'tenant-1' },
     );
-    expect(fundingLedger.hasConfirmedPayoutDebit).toHaveBeenCalledWith({
-      tenantId: 'tenant-1',
-      payrollRunId: '11111111-1111-4111-8111-111111111111',
-      payrollItemId: paidItem.id,
-    });
+    expect(paidItemQueryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('NOT EXISTS'),
+      expect.objectContaining({ confirmedDebit: 'payout_confirmed' }),
+    );
+    expect(paidItemQueryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('recoverySince'),
+      expect.objectContaining({ recoverySince: expect.any(Date) }),
+    );
     expect(queryStatus).toHaveBeenCalledWith('bachs-withdrawal-1', merchantRef);
     expect(fundingLedger.recordConfirmedPayoutDebit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -510,7 +523,11 @@ describe('PayoutReconciliation', () => {
   it('repairs a missing Bachs debit when a repeated verified success arrives for an already-paid item', async () => {
     const queryStatus = jest.fn().mockResolvedValue({
       status: 'COMPLETED',
-      reference: buildPayrollMerchantRef('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0),
+      reference: buildPayrollMerchantRef(
+        '11111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        0,
+      ),
       sourceDebitedAmount: 1005,
       sourceCurrency: 'USD',
     });
@@ -536,7 +553,11 @@ describe('PayoutReconciliation', () => {
     });
 
     const changed = await service.applyTransferStatus(
-      buildPayrollMerchantRef('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0),
+      buildPayrollMerchantRef(
+        '11111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        0,
+      ),
       'SUCCESS',
       'bachs-withdrawal-1',
       PaymentProvider.BACHS,
@@ -548,7 +569,11 @@ describe('PayoutReconciliation', () => {
     expect(factory.resolvePayoutQuerier).toHaveBeenCalledWith(PaymentProvider.BACHS);
     expect(queryStatus).toHaveBeenCalledWith(
       'bachs-withdrawal-1',
-      buildPayrollMerchantRef('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0),
+      buildPayrollMerchantRef(
+        '11111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        0,
+      ),
     );
     expect(recordConfirmedPayoutDebit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -601,7 +626,11 @@ describe('PayoutReconciliation', () => {
   });
 
   it('recovers a failed Bachs item to paid only after verifying the same payout succeeded', async () => {
-    const merchantRef = buildPayrollMerchantRef('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0);
+    const merchantRef = buildPayrollMerchantRef(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      0,
+    );
     const failedItem = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       payrollRunId: '11111111-1111-4111-8111-111111111111',
