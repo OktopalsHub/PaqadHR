@@ -125,6 +125,22 @@ describe('BachsProvider', () => {
     expect(result.rail).toBe('bank');
   });
 
+  it('does not submit a Bachs payout when the source amount exceeds the approved retry allocation', async () => {
+    const result = await provider.createPayment({
+      ...ngnData,
+      metadata: {
+        payrollItemId: 'item-1',
+        retryFundingMaxSourceAmount: 100,
+        retryFundingSourceCurrency: 'NGN',
+      },
+    } as never);
+
+    expect(result.success).toBe(false);
+    expect(result.retryable).toBe(false);
+    expect(result.error).toMatch(/exceeds the approved retry funding allocation/);
+    expect(bachsApi.createPayout).not.toHaveBeenCalled();
+  });
+
   it('reuses a persisted destination id without resolving the bank account again', async () => {
     const result = await provider.createPayment({
       ...ngnData,
