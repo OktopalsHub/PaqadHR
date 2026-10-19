@@ -498,15 +498,21 @@ export class PayrollFloatTopupService {
       selected.length !== uniqueIds.length ||
       selected.some((item) => item.status !== PayrollItemStatus.FAILED)
     ) {
-      throw new BadRequestException('Retry funding can only be approved for failed items in this payroll run');
+      throw new BadRequestException(
+        'Retry funding can only be approved for failed items in this payroll run',
+      );
     }
     if (selected.some((item) => item.metadata?.payoutSubmissionPending === true)) {
-      throw new BadRequestException('A payout with an unresolved submission cannot be funded for retry');
+      throw new BadRequestException(
+        'A payout with an unresolved submission cannot be funded for retry',
+      );
     }
 
     const preflight = await this.preflight(payrollRunId, tenantId, true, uniqueIds);
     if (preflight.provider !== PaymentProvider.BACHS) {
-      throw new BadRequestException('This approval flow is only available for Bachs-backed payroll retries');
+      throw new BadRequestException(
+        'This approval flow is only available for Bachs-backed payroll retries',
+      );
     }
     if (!preflight.canCheckout || preflight.requiredAmount <= 0) {
       throw new BadRequestException(
@@ -596,7 +602,9 @@ export class PayrollFloatTopupService {
       selected.length !== meta.selectedItemIds.length ||
       selected.some((item) => item.status !== PayrollItemStatus.FAILED)
     ) {
-      throw new BadRequestException('Selected failed payouts changed after approval. Approve funding again.');
+      throw new BadRequestException(
+        'Selected failed payouts changed after approval. Approve funding again.',
+      );
     }
     if (meta.status === 'pending' && meta.checkoutUrl) {
       return {
