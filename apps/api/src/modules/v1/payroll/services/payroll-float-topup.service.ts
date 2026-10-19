@@ -1296,9 +1296,10 @@ export class PayrollFloatTopupService {
     return this.payrollRunRepository
       .createQueryBuilder('run')
       .where('run.tenantId = :tenantId', { tenantId: input.tenantId })
-      .andWhere(`(run.metadata::jsonb -> 'floatTopup' ->> 'orderReference') = :ref`, {
-        ref: input.orderReference,
-      })
+      .andWhere(
+        `((run.metadata::jsonb -> 'floatTopup' ->> 'orderReference') = :ref OR (run.metadata::jsonb -> 'retryFunding' ->> 'orderReference') = :ref)`,
+        { ref: input.orderReference },
+      )
       .getOne();
   }
 
