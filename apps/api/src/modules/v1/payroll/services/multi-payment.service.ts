@@ -19,6 +19,7 @@ import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
 import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
 import { PAYROLL_PROCESSING_LOCK_MS } from '../utils/payroll-processing-lock.util';
 import { PaymentBatching } from './payment-batching';
@@ -235,7 +236,7 @@ export class MultiPaymentService {
     }
 
     try {
-      const retriableItems: PayrollItem[] = [];
+      let retriableItems: PayrollItem[] = [];
       for (const item of failedItems) {
         const canRetry = await this.payrollPayoutService.reconcileFailedItemBeforeRetry(
           item,
@@ -287,17 +288,13 @@ export class MultiPaymentService {
           },
           reservations,
         });
+        const claimedItems: PayrollItem[] = [];
         for (const item of retriableItems) {
           const priorRetry =
             typeof item.metadata?.payoutRetryCount === 'number'
               ? item.metadata.payoutRetryCount
               : 0;
-          item.status = PayrollItemStatus.PENDING;
-          item.failureReason = null;
-          item.transactionId = null;
-          item.paymentProvider = null;
-          item.paidAt = null;
-          item.metadata = {
+          const metadata = {
             ...(item.metadata ?? {}),
             payoutRetryCount: priorRetry + 1,
             retryFundingMaxSourceAmount: Number(meta.itemFundingAmounts[item.id]),
@@ -305,9 +302,52 @@ export class MultiPaymentService {
             payoutNeverSubmitted: false,
             payoutSubmissionPending: false,
           };
+          // The provider can report terminal failure just before a success webhook arrives.
+          // Claim only rows still FAILED so a late success cannot be reset and paid twice.
+          const claimed = await updatePayrollItemScopedIfStatus(
+            this.payrollItemRepository,
+            item.id,
+            tenantId,
+            PayrollItemStatus.FAILED,
+            {
+              status: PayrollItemStatus.PENDING,
+              failureReason: null,
+              transactionId: null,
+              paymentProvider: null,
+              paidAt: null,
+              metadata,
+            },
+          );
+          if (!claimed) {
+            await this.fundingLedger.releaseUnsubmittedPayoutReservation({
+              tenantId,
+              payrollRunId,
+              payrollItemId: item.id,
+              reservationKey: `${meta.orderReference}:${item.id}`,
+              evidence: {
+                validationStage: 'retry_claim',
+                submissionAttempted: false,
+                reason: 'item_status_changed_before_retry_claim',
+              },
+            });
+            continue;
+          }
+          item.status = PayrollItemStatus.PENDING;
+          item.failureReason = null;
+          item.transactionId = null;
+          item.paymentProvider = null;
+          item.paidAt = null;
+          item.metadata = metadata;
+          claimedItems.push(item);
         }
+        retriableItems = claimedItems;
       } else {
-        await this.validation.resetItemsForRetry(retriableItems, tenantId);
+        retriableItems = await this.validation.resetItemsForRetry(retriableItems, tenantId);
+      }
+      if (retriableItems.length === 0) {
+        throw new BadRequestException(
+          'No failed payments remain eligible for retry; their status changed during reconciliation.',
+        );
       }
       const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
       const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
