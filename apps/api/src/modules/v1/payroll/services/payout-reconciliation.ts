@@ -316,7 +316,23 @@ export class PayoutReconciliation {
           `Cannot retry payroll item ${item.id}: Bachs could not verify its payout status. Try again after provider status is available.`,
         );
       }
-      if (terminalFailureStatuses.has(verifiedStatus)) return true;
+      if (terminalFailureStatuses.has(verifiedStatus)) {
+        if (this.fundingLedger) {
+          await this.fundingLedger.releaseFailedPayoutReservationsForItem({
+            tenantId,
+            payrollRunId: item.payrollRunId,
+            payrollItemId: item.id,
+            provider: PaymentProvider.BACHS,
+            providerReference: reference,
+            evidence: {
+              verifiedStatus,
+              merchantReference: merchantRef,
+              verificationSource: 'provider_status_query',
+            },
+          });
+        }
+        return true;
+      }
       if (SUCCESS_STATUSES.has(verifiedStatus) || PENDING_STATUSES.has(verifiedStatus)) {
         await this.applyTransferStatus(
           merchantRef,
