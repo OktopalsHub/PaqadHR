@@ -198,13 +198,15 @@ describe('PayoutReconciliation', () => {
       execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     const payrollItemRepo = {
-      find: jest.fn().mockImplementation((options: { where?: { status?: PayrollItemStatus } }) =>
-        Promise.resolve(
-          options.where?.status === PayrollItemStatus.PAID
-            ? (overrides?.paidBachsItems ?? [])
-            : stuckItems,
+      find: jest
+        .fn()
+        .mockImplementation((options: { where?: { status?: PayrollItemStatus } }) =>
+          Promise.resolve(
+            options.where?.status === PayrollItemStatus.PAID
+              ? (overrides?.paidBachsItems ?? [])
+              : stuckItems,
+          ),
         ),
-      ),
       createQueryBuilder: jest.fn().mockReturnValue(itemQueryBuilder),
       update: jest.fn().mockResolvedValue(undefined),
       manager: {
