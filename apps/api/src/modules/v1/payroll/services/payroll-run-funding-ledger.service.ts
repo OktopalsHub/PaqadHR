@@ -49,7 +49,9 @@ export class PayrollRunFundingLedgerService {
         Number(existing.amount) !== amount ||
         existing.currency !== currency
       ) {
-        throw new Error('Funding reference was already allocated to a different payroll transaction');
+        throw new Error(
+          'Funding reference was already allocated to a different payroll transaction',
+        );
       }
       return;
     }
@@ -101,7 +103,8 @@ export class PayrollRunFundingLedgerService {
       verifiedFundingByCurrency,
       fundingEvidenceComplete: false,
       retryAuthorization: 'blocked' as const,
-      reason: 'Verified funding is recorded, but payout debits and outstanding reservations must be reconciled before the ledger can authorize spending.',
+      reason:
+        'Verified funding is recorded, but payout debits and outstanding reservations must be reconciled before the ledger can authorize spending.',
     };
   }
 }
