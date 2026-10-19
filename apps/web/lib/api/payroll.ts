@@ -295,23 +295,19 @@ export async function approveRetryFunding(
   currency: string,
 ): Promise<RetryFundingPreview & { approved: true; orderReference: string }> {
   const tenantId = await resolveTenantId();
-  return apiClient(
-    tenantPath(tenantId, `payroll/runs/${id}/retry-funding/approve`),
-    {
-      method: 'POST',
-      body: JSON.stringify({ itemIds, expectedAmount, currency }),
-    },
-  );
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/retry-funding/approve`), {
+    method: 'POST',
+    body: JSON.stringify({ itemIds, expectedAmount, currency }),
+  });
 }
 
 export async function createRetryFundingCheckout(
   id: string,
 ): Promise<{ checkoutUrl: string; orderReference: string; amount: number; currency: string }> {
   const tenantId = await resolveTenantId();
-  return apiClient(
-    tenantPath(tenantId, `payroll/runs/${id}/retry-funding/checkout`),
-    { method: 'POST' },
-  );
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/retry-funding/checkout`), {
+    method: 'POST',
+  });
 }
 
 export type PayrollFundingLedger = {
@@ -337,9 +333,7 @@ export type PayrollFundingLedger = {
 
 export async function fetchPayrollFundingLedger(id: string): Promise<PayrollFundingLedger> {
   const tenantId = await resolveTenantId();
-  return apiClient<PayrollFundingLedger>(
-    tenantPath(tenantId, `payroll/runs/${id}/funding-ledger`),
-  );
+  return apiClient<PayrollFundingLedger>(tenantPath(tenantId, `payroll/runs/${id}/funding-ledger`));
 }
 
 export async function schedulePayrollPayout(
