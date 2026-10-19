@@ -580,7 +580,10 @@ describe('PayrollPayoutService', () => {
         }),
       };
 
-      const payrollItemRepo = { find: jest.fn() } as unknown as Repository<PayrollItem>;
+      const payrollItemRepo = {
+        find: jest.fn(),
+        findOne: jest.fn().mockResolvedValue(null),
+      } as unknown as Repository<PayrollItem>;
       (payrollItemRepo as { manager?: unknown }).manager = {
         transaction: jest.fn(async (callback: (manager: unknown) => Promise<boolean>) =>
           callback({
