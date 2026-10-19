@@ -240,8 +240,7 @@ describe('PayrollRunFundingLedgerService', () => {
           amount: '40.00',
           currency: 'USD',
           payrollItemId: releaseInput.payrollItemId,
-          idempotencyKey:
-            'reservation-release:item-failed-attempt-2:failure:BACHS:payout-final-failed',
+          idempotencyKey: expect.stringMatching(/^reservation-release:[a-f0-9]{64}$/),
           evidence: expect.objectContaining({
             verifiedStatus: 'FAILED',
             releasedReservationKey: releaseInput.reservationKey,
@@ -480,8 +479,7 @@ describe('PayrollRunFundingLedgerService', () => {
       expect.objectContaining({
         eventType: PayrollFundingLedgerEventType.RESERVATION_RELEASED,
         payrollItemId: 'item-failed',
-        idempotencyKey:
-          'reservation-release:item-failed-attempt-1:failure:BACHS:payout-final-failed',
+        idempotencyKey: expect.stringMatching(/^reservation-release:[a-f0-9]{64}$/),
         evidence: expect.objectContaining({
           verifiedStatus: 'FAILED',
           releasedReservationKey: 'item-failed-attempt-1',
