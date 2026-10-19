@@ -25,7 +25,6 @@ function bachsFundingCurrencyFromFloatTopup(floatTopup: unknown): string | undef
   return typeof meta.fundingCurrency === 'string' ? meta.fundingCurrency : undefined;
 }
 
-
 function isBachsBackedRun(
   run: { metadata?: Record<string, unknown> | null },
   items: PayrollItem[],
