@@ -409,7 +409,7 @@ describe('PayoutReconciliation', () => {
   it('sweeps paid Bachs items and repairs missing confirmed debits without changing payroll state', async () => {
     const paidItem = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      payrollRunId: 'run-1',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
       memberId: 'member-1',
       status: PayrollItemStatus.PAID,
       paymentAmount: 1000,
@@ -455,7 +455,7 @@ describe('PayoutReconciliation', () => {
     expect(queryStatus).toHaveBeenCalledWith('bachs-withdrawal-1', merchantRef);
     expect(fundingLedger.recordConfirmedPayoutDebit).toHaveBeenCalledWith(
       expect.objectContaining({
-        payrollRunId: 'run-1',
+        payrollRunId: '11111111-1111-4111-8111-111111111111',
         payrollItemId: paidItem.id,
         providerReference: 'bachs-withdrawal-1',
         amount: 1005,
@@ -510,7 +510,7 @@ describe('PayoutReconciliation', () => {
   it('repairs a missing Bachs debit when a repeated verified success arrives for an already-paid item', async () => {
     const queryStatus = jest.fn().mockResolvedValue({
       status: 'COMPLETED',
-      reference: 'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      reference: buildPayrollMerchantRef('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0),
       sourceDebitedAmount: 1005,
       sourceCurrency: 'USD',
     });
@@ -521,7 +521,7 @@ describe('PayoutReconciliation', () => {
     });
     transactionRepository.findOne.mockResolvedValueOnce({
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      payrollRunId: 'run-1',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
       memberId: 'member-1',
       status: PayrollItemStatus.PAID,
       paymentAmount: 1000,
@@ -536,7 +536,7 @@ describe('PayoutReconciliation', () => {
     });
 
     const changed = await service.applyTransferStatus(
-      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      buildPayrollMerchantRef('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0),
       'SUCCESS',
       'bachs-withdrawal-1',
       PaymentProvider.BACHS,
@@ -548,12 +548,12 @@ describe('PayoutReconciliation', () => {
     expect(factory.resolvePayoutQuerier).toHaveBeenCalledWith(PaymentProvider.BACHS);
     expect(queryStatus).toHaveBeenCalledWith(
       'bachs-withdrawal-1',
-      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      buildPayrollMerchantRef('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0),
     );
     expect(recordConfirmedPayoutDebit).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: 'tenant-1',
-        payrollRunId: 'run-1',
+        payrollRunId: '11111111-1111-4111-8111-111111111111',
         payrollItemId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         amount: 1005,
         currency: 'USD',
@@ -601,10 +601,10 @@ describe('PayoutReconciliation', () => {
   });
 
   it('recovers a failed Bachs item to paid only after verifying the same payout succeeded', async () => {
-    const merchantRef = 'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const merchantRef = buildPayrollMerchantRef('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 0);
     const failedItem = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      payrollRunId: 'run-1',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
       memberId: 'member-1',
       status: PayrollItemStatus.FAILED,
       paymentAmount: 1000,
