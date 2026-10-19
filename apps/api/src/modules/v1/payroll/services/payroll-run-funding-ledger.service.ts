@@ -246,9 +246,7 @@ export class PayrollRunFundingLedgerService {
           .filter((id): id is string => Boolean(id)),
       );
       if (
-        items.some(
-          (item) => item.status === PayrollItemStatus.PAID && !paidItemIds.has(item.id),
-        )
+        items.some((item) => item.status === PayrollItemStatus.PAID && !paidItemIds.has(item.id))
       ) {
         throw new Error('Cannot reserve funds until every paid payout has a confirmed debit');
       }
@@ -270,9 +268,13 @@ export class PayrollRunFundingLedgerService {
         },
         { funded: 0, debited: 0, reserved: 0, released: 0 },
       );
-      const available = Math.round((totals.funded - totals.debited - totals.reserved + totals.released) * 100) / 100;
+      const available =
+        Math.round((totals.funded - totals.debited - totals.reserved + totals.released) * 100) /
+        100;
       if (available < amount) {
-        throw new Error(`Insufficient verified run-scoped funds: ${available} ${currency} available`);
+        throw new Error(
+          `Insufficient verified run-scoped funds: ${available} ${currency} available`,
+        );
       }
 
       await ledger.insert({
