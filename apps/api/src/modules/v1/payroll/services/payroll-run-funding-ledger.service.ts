@@ -683,7 +683,7 @@ export class PayrollRunFundingLedgerService {
       // Empty is a valid state for older runs. It is not evidence of available funds.
       return {
         payrollRunId,
-        entries: [],
+        entries: [] as PayrollRunFundingLedgerEntry[],
         verifiedFundingByCurrency: {},
         fundingEvidenceComplete: false,
         retryAuthorization: 'blocked' as const,
