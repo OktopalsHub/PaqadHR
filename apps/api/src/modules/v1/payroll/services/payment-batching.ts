@@ -461,12 +461,19 @@ export class PaymentBatching {
         // Bachs only omits the merchant reference when createPayout was never called. Keep this
         // explicit so the retry funding ledger can safely release the reservation.
         const message = result.error || 'Bachs rejected the payout before submission';
+        const metadata = {
+          ...(item.metadata ?? {}),
+          payoutNeverSubmitted: true,
+          payoutSubmissionPending: false,
+        };
         await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
           status: PayrollItemStatus.FAILED,
           failureReason: message,
+          metadata,
         });
         item.status = PayrollItemStatus.FAILED;
         item.failureReason = message;
+        item.metadata = metadata;
         return {
           success: false,
           outcome: 'failed',
