@@ -25,6 +25,20 @@ function bachsFundingCurrencyFromFloatTopup(floatTopup: unknown): string | undef
   return typeof meta.fundingCurrency === 'string' ? meta.fundingCurrency : undefined;
 }
 
+
+function isBachsBackedRun(run: { metadata?: Record<string, unknown> | null }, items: PayrollItem[]): boolean {
+  const floatTopup = run.metadata?.floatTopup;
+  if (
+    floatTopup &&
+    typeof floatTopup === 'object' &&
+    'provider' in floatTopup &&
+    floatTopup.provider === PaymentProvider.BACHS
+  ) {
+    return true;
+  }
+  return items.some((item) => (item.paymentProvider ?? '').toLowerCase().includes('bachs'));
+}
+
 /**
  * Why a payout found nothing to send. A run whose items are already paid, in flight, or
  * cancelled is not a payment-method or funding problem, so it must not be reported as one.
@@ -95,6 +109,14 @@ export class MultiPaymentService {
     ) {
       throw new BadRequestException(
         `Payroll run must be approved before payout. Current: ${payrollRun.status}`,
+      );
+    }
+    if (
+      payrollRun.items.some((item) => item.status === PayrollItemStatus.FAILED) &&
+      isBachsBackedRun(payrollRun, payrollRun.items)
+    ) {
+      throw new BadRequestException(
+        'Bachs failed payouts must use the guarded retry flow. Reprocessing the whole run is blocked until retry funding and reservations are reconciled.',
       );
     }
 
@@ -182,6 +204,11 @@ export class MultiPaymentService {
     }
     if (failedItems.length === 0) {
       throw new BadRequestException('No failed payments found to retry');
+    }
+    if (isBachsBackedRun(payrollRun, failedItems)) {
+      throw new BadRequestException(
+        'Bachs retry is blocked until the selected failed payouts have approved run-scoped funding and reservations. Shared Bachs float alone cannot authorize a retry.',
+      );
     }
 
     const lockAt = new Date();
