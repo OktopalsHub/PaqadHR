@@ -296,7 +296,12 @@ export class MultiPaymentService {
           item.transactionId = null;
           item.paymentProvider = null;
           item.paidAt = null;
-          item.metadata = { ...(item.metadata ?? {}), payoutRetryCount: priorRetry + 1 };
+          item.metadata = {
+            ...(item.metadata ?? {}),
+            payoutRetryCount: priorRetry + 1,
+            retryFundingMaxSourceAmount: Number(meta.itemFundingAmounts[item.id]),
+            retryFundingSourceCurrency: meta.currency,
+          };
         }
       } else {
         await this.validation.resetItemsForRetry(retriableItems, tenantId);
