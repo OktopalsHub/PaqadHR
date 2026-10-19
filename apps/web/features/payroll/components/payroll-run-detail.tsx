@@ -943,7 +943,9 @@ export function PayrollRunDetail({
                       <span>{retryFundingItemIds.length}</span>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <span className="text-slate-500 dark:text-slate-400">PaqadHR platform fee</span>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        PaqadHR platform fee
+                      </span>
                       <span>{formatMoney(0, retryFundingPreview.currency)}</span>
                     </div>
                     <div className="flex justify-between gap-3">
