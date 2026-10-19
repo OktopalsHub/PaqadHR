@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
@@ -9,6 +10,18 @@ import {
   PayrollFundingLedgerEventType,
   PayrollRunFundingLedgerEntry,
 } from '../entities/payroll-run-funding-ledger-entry.entity';
+
+function reservationReleaseIdempotencyKey(
+  reservationKey: string,
+  outcome: 'failure' | 'payout',
+  provider: string,
+  providerReference: string,
+): string {
+  const fingerprint = createHash('sha256')
+    .update(`${reservationKey}:${outcome}:${provider}:${providerReference}`)
+    .digest('hex');
+  return `reservation-release:${fingerprint}`;
+}
 
 export interface VerifiedPayrollFundingInput {
   tenantId: string;
@@ -202,7 +215,12 @@ export class PayrollRunFundingLedgerService {
 
       for (const [reservationKey, reservation] of reservations) {
         if (released.has(reservationKey)) continue;
-        const releaseKey = `reservation-release:${reservationKey}:payout:${input.provider}:${providerReference}`;
+        const releaseKey = reservationReleaseIdempotencyKey(
+          reservationKey,
+          'payout',
+          input.provider,
+          providerReference,
+        );
         await ledger.insert({
           tenantId: input.tenantId,
           payrollRunId: input.payrollRunId,
@@ -277,7 +295,12 @@ export class PayrollRunFundingLedgerService {
         throw new Error('Matching payout reservation was not found');
       }
 
-      const releaseIdempotencyKey = `reservation-release:${reservationKey}:failure:${input.provider}:${providerReference}`;
+      const releaseIdempotencyKey = reservationReleaseIdempotencyKey(
+        reservationKey,
+        'failure',
+        input.provider,
+        providerReference,
+      );
       const existingRelease = await ledger.findOne({
         where: { idempotencyKey: releaseIdempotencyKey },
       });
@@ -399,7 +422,12 @@ export class PayrollRunFundingLedgerService {
             : '';
         if (!reservationKey || releasedKeys.has(reservationKey)) continue;
 
-        const releaseIdempotencyKey = `reservation-release:${reservationKey}:failure:${input.provider}:${providerReference}`;
+        const releaseIdempotencyKey = reservationReleaseIdempotencyKey(
+          reservationKey,
+          'failure',
+          input.provider,
+          providerReference,
+        );
         const existingRelease = await ledger.findOne({
           where: { idempotencyKey: releaseIdempotencyKey },
         });
