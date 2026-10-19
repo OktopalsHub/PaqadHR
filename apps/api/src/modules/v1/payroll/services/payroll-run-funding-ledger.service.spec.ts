@@ -140,16 +140,26 @@ describe('PayrollRunFundingLedgerService', () => {
         find: jest.fn().mockResolvedValue(options?.entries ?? []),
         insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 'reservation-1' }] }),
       };
-      const runs = { findOne: jest.fn().mockResolvedValue(options?.run ?? {
-        id: input.payrollRunId,
-        tenantId: input.tenantId,
-        status: 'approved',
-      }) };
-      const items = { find: jest.fn().mockResolvedValue(options?.items ?? [{
-        id: 'item-failed',
-        status: 'failed',
-        metadata: {},
-      }]) };
+      const runs = {
+        findOne: jest.fn().mockResolvedValue(
+          options?.run ?? {
+            id: input.payrollRunId,
+            tenantId: input.tenantId,
+            status: 'approved',
+          },
+        ),
+      };
+      const items = {
+        find: jest.fn().mockResolvedValue(
+          options?.items ?? [
+            {
+              id: 'item-failed',
+              status: 'failed',
+              metadata: {},
+            },
+          ],
+        ),
+      };
       const manager = {
         getRepository: jest.fn((entity: unknown) => {
           if (entity === PayrollRun) return runs;
@@ -167,12 +177,14 @@ describe('PayrollRunFundingLedgerService', () => {
 
     it('reserves run-scoped funds atomically for a confirmed failed item', async () => {
       const { ledger } = buildTransactionalRepository({
-        entries: [{
-          eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
-          amount: '100.00',
-          currency: 'USD',
-          payrollItemId: null,
-        }],
+        entries: [
+          {
+            eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
+            amount: '100.00',
+            currency: 'USD',
+            payrollItemId: null,
+          },
+        ],
       });
 
       await service.reserveFailedPayout({
@@ -187,13 +199,15 @@ describe('PayrollRunFundingLedgerService', () => {
         evidence: { quoteReference: 'quote-1' },
       });
 
-      expect(ledger.insert).toHaveBeenCalledWith(expect.objectContaining({
-        eventType: PayrollFundingLedgerEventType.PAYOUT_RESERVED,
-        amount: '40.00',
-        currency: 'USD',
-        payrollItemId: 'item-failed',
-        idempotencyKey: 'reservation:run-1:item-failed-attempt-2',
-      }));
+      expect(ledger.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: PayrollFundingLedgerEventType.PAYOUT_RESERVED,
+          amount: '40.00',
+          currency: 'USD',
+          payrollItemId: 'item-failed',
+          idempotencyKey: 'reservation:run-1:item-failed-attempt-2',
+        }),
+      );
     });
 
     it('blocks reservations when any payout is still pending or processing', async () => {
@@ -210,40 +224,46 @@ describe('PayrollRunFundingLedgerService', () => {
         }],
       });
 
-      await expect(service.reserveFailedPayout({
-        tenantId: input.tenantId,
-        payrollRunId: input.payrollRunId,
-        payrollItemId: 'item-failed',
-        amount: 40,
-        currency: 'USD',
-        provider: 'BACHS',
-        reservationKey: 'attempt-2',
-        performedById: 'member-1',
-        evidence: {},
-      })).rejects.toThrow('Cannot reserve funds while any payout outcome remains unresolved');
+      await expect(
+        service.reserveFailedPayout({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          payrollItemId: 'item-failed',
+          amount: 40,
+          currency: 'USD',
+          provider: 'BACHS',
+          reservationKey: 'attempt-2',
+          performedById: 'member-1',
+          evidence: {},
+        }),
+      ).rejects.toThrow('Cannot reserve funds while any payout outcome remains unresolved');
     });
 
     it('blocks reservations when the verified run-scoped balance is insufficient', async () => {
       const { ledger } = buildTransactionalRepository({
-        entries: [{
-          eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
-          amount: '30.00',
-          currency: 'USD',
-          payrollItemId: null,
-        }],
+        entries: [
+          {
+            eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
+            amount: '30.00',
+            currency: 'USD',
+            payrollItemId: null,
+          },
+        ],
       });
 
-      await expect(service.reserveFailedPayout({
-        tenantId: input.tenantId,
-        payrollRunId: input.payrollRunId,
-        payrollItemId: 'item-failed',
-        amount: 40,
-        currency: 'USD',
-        provider: 'BACHS',
-        reservationKey: 'attempt-2',
-        performedById: 'member-1',
-        evidence: {},
-      })).rejects.toThrow('Insufficient verified run-scoped funds');
+      await expect(
+        service.reserveFailedPayout({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          payrollItemId: 'item-failed',
+          amount: 40,
+          currency: 'USD',
+          provider: 'BACHS',
+          reservationKey: 'attempt-2',
+          performedById: 'member-1',
+          evidence: {},
+        }),
+      ).rejects.toThrow('Insufficient verified run-scoped funds');
       expect(ledger.insert).not.toHaveBeenCalled();
     });
   });
