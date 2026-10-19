@@ -106,7 +106,9 @@ export class PayrollRunFundingLedgerService {
     const currency = input.currency.trim().toUpperCase();
     const providerReference = input.providerReference.trim();
     if (!Number.isFinite(amount) || amount <= 0 || !currency || !providerReference) {
-      throw new Error('A confirmed payout debit requires a positive amount, currency, and provider reference');
+      throw new Error(
+        'A confirmed payout debit requires a positive amount, currency, and provider reference',
+      );
     }
 
     const idempotencyKey = `payout:${input.provider}:${providerReference}`;
@@ -119,7 +121,9 @@ export class PayrollRunFundingLedgerService {
         Number(existing.amount) !== amount ||
         existing.currency !== currency
       ) {
-        throw new Error('Payout debit reference was already allocated to a different payroll transaction');
+        throw new Error(
+          'Payout debit reference was already allocated to a different payroll transaction',
+        );
       }
       return;
     }
