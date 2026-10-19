@@ -406,6 +406,29 @@ describe('PayoutReconciliation', () => {
     expect(lifecycleNotify.onItemPaid).not.toHaveBeenCalled();
   });
 
+  it('does not downgrade a paid item when a late failure webhook arrives', async () => {
+    const { service, transactionRepository, lifecycleNotify } = createService();
+    transactionRepository.findOne.mockResolvedValueOnce({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.PAID,
+      paymentAmount: 1000,
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    });
+    const changed = await service.applyTransferStatus(
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'FAILED',
+      'txn-late-failure',
+      PaymentProvider.BACHS,
+      'tenant-1',
+    );
+    expect(changed).toBe(false);
+    expect(transactionRepository.save).not.toHaveBeenCalled();
+    expect(lifecycleNotify.onItemFailed).not.toHaveBeenCalled();
+  });
+
   it('does not retry a locally failed Bachs item when provider status cannot be verified', async () => {
     const item = stuckProcessingItem({
       status: PayrollItemStatus.FAILED,
