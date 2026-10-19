@@ -51,57 +51,64 @@ export class PayrollRunFundingLedgerService {
       throw new Error('Verified payroll funding amount must be positive');
     }
     const currency = input.currency.trim().toUpperCase();
+    const provider = input.provider.trim();
     const providerReference = input.providerReference.trim();
-    if (!currency || !providerReference) {
-      throw new Error('Verified payroll funding requires currency and provider reference');
+    if (!currency || !provider || !providerReference) {
+      throw new Error('Verified payroll funding requires provider, currency, and provider reference');
     }
 
-    const existing = await this.ledgerRepository.findOne({
-      where: { idempotencyKey: `funding:${providerReference}` },
-    });
-    if (existing) {
-      if (
-        existing.tenantId !== input.tenantId ||
-        existing.payrollRunId !== input.payrollRunId ||
-        Number(existing.amount) !== amount ||
-        existing.currency !== currency
-      ) {
-        throw new Error(
-          'Funding reference was already allocated to a different payroll transaction',
-        );
-      }
-      return;
-    }
+    const idempotencyKey = `funding:${providerReference}`;
+    const matchesExisting = (entry: PayrollRunFundingLedgerEntry | null) =>
+      Boolean(
+        entry &&
+          entry.eventType === PayrollFundingLedgerEventType.FUNDING_RECEIVED &&
+          entry.tenantId === input.tenantId &&
+          entry.payrollRunId === input.payrollRunId &&
+          entry.provider === provider &&
+          Number(entry.amount) === amount &&
+          entry.currency === currency,
+      );
 
     try {
-      await this.ledgerRepository.insert({
-        tenantId: input.tenantId,
-        payrollRunId: input.payrollRunId,
-        eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
-        amount: amount.toFixed(2),
-        currency,
-        provider: input.provider,
-        providerReference,
-        idempotencyKey: `funding:${providerReference}`,
-        performedById: input.performedById ?? null,
-        approvedById: null,
-        evidence: input.evidence ?? null,
+      await this.ledgerRepository.manager.transaction(async (manager) => {
+        // Validate tenant/run ownership at the persistence boundary, not only in callers.
+        // Locking the run also serializes funding credits for the same payroll run.
+        const run = await manager.getRepository(PayrollRun).findOne({
+          where: { id: input.payrollRunId, tenantId: input.tenantId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!run) throw new Error('Payroll run not found for verified funding allocation');
+
+        const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+        const existing = await ledger.findOne({ where: { idempotencyKey } });
+        if (existing) {
+          if (!matchesExisting(existing)) {
+            throw new Error(
+              'Funding reference was already allocated to a different payroll transaction',
+            );
+          }
+          return;
+        }
+
+        await ledger.insert({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
+          amount: amount.toFixed(2),
+          currency,
+          provider,
+          providerReference,
+          idempotencyKey,
+          performedById: input.performedById ?? null,
+          approvedById: null,
+          evidence: input.evidence ?? null,
+        });
       });
     } catch (error) {
-      // A concurrent delivery may pass the initial lookup before the other insert commits.
-      // Re-read the unique key and accept only an exact match; all other database errors escape.
-      const raced = await this.ledgerRepository.findOne({
-        where: { idempotencyKey: `funding:${providerReference}` },
-      });
-      if (
-        !raced ||
-        raced.tenantId !== input.tenantId ||
-        raced.payrollRunId !== input.payrollRunId ||
-        Number(raced.amount) !== amount ||
-        raced.currency !== currency
-      ) {
-        throw error;
-      }
+      // A duplicate provider callback may race on the globally unique reference. Re-read
+      // outside the failed transaction and accept only an exact match.
+      const raced = await this.ledgerRepository.findOne({ where: { idempotencyKey } });
+      if (!matchesExisting(raced)) throw error;
     }
   }
 
