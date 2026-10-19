@@ -133,7 +133,7 @@ export class PayrollFloatTopupService {
     } else {
       run = await this.requireApprovedRun(payrollRunId, tenantId);
     }
-    const bachsPreflight = await this.tryBachsFundingPreflight(run, tenantId);
+    const bachsPreflight = await this.tryBachsFundingPreflight(run, tenantId, allowProcessingRun);
     if (bachsPreflight) return bachsPreflight;
 
     const currency = run.baseCurrency.toUpperCase();
@@ -725,6 +725,7 @@ export class PayrollFloatTopupService {
   private async tryBachsFundingPreflight(
     run: PayrollRun,
     tenantId: string,
+    forRetry = false,
   ): Promise<PayrollFundPreflight | null> {
     if (!isBachsConfigured()) return null;
     const baseProvider = resolvePaymentProvider(run.baseCurrency);
@@ -822,7 +823,36 @@ export class PayrollFloatTopupService {
         payoutTransferCount > 0
           ? Math.round((payoutFeeReserve / payoutTransferCount) * 100) / 100
           : 0;
-      const requiredAmount = Math.round((fee.checkoutTotal + payoutFeeReserve) * 100) / 100;
+      // Retry funding covers only the failed employee payouts and required provider
+      // reserves. The PaqadHR platform fee was charged on the original payroll run and must
+      // not be charged a second time.
+      const requiredAmount = Math.round(
+        ((forRetry ? fee.employeeTotal : fee.checkoutTotal) + payoutFeeReserve) * 100,
+      ) / 100;
+      if (forRetry) {
+        const canCheckout = this.balanceService.supportsHostedFloatTopup(PaymentProvider.BACHS);
+        return {
+          ok: false,
+          provider: PaymentProvider.BACHS,
+          currency: fundingCurrency,
+          requiredAmount,
+          availableBalance: null,
+          shortfall: requiredAmount,
+          balanceSupported: false,
+          canCheckout,
+          dashboardUrl: '',
+          message: canCheckout
+            ? `Approve and fund ${requiredAmount} ${fundingCurrency} for the selected failed payouts. The PaqadHR platform fee is not charged again.`
+            : `Fund ${requiredAmount} ${fundingCurrency} for the selected failed payouts in Bachs, then reconcile the verified funding.`,
+          employeeTotal: fee.employeeTotal,
+          platformFee: 0,
+          feePercentage: 0,
+          payoutFeeReserve,
+          payoutFeePerTransfer,
+          payoutTransferCount,
+        };
+      }
+
       const balance = await this.balanceService.getAvailableBalance(
         PaymentProvider.BACHS,
         fundingCurrency,
