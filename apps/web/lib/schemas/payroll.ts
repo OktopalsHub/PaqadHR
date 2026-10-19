@@ -120,6 +120,9 @@ export const payrollItemSchema = z.object({
   paymentAmount: z.union([z.number(), z.string()]).optional(),
   exchangeRate: z.union([z.number(), z.string()]).optional(),
   failureReason: z.string().nullable().optional(),
+  paidAt: z.union([z.string(), z.date()]).nullable().optional(),
+  transactionId: z.string().nullable().optional(),
+  paymentProvider: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   employee: z
     .object({
