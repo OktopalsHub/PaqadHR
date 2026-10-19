@@ -5,11 +5,16 @@ import type { TenantSettingsService } from '../../tenant-settings/services/tenan
 import type { Tenant } from '../../tenants/entities/tenant.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import * as payrollDisbursementConfig from '../config/payroll-disbursement.config';
 import type { PayrollFloatBalanceService } from './payroll-float-balance.service';
 import { PayrollFloatTopupService } from './payroll-float-topup.service';
 import type { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 
 describe('PayrollFloatTopupService.completeFloatTopup', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   const createService = () => {
     const payrollRunRepository = {
       findOne: jest.fn(),
@@ -503,6 +508,7 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
   };
 
   it('always opens checkout for full run amount when hosted top-up is supported', async () => {
+    jest.spyOn(payrollDisbursementConfig, 'isPayrollGatewayEnabled').mockReturnValue(true);
     const { service, paymentOrchestrator, createCheckout, payrollRunRepository } =
       createFundService();
     (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
