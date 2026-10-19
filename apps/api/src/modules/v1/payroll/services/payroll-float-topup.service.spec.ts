@@ -65,6 +65,10 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       findOne: jest.fn(),
     } as unknown as Repository<Tenant>;
 
+    const payrollPayoutService = {
+      recordConfirmedBachsDebit: jest.fn().mockResolvedValue(undefined),
+    };
+
     const service = new PayrollFloatTopupService(
       payrollRunRepository,
       balanceService,
@@ -75,6 +79,7 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       payrollFeeService as never,
       bachsApi as never,
       tenantRepository,
+      payrollPayoutService as never,
     );
 
     return {
@@ -504,6 +509,7 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
       payrollFeeService as never,
       bachsApi as never,
       tenantRepository,
+      { recordConfirmedBachsDebit: jest.fn() } as never,
     );
 
     return { service, paymentOrchestrator, createCheckout, payrollRunRepository };
@@ -599,19 +605,30 @@ describe('PayrollFloatTopupService retry funding verification and reuse guards',
       getRunLedger: jest.fn().mockResolvedValue({ entries: [] }),
     };
 
+    const payrollPayoutService = {
+      recordConfirmedBachsDebit: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const balanceService = {
+      supportsHostedFloatTopup: jest.fn().mockReturnValue(true),
+      providerDashboardUrl: jest.fn().mockReturnValue(''),
+      getAvailableBalance: jest.fn().mockResolvedValue({ supported: false }),
+    };
+
     const service = new PayrollFloatTopupService(
       payrollRunRepository,
-      {} as never,
+      balanceService as never,
       paymentFactory,
       {} as never,
       fundingLedger as never,
       {} as never,
-      { getPayrollFeePercentage: jest.fn() } as never,
+      { getPayrollFeePercentage: jest.fn().mockResolvedValue(3) } as never,
       {} as never,
       {} as never,
+      payrollPayoutService as never,
     );
 
-    return { service, payrollRunRepository, verifyCheckout, fundingLedger };
+    return { service, payrollRunRepository, verifyCheckout, fundingLedger, payrollPayoutService };
   };
 
   const mockFundingTransaction = (
@@ -752,5 +769,105 @@ describe('PayrollFloatTopupService retry funding verification and reuse guards',
     await expect(
       service.previewRetryShortfall('run-retry', 'tenant-1', ['item-failed']),
     ).rejects.toThrow(/already covered by verified retry funding/);
+  });
+
+  describe('a run whose paid item has no booked provider debit', () => {
+    const underfundedRun = () =>
+      ({
+        id: 'run-1',
+        tenantId: 'tenant-1',
+        status: PayrollStatus.APPROVED,
+        baseCurrency: 'NGN',
+        processingLockedAt: null,
+        items: [
+          {
+            id: 'item-paid',
+            status: 'paid',
+            transactionId: 'bachs-payout-1',
+            paymentAmount: 2560,
+            netAmount: 2560,
+            paymentCurrency: 'NGN',
+            paymentProvider: 'bachs',
+            metadata: {},
+          },
+          {
+            id: 'item-failed',
+            status: 'failed',
+            transactionId: null,
+            paymentAmount: 2560,
+            netAmount: 2560,
+            paymentCurrency: 'NGN',
+            paymentProvider: 'bachs',
+            metadata: { payoutNeverSubmitted: true },
+          },
+        ],
+        metadata: {
+          floatTopup: {
+            orderReference: 'pf_ref',
+            status: 'completed',
+            provider: 'bachs',
+            fundingCurrency: 'NGN',
+          },
+        },
+      }) as unknown as PayrollRun;
+
+    beforeEach(() => {
+      jest.spyOn(payrollDisbursementConfig, 'isPayrollGatewayEnabled').mockReturnValue(true);
+      process.env.BACHS_SECRET_KEY = 'sk_test';
+      process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn';
+    });
+
+    afterEach(() => {
+      delete process.env.BACHS_SECRET_KEY;
+      delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
+    });
+
+    it('asks the provider to confirm the missing debit and then funds the retry', async () => {
+      const { service, payrollRunRepository, fundingLedger, payrollPayoutService } =
+        createReconcileService();
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(underfundedRun());
+
+      const ledgerEntries: Array<Record<string, unknown>> = [];
+      (fundingLedger.getRunLedger as jest.Mock).mockImplementation(async () => ({
+        entries: ledgerEntries,
+      }));
+      (payrollPayoutService.recordConfirmedBachsDebit as jest.Mock).mockImplementation(
+        async (input: { payrollItemId: string; transactionId: string }) => {
+          ledgerEntries.push({
+            eventType: 'payout_confirmed',
+            payrollItemId: input.payrollItemId,
+            amount: '2560.00',
+            currency: 'NGN',
+            provider: 'bachs',
+            providerReference: input.transactionId,
+            idempotencyKey: `payout:bachs:${input.transactionId}`,
+            evidence: null,
+          });
+        },
+      );
+
+      const preview = await service.previewRetryShortfall('run-1', 'tenant-1', ['item-failed']);
+
+      expect(payrollPayoutService.recordConfirmedBachsDebit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payrollRunId: 'run-1',
+          payrollItemId: 'item-paid',
+          transactionId: 'bachs-payout-1',
+        }),
+      );
+      // The company funds the failed payout and its provider fees, never the platform fee again.
+      expect(preview.platformFee).toBe(0);
+      expect(preview.amount).toBeGreaterThan(2560);
+      expect(preview.selectedItemIds).toEqual(['item-failed']);
+    });
+
+    it('keeps the run closed while the provider cannot confirm the debit', async () => {
+      const { service, payrollRunRepository } = createReconcileService();
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(underfundedRun());
+
+      await expect(
+        service.previewRetryShortfall('run-1', 'tenant-1', ['item-failed']),
+      ).rejects.toThrow(/Reconcile all paid payroll items/);
+    });
   });
 });

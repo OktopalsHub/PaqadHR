@@ -1,6 +1,9 @@
+import { Logger } from '@nestjs/common';
+import { BaseEntity } from 'src/common/database/entities/base.entity';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
-import type { PayrollItem } from '../entities/payroll-item.entity';
+import { getMetadataArgsStorage } from 'typeorm';
+import { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { buildPayrollMerchantRef } from '../utils/payroll-merchant-ref.util';
 import { PayoutReconciliation } from './payout-reconciliation';
@@ -784,5 +787,88 @@ describe('PayoutReconciliation', () => {
       /Bachs has not provided a payout reference/,
     );
     expect(queryStatus).not.toHaveBeenCalled();
+  });
+
+  it('retries a Bachs item the provider never received', async () => {
+    // Bachs rejects before it creates a payout when the balance is short, so there is no
+    // reference and nothing live at the provider: the retry cannot pay anyone twice.
+    const item = stuckProcessingItem({
+      status: PayrollItemStatus.FAILED,
+      paymentProvider: 'Bachs',
+      transactionId: null,
+      metadata: { payoutNeverSubmitted: true },
+    });
+    const { service, queryStatus } = buildRequeryService([item]);
+
+    await expect(service.reconcileFailedItemBeforeRetry(item, 'tenant-1')).resolves.toBe(true);
+    expect(queryStatus).not.toHaveBeenCalled();
+  });
+
+  it('keeps sweeping other tenants when one tenant recovery fails', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const { service, paidItemQueryBuilder } = buildRequeryService([], {
+      paidBachsTenantIds: ['tenant-a', 'tenant-b'],
+      fundingLedger: {
+        hasConfirmedPayoutDebit: jest.fn().mockResolvedValue(false),
+        recordConfirmedPayoutDebit: jest.fn().mockResolvedValue(undefined),
+      },
+    });
+    paidItemQueryBuilder.getMany
+      .mockRejectedValueOnce(new Error('tenant-a query failed'))
+      .mockResolvedValueOnce([]);
+
+    await expect(service.requeryStuckPayouts()).resolves.toEqual({ checked: 0, updated: 0 });
+    expect(paidItemQueryBuilder.getMany).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('tenant-a'));
+    warn.mockRestore();
+  });
+
+  it('orders the Bachs debit recovery sweep by entity property paths', async () => {
+    // The sweep paginates over a join, so TypeORM resolves its order-by through entity
+    // metadata (the distinct-alias path). A database column name such as `updated_at`
+    // resolves to no property and the cron dies with
+    // "Cannot read properties of undefined (reading 'databaseName')".
+    const orderCriteria: string[] = [];
+    const queryBuilder = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn((criterion: string) => {
+        orderCriteria.push(criterion);
+        return queryBuilder;
+      }),
+      addOrderBy: jest.fn((criterion: string) => {
+        orderCriteria.push(criterion);
+        return queryBuilder;
+      }),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
+    const { service, payrollItemRepo } = createService();
+    (payrollItemRepo as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder = jest
+      .fn()
+      .mockReturnValue(queryBuilder);
+
+    await (
+      service as unknown as {
+        findPaidBachsItemsMissingDebit: (
+          tenantId: string,
+          recoverySince: Date,
+          cursor: null,
+        ) => Promise<PayrollItem[]>;
+      }
+    ).findPaidBachsItemsMissingDebit('tenant-1', new Date('2026-01-01T00:00:00.000Z'), null);
+
+    const propertyPaths = new Set(
+      getMetadataArgsStorage()
+        .columns.filter((column) => column.target === PayrollItem || column.target === BaseEntity)
+        .map((column) => column.propertyName),
+    );
+    expect(orderCriteria.length).toBeGreaterThan(0);
+    for (const criterion of orderCriteria) {
+      const [alias, propertyPath] = criterion.split('.');
+      expect(alias).toBe('paid_item');
+      expect(propertyPaths.has(propertyPath)).toBe(true);
+    }
   });
 });

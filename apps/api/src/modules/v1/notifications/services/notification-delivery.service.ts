@@ -57,11 +57,15 @@ export class NotificationDeliveryService {
 
     // sendTemplateEmail reports provider failures in its result rather than throwing,
     // so an unchecked result marks the notification SENT when nothing was delivered.
+    const metadata = (notification.metadata ?? {}) as Record<string, unknown>;
+    const organizationName =
+      typeof metadata.organizationName === 'string' ? metadata.organizationName : undefined;
     const result = await this.emailService.sendTemplateEmail(email, 'notification', {
       title: notification.title,
       message: notification.message,
       actionUrl: notification.actionData?.url,
       actionLabel: notification.actionData?.buttonText,
+      organizationName,
     });
 
     if (!result?.success) {

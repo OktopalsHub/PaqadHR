@@ -96,4 +96,36 @@ describe('NotificationDeliveryService email failure handling', () => {
       expect.objectContaining({ status: NotificationStatus.FAILED }),
     );
   });
+
+  it('passes the organization name from the notification metadata to the email template', async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    const sendTemplateEmail = jest.fn().mockResolvedValue({ success: true });
+    const { service } = build(update, sendTemplateEmail);
+    const notification = {
+      ...makeNotification(),
+      metadata: { type: 'payroll_processed', organizationName: 'Acme Holdings' },
+    } as unknown as Notification;
+
+    await service.deliver({ update } as never, notification);
+
+    expect(sendTemplateEmail).toHaveBeenCalledWith(
+      'user@example.com',
+      'notification',
+      expect.objectContaining({ organizationName: 'Acme Holdings' }),
+    );
+  });
+
+  it('leaves the organization undefined when the notification has no metadata', async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    const sendTemplateEmail = jest.fn().mockResolvedValue({ success: true });
+    const { service } = build(update, sendTemplateEmail);
+
+    await service.deliver({ update } as never, makeNotification());
+
+    expect(sendTemplateEmail).toHaveBeenCalledWith(
+      'user@example.com',
+      'notification',
+      expect.objectContaining({ organizationName: undefined }),
+    );
+  });
 });

@@ -40,11 +40,13 @@ import {
   buildPayrollFloatOrderRef,
   type PayrollFloatOrderRefProvider,
 } from '../utils/payroll-float-order-ref.util';
+import { buildPayrollMerchantRef } from '../utils/payroll-merchant-ref.util';
 import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
 import { hasActivePayrollProcessingLock } from '../utils/payroll-processing-lock.util';
 import { PayrollFeeService } from './payroll-fee.service';
 import { PayrollFloatBalanceService } from './payroll-float-balance.service';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
+import { PayrollPayoutService } from './payroll-payout.service';
 import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 const SUCCESSFUL_CHECKOUT_STATUSES = new Set(['success', 'successful', 'succeeded', 'accepted']);
@@ -124,6 +126,7 @@ export class PayrollFloatTopupService {
     private readonly bachsApi: BachsApiService,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    private readonly payrollPayoutService: PayrollPayoutService,
   ) {}
 
   async preflight(
@@ -1088,14 +1091,70 @@ export class PayrollFloatTopupService {
         .map((entry) => entry.payrollItemId)
         .filter((id): id is string => Boolean(id)),
     );
-    if (
-      (run.items ?? []).some(
-        (item) => item.status === PayrollItemStatus.PAID && !debitedItemIds.has(item.id),
-      )
-    ) {
-      throw new BadRequestException(
-        'Reconcile all paid payroll items against provider-confirmed debits before retry funding.',
+    const unreconciledPaidItems = (run.items ?? []).filter(
+      (item) => item.status === PayrollItemStatus.PAID && !debitedItemIds.has(item.id),
+    );
+    if (unreconciledPaidItems.length > 0) {
+      // A paid item whose debit was never booked is repairable: only the provider knows
+      // whether the money left the float. The payroll sweep books the same debits, but it
+      // runs on a timer, and a tenant that asks to fund a retry cannot wait for it.
+      await this.reconcilePaidItemDebits(run, unreconciledPaidItems, tenantId);
+      const refreshed = await this.fundingLedger.getRunLedger(tenantId, run.id);
+      const reconciledItemIds = new Set(
+        refreshed.entries
+          .filter((entry) => entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED)
+          .map((entry) => entry.payrollItemId)
+          .filter((id): id is string => Boolean(id)),
       );
+      const stillUnreconciled = unreconciledPaidItems.filter(
+        (item) => !reconciledItemIds.has(item.id),
+      );
+      if (stillUnreconciled.length > 0) {
+        throw new BadRequestException(
+          'Reconcile all paid payroll items against provider-confirmed debits before retry funding.',
+        );
+      }
+    }
+  }
+
+  /**
+   * Ask the provider which paid items debited the float, and book the ones it confirms.
+   *
+   * A payout can be paid while its ledger write is lost, and the provider is the only
+   * source that can say the money left the balance. Items the provider cannot confirm
+   * stay unreconciled, and the caller keeps the run closed.
+   */
+  private async reconcilePaidItemDebits(
+    run: PayrollRun,
+    items: PayrollRun['items'],
+    tenantId: string,
+  ): Promise<void> {
+    for (const item of items) {
+      const transactionId = item.transactionId?.trim();
+      if (!transactionId) {
+        this.logger.warn(
+          `Payroll item ${item.id} is paid without a provider transaction id, so its debit cannot be confirmed`,
+        );
+        continue;
+      }
+      const retryAttempt =
+        typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
+      try {
+        await this.payrollPayoutService.recordConfirmedBachsDebit({
+          tenantId,
+          payrollRunId: run.id,
+          payrollItemId: item.id,
+          transactionId,
+          merchantReference: buildPayrollMerchantRef(run.id, item.id, retryAttempt),
+          destinationAmount: Number(item.paymentAmount),
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Could not confirm the provider debit for payroll item ${item.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
   }
 

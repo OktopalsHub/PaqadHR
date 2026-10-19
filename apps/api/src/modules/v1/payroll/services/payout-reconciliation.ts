@@ -122,23 +122,31 @@ export class PayoutReconciliation {
     let checked = 0;
 
     for (const tenantId of tenantIds) {
-      const stuckItems = await this.payrollItemRepo.find({
-        where: {
-          status: PayrollItemStatus.PROCESSING,
-          updatedAt: LessThan(cutoff),
-          payrollRun: { tenantId },
-        },
-        // Load the relations the failure notification reads: without `employee` the email falls
-        // back to a raw member UUID, and without `payrollRun` every item costs an extra
-        // resolveTenantId round trip.
-        relations: ['employee', 'payrollRun'],
-        take: 50,
-      });
-      checked += stuckItems.length;
+      try {
+        const stuckItems = await this.payrollItemRepo.find({
+          where: {
+            status: PayrollItemStatus.PROCESSING,
+            updatedAt: LessThan(cutoff),
+            payrollRun: { tenantId },
+          },
+          // Load the relations the failure notification reads: without `employee` the email falls
+          // back to a raw member UUID, and without `payrollRun` every item costs an extra
+          // resolveTenantId round trip.
+          relations: ['employee', 'payrollRun'],
+          take: 50,
+        });
+        checked += stuckItems.length;
 
-      for (const item of stuckItems) {
-        const changed = await this.reconcileStuckItem(item, tenantId);
-        if (changed) updated += 1;
+        for (const item of stuckItems) {
+          const changed = await this.reconcileStuckItem(item, tenantId);
+          if (changed) updated += 1;
+        }
+      } catch (error) {
+        // One tenant's rows must not abort the sweep for every other tenant, and a failed
+        // sweep must still report what it managed to check.
+        this.logger.warn(
+          `Stuck payout sweep failed for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
@@ -151,43 +159,54 @@ export class PayoutReconciliation {
         await this.payrollRunRepository.findDistinctTenantIdsWithPaidBachsItems();
       const recoverySince = new Date(Date.now() - BACHS_DEBIT_RECOVERY_WINDOW_MS);
       for (const tenantId of paidTenantIds) {
-        // Keyset pagination, not OFFSET: a repaired item drops out of the NOT EXISTS filter,
-        // so offset paging would skip candidates on the next page. The cursor is stable
-        // because updatedAt/id never change while this sweep runs.
-        let cursor: { updatedAt: Date; id: string } | null = null;
-        while (true) {
-          const paidItems = await this.findPaidBachsItemsMissingDebit(
-            tenantId,
-            recoverySince,
-            cursor,
-          );
-          checked += paidItems.length;
+        try {
+          // Keyset pagination, not OFFSET: a repaired item drops out of the NOT EXISTS filter,
+          // so offset paging would skip candidates on the next page. The cursor is stable
+          // because updatedAt/id never change while this sweep runs.
+          let cursor: { updatedAt: Date; id: string } | null = null;
+          while (true) {
+            const paidItems = await this.findPaidBachsItemsMissingDebit(
+              tenantId,
+              recoverySince,
+              cursor,
+            );
+            checked += paidItems.length;
 
-          for (const item of paidItems) {
-            if (!item.transactionId) continue;
-            try {
-              const retryAttempt =
-                typeof item.metadata?.payoutRetryCount === 'number'
-                  ? item.metadata.payoutRetryCount
-                  : 0;
-              const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
-              await this.applyTransferStatus(
-                merchantRef,
-                'COMPLETED',
-                item.transactionId,
-                PaymentProvider.BACHS,
-                tenantId,
-              );
-            } catch (error) {
-              this.logger.warn(
-                `Could not reconcile missing Bachs ledger debit for payroll item ${item.id}: ${error instanceof Error ? error.message : String(error)}`,
-              );
+            for (const item of paidItems) {
+              if (!item.transactionId) continue;
+              try {
+                const retryAttempt =
+                  typeof item.metadata?.payoutRetryCount === 'number'
+                    ? item.metadata.payoutRetryCount
+                    : 0;
+                const merchantRef = buildPayrollMerchantRef(
+                  item.payrollRunId,
+                  item.id,
+                  retryAttempt,
+                );
+                await this.applyTransferStatus(
+                  merchantRef,
+                  'COMPLETED',
+                  item.transactionId,
+                  PaymentProvider.BACHS,
+                  tenantId,
+                );
+              } catch (error) {
+                this.logger.warn(
+                  `Could not reconcile missing Bachs ledger debit for payroll item ${item.id}: ${error instanceof Error ? error.message : String(error)}`,
+                );
+              }
             }
-          }
 
-          const last = paidItems[paidItems.length - 1];
-          if (paidItems.length < BACHS_DEBIT_RECOVERY_PAGE_SIZE || !last?.updatedAt) break;
-          cursor = { updatedAt: last.updatedAt, id: last.id };
+            const last = paidItems[paidItems.length - 1];
+            if (paidItems.length < BACHS_DEBIT_RECOVERY_PAGE_SIZE || !last?.updatedAt) break;
+            cursor = { updatedAt: last.updatedAt, id: last.id };
+          }
+        } catch (error) {
+          // A single tenant's sweep failure must not leave every other tenant unrecovered.
+          this.logger.warn(
+            `Bachs debit recovery sweep failed for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+          );
         }
       }
     }
@@ -228,7 +247,11 @@ export class PayoutReconciliation {
         )`,
         { confirmedDebit: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED },
       )
-      .orderBy('paid_item.updated_at', 'ASC')
+      // Order by entity property paths, not database column names. This query paginates over a
+      // join, so TypeORM resolves the order-by through entity metadata in its distinct-alias
+      // path; a column name such as `updated_at` resolves to no property and the sweep throws
+      // "Cannot read properties of undefined (reading 'databaseName')".
+      .orderBy('paid_item.updatedAt', 'ASC')
       .addOrderBy('paid_item.id', 'ASC')
       .take(BACHS_DEBIT_RECOVERY_PAGE_SIZE);
 
@@ -422,6 +445,12 @@ export class PayoutReconciliation {
     // previous one stays a live payout. Items whose submission outcome we never learned
     // must not be retried blind — that is how an employee gets paid twice.
     if (provider === PaymentProvider.BACHS && !reference) {
+      // Bachs only omits the merchant reference when it never received the payout, so
+      // there is no live payout to double-pay and the retry is safe. Any other missing
+      // reference is an unknown submission and stays blocked.
+      if (item.metadata?.payoutNeverSubmitted === true) {
+        return true;
+      }
       throw new BadRequestException(
         `Cannot retry payroll item ${item.id}: Bachs has not provided a payout reference to verify a terminal failure.`,
       );
