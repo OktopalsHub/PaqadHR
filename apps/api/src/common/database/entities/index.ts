@@ -26,6 +26,7 @@ export * from '../../../modules/v1/payment-method/entities/payment-method-passco
 export * from '../../../modules/v1/payment-method/entities/payment-security.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-item.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-run.entity';
+export * from '../../../modules/v1/payroll/entities/payroll-run-funding-ledger-entry.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-webhook-event.entity';
 export * from '../../../modules/v1/plans/entities/plan.entity';
 export * from '../../../modules/v1/plans/entities/plan-price.entity';
@@ -61,4 +62,3 @@ export * from '../../integrations/entities/integration-channel.entity';
 export * from '../../integrations/entities/platform-integration.entity';
 export * from '../../integrations/entities/platform-user.entity';
 export * from '../../integrations/entities/user-integration-token.entity';
-export * from '../../../modules/v1/payroll/entities/payroll-run-funding-ledger-entry.entity';
