@@ -1,6 +1,9 @@
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
-import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
+import {
+  PayrollFundingLedgerEventType,
+  PayrollRunFundingLedgerEntry,
+} from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 describe('PayrollRunFundingLedgerService', () => {
@@ -29,6 +32,24 @@ describe('PayrollRunFundingLedgerService', () => {
       insert: jest.fn(),
       find: jest.fn(),
     };
+    const manager = {
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === PayrollRun) {
+          return {
+            findOne: jest.fn().mockResolvedValue({
+              id: input.payrollRunId,
+              tenantId: input.tenantId,
+            }),
+          };
+        }
+        return repository;
+      }),
+    };
+    repository.manager = {
+      transaction: jest.fn(async (callback: (tx: typeof manager) => Promise<void>) =>
+        callback(manager),
+      ),
+    } as never;
     service = new PayrollRunFundingLedgerService(repository as never);
   });
 
