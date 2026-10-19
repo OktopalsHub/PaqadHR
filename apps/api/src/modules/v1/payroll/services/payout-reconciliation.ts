@@ -17,6 +17,7 @@ import {
   parsePayrollMerchantRef,
 } from '../utils/payroll-merchant-ref.util';
 import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
+import type { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 const PAYROLL_AMOUNT_TOLERANCE = 1;
 
@@ -63,6 +64,7 @@ export class PayoutReconciliation {
     @InjectRepository(PayrollItem)
     private readonly payrollItemRepo: Repository<PayrollItem>,
     private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
+    private readonly fundingLedger?: PayrollRunFundingLedgerService,
   ) {}
 
   async resolveTenantId(payrollRunId: string): Promise<string | undefined> {
@@ -467,6 +469,51 @@ export class PayoutReconciliation {
             memberId: changedItem.memberId,
           },
         });
+      }
+    }
+
+    if (
+      changed &&
+      changedKind === 'paid' &&
+      provider === PaymentProvider.BACHS &&
+      parsed.payrollRunId &&
+      resolvedTenantId &&
+      this.fundingLedger
+    ) {
+      try {
+        const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
+        const payout = await querier?.queryStatus(transactionId, merchantRef);
+        if (
+          payout?.sourceDebitedAmount != null &&
+          Number.isFinite(payout.sourceDebitedAmount) &&
+          payout.sourceDebitedAmount > 0 &&
+          payout.sourceCurrency
+        ) {
+          await this.fundingLedger.recordConfirmedPayoutDebit({
+            tenantId: resolvedTenantId,
+            payrollRunId: parsed.payrollRunId,
+            payrollItemId: itemId,
+            amount: payout.sourceDebitedAmount,
+            currency: payout.sourceCurrency,
+            provider: PaymentProvider.BACHS,
+            providerReference: transactionId,
+            evidence: {
+              verifiedStatus: payout.status,
+              merchantReference: merchantRef,
+              destinationAmount: amount ?? null,
+              sourceDebitedAmount: payout.sourceDebitedAmount,
+              sourceCurrency: payout.sourceCurrency,
+            },
+          });
+        } else {
+          this.logger.warn(
+            `Bachs payout ${transactionId} completed but source debit could not be verified; payroll retry remains blocked`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Could not record verified Bachs debit for payroll item ${itemId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 
