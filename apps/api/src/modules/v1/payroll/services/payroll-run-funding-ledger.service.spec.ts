@@ -189,6 +189,31 @@ describe('PayrollRunFundingLedgerService', () => {
       );
     });
 
+    it('does not release reserved funds after a payout debit is confirmed', async () => {
+      repository.findOne
+        .mockResolvedValueOnce({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          payrollItemId: releaseInput.payrollItemId,
+          eventType: PayrollFundingLedgerEventType.PAYOUT_RESERVED,
+          amount: '40.00',
+          currency: 'USD',
+        })
+        .mockResolvedValueOnce(null);
+      repository.find.mockResolvedValue([
+        {
+          eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+          payrollItemId: releaseInput.payrollItemId,
+          amount: '40.00',
+          currency: 'USD',
+        },
+      ]);
+
+      await service.releaseFailedPayoutReservation(releaseInput);
+
+      expect(repository.insert).not.toHaveBeenCalled();
+    });
+
     it('keeps the reservation when the provider outcome is pending or unknown', async () => {
       await expect(
         service.releaseFailedPayoutReservation({
