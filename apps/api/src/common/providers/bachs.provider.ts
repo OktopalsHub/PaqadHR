@@ -249,6 +249,7 @@ export class BachsProvider extends BasePaymentProvider {
           retryFundingSourceCurrency !== sourceCurrency ||
           !Number.isFinite(sourceAmountRequired) ||
           sourceAmountRequired === undefined ||
+          sourceAmountRequired <= 0 ||
           sourceAmountRequired > retryFundingMaxSourceAmount + 0.01
         ) {
           return {
