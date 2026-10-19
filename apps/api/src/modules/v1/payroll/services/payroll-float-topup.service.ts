@@ -493,6 +493,7 @@ export class PayrollFloatTopupService {
     if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
       throw new BadRequestException('Retry funding requires an approved or processing payroll run');
     }
+    await this.assertRetryRunSettled(run, tenantId);
     const existingRetryFunding = this.readRetryFundingMeta(run);
     if (existingRetryFunding.status === 'pending') {
       throw new BadRequestException(
@@ -591,6 +592,7 @@ export class PayrollFloatTopupService {
       relations: ['items'],
     });
     if (!run) throw new NotFoundException('Payroll run not found');
+    await this.assertRetryRunSettled(run, tenantId);
     const meta = this.readRetryFundingMeta(run);
     if (
       !meta.orderReference ||
@@ -758,6 +760,37 @@ export class PayrollFloatTopupService {
         Math.round((allocations[keys[keys.length - 1]] + difference) * 100) / 100;
     }
     return allocations;
+  }
+
+  private async assertRetryRunSettled(run: PayrollRun, tenantId: string): Promise<void> {
+    if (
+      (run.items ?? []).some(
+        (item) =>
+          item.status === PayrollItemStatus.PENDING ||
+          item.status === PayrollItemStatus.PROCESSING ||
+          item.metadata?.payoutSubmissionPending === true,
+      )
+    ) {
+      throw new BadRequestException(
+        'Resolve all pending payroll payouts before approving or funding a retry shortfall.',
+      );
+    }
+    const ledger = await this.fundingLedger.getRunLedger(tenantId, run.id);
+    const debitedItemIds = new Set(
+      ledger.entries
+        .filter((entry) => entry.eventType === 'payout_confirmed')
+        .map((entry) => entry.payrollItemId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    if (
+      (run.items ?? []).some(
+        (item) => item.status === PayrollItemStatus.PAID && !debitedItemIds.has(item.id),
+      )
+    ) {
+      throw new BadRequestException(
+        'Reconcile all paid payroll items against provider-confirmed debits before retry funding.',
+      );
+    }
   }
 
   private readRetryFundingMeta(run: PayrollRun): RetryFundingMeta {
