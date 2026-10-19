@@ -1,5 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import {
+  quoteSourceAmountForDestination,
+  resolveBachsQuoteDestinationCurrency,
+  sourceAmountForBachsFundingItem,
+  type BachsFundingItem,
+} from 'src/common/config/bachs-funding-quote.util';
+import { getPayrollPayoutFeePerTransfer } from 'src/common/config/payroll-payout-fee.util';
+import { BachsApiService } from 'src/common/services/bachs-api.service';
 import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
@@ -12,6 +20,7 @@ import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
 import { PaymentBatching } from './payment-batching';
 import { PaymentValidation } from './payment-validation';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
@@ -85,6 +94,7 @@ export class MultiPaymentService {
     private readonly payrollPayoutService: PayrollPayoutService,
     @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
     @Optional() private readonly fundingLedger?: PayrollRunFundingLedgerService,
+    @Optional() private readonly bachsApi?: BachsApiService,
   ) {
     this.lifecycleNotify = lifecycleNotify;
     this.validation = new PaymentValidation(payrollItemRepository);
@@ -251,6 +261,7 @@ export class MultiPaymentService {
             'Run-scoped funding ledger is unavailable; retry remains blocked',
           );
         }
+        await this.assertRetryQuotesCovered(payrollRun, retriableItems, meta);
         for (const item of retriableItems) {
           const amount = Number(meta.itemFundingAmounts[item.id]);
           if (!Number.isFinite(amount) || amount <= 0) {
@@ -310,6 +321,80 @@ export class MultiPaymentService {
       };
     } finally {
       await this.releasePayrollRun(payrollRunId, tenantId, lockAt);
+    }
+  }
+
+  private async assertRetryQuotesCovered(
+    payrollRun: { baseCurrency: string; metadata: Record<string, unknown> | null },
+    items: PayrollItem[],
+    meta: {
+      currency: string;
+      itemFundingAmounts: Record<string, number>;
+    },
+  ): Promise<void> {
+    if (!this.bachsApi) {
+      throw new BadRequestException(
+        'Bachs quote service is unavailable. Retry remains blocked until funding can be revalidated.',
+      );
+    }
+    for (const item of items) {
+      const paymentCurrency = (item.paymentCurrency || payrollRun.baseCurrency).toUpperCase();
+      const fxAtPayout = item.metadata?.fxAtPayout === true;
+      const fundingItem: BachsFundingItem = {
+        amount: resolvePayrollPayoutAmount(item),
+        amountCurrency: fxAtPayout
+          ? (item.baseSalaryCurrency || payrollRun.baseCurrency).toUpperCase()
+          : paymentCurrency,
+        paymentCurrency,
+        cryptoNetwork:
+          typeof item.metadata?.cryptoNetwork === 'string' ? item.metadata.cryptoNetwork : null,
+        fxAtPayout,
+      };
+      let requiredAmount = await sourceAmountForBachsFundingItem({
+        item: fundingItem,
+        fundingCurrency: meta.currency as 'USD' | 'NGN',
+        createQuote: (input) => this.bachsApi!.createPayoutQuote(input),
+      });
+
+      if (fundingItem.paymentCurrency === fundingItem.amountCurrency) {
+        const feeAmount = getPayrollPayoutFeePerTransfer(
+          fundingItem.paymentCurrency,
+          PaymentProvider.BACHS,
+        );
+        if (feeAmount > 0) {
+          if (fundingItem.paymentCurrency === meta.currency.toUpperCase()) {
+            requiredAmount += feeAmount;
+          } else {
+            const destination = resolveBachsQuoteDestinationCurrency(
+              fundingItem.paymentCurrency,
+              fundingItem.cryptoNetwork,
+            );
+            if (!destination) {
+              throw new BadRequestException(
+                `Cannot revalidate the ${fundingItem.paymentCurrency} payout fee for retry funding.`,
+              );
+            }
+            const quotedFee = await quoteSourceAmountForDestination({
+              createQuote: (input) => this.bachsApi!.createPayoutQuote(input),
+              fromCurrency: meta.currency,
+              toCurrency: destination,
+              targetToAmount: feeAmount,
+              payoutMethod:
+                destination.startsWith('USDT_') || destination.startsWith('USDC_')
+                  ? undefined
+                  : 'BANK_TRANSFER',
+            });
+            requiredAmount += quotedFee.sourceAmount;
+          }
+        }
+      }
+
+      const allocated = Number(meta.itemFundingAmounts[item.id]);
+      if (!Number.isFinite(allocated) || requiredAmount > allocated + 0.01) {
+        throw new BadRequestException(
+          `Bachs source quote for payroll item ${item.id} now exceeds its approved funding allocation. Approve and fund the updated shortfall before retrying.`,
+        );
+      }
     }
   }
 
