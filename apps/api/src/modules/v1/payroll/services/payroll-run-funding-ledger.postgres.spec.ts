@@ -17,6 +17,12 @@ integrationDescribe('Payroll run funding ledger PostgreSQL integration', () => {
     if (!integrationDatabaseUrl) {
       throw new Error('PAYROLL_LEDGER_INTEGRATION_DATABASE_URL is required');
     }
+    const databaseName = decodeURIComponent(new URL(integrationDatabaseUrl).pathname.slice(1));
+    if (!databaseName.endsWith('_test')) {
+      throw new Error(
+        'Payroll ledger integration tests require a dedicated database whose name ends in _test',
+      );
+    }
 
     client = new Client({ connectionString: integrationDatabaseUrl });
     competingClient = new Client({ connectionString: integrationDatabaseUrl });
