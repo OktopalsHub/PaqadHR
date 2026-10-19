@@ -221,17 +221,29 @@ export class PayrollService {
     );
   }
 
+  async previewRetryShortfall(
+    payrollRunId: string,
+    tenantId: string,
+    itemIds: string[],
+  ) {
+    return this.payrollFloatTopupService.previewRetryShortfall(payrollRunId, tenantId, itemIds);
+  }
+
   async approveRetryShortfall(
     payrollRunId: string,
     tenantId: string,
     approvedById: string,
     itemIds: string[],
+    expectedAmount: number,
+    expectedCurrency: string,
   ) {
     return this.payrollFloatTopupService.approveRetryShortfall(
       payrollRunId,
       tenantId,
       approvedById,
       itemIds,
+      expectedAmount,
+      expectedCurrency,
     );
   }
 
