@@ -523,15 +523,21 @@ export class PayrollFloatTopupService {
       selected.length !== uniqueIds.length ||
       selected.some((item) => item.status !== PayrollItemStatus.FAILED)
     ) {
-      throw new BadRequestException('Retry funding can only be previewed for failed items in this run');
+      throw new BadRequestException(
+        'Retry funding can only be previewed for failed items in this run',
+      );
     }
     if (selected.some((item) => item.metadata?.payoutSubmissionPending === true)) {
-      throw new BadRequestException('A payout with unresolved submission cannot be funded for retry');
+      throw new BadRequestException(
+        'A payout with unresolved submission cannot be funded for retry',
+      );
     }
 
     const preflight = await this.preflight(payrollRunId, tenantId, true, uniqueIds);
     if (preflight.provider !== PaymentProvider.BACHS) {
-      throw new BadRequestException('This retry funding preview is only available for Bachs payouts');
+      throw new BadRequestException(
+        'This retry funding preview is only available for Bachs payouts',
+      );
     }
     if (!preflight.canCheckout || preflight.requiredAmount <= 0) {
       throw new BadRequestException(
