@@ -95,14 +95,42 @@ export class PayrollFloatTopupService {
     private readonly tenantRepository: Repository<Tenant>,
   ) {}
 
-  async preflight(payrollRunId: string, tenantId: string): Promise<PayrollFundPreflight> {
+  async preflight(
+    payrollRunId: string,
+    tenantId: string,
+    allowProcessingRun = false,
+    retryItemIds?: string[],
+  ): Promise<PayrollFundPreflight> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
         'Payroll gateway is not configured. Configure Nomba/Monnify/Fincra/Bachs (NGN) and/or Noah/Fincra/Bachs credentials.',
       );
     }
 
-    const run = await this.requireApprovedRun(payrollRunId, tenantId);
+    let run: PayrollRun;
+    if (allowProcessingRun) {
+      const retryableRun = await this.payrollRunRepository.findOne({
+        where: { id: payrollRunId, tenantId },
+        relations: ['items'],
+      });
+      if (!retryableRun) throw new NotFoundException('Payroll run not found');
+      if (
+        retryableRun.status !== PayrollStatus.APPROVED &&
+        retryableRun.status !== PayrollStatus.PROCESSING
+      ) {
+        throw new BadRequestException(
+          `Payroll run must be approved or processing before retry funding checks. Current: ${retryableRun.status}`,
+        );
+      }
+      run = retryableRun;
+      run.items = (run.items ?? []).filter(
+        (item) =>
+          item.status === PayrollItemStatus.FAILED &&
+          (!retryItemIds || retryItemIds.includes(item.id)),
+      );
+    } else {
+      run = await this.requireApprovedRun(payrollRunId, tenantId);
+    }
     const bachsPreflight = await this.tryBachsFundingPreflight(run, tenantId);
     if (bachsPreflight) return bachsPreflight;
 
@@ -377,6 +405,19 @@ export class PayrollFloatTopupService {
     const preflight = await this.preflight(payrollRunId, tenantId);
     if (!preflight.ok) {
       throw new BadRequestException(preflight.message);
+    }
+  }
+
+  async assertRetryFundedOrThrow(
+    payrollRunId: string,
+    tenantId: string,
+    retryItemIds?: string[],
+  ): Promise<void> {
+    const preflight = await this.preflight(payrollRunId, tenantId, true, retryItemIds);
+    if (!preflight.ok) {
+      throw new BadRequestException(
+        `Retry blocked because provider funding is insufficient or cannot be verified. ${preflight.message}`,
+      );
     }
   }
 

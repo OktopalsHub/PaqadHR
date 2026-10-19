@@ -209,7 +209,8 @@ export function usePayrollActions() {
       onSuccess: invalidate,
     }),
     retryFailed: useMutation({
-      mutationFn: retryFailedPayrollPayments,
+      mutationFn: ({ id, itemIds }: { id: string; itemIds?: string[] }) =>
+        retryFailedPayrollPayments(id, itemIds),
       onSuccess: invalidate,
     }),
     schedule: useMutation({

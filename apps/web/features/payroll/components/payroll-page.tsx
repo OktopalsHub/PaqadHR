@@ -470,7 +470,7 @@ export function PayrollPage() {
         return;
       }
       if (action === 'retry') {
-        const response = await actions.retryFailed.mutateAsync(id);
+        const response = await actions.retryFailed.mutateAsync({ id });
         toastPayrollPayoutResult(response.result, 'retry');
         return;
       }
