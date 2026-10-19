@@ -164,6 +164,15 @@ integrationDescribe('Payroll run funding ledger PostgreSQL integration', () => {
     ).rejects.toMatchObject({ code: '23514' });
 
     await expect(
+      client.query(
+        `INSERT INTO payroll_run_funding_ledger
+          (tenant_id, payroll_run_id, event_type, amount, currency, provider, idempotency_key)
+         VALUES ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', $1, 'funding_received', 1.00, 'NGN', 'BACHS', 'funding:missing-tenant')`,
+        [payrollRunId],
+      ),
+    ).rejects.toMatchObject({ code: '23503' });
+
+    await expect(
       client.query('DELETE FROM payroll_runs WHERE id = $1', [payrollRunId]),
     ).rejects.toMatchObject({ code: '23503' });
     await expect(client.query('DELETE FROM tenants WHERE id = $1', [tenantId])).rejects.toMatchObject({
