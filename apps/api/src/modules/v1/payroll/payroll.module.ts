@@ -20,8 +20,8 @@ import { PayrollRunsController } from './controllers/payroll-runs.controller';
 import { PayrollWebhooksController } from './controllers/payroll-webhooks.controller';
 import { PayrollItem } from './entities/payroll-item.entity';
 import { PayrollRun } from './entities/payroll-run.entity';
-import { PayrollWebhookEvent } from './entities/payroll-webhook-event.entity';
 import { PayrollRunFundingLedgerEntry } from './entities/payroll-run-funding-ledger-entry.entity';
+import { PayrollWebhookEvent } from './entities/payroll-webhook-event.entity';
 import { PayrollItemRepository } from './repositories/payroll-item.repository';
 import { PayrollRunRepository } from './repositories/payroll-run.repository';
 import { AuditService } from './services/audit.service';
@@ -34,16 +34,22 @@ import { PayrollExportService } from './services/payroll-export.service';
 import { PayrollFeeService } from './services/payroll-fee.service';
 import { PayrollFloatBalanceService } from './services/payroll-float-balance.service';
 import { PayrollFloatTopupService } from './services/payroll-float-topup.service';
-import { PayrollRunFundingLedgerService } from './services/payroll-run-funding-ledger.service';
 import { PayrollLifecycleNotifyService } from './services/payroll-lifecycle-notify.service';
 import { PayrollPaymentOrchestrator } from './services/payroll-payment-orchestrator';
 import { PayrollPayoutService } from './services/payroll-payout.service';
 import { PayrollPayoutCronService } from './services/payroll-payout-cron.service';
 import { PayrollRunService } from './services/payroll-run.service';
+import { PayrollRunFundingLedgerService } from './services/payroll-run-funding-ledger.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PayrollRun, PayrollItem, PayrollWebhookEvent, PayrollRunFundingLedgerEntry, Tenant]),
+    TypeOrmModule.forFeature([
+      PayrollRun,
+      PayrollItem,
+      PayrollWebhookEvent,
+      PayrollRunFundingLedgerEntry,
+      Tenant,
+    ]),
     ActivitiesModule,
     PaymentsModule,
     SubscriptionsModule,
