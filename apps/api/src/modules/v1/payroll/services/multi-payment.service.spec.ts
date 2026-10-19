@@ -825,6 +825,39 @@ describe('MultiPaymentService', () => {
     expect(result.failedPayments).toBe(1);
   });
 
+  it('blocks direct Bachs retry calls until run-scoped funding is authorized', async () => {
+    const { service, payrollRunRepository, paymentProvider } = createService();
+    const failedItem = {
+      id: '22222222-2222-4222-8222-222222222222',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
+      memberId: 'member-1',
+      paymentCurrency: 'NGN',
+      paymentAmount: 1000,
+      status: PayrollItemStatus.FAILED,
+      paymentProvider: 'Bachs',
+      metadata: {},
+    } as PayrollItem;
+
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: failedItem.payrollRunId,
+      tenantId: 'tenant-1',
+      status: PayrollStatus.PROCESSING,
+      baseCurrency: 'NGN',
+      items: [failedItem],
+      metadata: { floatTopup: { provider: 'BACHS', status: 'completed' } },
+      tenant: { name: 'Acme' },
+    });
+
+    await expect(
+      service.retryFailedPayments(failedItem.payrollRunId!, 'tenant-1', {
+        userId: 'u1',
+      } as never),
+    ).rejects.toThrow(/Bachs retry is blocked until the selected failed payouts/);
+
+    expect(paymentProvider.createPayment).not.toHaveBeenCalled();
+    expect(paymentProvider.createBulkTransfer).not.toHaveBeenCalled();
+  });
+
   it('uses retry suffix merchant ref on failed-item retry', async () => {
     process.env.NOMBA_CLIENT_ID = 'id';
     process.env.NOMBA_CLIENT_SECRET = 'secret';
