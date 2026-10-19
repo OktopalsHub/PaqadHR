@@ -452,6 +452,30 @@ export class PaymentBatching {
         };
       }
 
+      if (
+        !result.retryable &&
+        providerName === 'Bachs' &&
+        !result.transactionId &&
+        !result.reference
+      ) {
+        // Bachs only omits the merchant reference when createPayout was never called. Keep this
+        // explicit so the retry funding ledger can safely release the reservation.
+        const message = result.error || 'Bachs rejected the payout before submission';
+        await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
+          status: PayrollItemStatus.FAILED,
+          failureReason: message,
+        });
+        item.status = PayrollItemStatus.FAILED;
+        item.failureReason = message;
+        return {
+          success: false,
+          outcome: 'failed',
+          error: message,
+          provider: providerName,
+          rail,
+        };
+      }
+
       if (result.retryable) {
         // A retryable failure that still carries the merchant reference means the payout was
         // submitted and we simply never saw the response. Record that, so reconciliation
