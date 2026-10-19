@@ -26,7 +26,10 @@ function bachsFundingCurrencyFromFloatTopup(floatTopup: unknown): string | undef
 }
 
 
-function isBachsBackedRun(run: { metadata?: Record<string, unknown> | null }, items: PayrollItem[]): boolean {
+function isBachsBackedRun(
+  run: { metadata?: Record<string, unknown> | null },
+  items: PayrollItem[],
+): boolean {
   const floatTopup = run.metadata?.floatTopup;
   if (
     floatTopup &&
