@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantRoleGuard } from '../../../common/guards/tenant-member-role.guard';
 import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
+import { Tenant } from '../tenants/entities/tenant.entity';
 import { NotificationController } from './controllers/notification.controller';
 import { NotificationPreferenceController } from './controllers/notification-preference.controller';
 import { Notification } from './entities/notification.entity';
@@ -19,11 +20,12 @@ import { NotificationPreferenceService } from './services/notification-preferenc
 import { PayrollNotificationsService } from './services/payroll-notifications.service';
 import { SSENotificationService } from './services/sse-notification.service';
 import { SystemNotificationsService } from './services/system-notifications.service';
+import { TenantNameService } from './services/tenant-name.service';
 import { ZeptomailEmailService } from './services/zeptomail-email.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Notification, NotificationPreference]),
+    TypeOrmModule.forFeature([Notification, NotificationPreference, Tenant]),
     TenantMembersModule,
     ActivitiesModule,
   ],
@@ -41,6 +43,7 @@ import { ZeptomailEmailService } from './services/zeptomail-email.service';
     LeaveNotificationsService,
     EngagementNotificationsService,
     SystemNotificationsService,
+    TenantNameService,
     NotificationEventListener,
     TenantRoleGuard,
   ],
@@ -57,6 +60,7 @@ import { ZeptomailEmailService } from './services/zeptomail-email.service';
     LeaveNotificationsService,
     EngagementNotificationsService,
     SystemNotificationsService,
+    TenantNameService,
   ],
 })
 export class NotificationsModule {}

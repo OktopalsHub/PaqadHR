@@ -4,6 +4,7 @@ import {
   emailDanielSignOff,
   emailHeading,
   emailHighlight,
+  emailOrganizationSignOff,
   emailParagraph,
   greetingFirstName,
 } from './shared';
@@ -14,6 +15,11 @@ export interface PayrollNotificationEmailVariables {
   payrollPeriod: string;
   amount: string | number;
   currency: string;
+  /**
+   * Organization that paid the salary (the workspace name). When present the email names the
+   * payer instead of signing off as the Paqad team.
+   */
+  organizationName?: string;
 }
 
 export function renderPayrollNotificationEmail(
@@ -23,18 +29,21 @@ export function renderPayrollNotificationEmail(
   const period = escapeHtml(vars.payrollPeriod);
   const amount = escapeHtml(String(vars.amount));
   const currency = escapeHtml(vars.currency);
+  const organizationName = vars.organizationName?.trim();
 
   const bodyHtml = [
     emailHeading('Your payroll has been processed'),
     emailParagraph(`Hi ${firstName},`),
     emailParagraph(
-      `Good news — payroll for <strong>${period}</strong> has been processed for you.`,
+      organizationName
+        ? `Good news — <strong>${escapeHtml(organizationName)}</strong> has processed your payroll for <strong>${period}</strong>.`
+        : `Good news — payroll for <strong>${period}</strong> has been processed for you.`,
     ),
     emailHighlight(`Amount: <strong>${currency} ${amount}</strong>`),
     emailParagraph(
       'Please check your bank account or payment method on file for the deposit details. If anything looks off, reach out to your workspace admin.',
     ),
-    emailDanielSignOff(),
+    organizationName ? emailOrganizationSignOff(organizationName) : emailDanielSignOff(),
   ].join('');
 
   return {
@@ -45,10 +54,12 @@ export function renderPayrollNotificationEmail(
     }),
     text: [
       `Hi ${vars.employeeName || 'there'},`,
-      `Payroll for ${vars.payrollPeriod} has been processed.`,
+      organizationName
+        ? `${organizationName} has processed your payroll for ${vars.payrollPeriod}.`
+        : `Payroll for ${vars.payrollPeriod} has been processed.`,
       `Amount: ${vars.currency} ${vars.amount}`,
       '',
-      EMAIL_SIGNOFF_TEXT,
+      organizationName ? `Thank you,\n${organizationName}` : EMAIL_SIGNOFF_TEXT,
     ].join('\n'),
   };
 }

@@ -68,6 +68,14 @@ export function emailDanielSignOff(): string {
   return `<p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:${BODY_TEXT};">Thank you,<br /><strong>The Paqad Team</strong></p>`;
 }
 
+/**
+ * Sign off with the organization the message is about (the workspace that paid the salary)
+ * instead of the platform team, so members see who actually sent the message.
+ */
+export function emailOrganizationSignOff(organizationName: string): string {
+  return `<p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:${BODY_TEXT};">Thank you,<br /><strong>${escapeHtml(organizationName)}</strong></p>`;
+}
+
 export function resolveFirstName(name?: string, email?: string): string {
   const trimmed = name?.trim();
   if (trimmed) return trimmed;
