@@ -75,6 +75,17 @@ export class PayoutReconciliation {
     return run?.tenantId;
   }
 
+  /**
+   * True when the provider string persisted on an item resolves to `provider`.
+   *
+   * Items store `paymentProvider` as the display label (for example "Bachs transfer"), while
+   * webhook and query paths pass a `PaymentProvider`. Comparing the raw strings (or the label)
+   * silently skips recovery, so always compare through the resolver.
+   */
+  private isSameProvider(stored: string | null | undefined, provider: PaymentProvider): boolean {
+    return (stored ?? '').trim().length > 0 && this.resolveStoredProvider(stored) === provider;
+  }
+
   resolveStoredProvider(stored: string | null | undefined): PaymentProvider {
     const value = (stored ?? '').toLowerCase();
     if (value.includes('fincra')) return PaymentProvider.FINCRA;
@@ -478,7 +489,7 @@ export class PayoutReconciliation {
       if (
         existingItem?.status === PayrollItemStatus.FAILED &&
         existingItem.transactionId === transactionId &&
-        (existingItem.paymentProvider ?? '').toLowerCase() === providerName.toLowerCase()
+        this.isSameProvider(existingItem.paymentProvider, provider)
       ) {
         const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
         const payout = await querier?.queryStatus(transactionId, merchantRef);
@@ -528,7 +539,7 @@ export class PayoutReconciliation {
           // when this success belongs to the exact payout already recorded on the item.
           if (
             provider === PaymentProvider.BACHS &&
-            (item.paymentProvider ?? '').toLowerCase() === providerName.toLowerCase() &&
+            this.isSameProvider(item.paymentProvider, provider) &&
             item.transactionId === transactionId
           ) {
             outcome.item = item;
@@ -561,7 +572,7 @@ export class PayoutReconciliation {
             verifiedFailedBachsSuccess &&
             provider === PaymentProvider.BACHS &&
             item.transactionId === transactionId &&
-            (item.paymentProvider ?? '').toLowerCase() === providerName.toLowerCase()
+            this.isSameProvider(item.paymentProvider, provider)
           )
         ) {
           return false;
@@ -650,12 +661,17 @@ export class PayoutReconciliation {
       }
     }
 
+    // A compact `pi_...` merchant ref does not encode the run id, so resolve it from the item
+    // that was just confirmed paid. Without this the ledger recovery is unreachable for the
+    // ref format we actually mint, and a paid item can stay without its confirmed debit.
+    const debitPayrollRunId = parsed.payrollRunId ?? outcome.item?.payrollRunId ?? null;
+
     if (
       changedKind === 'paid' &&
       outcome.item?.status === PayrollItemStatus.PAID &&
       outcome.item.transactionId === transactionId &&
       provider === PaymentProvider.BACHS &&
-      parsed.payrollRunId &&
+      debitPayrollRunId &&
       resolvedTenantId &&
       this.fundingLedger
     ) {
@@ -688,7 +704,7 @@ export class PayoutReconciliation {
         ) {
           await this.fundingLedger.recordConfirmedPayoutDebit({
             tenantId: resolvedTenantId,
-            payrollRunId: parsed.payrollRunId,
+            payrollRunId: debitPayrollRunId,
             payrollItemId: itemId,
             amount: payout.sourceDebitedAmount,
             currency: payout.sourceCurrency,

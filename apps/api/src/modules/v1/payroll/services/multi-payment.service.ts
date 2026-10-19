@@ -1,11 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
   type BachsFundingItem,
-  quoteSourceAmountForDestination,
-  resolveBachsQuoteDestinationCurrency,
-  sourceAmountForBachsFundingItem,
+  sourceAmountWithPayoutFeeForBachsFundingItem,
 } from 'src/common/config/bachs-funding-quote.util';
-import { getPayrollPayoutFeePerTransfer } from 'src/common/config/payroll-payout-fee.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { BachsApiService } from 'src/common/services/bachs-api.service';
@@ -479,44 +476,12 @@ export class MultiPaymentService {
           `Invalid payout amount for payroll item ${item.id}; retry remains blocked.`,
         );
       }
-      let requiredAmount = await sourceAmountForBachsFundingItem({
+      const allocation = await sourceAmountWithPayoutFeeForBachsFundingItem({
         item: fundingItem,
         fundingCurrency: meta.currency as 'USD' | 'NGN',
         createQuote: (input) => bachsApi.createPayoutQuote(input),
       });
-
-      if (fundingItem.paymentCurrency === fundingItem.amountCurrency) {
-        const feeAmount = getPayrollPayoutFeePerTransfer(
-          fundingItem.paymentCurrency,
-          PaymentProvider.BACHS,
-        );
-        if (feeAmount > 0) {
-          if (fundingItem.paymentCurrency === meta.currency.toUpperCase()) {
-            requiredAmount += feeAmount;
-          } else {
-            const destination = resolveBachsQuoteDestinationCurrency(
-              fundingItem.paymentCurrency,
-              fundingItem.cryptoNetwork,
-            );
-            if (!destination) {
-              throw new BadRequestException(
-                `Cannot revalidate the ${fundingItem.paymentCurrency} payout fee for retry funding.`,
-              );
-            }
-            const quotedFee = await quoteSourceAmountForDestination({
-              createQuote: (input) => bachsApi.createPayoutQuote(input),
-              fromCurrency: meta.currency,
-              toCurrency: destination,
-              targetToAmount: feeAmount,
-              payoutMethod:
-                destination.startsWith('USDT_') || destination.startsWith('USDC_')
-                  ? undefined
-                  : 'BANK_TRANSFER',
-            });
-            requiredAmount += quotedFee.sourceAmount;
-          }
-        }
-      }
+      const requiredAmount = allocation.sourceAmount + allocation.payoutFeeReserve;
 
       const allocated = Number(meta.itemFundingAmounts[item.id]);
       if (!Number.isFinite(allocated) || requiredAmount > allocated + 0.01) {
