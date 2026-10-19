@@ -580,7 +580,9 @@ export class PayrollRunFundingLedgerService {
       !input.approvedById ||
       selectedItemIds.length === 0
     ) {
-      throw new Error('Retry shortfall approval requires selected items, a positive amount, currency, and approver');
+      throw new Error(
+        'Retry shortfall approval requires selected items, a positive amount, currency, and approver',
+      );
     }
 
     await this.ledgerRepository.manager.transaction(async (manager) => {
