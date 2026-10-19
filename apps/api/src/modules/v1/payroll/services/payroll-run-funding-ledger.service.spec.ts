@@ -201,7 +201,9 @@ describe('PayrollRunFundingLedgerService', () => {
         providerReference: 'payout-123',
         evidence: { verifiedStatus: 'COMPLETED' },
       }),
-    ).rejects.toThrow('Payout debit reference was already allocated to a different payroll transaction');
+    ).rejects.toThrow(
+      'Payout debit reference was already allocated to a different payroll transaction',
+    );
     expect(repository.insert).not.toHaveBeenCalled();
   });
 
@@ -397,6 +399,10 @@ describe('PayrollRunFundingLedgerService', () => {
       approvalReference: 'retry-order-1',
     });
 
+    expect(runRepository.findOne).toHaveBeenCalledWith({
+      where: { id: input.payrollRunId, tenantId: input.tenantId },
+      lock: { mode: 'pessimistic_write' },
+    });
     expect(ledgerRepository.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: PayrollFundingLedgerEventType.SHORTFALL_APPROVED,
