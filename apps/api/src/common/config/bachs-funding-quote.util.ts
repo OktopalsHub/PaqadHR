@@ -1,5 +1,4 @@
 import {
-  BACHS_INTL_BANK_SOURCE_CURRENCY,
   isBachsCryptoAsset,
   isBachsIntlBankCurrency,
   mapBachsCryptoDestinationCurrency,
@@ -103,14 +102,17 @@ export async function quoteSourceAmountForDestination(params: {
     amount: fromAmount.toFixed(2),
     payoutMethod,
   });
-  const got = Number(quote.to_amount);
-  const quotedFrom = Number(quote.from_amount);
+  let got = Number(quote.to_amount);
+  let quotedFrom = Number(quote.from_amount);
+
+  // A tolerance is useful for FX drift, but must never allow an employee to receive less
+  // than the requested amount. Requote even when an underpayment is within that tolerance.
   if (
     Number.isFinite(got) &&
     got > 0 &&
     Number.isFinite(quotedFrom) &&
     quotedFrom > 0 &&
-    Math.abs(got - targetToAmount) / targetToAmount > 0.005
+    (got < targetToAmount || Math.abs(got - targetToAmount) / targetToAmount > 0.005)
   ) {
     fromAmount = (targetToAmount * quotedFrom) / got;
     quote = await createQuote({
@@ -119,17 +121,23 @@ export async function quoteSourceAmountForDestination(params: {
       amount: fromAmount.toFixed(2),
       payoutMethod,
     });
+    got = Number(quote.to_amount);
+    quotedFrom = Number(quote.from_amount);
   }
-  const sourceAmount = Number(quote.from_amount);
-  if (!(sourceAmount > 0) || !quote.quote_id) {
+
+  if (!Number.isFinite(quotedFrom) || quotedFrom <= 0 || !quote.quote_id) {
     throw new Error('Bachs payout quote missing source amount');
   }
-  return { sourceAmount: Math.round(sourceAmount * 100) / 100, quoteId: quote.quote_id };
+  if (!Number.isFinite(got) || got < targetToAmount) {
+    throw new Error('Bachs payout quote does not cover the requested recipient amount');
+  }
+  return { sourceAmount: Math.round(quotedFrom * 100) / 100, quoteId: quote.quote_id };
 }
 
 /**
  * How much of `fundingCurrency` must sit on the Bachs balance to pay one item.
- * Stablecoins are treated as 1:1 with USD for funding (peg); exact chain quote happens at payout.
+ * Use Bachs quotes for cross-currency bank and stablecoin payouts so the checkout amount
+ * includes the provider's current FX rate and payout costs.
  */
 export async function sourceAmountForBachsFundingItem(params: {
   item: BachsFundingItem;
@@ -154,13 +162,21 @@ export async function sourceAmountForBachsFundingItem(params: {
 
   // Amount already in the funding balance currency (incl. FX-at-payout salary in USD).
   if (amountCurrency === fundingCurrency) {
-    if (destinationBase === fundingCurrency || paymentCurrency === 'USDT') {
-      // Stablecoins settle ~1:1 against USD, so no chain quote is needed here. This assumes
-      // `amountCurrency` is already USD — see pickBachsFundingCurrency: Bachs holds USD + NGN
-      // and any non-NGN destination is funded in USD. An NGN-denominated amount reaching this
-      // branch would be treated as USD and under/over-fund the checkout, so callers must fund
-      // cross-currency runs in USD (BACHS_PAYOUT_SOURCE_CURRENCY=USD) rather than in NGN.
+    if (destinationBase === fundingCurrency) {
+      // Same-currency bank payouts cannot use a conversion quote. Their per-transfer fee
+      // is handled by the configured payout-fee reserve in payroll preflight.
       return Math.round(amount * 100) / 100;
+    }
+    if (isCryptoDestination) {
+      // A USD-denominated salary paid in a stablecoin still needs a destination-targeted
+      // quote so the employee receives the intended amount after Bachs' payout costs.
+      const quoted = await quoteSourceAmountForDestination({
+        createQuote,
+        fromCurrency: fundingCurrency,
+        toCurrency: destination,
+        targetToAmount: amount,
+      });
+      return quoted.sourceAmount;
     }
     const quote = await createQuote({
       fromCurrency: fundingCurrency,
@@ -176,9 +192,6 @@ export async function sourceAmountForBachsFundingItem(params: {
   // Amount is what the employee receives in the destination currency.
   if (amountCurrency === paymentCurrency || amountCurrency === destinationBase) {
     if (destinationBase === fundingCurrency) {
-      return Math.round(amount * 100) / 100;
-    }
-    if (paymentCurrency === 'USDT' && fundingCurrency === BACHS_INTL_BANK_SOURCE_CURRENCY) {
       return Math.round(amount * 100) / 100;
     }
     const quoted = await quoteSourceAmountForDestination({

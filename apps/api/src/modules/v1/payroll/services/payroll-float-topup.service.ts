@@ -9,8 +9,15 @@ import {
   applyPayrollFee,
   type BachsFundingItem,
   pickBachsFundingCurrency,
+  quoteSourceAmountForDestination,
+  resolveBachsQuoteDestinationCurrency,
   sumBachsFundingSourceAmount,
 } from 'src/common/config/bachs-funding-quote.util';
+import {
+  calculatePayrollPayoutFeeReserve,
+  getPayrollPayoutFeePerTransfer,
+  hasConfiguredPayrollPayoutFee,
+} from 'src/common/config/payroll-payout-fee.util';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
@@ -56,6 +63,10 @@ export type PayrollFundPreflight = {
   employeeTotal?: number;
   platformFee?: number;
   feePercentage?: number;
+  /** Additional provider payout-fee reserve, separate from the PaqadHR platform fee. */
+  payoutFeeReserve?: number;
+  payoutFeePerTransfer?: number;
+  payoutTransferCount?: number;
 };
 
 type FloatTopupMeta = {
@@ -84,20 +95,58 @@ export class PayrollFloatTopupService {
     private readonly tenantRepository: Repository<Tenant>,
   ) {}
 
-  async preflight(payrollRunId: string, tenantId: string): Promise<PayrollFundPreflight> {
+  async preflight(
+    payrollRunId: string,
+    tenantId: string,
+    allowProcessingRun = false,
+    retryItemIds?: string[],
+  ): Promise<PayrollFundPreflight> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
         'Payroll gateway is not configured. Configure Nomba/Monnify/Fincra/Bachs (NGN) and/or Noah/Fincra/Bachs credentials.',
       );
     }
 
-    const run = await this.requireApprovedRun(payrollRunId, tenantId);
+    let run: PayrollRun;
+    if (allowProcessingRun) {
+      const retryableRun = await this.payrollRunRepository.findOne({
+        where: { id: payrollRunId, tenantId },
+        relations: ['items'],
+      });
+      if (!retryableRun) throw new NotFoundException('Payroll run not found');
+      if (
+        retryableRun.status !== PayrollStatus.APPROVED &&
+        retryableRun.status !== PayrollStatus.PROCESSING
+      ) {
+        throw new BadRequestException(
+          `Payroll run must be approved or processing before retry funding checks. Current: ${retryableRun.status}`,
+        );
+      }
+      run = retryableRun;
+      run.items = (run.items ?? []).filter(
+        (item) =>
+          item.status === PayrollItemStatus.FAILED &&
+          (!retryItemIds || retryItemIds.includes(item.id)),
+      );
+    } else {
+      run = await this.requireApprovedRun(payrollRunId, tenantId);
+    }
     const bachsPreflight = await this.tryBachsFundingPreflight(run, tenantId);
     if (bachsPreflight) return bachsPreflight;
 
     const currency = run.baseCurrency.toUpperCase();
     const provider = resolvePaymentProvider(currency);
-    const requiredAmount = this.payableNet(run);
+    const employeeTotal = this.payableNet(run);
+    const feePercentage = await this.payrollFeeService.getPayrollFeePercentage(tenantId);
+    const platformFee = Math.round(employeeTotal * (feePercentage / 100) * 100) / 100;
+    const payoutTransferCount = this.countPayableTransfers(run, currency);
+    const payoutFee = calculatePayrollPayoutFeeReserve({
+      currency,
+      provider,
+      transferCount: payoutTransferCount,
+    });
+    const payoutFeeReserve = payoutFee.total;
+    const requiredAmount = Math.round((employeeTotal + platformFee + payoutFeeReserve) * 100) / 100;
     const dashboardUrl = this.balanceService.providerDashboardUrl(provider);
     const canCheckout = this.balanceService.supportsHostedFloatTopup(provider);
     const providerLabel = this.providerDisplayName(provider);
@@ -114,6 +163,12 @@ export class PayrollFloatTopupService {
         canCheckout: false,
         dashboardUrl,
         message: 'No payable amount on this run.',
+        employeeTotal,
+        platformFee,
+        feePercentage,
+        payoutFeeReserve,
+        payoutFeePerTransfer: payoutFee.feePerTransfer,
+        payoutTransferCount,
       };
     }
 
@@ -131,7 +186,13 @@ export class PayrollFloatTopupService {
           balanceSupported: true,
           canCheckout,
           dashboardUrl,
-          message: `${providerLabel} balance already covers this payroll run.`,
+          message: `${providerLabel} balance already covers this payroll run, including the PaqadHR fee and payout-fee reserve.`,
+          employeeTotal,
+          platformFee,
+          feePercentage,
+          payoutFeeReserve,
+          payoutFeePerTransfer: payoutFee.feePerTransfer,
+          payoutTransferCount,
         };
       }
       return {
@@ -145,8 +206,14 @@ export class PayrollFloatTopupService {
         canCheckout,
         dashboardUrl,
         message: canCheckout
-          ? `Your company needs to fund ${shortfall} ${currency} via checkout. We then pay employees automatically via ${providerLabel}.`
-          : `Your company needs to fund ${shortfall} ${currency} in the ${providerLabel} dashboard, then retry.`,
+          ? `Your company needs to fund ${shortfall} ${currency} via checkout, including the PaqadHR fee and payout-fee reserve. We then pay employees automatically via ${providerLabel}.`
+          : `Your company needs to fund ${shortfall} ${currency} in the ${providerLabel} dashboard, including fees, then retry.`,
+        employeeTotal,
+        platformFee,
+        feePercentage,
+        payoutFeeReserve,
+        payoutFeePerTransfer: payoutFee.feePerTransfer,
+        payoutTransferCount,
       };
     }
 
@@ -162,15 +229,21 @@ export class PayrollFloatTopupService {
       canCheckout,
       dashboardUrl,
       message: canCheckout
-        ? `Could not read provider balance. Checkout will fund ${requiredAmount} ${currency}, then payout starts automatically.`
-        : `${balance.reason} Open ${dashboardUrl || 'the provider dashboard'}, fund at least ${requiredAmount} ${currency}, then retry.`,
+        ? `Could not read provider balance. Checkout will fund ${requiredAmount} ${currency}, including the PaqadHR fee and payout-fee reserve, then payout starts automatically.`
+        : `${balance.reason} Open ${dashboardUrl || 'the provider dashboard'}, fund at least ${requiredAmount} ${currency}, including fees, then retry.`,
+      employeeTotal,
+      platformFee,
+      feePercentage,
+      payoutFeeReserve,
+      payoutFeePerTransfer: payoutFee.feePerTransfer,
+      payoutTransferCount,
     };
   }
 
   /**
-   * Hosted checkout providers: company funds the run (Bachs quotes mixed currencies into
-   * one checkout + Paqad fee), webhook then auto-pays each employee’s payment method.
-   * Other providers: pay from balance when covered; otherwise error with dashboard guidance.
+   * Hosted checkout providers use a one-time checkout for each payroll run. The verified
+   * checkout webhook starts immediate payroll payouts; scheduled runs remain funded and wait
+   * for the scheduled-payout processor. PaqadHR does not maintain a reusable company wallet.
    */
   async fundAndPay(
     payrollRunId: string,
@@ -188,10 +261,15 @@ export class PayrollFloatTopupService {
     const preflight = await this.preflight(payrollRunId, tenantId);
 
     if (preflight.canCheckout && preflight.requiredAmount > 0) {
-      const feeNote =
+      const feeParts = [
         preflight.platformFee != null && preflight.platformFee > 0
-          ? ` (includes ${preflight.platformFee} ${preflight.currency} Paqad fee)`
-          : '';
+          ? `${preflight.platformFee} ${preflight.currency} PaqadHR fee`
+          : null,
+        preflight.payoutFeeReserve != null && preflight.payoutFeeReserve > 0
+          ? `${preflight.payoutFeeReserve} ${preflight.currency} payout-fee reserve`
+          : null,
+      ].filter((part): part is string => part != null);
+      const feeNote = feeParts.length > 0 ? ` (includes ${feeParts.join(' + ')})` : '';
       const checkoutPreflight: PayrollFundPreflight = {
         ...preflight,
         ok: false,
@@ -330,6 +408,19 @@ export class PayrollFloatTopupService {
     }
   }
 
+  async assertRetryFundedOrThrow(
+    payrollRunId: string,
+    tenantId: string,
+    retryItemIds?: string[],
+  ): Promise<void> {
+    const preflight = await this.preflight(payrollRunId, tenantId, true, retryItemIds);
+    if (!preflight.ok) {
+      throw new BadRequestException(
+        `Retry blocked because provider funding is insufficient or cannot be verified. ${preflight.message}`,
+      );
+    }
+  }
+
   async completeFloatTopup(input: {
     tenantId: string;
     orderReference: string;
@@ -417,7 +508,8 @@ export class PayrollFloatTopupService {
       fundingCurrency: meta.fundingCurrency,
     });
     if (!claimed) {
-      return { received: true, paid: true };
+      // Duplicate webhook delivery must not imply that a scheduled run was paid early.
+      return { received: true, paid: run.payoutMode !== 'scheduled' };
     }
 
     if (claimed.payoutMode === 'scheduled') {
@@ -551,6 +643,17 @@ export class PayrollFloatTopupService {
     return Math.round(sum * 100) / 100;
   }
 
+  private countPayableTransfers(run: PayrollRun, currency: string): number {
+    const currencyCode = currency.toUpperCase();
+    return (run.items ?? []).filter(
+      (item) =>
+        (item.status === PayrollItemStatus.PENDING || item.status === PayrollItemStatus.FAILED) &&
+        item.metadata?.excludedFromRun !== true &&
+        (item.paymentCurrency || run.baseCurrency).toUpperCase() === currencyCode &&
+        Number(resolvePayrollPayoutAmount(item)) > 0,
+    ).length;
+  }
+
   private providerDisplayName(provider: PaymentProvider): string {
     switch (provider) {
       case PaymentProvider.BACHS:
@@ -617,6 +720,63 @@ export class PayrollFloatTopupService {
       });
       const feePercentage = await this.payrollFeeService.getPayrollFeePercentage(tenantId);
       const fee = applyPayrollFee(employeeTotal, feePercentage);
+      // Cross-currency payouts (GBP/EUR/USDT/USDC and USD-funded NGN) use Bachs'
+      // live quote, which includes the current FX and payout costs in the source amount.
+      // Same-currency payouts cannot be quoted, so require an explicit per-transfer reserve
+      // rather than silently undercharging USD payouts.
+      // A configured reserve applies to same-currency payouts in their payout currency,
+      // not just payouts whose currency matches the checkout balance. Convert each reserve
+      // into the funding currency before calculating the checkout total.
+      const sameCurrencyItems = fundingItems.filter(
+        (item) => item.paymentCurrency.toUpperCase() === item.amountCurrency.toUpperCase(),
+      );
+      const payoutTransferCount = sameCurrencyItems.filter(
+        (item) => getPayrollPayoutFeePerTransfer(item.paymentCurrency, PaymentProvider.BACHS) > 0,
+      ).length;
+      if (
+        sameCurrencyItems.some((item) => item.paymentCurrency.toUpperCase() === 'USD') &&
+        !hasConfiguredPayrollPayoutFee('USD', PaymentProvider.BACHS)
+      ) {
+        throw new Error(
+          'Set PAYROLL_PAYOUT_FEE_BACHS_USD to the confirmed Bachs fee per same-currency USD payout before pricing this payroll.',
+        );
+      }
+      let payoutFeeReserve = 0;
+      for (const item of sameCurrencyItems) {
+        const payoutCurrency = item.paymentCurrency.toUpperCase();
+        const feeAmount = getPayrollPayoutFeePerTransfer(payoutCurrency, PaymentProvider.BACHS);
+        if (feeAmount <= 0) continue;
+        if (payoutCurrency === fundingCurrency) {
+          payoutFeeReserve += feeAmount;
+          continue;
+        }
+        const destination = resolveBachsQuoteDestinationCurrency(
+          payoutCurrency,
+          item.cryptoNetwork,
+        );
+        if (!destination) {
+          throw new Error(
+            `Cannot convert the ${payoutCurrency} payout-fee reserve into ${fundingCurrency}`,
+          );
+        }
+        const quotedReserve = await quoteSourceAmountForDestination({
+          createQuote: (input) => this.bachsApi.createPayoutQuote(input),
+          fromCurrency: fundingCurrency,
+          toCurrency: destination,
+          targetToAmount: feeAmount,
+          payoutMethod:
+            destination.startsWith('USDT_') || destination.startsWith('USDC_')
+              ? undefined
+              : 'BANK_TRANSFER',
+        });
+        payoutFeeReserve += quotedReserve.sourceAmount;
+      }
+      payoutFeeReserve = Math.round(payoutFeeReserve * 100) / 100;
+      const payoutFeePerTransfer =
+        payoutTransferCount > 0
+          ? Math.round((payoutFeeReserve / payoutTransferCount) * 100) / 100
+          : 0;
+      const requiredAmount = Math.round((fee.checkoutTotal + payoutFeeReserve) * 100) / 100;
       const balance = await this.balanceService.getAvailableBalance(
         PaymentProvider.BACHS,
         fundingCurrency,
@@ -624,8 +784,8 @@ export class PayrollFloatTopupService {
       const available = balance.supported ? balance.available : null;
       const shortfall =
         available == null
-          ? fee.checkoutTotal
-          : Math.max(0, Math.round((fee.checkoutTotal - available) * 100) / 100);
+          ? requiredAmount
+          : Math.max(0, Math.round((requiredAmount - available) * 100) / 100);
       const canCheckout = this.balanceService.supportsHostedFloatTopup(PaymentProvider.BACHS);
 
       if (shortfall <= 0 && available != null) {
@@ -633,16 +793,20 @@ export class PayrollFloatTopupService {
           ok: true,
           provider: PaymentProvider.BACHS,
           currency: fundingCurrency,
-          requiredAmount: fee.checkoutTotal,
+          requiredAmount,
           availableBalance: available,
           shortfall: 0,
           balanceSupported: true,
           canCheckout,
           dashboardUrl: '',
-          message: 'Bachs balance already covers this payroll run (including Paqad fee).',
+          message:
+            'Bachs balance already covers this payroll run, including the PaqadHR fee and payout-fee reserve.',
           employeeTotal: fee.employeeTotal,
           platformFee: fee.platformFee,
           feePercentage: fee.feePercentage,
+          payoutFeeReserve,
+          payoutFeePerTransfer,
+          payoutTransferCount,
         };
       }
 
@@ -650,18 +814,21 @@ export class PayrollFloatTopupService {
         ok: false,
         provider: PaymentProvider.BACHS,
         currency: fundingCurrency,
-        requiredAmount: fee.checkoutTotal,
+        requiredAmount,
         availableBalance: available,
         shortfall,
         balanceSupported: balance.supported,
         canCheckout,
         dashboardUrl: '',
         message: canCheckout
-          ? `Your company pays ${fee.checkoutTotal} ${fundingCurrency} in one checkout (${fee.employeeTotal} employee pay + ${fee.platformFee} Paqad fee at ${fee.feePercentage}%). We then route each salary via Bachs.`
-          : `Fund ${fee.checkoutTotal} ${fundingCurrency} on Bachs, then retry.`,
+          ? `Your company pays ${requiredAmount} ${fundingCurrency} in one checkout (${fee.employeeTotal} employee pay + ${fee.platformFee} PaqadHR fee at ${fee.feePercentage}% + ${payoutFeeReserve} payout-fee reserve for ${payoutTransferCount} same-currency transfer(s)). We then route each salary via Bachs.`
+          : `Fund ${requiredAmount} ${fundingCurrency} on Bachs, including the payout-fee reserve, then retry.`,
         employeeTotal: fee.employeeTotal,
         platformFee: fee.platformFee,
         feePercentage: fee.feePercentage,
+        payoutFeeReserve,
+        payoutFeePerTransfer,
+        payoutTransferCount,
       };
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
