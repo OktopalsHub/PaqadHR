@@ -1034,6 +1034,7 @@ export class PayrollFloatTopupService {
       this.logger.warn(`Retry funding selection changed before checkout completion for run ${run.id}`);
       return { received: true, paid: false };
     }
+    await this.assertRetryRunSettled(currentRun, input.tenantId);
 
     await this.fundingLedger.recordVerifiedFunding({
       tenantId: run.tenantId,
