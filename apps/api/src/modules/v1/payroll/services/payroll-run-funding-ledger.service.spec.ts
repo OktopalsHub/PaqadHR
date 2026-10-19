@@ -277,6 +277,10 @@ describe('PayrollRunFundingLedgerService', () => {
       ],
     });
 
+    expect(runRepository.findOne).toHaveBeenCalledWith({
+      where: { id: input.payrollRunId, tenantId: input.tenantId },
+      lock: { mode: 'pessimistic_write' },
+    });
     expect(ledger.insert).toHaveBeenCalledTimes(2);
     expect(itemRepository.save).toHaveBeenCalledTimes(2);
     expect(selectedItems.map((item) => item.status)).toEqual([
