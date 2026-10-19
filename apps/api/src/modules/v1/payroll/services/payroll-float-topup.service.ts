@@ -491,6 +491,12 @@ export class PayrollFloatTopupService {
     const verifiedCurrency =
       typeof verified.currency === 'string' ? verified.currency.toUpperCase() : undefined;
     const expectedCurrency = (meta.fundingCurrency || run.baseCurrency).toUpperCase();
+    if (provider === PaymentProvider.BACHS && !verifiedCurrency) {
+      this.logger.warn(
+        `Payroll float top-up rejected: Bachs verification did not return currency for ${input.orderReference}`,
+      );
+      return { received: true, paid: false };
+    }
     if (verifiedCurrency && verifiedCurrency !== expectedCurrency) {
       this.logger.warn(
         `Payroll float top-up currency mismatch for ${input.orderReference}: expected ${expectedCurrency}, got ${verifiedCurrency}`,
