@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, Logger, UnauthorizedException } from '
 import { parseBachsPayoutWebhook } from 'src/common/config/bachs-payout.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
+import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import type { Repository } from 'typeorm';
@@ -27,6 +28,7 @@ export class PayoutWebhooks {
     readonly _payrollRunRepository: PayrollRunRepository,
     private readonly reconciliation: PayoutReconciliation,
     private readonly webhookEventRepository: Repository<PayrollWebhookEvent>,
+    private readonly providerFactory: PaymentProviderFactoryService,
   ) {}
 
   private async claimWebhookEvent(provider: PaymentProvider, payload: unknown): Promise<boolean> {
@@ -291,16 +293,28 @@ export class PayoutWebhooks {
     const context = await this.resolvePayrollContext(merchantRef);
     if (!context) return { received: true, matched: false };
 
-    // Prefer the delivered amount in the destination currency — that is the same
-    // basis as PayrollItem.paymentAmount (data.amount is in the source balance currency).
-    const amount = event.toAmount ?? event.amount;
+    // Treat the webhook as a notification only. Fetch the payout from Bachs before
+    // changing payroll state: an unverified webhook status must never mark an item paid
+    // or failed, and its amount must not be trusted as payout evidence.
+    if (!event.withdrawalId) {
+      this.logger.warn(`Bachs payroll webhook ignored: missing withdrawal id for ${merchantRef}`);
+      return { received: true, matched: false };
+    }
+    const verified = await this.providerFactory
+      .resolvePayoutQuerier(PaymentProvider.BACHS)
+      ?.queryStatus(event.withdrawalId, merchantRef);
+    if (!verified) {
+      this.logger.warn(`Bachs payout webhook verification unavailable for ${event.withdrawalId}`);
+      return { received: true, matched: false };
+    }
+
     const changed = await this.reconciliation.applyTransferStatus(
       merchantRef,
-      event.status,
+      verified.status,
       event.withdrawalId,
       PaymentProvider.BACHS,
       context.tenantId,
-      amount,
+      verified.amount,
     );
     if (changed) {
       await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
