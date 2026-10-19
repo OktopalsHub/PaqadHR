@@ -6,7 +6,10 @@ import { PayoutReconciliation } from './payout-reconciliation';
 import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 describe('PayoutReconciliation', () => {
-  const createService = () => {
+  const createService = (overrides?: {
+    queryStatus?: jest.Mock;
+    fundingLedger?: { recordConfirmedPayoutDebit: jest.Mock };
+  }) => {
     const savedItem = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       payrollRunId: 'run-1',
@@ -50,7 +53,11 @@ describe('PayoutReconciliation', () => {
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue({ tenantId: 'tenant-1' }),
     } as unknown as PayrollRunRepository;
-    const factory = {} as never;
+    const factory = {
+      resolvePayoutQuerier: jest.fn(() => ({
+        queryStatus: overrides?.queryStatus ?? jest.fn().mockResolvedValue(null),
+      })),
+    } as never;
     const fincraApi = {} as never;
     const lifecycleNotify = {
       onItemPaid: jest.fn().mockResolvedValue(undefined),
@@ -63,9 +70,10 @@ describe('PayoutReconciliation', () => {
       payrollRunRepository,
       payrollItemRepo,
       lifecycleNotify,
+      overrides?.fundingLedger as never,
     );
 
-    return { service, transactionRepository, lifecycleNotify, savedItem };
+    return { service, transactionRepository, lifecycleNotify, savedItem, factory };
   };
 
   it('serializes duplicate success webhooks with a row lock', async () => {
@@ -404,6 +412,99 @@ describe('PayoutReconciliation', () => {
     expect(changed).toBe(false);
     expect(transactionRepository.save).not.toHaveBeenCalled();
     expect(lifecycleNotify.onItemPaid).not.toHaveBeenCalled();
+  });
+
+  it('repairs a missing Bachs debit when a repeated verified success arrives for an already-paid item', async () => {
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: 'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const recordConfirmedPayoutDebit = jest.fn().mockResolvedValue(undefined);
+    const { service, transactionRepository, lifecycleNotify, factory } = createService({
+      queryStatus,
+      fundingLedger: { recordConfirmedPayoutDebit },
+    });
+    transactionRepository.findOne.mockResolvedValueOnce({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.PAID,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      metadata: {},
+      payrollRun: {
+        id: 'run-1',
+        tenantId: 'tenant-1',
+        createdById: 'admin-1',
+      },
+    });
+
+    const changed = await service.applyTransferStatus(
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'SUCCESS',
+      'bachs-withdrawal-1',
+      PaymentProvider.BACHS,
+      'tenant-1',
+      1000,
+    );
+
+    expect(changed).toBe(false);
+    expect(factory.resolvePayoutQuerier).toHaveBeenCalledWith(PaymentProvider.BACHS);
+    expect(queryStatus).toHaveBeenCalledWith(
+      'bachs-withdrawal-1',
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    );
+    expect(recordConfirmedPayoutDebit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        payrollRunId: 'run-1',
+        payrollItemId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        amount: 1005,
+        currency: 'USD',
+        providerReference: 'bachs-withdrawal-1',
+      }),
+    );
+    expect(transactionRepository.save).not.toHaveBeenCalled();
+    expect(lifecycleNotify.onItemPaid).not.toHaveBeenCalled();
+  });
+
+  it('does not repair a Bachs debit when the provider reference does not match the payroll merchant reference', async () => {
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: 'some-other-merchant-reference',
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const recordConfirmedPayoutDebit = jest.fn().mockResolvedValue(undefined);
+    const { service, transactionRepository } = createService({
+      queryStatus,
+      fundingLedger: { recordConfirmedPayoutDebit },
+    });
+    transactionRepository.findOne.mockResolvedValueOnce({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.PAID,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    });
+
+    await service.applyTransferStatus(
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'SUCCESS',
+      'bachs-withdrawal-1',
+      PaymentProvider.BACHS,
+      'tenant-1',
+      1000,
+    );
+
+    expect(recordConfirmedPayoutDebit).not.toHaveBeenCalled();
   });
 
   it('does not downgrade a paid item when a late failure webhook arrives', async () => {
