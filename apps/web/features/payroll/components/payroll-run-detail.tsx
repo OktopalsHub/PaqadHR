@@ -40,6 +40,7 @@ import { useEmployees } from '@/hooks/queries/use-employees';
 import { useCurrentSalaries } from '@/hooks/queries/use-employment';
 import {
   usePayrollActions,
+  usePayrollFundingLedger,
   usePayrollRun,
   usePayrollSetupSummary,
   useRunPayslips,
@@ -316,6 +317,32 @@ export function PayrollRunDetail({
   }, [tenantSettings?.settings?.general?.emailPayslipOnPublish]);
 
   const detail = run as PayrollRunDetailType | undefined;
+  const retryFundingMeta =
+    detail?.metadata?.retryFunding && typeof detail.metadata.retryFunding === 'object'
+      ? (detail.metadata.retryFunding as Record<string, unknown>)
+      : undefined;
+  const floatTopupMeta =
+    detail?.metadata?.floatTopup && typeof detail.metadata.floatTopup === 'object'
+      ? (detail.metadata.floatTopup as Record<string, unknown>)
+      : undefined;
+  const isBachsFundingRun =
+    String(floatTopupMeta?.provider ?? '').toLowerCase() === 'bachs' ||
+    String(retryFundingMeta?.provider ?? '').toLowerCase() === 'bachs' ||
+    (detail?.items ?? []).some((item) =>
+      (item.paymentProvider ?? '').toLowerCase().includes('bachs'),
+    );
+  const fundingLedgerQuery = usePayrollFundingLedger(runId, Boolean(isAdmin && isBachsFundingRun));
+  const [showAllFundingLedgerEntries, setShowAllFundingLedgerEntries] = useState(false);
+  const [retryFundingReviewOpen, setRetryFundingReviewOpen] = useState(false);
+  const [retryFundingItemIds, setRetryFundingItemIds] = useState<string[]>([]);
+  const [retryFundingPreview, setRetryFundingPreview] = useState<{
+    amount: number;
+    currency: string;
+    selectedItemIds: string[];
+    platformFee: 0;
+    payoutFeeReserve: number;
+  } | null>(null);
+  const [retryFundingApproved, setRetryFundingApproved] = useState(false);
   const isDraft = detail?.status === 'draft';
   const isLocked =
     detail?.status === 'approved' || detail?.status === 'completed' || detail?.status === 'failed';
@@ -393,6 +420,9 @@ export function PayrollRunDetail({
     actions.payNow.isPending ||
     actions.fundAndPay.isPending ||
     actions.retryFailed.isPending ||
+    actions.previewRetryFunding.isPending ||
+    actions.approveRetryFunding.isPending ||
+    actions.createRetryFundingCheckout.isPending ||
     actions.schedule.isPending ||
     actions.publishPayslips.isPending ||
     actions.reopen.isPending ||
@@ -468,12 +498,116 @@ export function PayrollRunDetail({
   };
 
   const handleRetryFailed = async (itemIds?: string[]) => {
+    if (isBachsFundingRun) {
+      const selectedItemIds = (
+        itemIds?.length
+          ? itemIds
+          : activeItems.filter((item) => item.status === 'failed').map((item) => item.id)
+      )
+        .slice()
+        .sort();
+      if (selectedItemIds.length === 0) {
+        toast.error('Select at least one failed payout');
+        return;
+      }
+      const existingSelectedIds = Array.isArray(retryFundingMeta?.selectedItemIds)
+        ? (retryFundingMeta.selectedItemIds as string[]).slice().sort()
+        : [];
+      const existingStatus = retryFundingMeta?.status;
+      if (
+        (existingStatus === 'approved' || existingStatus === 'pending') &&
+        existingSelectedIds.length === selectedItemIds.length &&
+        existingSelectedIds.every((id, index) => id === selectedItemIds[index]) &&
+        Number(retryFundingMeta?.amount) > 0 &&
+        typeof retryFundingMeta?.currency === 'string'
+      ) {
+        setRetryFundingItemIds(selectedItemIds);
+        setRetryFundingPreview({
+          amount: Number(retryFundingMeta.amount),
+          currency: String(retryFundingMeta.currency),
+          selectedItemIds,
+          platformFee: 0,
+          payoutFeeReserve: Number(retryFundingMeta.payoutFeeReserve ?? 0),
+        });
+        setRetryFundingApproved(true);
+        setRetryFundingReviewOpen(true);
+        return;
+      }
+      try {
+        const preview = await actions.previewRetryFunding.mutateAsync({
+          id: runId,
+          itemIds: selectedItemIds,
+        });
+        setRetryFundingItemIds(selectedItemIds);
+        setRetryFundingPreview(preview);
+        setRetryFundingApproved(false);
+        setRetryFundingReviewOpen(true);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not price retry funding');
+        await refetch();
+      }
+      return;
+    }
+
     try {
       const response = await actions.retryFailed.mutateAsync({ id: runId, itemIds });
       toastPayrollPayoutResult(response.result, 'retry');
       await refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Retry failed');
+      await refetch();
+    }
+  };
+
+  const confirmRetryFunding = async () => {
+    if (!retryFundingPreview) return;
+    const checkoutTab = window.open('about:blank', '_blank');
+    let approvalRecorded = retryFundingApproved;
+    try {
+      if (!retryFundingApproved) {
+        await actions.approveRetryFunding.mutateAsync({
+          id: runId,
+          itemIds: retryFundingItemIds,
+          expectedAmount: retryFundingPreview.amount,
+          currency: retryFundingPreview.currency,
+        });
+        approvalRecorded = true;
+        setRetryFundingApproved(true);
+      }
+      const checkout = await actions.createRetryFundingCheckout.mutateAsync(runId);
+      if (!checkout.checkoutUrl) {
+        checkoutTab?.close();
+        toast.error('Checkout URL was not returned. You can continue checkout from this dialog.');
+        return;
+      }
+      await openCheckoutUrlWithOptionalTab(checkout.checkoutUrl, checkoutTab);
+      toast.message(
+        `Complete the company-funded retry checkout for ${checkout.amount.toLocaleString()} ${checkout.currency}. Employee payouts will not start until you retry after funding is verified.`,
+      );
+      setRetryFundingReviewOpen(false);
+      await refetch();
+      await fundingLedgerQuery.refetch();
+    } catch (err) {
+      checkoutTab?.close();
+      if (approvalRecorded) setRetryFundingApproved(true);
+      const message = err instanceof Error ? err.message : 'Retry funding checkout failed';
+      if (message.includes('quote changed after preview')) {
+        try {
+          const preview = await actions.previewRetryFunding.mutateAsync({
+            id: runId,
+            itemIds: retryFundingItemIds,
+          });
+          setRetryFundingPreview(preview);
+          setRetryFundingApproved(false);
+          toast.warning('The payout quote changed. Review the updated amount before approving.');
+        } catch (previewError) {
+          toast.error(
+            previewError instanceof Error ? previewError.message : 'Could not refresh the quote',
+          );
+        }
+      } else {
+        toast.error(message);
+      }
       await refetch();
     }
   };
@@ -641,7 +775,7 @@ export function PayrollRunDetail({
                 onClick={() => void handleRetryFailed()}
               >
                 <RefreshCw className="mr-1 size-4" />
-                Retry payment
+                {isBachsFundingRun ? 'Review retry funding' : 'Retry payment'}
               </Button>
             ) : null}
             {isAdmin && canDelete ? (
@@ -775,6 +909,96 @@ export function PayrollRunDetail({
           </DialogContent>
         </Dialog>
 
+        <Dialog
+          open={retryFundingReviewOpen}
+          onOpenChange={(open) => {
+            setRetryFundingReviewOpen(open);
+            if (!open) {
+              setRetryFundingPreview(null);
+              setRetryFundingApproved(false);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Review retry funding</DialogTitle>
+            </DialogHeader>
+            {retryFundingPreview ? (
+              <div className="space-y-4">
+                <Alert>
+                  <AlertTitle>Company-funded shortfall</AlertTitle>
+                  <AlertDescription>
+                    Only the selected failed payouts are included. PaqadHR will not charge its
+                    platform fee again. Payouts will not start until checkout is verified and you
+                    retry the selected items.
+                  </AlertDescription>
+                </Alert>
+                <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Amount to fund</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-slate-100">
+                    {formatMoney(retryFundingPreview.amount, retryFundingPreview.currency)}
+                  </p>
+                  <div className="mt-3 space-y-1 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500 dark:text-slate-400">Selected payouts</span>
+                      <span>{retryFundingItemIds.length}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500 dark:text-slate-400">
+                        PaqadHR platform fee
+                      </span>
+                      <span>{formatMoney(0, retryFundingPreview.currency)}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500 dark:text-slate-400">Payout-fee reserve</span>
+                      <span>
+                        {formatMoney(
+                          retryFundingPreview.payoutFeeReserve,
+                          retryFundingPreview.currency,
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="max-h-36 space-y-2 overflow-y-auto">
+                  {retryFundingItemIds.map((itemId) => {
+                    const item = activeItems.find((candidate) => candidate.id === itemId);
+                    return (
+                      <div key={itemId} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="truncate">{item ? employeeName(item) : itemId}</span>
+                        <span className="shrink-0 text-slate-500 dark:text-slate-400">
+                          {item?.paymentCurrency ?? detail?.baseCurrency ?? ''}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => setRetryFundingReviewOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="brandSolid"
+                    disabled={busy}
+                    onClick={() => void confirmRetryFunding()}
+                  >
+                    {actions.approveRetryFunding.isPending ||
+                    actions.createRetryFundingCheckout.isPending
+                      ? 'Preparing checkout…'
+                      : retryFundingApproved
+                        ? 'Continue to checkout'
+                        : 'Approve amount and continue'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
         {isLocked ? (
           <Alert>
             <Lock className="size-4" />
@@ -825,6 +1049,98 @@ export function PayrollRunDetail({
             </p>
           </div>
         </div>
+
+        {isAdmin && isBachsFundingRun ? (
+          <section className="dashboard-panel space-y-3 rounded-[8px] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                  Run funding ledger
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Verified funding and provider-confirmed payout debits for this payroll run.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {fundingLedgerQuery.data && fundingLedgerQuery.data.entries.length > 12 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowAllFundingLedgerEntries((current) => !current)}
+                  >
+                    {showAllFundingLedgerEntries ? 'Show recent' : 'Show all entries'}
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={fundingLedgerQuery.isFetching}
+                  onClick={() => void fundingLedgerQuery.refetch()}
+                >
+                  <RefreshCw className="mr-1 size-3.5" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+            {fundingLedgerQuery.isLoading ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Loading ledger…</p>
+            ) : fundingLedgerQuery.isError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Could not load the funding ledger. Refresh to try again.
+              </p>
+            ) : fundingLedgerQuery.data?.entries.length ? (
+              <div className="space-y-2">
+                {fundingLedgerQuery.data.entries
+                  .slice()
+                  .reverse()
+                  .slice(
+                    0,
+                    showAllFundingLedgerEntries ? fundingLedgerQuery.data.entries.length : 12,
+                  )
+                  .map((entry) => {
+                    const item = entry.payrollItemId
+                      ? activeItems.find((candidate) => candidate.id === entry.payrollItemId)
+                      : undefined;
+                    return (
+                      <div
+                        key={entry.id}
+                        className="flex flex-col gap-1 border-t border-slate-100 pt-2 text-sm first:border-0 first:pt-0 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-800 dark:text-slate-200">
+                            {entry.eventType.replaceAll('_', ' ').toLowerCase()}
+                          </p>
+                          <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                            {item
+                              ? employeeName(item)
+                              : entry.payrollItemId
+                                ? `Payout item ${entry.payrollItemId}`
+                                : (entry.providerReference ?? 'Run-level funding event')}
+                            {entry.providerReference && item ? ` · ${entry.providerReference}` : ''}
+                            {' · '}
+                            {new Date(entry.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <span className="shrink-0 font-medium tabular-nums">
+                          {formatMoney(Number(entry.amount), entry.currency)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                {fundingLedgerQuery.data.retryAuthorization === 'blocked' ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    This ledger is evidence, not spending approval. Bachs retries must use the
+                    selected-item approval and reservation flow.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                No verified funding ledger entries are recorded for this run yet.
+              </p>
+            )}
+          </section>
+        ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -982,7 +1298,7 @@ export function PayrollRunDetail({
                               onClick={() => void handleRetryFailed([item.id])}
                             >
                               <RefreshCw className="mr-1 size-3.5" />
-                              Retry
+                              {isBachsFundingRun ? 'Review funding' : 'Retry'}
                             </Button>
                           ) : null}
                         </div>

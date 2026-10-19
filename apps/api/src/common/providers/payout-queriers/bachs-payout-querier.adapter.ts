@@ -29,6 +29,11 @@ export class BachsPayoutQuerierAdapter implements PayoutStatusQuerier {
         status: payout.status ?? 'pending',
         amount: Number.isFinite(amount as number) ? (amount as number) : undefined,
         reference: payout.reference ?? merchantRef,
+        sourceDebitedAmount:
+          payout.total_debited != null && payout.total_debited.trim() !== ''
+            ? Number(payout.total_debited)
+            : undefined,
+        sourceCurrency: payout.source_currency ?? undefined,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

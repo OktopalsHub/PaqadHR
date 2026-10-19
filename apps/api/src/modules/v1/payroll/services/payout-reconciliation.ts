@@ -17,6 +17,7 @@ import {
   parsePayrollMerchantRef,
 } from '../utils/payroll-merchant-ref.util';
 import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
+import type { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 const PAYROLL_AMOUNT_TOLERANCE = 1;
 
@@ -63,6 +64,7 @@ export class PayoutReconciliation {
     @InjectRepository(PayrollItem)
     private readonly payrollItemRepo: Repository<PayrollItem>,
     private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
+    private readonly fundingLedger?: PayrollRunFundingLedgerService,
   ) {}
 
   async resolveTenantId(payrollRunId: string): Promise<string | undefined> {
@@ -149,6 +151,25 @@ export class PayoutReconciliation {
     }
 
     if (!status) return false;
+
+    if (
+      provider === PaymentProvider.BACHS &&
+      this.fundingLedger &&
+      new Set(['FAILED', 'REJECTED', 'CANCELLED', 'CANCELED']).has(status.trim().toUpperCase())
+    ) {
+      await this.fundingLedger.releaseFailedPayoutReservationsForItem({
+        tenantId,
+        payrollRunId: item.payrollRunId,
+        payrollItemId: item.id,
+        provider: PaymentProvider.BACHS,
+        providerReference: reference,
+        evidence: {
+          verifiedStatus: status.trim().toUpperCase(),
+          merchantReference: merchantRef,
+          verificationSource: 'provider_status_query',
+        },
+      });
+    }
 
     const changed = await this.applyTransferStatus(
       merchantRef,
@@ -281,6 +302,11 @@ export class PayoutReconciliation {
     // A retry mints a new merchant reference, so anything already submitted under the
     // previous one stays a live payout. Items whose submission outcome we never learned
     // must not be retried blind — that is how an employee gets paid twice.
+    if (provider === PaymentProvider.BACHS && !reference) {
+      throw new BadRequestException(
+        `Cannot retry payroll item ${item.id}: Bachs has not provided a payout reference to verify a terminal failure.`,
+      );
+    }
     if (!reference && item.metadata?.payoutSubmissionPending === true) {
       throw new BadRequestException(
         `Cannot retry payroll item ${item.id}: its payout submission outcome is still unknown. ` +
@@ -299,6 +325,47 @@ export class PayoutReconciliation {
         status = result.status;
         amount = result.amount;
       }
+    }
+
+    if (provider === PaymentProvider.BACHS) {
+      const terminalFailureStatuses = new Set(['FAILED', 'REJECTED', 'CANCELLED', 'CANCELED']);
+      const verifiedStatus = status?.trim().toUpperCase();
+      if (!verifiedStatus) {
+        throw new BadRequestException(
+          `Cannot retry payroll item ${item.id}: Bachs could not verify its payout status. Try again after provider status is available.`,
+        );
+      }
+      if (terminalFailureStatuses.has(verifiedStatus)) {
+        if (this.fundingLedger) {
+          await this.fundingLedger.releaseFailedPayoutReservationsForItem({
+            tenantId,
+            payrollRunId: item.payrollRunId,
+            payrollItemId: item.id,
+            provider: PaymentProvider.BACHS,
+            providerReference: reference,
+            evidence: {
+              verifiedStatus,
+              merchantReference: merchantRef,
+              verificationSource: 'provider_status_query',
+            },
+          });
+        }
+        return true;
+      }
+      if (SUCCESS_STATUSES.has(verifiedStatus) || PENDING_STATUSES.has(verifiedStatus)) {
+        await this.applyTransferStatus(
+          merchantRef,
+          verifiedStatus,
+          reference,
+          provider,
+          tenantId,
+          amount,
+        );
+        return false;
+      }
+      throw new BadRequestException(
+        `Cannot retry payroll item ${item.id}: Bachs returned non-terminal payout status "${verifiedStatus}".`,
+      );
     }
 
     if (!status) return true;
@@ -467,6 +534,51 @@ export class PayoutReconciliation {
             memberId: changedItem.memberId,
           },
         });
+      }
+    }
+
+    if (
+      changed &&
+      changedKind === 'paid' &&
+      provider === PaymentProvider.BACHS &&
+      parsed.payrollRunId &&
+      resolvedTenantId &&
+      this.fundingLedger
+    ) {
+      try {
+        const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
+        const payout = await querier?.queryStatus(transactionId, merchantRef);
+        if (
+          payout?.sourceDebitedAmount != null &&
+          Number.isFinite(payout.sourceDebitedAmount) &&
+          payout.sourceDebitedAmount > 0 &&
+          payout.sourceCurrency
+        ) {
+          await this.fundingLedger.recordConfirmedPayoutDebit({
+            tenantId: resolvedTenantId,
+            payrollRunId: parsed.payrollRunId,
+            payrollItemId: itemId,
+            amount: payout.sourceDebitedAmount,
+            currency: payout.sourceCurrency,
+            provider: PaymentProvider.BACHS,
+            providerReference: transactionId,
+            evidence: {
+              verifiedStatus: payout.status,
+              merchantReference: merchantRef,
+              destinationAmount: amount ?? null,
+              sourceDebitedAmount: payout.sourceDebitedAmount,
+              sourceCurrency: payout.sourceCurrency,
+            },
+          });
+        } else {
+          this.logger.warn(
+            `Bachs payout ${transactionId} completed but source debit could not be verified; payroll retry remains blocked`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Could not record verified Bachs debit for payroll item ${itemId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
     }
 

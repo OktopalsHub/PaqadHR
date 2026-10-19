@@ -27,6 +27,8 @@ export interface CheckoutVerificationInput {
 export interface CheckoutVerificationResult {
   status: string;
   amount?: number;
+  /** Provider-reported settlement currency when the adapter can verify it. */
+  currency?: string;
   cardToken?: string;
   customerEmail?: string;
   cardLastFour?: string;

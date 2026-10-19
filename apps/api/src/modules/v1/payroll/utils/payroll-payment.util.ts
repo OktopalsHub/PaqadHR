@@ -158,6 +158,14 @@ export function buildPayrollPaymentData(
       bachsDestinationId:
         typeof meta.bachsDestinationId === 'string' ? meta.bachsDestinationId : undefined,
       bachsSourceCurrency,
+      retryFundingMaxSourceAmount:
+        typeof item.metadata?.retryFundingMaxSourceAmount === 'number'
+          ? item.metadata.retryFundingMaxSourceAmount
+          : undefined,
+      retryFundingSourceCurrency:
+        typeof item.metadata?.retryFundingSourceCurrency === 'string'
+          ? item.metadata.retryFundingSourceCurrency
+          : undefined,
       tenantName,
       fxAtPayout,
       salaryCurrency,

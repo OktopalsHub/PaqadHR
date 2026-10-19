@@ -550,8 +550,18 @@ describe('PayrollPayoutService', () => {
       };
 
       const factory = {
-        resolvePayoutQuerier: jest.fn().mockReturnValue(undefined),
-      } as never;
+        resolvePayoutQuerier: jest.fn((provider: PaymentProvider) =>
+          provider === PaymentProvider.BACHS
+            ? {
+                queryStatus: jest.fn(async (withdrawalId: string, merchantRef: string) => ({
+                  status: withdrawalId === 'pay_bachs_2' ? 'FAILED' : 'COMPLETED',
+                  amount: 1000,
+                  reference: merchantRef,
+                })),
+              }
+            : undefined,
+        ),
+      } as unknown as PaymentProviderFactoryService;
 
       const payrollItemRepository = {
         findOne: jest.fn(),
@@ -590,7 +600,7 @@ describe('PayrollPayoutService', () => {
         buildWebhookEventRepository(),
       );
 
-      return { service, payrollItemRepository, payrollRunRepository };
+      return { service, payrollItemRepository, payrollRunRepository, factory };
     };
 
     const bachsPaidEvent = (reference: string | null, withdrawalId = 'pay_bachs_1') => ({
@@ -605,8 +615,8 @@ describe('PayrollPayoutService', () => {
       },
     });
 
-    it('marks the payroll item paid from a payout.paid event', async () => {
-      const { service, payrollItemRepository } = wiredService();
+    it('uses the injected provider factory to verify a payout.paid event before changing payroll state', async () => {
+      const { service, payrollItemRepository, factory } = wiredService();
       const item = {
         ...baseItem(),
         status: PayrollItemStatus.PENDING,
@@ -618,8 +628,34 @@ describe('PayrollPayoutService', () => {
       const result = await service.processBachsPayload(bachsPaidEvent(MERCHANT_REF));
 
       expect(result).toEqual({ received: true, matched: true });
+      expect(factory.resolvePayoutQuerier).toHaveBeenCalledWith(PaymentProvider.BACHS);
       expect(item.status).toBe(PayrollItemStatus.PAID);
       expect(payrollItemRepository.save).toHaveBeenCalled();
+    });
+
+    it('uses the provider status instead of a stale failed webhook notification', async () => {
+      const { service, payrollItemRepository } = wiredService();
+      const item = {
+        ...baseItem(),
+        status: PayrollItemStatus.PROCESSING,
+        paymentAmount: 1000,
+        payrollRun: { tenantId: 'tenant-1' },
+      } as unknown as PayrollItem;
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+
+      const result = await service.processBachsPayload({
+        id: 'evt_stale_failure',
+        type: 'payout.failed',
+        data: {
+          withdrawal_id: 'pay_bachs_1',
+          reference: MERCHANT_REF,
+          status: 'failed',
+          amount: '1.00',
+        },
+      });
+
+      expect(result).toEqual({ received: true, matched: true });
+      expect(item.status).toBe(PayrollItemStatus.PAID);
     });
 
     it('marks the payroll item failed from a payout.failed event', async () => {
@@ -882,6 +918,65 @@ describe('PayrollPayoutService', () => {
 
       expect(result).toEqual({ received: true, matched: false });
       expect(applySpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recordConfirmedBachsDebit', () => {
+    const buildBachsDebitRecorder = () => {
+      const { service } = createService();
+      const ledger = { recordConfirmedPayoutDebit: jest.fn().mockResolvedValue(undefined) };
+      (service as unknown as { fundingLedger: typeof ledger }).fundingLedger = ledger;
+      const queryStatus = jest.fn();
+      (service.factory.resolvePayoutQuerier as jest.Mock).mockReturnValue({ queryStatus });
+      return { service, ledger, queryStatus };
+    };
+
+    it('does not record a debit while provider status is pending', async () => {
+      const { service, ledger, queryStatus } = buildBachsDebitRecorder();
+      queryStatus.mockResolvedValue({
+        status: 'PENDING',
+        sourceDebitedAmount: 50,
+        sourceCurrency: 'USD',
+      });
+
+      await service.recordConfirmedBachsDebit({
+        tenantId: 'tenant-1',
+        payrollRunId: RUN_ID,
+        payrollItemId: ITEM_ID,
+        transactionId: 'bachs-txn-1',
+        merchantReference: MERCHANT_REF,
+      });
+
+      expect(ledger.recordConfirmedPayoutDebit).not.toHaveBeenCalled();
+    });
+
+    it('records a debit only after terminal provider success is verified', async () => {
+      const { service, ledger, queryStatus } = buildBachsDebitRecorder();
+      queryStatus.mockResolvedValue({
+        status: 'COMPLETED',
+        sourceDebitedAmount: 50,
+        sourceCurrency: 'USD',
+      });
+
+      await service.recordConfirmedBachsDebit({
+        tenantId: 'tenant-1',
+        payrollRunId: RUN_ID,
+        payrollItemId: ITEM_ID,
+        transactionId: 'bachs-txn-1',
+        merchantReference: MERCHANT_REF,
+      });
+
+      expect(ledger.recordConfirmedPayoutDebit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          payrollRunId: RUN_ID,
+          payrollItemId: ITEM_ID,
+          amount: 50,
+          currency: 'USD',
+          provider: PaymentProvider.BACHS,
+          providerReference: 'bachs-txn-1',
+        }),
+      );
     });
   });
 });

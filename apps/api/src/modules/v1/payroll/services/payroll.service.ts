@@ -221,6 +221,36 @@ export class PayrollService {
     );
   }
 
+  async previewRetryShortfall(payrollRunId: string, tenantId: string, itemIds: string[]) {
+    return this.payrollFloatTopupService.previewRetryShortfall(payrollRunId, tenantId, itemIds);
+  }
+
+  async approveRetryShortfall(
+    payrollRunId: string,
+    tenantId: string,
+    approvedById: string,
+    itemIds: string[],
+    expectedAmount: number,
+    expectedCurrency: string,
+  ) {
+    return this.payrollFloatTopupService.approveRetryShortfall(
+      payrollRunId,
+      tenantId,
+      approvedById,
+      itemIds,
+      expectedAmount,
+      expectedCurrency,
+    );
+  }
+
+  async createRetryShortfallCheckout(payrollRunId: string, tenantId: string, memberId: string) {
+    return this.payrollFloatTopupService.createRetryShortfallCheckout(
+      payrollRunId,
+      tenantId,
+      memberId,
+    );
+  }
+
   async fundScheduledPayroll(payrollRunId: string, tenantId: string, auditContext: AuditContext) {
     return this.payrollFloatTopupService.fundScheduledPayroll(payrollRunId, tenantId, auditContext);
   }

@@ -167,6 +167,7 @@ export class BachsProvider extends BasePaymentProvider {
 
       let amount: string | undefined;
       let quoteId: string | undefined;
+      let sourceAmountRequired: number | undefined;
       if (intlBank && destinationBaseCurrency !== 'USD') {
         // EUR/GBP banks are funded from USD. When the item amount is already USD (FX-at-payout),
         // quote that source amount; otherwise target the destination salary amount.
@@ -178,6 +179,7 @@ export class BachsProvider extends BasePaymentProvider {
             payoutMethod: 'BANK_TRANSFER',
           });
           quoteId = quote.quote_id;
+          sourceAmountRequired = Number(quote.from_amount);
         } else if (amountCurrency === destinationBaseCurrency) {
           const quoted = await quoteSourceAmountForDestination({
             createQuote: (input) => this.bachsApi.createPayoutQuote(input),
@@ -187,6 +189,7 @@ export class BachsProvider extends BasePaymentProvider {
             payoutMethod: 'BANK_TRANSFER',
           });
           quoteId = quoted.quoteId;
+          sourceAmountRequired = quoted.sourceAmount;
         } else {
           return {
             success: false,
@@ -200,6 +203,7 @@ export class BachsProvider extends BasePaymentProvider {
       ) {
         // Same-currency debit (or same asset on another chain, e.g. USDT → USDT_TRC20).
         amount = data.amount.toFixed(2);
+        sourceAmountRequired = data.amount;
       } else if (sourceCurrency === amountCurrency) {
         // Amount already in the balance currency; quote into the destination.
         const quote = await this.bachsApi.createPayoutQuote({
@@ -209,6 +213,7 @@ export class BachsProvider extends BasePaymentProvider {
           ...(bankMethod ? { payoutMethod: bankMethod } : {}),
         });
         quoteId = quote.quote_id;
+        sourceAmountRequired = Number(quote.from_amount);
       } else if (
         amountCurrency === destinationCurrency ||
         amountCurrency === destinationBaseCurrency
@@ -222,6 +227,7 @@ export class BachsProvider extends BasePaymentProvider {
           ...(bankMethod ? { payoutMethod: bankMethod } : {}),
         });
         quoteId = quoted.quoteId;
+        sourceAmountRequired = quoted.sourceAmount;
       } else {
         return {
           success: false,
@@ -230,6 +236,30 @@ export class BachsProvider extends BasePaymentProvider {
             `Bachs cannot fund ${destinationCurrency} payout denominated in ${amountCurrency} ` +
             `from ${sourceCurrency}`,
         };
+      }
+
+      const retryFundingMaxSourceAmount = data.metadata?.retryFundingMaxSourceAmount;
+      if (typeof retryFundingMaxSourceAmount === 'number') {
+        const retryFundingSourceCurrency = readMetadataCurrency(
+          data.metadata?.retryFundingSourceCurrency,
+        );
+        if (
+          !Number.isFinite(retryFundingMaxSourceAmount) ||
+          retryFundingMaxSourceAmount <= 0 ||
+          retryFundingSourceCurrency !== sourceCurrency ||
+          !Number.isFinite(sourceAmountRequired) ||
+          sourceAmountRequired === undefined ||
+          sourceAmountRequired <= 0 ||
+          sourceAmountRequired > retryFundingMaxSourceAmount + 0.01
+        ) {
+          return {
+            success: false,
+            retryable: false,
+            error:
+              'The current Bachs source quote exceeds the approved retry funding allocation. ' +
+              'Review and fund the updated shortfall before retrying.',
+          };
+        }
       }
 
       const cachedDestinationId =

@@ -375,7 +375,7 @@ export class BachsApiService {
   /** Paginated lookup by checkout reference for wallet top-up verification. */
   async findPaymentByReference(
     reference: string,
-  ): Promise<{ status: string; amount: number } | null> {
+  ): Promise<{ status: string; amount: number; currency?: string } | null> {
     const encoded = encodeURIComponent(reference);
     // Prefer filtered lookup when supported; fall back to paging.
     try {
@@ -385,6 +385,8 @@ export class BachsApiService {
           status?: string;
           amount_paid?: string | null;
           amount?: string | null;
+          currency?: string | null;
+          billing_currency?: string | null;
         }>;
       }>(`/v1/payments?limit=20&reference=${encoded}`);
       const match = (filtered.items ?? []).find((item) => item.reference === reference);
@@ -403,6 +405,8 @@ export class BachsApiService {
           status?: string;
           amount_paid?: string | null;
           amount?: string | null;
+          currency?: string | null;
+          billing_currency?: string | null;
         }>;
         pagination?: { has_more?: boolean };
       }>(`/v1/payments?limit=100&offset=${offset}`);
@@ -424,12 +428,15 @@ export class BachsApiService {
     status?: string;
     amount_paid?: string | null;
     amount?: string | null;
-  }): { status: string; amount: number } {
+    currency?: string | null;
+    billing_currency?: string | null;
+  }): { status: string; amount: number; currency?: string } {
     const status = String(match.status ?? '').toLowerCase();
     const amount = Number(match.amount_paid ?? match.amount ?? 0);
     return {
       status,
       amount: Number.isFinite(amount) ? amount : 0,
+      currency: match.currency ?? match.billing_currency ?? undefined,
     };
   }
 

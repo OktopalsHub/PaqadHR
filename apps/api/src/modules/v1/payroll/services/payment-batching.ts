@@ -386,6 +386,22 @@ export class PaymentBatching {
             ? result.error || `${providerName} transfer failed`
             : null;
 
+        if (
+          itemStatus === PayrollItemStatus.PAID &&
+          providerName.toLowerCase().includes('bachs') &&
+          result.transactionId &&
+          entry.paymentData.merchantTxRef
+        ) {
+          await this.payrollPayoutService.recordConfirmedBachsDebit({
+            tenantId,
+            payrollRunId: item.payrollRunId,
+            payrollItemId: item.id,
+            transactionId: result.transactionId,
+            merchantReference: entry.paymentData.merchantTxRef,
+            destinationAmount: Number(item.paymentAmount),
+          });
+        }
+
         if (this.lifecycleNotify && itemStatus === PayrollItemStatus.PAID) {
           await this.lifecycleNotify.onItemPaid({
             tenantId,
@@ -432,6 +448,37 @@ export class PaymentBatching {
           provider: providerName,
           providerStatus: result.providerStatus,
           error: outcome === 'failed' ? result.error : undefined,
+          rail,
+        };
+      }
+
+      if (
+        !result.retryable &&
+        providerName.toLowerCase() === 'bachs' &&
+        !result.transactionId &&
+        !result.reference
+      ) {
+        // Bachs only omits the merchant reference when createPayout was never called. Keep this
+        // explicit so the retry funding ledger can safely release the reservation.
+        const message = result.error || 'Bachs rejected the payout before submission';
+        const metadata = {
+          ...(item.metadata ?? {}),
+          payoutNeverSubmitted: true,
+          payoutSubmissionPending: false,
+        };
+        await updatePayrollItemScoped(this.payrollItemRepository, item.id, tenantId, {
+          status: PayrollItemStatus.FAILED,
+          failureReason: message,
+          metadata,
+        });
+        item.status = PayrollItemStatus.FAILED;
+        item.failureReason = message;
+        item.metadata = metadata;
+        return {
+          success: false,
+          outcome: 'failed',
+          error: message,
+          provider: providerName,
           rail,
         };
       }

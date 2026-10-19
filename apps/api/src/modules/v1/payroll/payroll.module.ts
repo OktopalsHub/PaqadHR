@@ -20,6 +20,7 @@ import { PayrollRunsController } from './controllers/payroll-runs.controller';
 import { PayrollWebhooksController } from './controllers/payroll-webhooks.controller';
 import { PayrollItem } from './entities/payroll-item.entity';
 import { PayrollRun } from './entities/payroll-run.entity';
+import { PayrollRunFundingLedgerEntry } from './entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollWebhookEvent } from './entities/payroll-webhook-event.entity';
 import { PayrollItemRepository } from './repositories/payroll-item.repository';
 import { PayrollRunRepository } from './repositories/payroll-run.repository';
@@ -38,10 +39,17 @@ import { PayrollPaymentOrchestrator } from './services/payroll-payment-orchestra
 import { PayrollPayoutService } from './services/payroll-payout.service';
 import { PayrollPayoutCronService } from './services/payroll-payout-cron.service';
 import { PayrollRunService } from './services/payroll-run.service';
+import { PayrollRunFundingLedgerService } from './services/payroll-run-funding-ledger.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PayrollRun, PayrollItem, PayrollWebhookEvent, Tenant]),
+    TypeOrmModule.forFeature([
+      PayrollRun,
+      PayrollItem,
+      PayrollWebhookEvent,
+      PayrollRunFundingLedgerEntry,
+      Tenant,
+    ]),
     ActivitiesModule,
     PaymentsModule,
     SubscriptionsModule,
@@ -80,6 +88,7 @@ import { PayrollRunService } from './services/payroll-run.service';
     PayrollPayoutCronService,
     PayrollFloatBalanceService,
     PayrollFloatTopupService,
+    PayrollRunFundingLedgerService,
   ],
   exports: [
     PayrollService,
@@ -93,6 +102,7 @@ import { PayrollRunService } from './services/payroll-run.service';
     PayrollLifecycleNotifyService,
     PayrollPayoutService,
     PayrollFloatTopupService,
+    PayrollRunFundingLedgerService,
   ],
 })
 export class PayrollModule {}

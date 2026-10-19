@@ -88,3 +88,4 @@ export * from './1788305216360-payroll-webhook-events';
 export * from './1789923584684-session-expiry-index';
 export * from './1789930060361-payroll-webhook-processing';
 export * from './1791581394524-DropPlanPricePolarProductId';
+export * from './1792000000000-payroll-run-funding-ledger';
