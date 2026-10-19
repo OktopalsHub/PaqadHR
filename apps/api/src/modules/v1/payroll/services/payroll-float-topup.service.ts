@@ -839,6 +839,14 @@ export class PayrollFloatTopupService {
 
   private async assertRetryRunSettled(run: PayrollRun, tenantId: string): Promise<void> {
     if (
+      run.processingLockedAt &&
+      Date.now() - new Date(run.processingLockedAt).getTime() < 30 * 60 * 1000
+    ) {
+      throw new BadRequestException(
+        'Payroll run is currently being processed. Wait for processing to finish before retry funding.',
+      );
+    }
+    if (
       (run.items ?? []).some(
         (item) =>
           item.status === PayrollItemStatus.PENDING ||
