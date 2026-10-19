@@ -1,11 +1,11 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { Repository } from 'typeorm';
-import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
