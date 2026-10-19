@@ -1,9 +1,6 @@
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
-import {
-  PayrollFundingLedgerEventType,
-  PayrollRunFundingLedgerEntry,
-} from '../entities/payroll-run-funding-ledger-entry.entity';
+import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 describe('PayrollRunFundingLedgerService', () => {
