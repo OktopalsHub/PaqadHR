@@ -303,6 +303,8 @@ export class MultiPaymentService {
             payoutRetryCount: priorRetry + 1,
             retryFundingMaxSourceAmount: Number(meta.itemFundingAmounts[item.id]),
             retryFundingSourceCurrency: meta.currency,
+            payoutNeverSubmitted: false,
+            payoutSubmissionPending: false,
           };
         }
       } else {
@@ -357,9 +359,7 @@ export class MultiPaymentService {
         for (const item of payable) {
           if (
             item.status !== PayrollItemStatus.FAILED ||
-            !item.failureReason?.includes(
-              'The current Bachs source quote exceeds the approved retry funding allocation',
-            )
+            item.metadata?.payoutNeverSubmitted !== true
           ) {
             continue;
           }
@@ -371,7 +371,7 @@ export class MultiPaymentService {
             evidence: {
               validationStage: 'provider_quote_guard',
               submissionAttempted: false,
-              reason: 'current_source_quote_exceeds_approved_allocation',
+              reason: item.failureReason ?? 'bachs_provider_rejected_before_submission',
             },
           });
         }
