@@ -394,7 +394,7 @@ export class MultiPaymentService {
       approval.evidence?.selectedItemIds !== expectedSelectedIds ||
       !funding ||
       funding.provider !== PaymentProvider.BACHS ||
-      Number(funding.amount) !== Number(meta.amount) ||
+      Number(funding.amount) < Number(meta.amount) ||
       funding.currency !== meta.currency.toUpperCase() ||
       funding.evidence?.fundingPurpose !== 'approved_retry_shortfall' ||
       funding.evidence?.selectedItemIds !== expectedSelectedIds
