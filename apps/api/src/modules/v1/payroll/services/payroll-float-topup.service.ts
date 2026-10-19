@@ -1071,12 +1071,9 @@ export class PayrollFloatTopupService {
       normalizeWebhookAmount(verifiedAmount, expectedAmount, expectedCurrency) * 100,
     ) / 100;
     const exactExpectedAmount = Math.round(expectedAmount * 100) / 100;
-    if (
-      !Number.isFinite(paidAmount) ||
-      paidAmount !== exactExpectedAmount
-    ) {
+    if (!Number.isFinite(paidAmount) || paidAmount < exactExpectedAmount) {
       this.logger.warn(
-        `Retry funding checkout amount mismatch for ${input.orderReference}: expected ${exactExpectedAmount}, verified ${paidAmount}`,
+        `Retry funding checkout underpayment for ${input.orderReference}: expected at least ${exactExpectedAmount}, verified ${paidAmount}`,
       );
       return { received: true, paid: false };
     }
