@@ -851,7 +851,12 @@ export class PayrollRunFundingLedgerService {
         item.transactionId = null;
         item.paymentProvider = null;
         item.paidAt = null;
-        item.metadata = { ...(item.metadata ?? {}), payoutRetryCount: priorRetry + 1 };
+        item.metadata = {
+          ...(item.metadata ?? {}),
+          payoutRetryCount: priorRetry + 1,
+          retryFundingMaxSourceAmount: reservation.amount,
+          retryFundingSourceCurrency: reservation.currency,
+        };
         await itemRepository.save(item);
       }
     });
