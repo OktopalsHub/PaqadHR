@@ -7,7 +7,7 @@ import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { normalizePayoutStatus } from 'src/common/utils/normalize-payout-status.util';
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
-import { LessThan, Repository } from 'typeorm';
+import { ILike, LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
@@ -117,6 +117,60 @@ export class PayoutReconciliation {
       for (const item of stuckItems) {
         const changed = await this.reconcileStuckItem(item, tenantId);
         if (changed) updated += 1;
+      }
+    }
+
+    // Payroll status and ledger writes are separate operations. If the provider confirms a
+    // payout after the item was marked PAID but the ledger write failed, no PROCESSING sweep
+    // will ever see it again. Periodically scan paid Bachs items for a missing debit and let
+    // applyTransferStatus re-query Bachs before attempting the idempotent ledger write.
+    if (this.fundingLedger) {
+      const paidTenantIds =
+        await this.payrollRunRepository.findDistinctTenantIdsWithPaidBachsItems();
+      for (const tenantId of paidTenantIds) {
+        const paidItems = await this.payrollItemRepo.find({
+          where: {
+            status: PayrollItemStatus.PAID,
+            paymentProvider: ILike('%bachs%'),
+            payrollRun: { tenantId },
+          },
+          relations: ['payrollRun'],
+          take: 50,
+        });
+        checked += paidItems.length;
+
+        for (const item of paidItems) {
+          if (!item.transactionId) continue;
+          try {
+            const hasDebit = await this.fundingLedger.hasConfirmedPayoutDebit({
+              tenantId,
+              payrollRunId: item.payrollRunId,
+              payrollItemId: item.id,
+            });
+            if (hasDebit) continue;
+
+            const retryAttempt =
+              typeof item.metadata?.payoutRetryCount === 'number'
+                ? item.metadata.payoutRetryCount
+                : 0;
+            const merchantRef = buildPayrollMerchantRef(
+              item.payrollRunId,
+              item.id,
+              retryAttempt,
+            );
+            await this.applyTransferStatus(
+              merchantRef,
+              'COMPLETED',
+              item.transactionId,
+              PaymentProvider.BACHS,
+              tenantId,
+            );
+          } catch (error) {
+            this.logger.warn(
+              `Could not reconcile missing Bachs ledger debit for payroll item ${item.id}: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
       }
     }
 
