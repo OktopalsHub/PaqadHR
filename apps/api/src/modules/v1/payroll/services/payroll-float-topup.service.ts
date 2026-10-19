@@ -37,7 +37,10 @@ import { TenantSettingsService } from '../../tenant-settings/services/tenant-set
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PayrollRun } from '../entities/payroll-run.entity';
-import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
+import {
+  PayrollFundingLedgerEventType,
+  PayrollRunFundingLedgerEntry,
+} from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   buildPayrollFloatOrderRef,
@@ -681,6 +684,59 @@ export class PayrollFloatTopupService {
           'Another retry funding approval or checkout is already active for this payroll run.',
         );
       }
+
+      const lockedItems = await manager.getRepository(PayrollRun['items'][number]).find({
+        where: { payrollRunId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const lockedSelectedItems = lockedItems.filter((item) => uniqueIds.includes(item.id));
+      if (
+        lockedSelectedItems.length !== uniqueIds.length ||
+        lockedSelectedItems.some((item) => item.status !== PayrollItemStatus.FAILED) ||
+        lockedItems.some(
+          (item) =>
+            !uniqueIds.includes(item.id) &&
+            (item.status === PayrollItemStatus.PENDING ||
+              item.status === PayrollItemStatus.PROCESSING ||
+              item.metadata?.payoutSubmissionPending === true),
+        )
+      ) {
+        throw new BadRequestException(
+          'Payroll item statuses changed during approval. Reconcile payouts and review the shortfall again.',
+        );
+      }
+
+      const approvalRepository = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const approvalIdempotencyKey = `shortfall-approval:${payrollRunId}:${orderReference}`;
+      const existingApproval = await approvalRepository.findOne({
+        where: { idempotencyKey: approvalIdempotencyKey },
+      });
+      if (existingApproval) {
+        throw new BadRequestException(
+          'Retry funding approval reference already exists. Reconcile the previous approval before continuing.',
+        );
+      }
+      await approvalRepository.insert({
+        tenantId,
+        payrollRunId,
+        payrollItemId: null,
+        eventType: PayrollFundingLedgerEventType.SHORTFALL_APPROVED,
+        amount: approvedAmount.toFixed(2),
+        currency: preflight.currency.trim().toUpperCase(),
+        provider: PaymentProvider.BACHS,
+        providerReference: orderReference,
+        idempotencyKey: approvalIdempotencyKey,
+        performedById: approvedById,
+        approvedById,
+        evidence: {
+          platformFee: 0,
+          payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
+          approvalType: 'company_funded_retry_shortfall',
+          selectedItemIds: uniqueIds.join(','),
+          approvalStatus: 'approved',
+        },
+      });
+
       locked.metadata = {
         ...locked.metadata,
         retryFunding: {
@@ -699,23 +755,6 @@ export class PayrollFloatTopupService {
       await manager.save(locked);
     });
 
-    // Persist approval evidence only after the locked run metadata accepts this approval.
-    // A competing approval that loses the lock race must not leave a usable ledger approval.
-    await this.fundingLedger.recordRetryShortfallApproval({
-      tenantId,
-      payrollRunId,
-      selectedItemIds: uniqueIds,
-      amount: approvedAmount,
-      currency: preflight.currency,
-      approvedById,
-      provider: PaymentProvider.BACHS,
-      approvalReference: orderReference,
-      evidence: {
-        platformFee: 0,
-        payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
-        approvalType: 'company_funded_retry_shortfall',
-      },
-    });
     return {
       approved: true,
       orderReference,
