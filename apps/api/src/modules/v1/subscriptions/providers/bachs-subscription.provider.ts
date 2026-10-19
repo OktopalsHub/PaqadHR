@@ -230,6 +230,14 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
     _eventType: string,
   ): SubscriptionWebhookEvent | null {
     const data = body.data ?? {};
+    // Payroll funding collections (whole-run float top-ups and run-scoped retry shortfalls) are
+    // handled by the payroll webhook path. Without this guard an unknown billing type defaults to
+    // SUBSCRIPTION below and the payment is parsed as a plan charge.
+    const rawBillingType = String(
+      (data.metadata as Record<string, unknown> | undefined)?.billingType ?? '',
+    ).toLowerCase();
+    if (rawBillingType.startsWith('payroll_')) return null;
+
     const tenantId = metadata.tenantId;
     const nestedSubscription = data.subscription as { subscription_id?: string } | undefined;
     const externalSubscriptionId = String(
