@@ -14,7 +14,7 @@ export interface VerifiedPayrollFundingInput {
   provider: string;
   providerReference: string;
   performedById?: string | null;
-  evidence?: Record<string, unknown>;
+  evidence?: Record<string, string | number | boolean | null>;
 }
 
 @Injectable()
