@@ -55,6 +55,7 @@ export class BachsCheckoutAdapter implements CheckoutProvider {
       status:
         result.status === 'succeeded' || result.status === 'accepted' ? 'success' : result.status,
       amount: result.amount,
+      currency: result.currency,
     };
   }
 }
