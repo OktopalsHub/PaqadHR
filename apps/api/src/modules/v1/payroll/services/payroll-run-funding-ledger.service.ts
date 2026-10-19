@@ -114,6 +114,22 @@ export class PayrollRunFundingLedgerService {
         'A confirmed payout debit requires a positive amount, currency, and provider reference',
       );
     }
+    const verifiedStatus =
+      typeof input.evidence?.verifiedStatus === 'string'
+        ? input.evidence.verifiedStatus.trim().toUpperCase()
+        : '';
+    const terminalSuccessStatuses = new Set([
+      'SUCCESS',
+      'SUCCESSFUL',
+      'SUCCEEDED',
+      'COMPLETED',
+      'PAID',
+      'SETTLED',
+      'ACCEPTED',
+    ]);
+    if (!terminalSuccessStatuses.has(verifiedStatus)) {
+      throw new Error('A payout debit requires provider-confirmed terminal success evidence');
+    }
 
     const idempotencyKey = `payout:${input.provider}:${providerReference}`;
     await this.ledgerRepository.manager.transaction(async (manager) => {
