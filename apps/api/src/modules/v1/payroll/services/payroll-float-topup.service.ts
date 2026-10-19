@@ -80,6 +80,19 @@ type FloatTopupMeta = {
   fundingCurrency?: string;
 };
 
+type RetryFundingMeta = {
+  orderReference?: string;
+  status?: 'approved' | 'pending' | 'funded';
+  selectedItemIds?: string[];
+  amount?: number;
+  currency?: string;
+  provider?: string;
+  approvedById?: string;
+  approvedAt?: string;
+  checkoutUrl?: string;
+  fundedAt?: string;
+};
+
 @Injectable()
 export class PayrollFloatTopupService {
   private readonly logger = new Logger(PayrollFloatTopupService.name);
@@ -429,6 +442,192 @@ export class PayrollFloatTopupService {
         `Retry blocked because provider funding is insufficient or cannot be verified. ${preflight.message}`,
       );
     }
+  }
+
+  async approveRetryShortfall(
+    payrollRunId: string,
+    tenantId: string,
+    approvedById: string,
+    selectedItemIds: string[],
+  ): Promise<{
+    approved: true;
+    orderReference: string;
+    amount: number;
+    currency: string;
+    selectedItemIds: string[];
+    platformFee: 0;
+    payoutFeeReserve: number;
+  }> {
+    const uniqueIds = [...new Set(selectedItemIds)].sort();
+    if (!approvedById || uniqueIds.length === 0) {
+      throw new BadRequestException('Select at least one failed payout to approve retry funding');
+    }
+    const run = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
+    if (!run) throw new NotFoundException('Payroll run not found');
+    if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
+      throw new BadRequestException('Retry funding requires an approved or processing payroll run');
+    }
+    const selected = run.items.filter((item) => uniqueIds.includes(item.id));
+    if (
+      selected.length !== uniqueIds.length ||
+      selected.some((item) => item.status !== PayrollItemStatus.FAILED)
+    ) {
+      throw new BadRequestException('Retry funding can only be approved for failed items in this payroll run');
+    }
+    if (selected.some((item) => item.metadata?.payoutSubmissionPending === true)) {
+      throw new BadRequestException('A payout with an unresolved submission cannot be funded for retry');
+    }
+
+    const preflight = await this.preflight(payrollRunId, tenantId, true, uniqueIds);
+    if (preflight.provider !== PaymentProvider.BACHS) {
+      throw new BadRequestException('This approval flow is only available for Bachs-backed payroll retries');
+    }
+    if (!preflight.canCheckout || preflight.requiredAmount <= 0) {
+      throw new BadRequestException(
+        preflight.message || 'Bachs hosted checkout is unavailable for retry funding',
+      );
+    }
+
+    const orderReference = buildPayrollFloatOrderRef(
+      PaymentProvider.BACHS,
+      tenantId,
+    );
+    await this.fundingLedger.recordRetryShortfallApproval({
+      tenantId,
+      payrollRunId,
+      selectedItemIds: uniqueIds,
+      amount: preflight.requiredAmount,
+      currency: preflight.currency,
+      approvedById,
+      provider: PaymentProvider.BACHS,
+      approvalReference: orderReference,
+      evidence: {
+        platformFee: 0,
+        payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
+        approvalType: 'company_funded_retry_shortfall',
+      },
+    });
+
+    run.metadata = {
+      ...run.metadata,
+      retryFunding: {
+        orderReference,
+        status: 'approved',
+        selectedItemIds: uniqueIds,
+        amount: preflight.requiredAmount,
+        currency: preflight.currency,
+        provider: PaymentProvider.BACHS,
+        approvedById,
+        approvedAt: new Date().toISOString(),
+      } satisfies RetryFundingMeta,
+    };
+    await this.payrollRunRepository.save(run);
+    return {
+      approved: true,
+      orderReference,
+      amount: preflight.requiredAmount,
+      currency: preflight.currency,
+      selectedItemIds: uniqueIds,
+      platformFee: 0,
+      payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
+    };
+  }
+
+  async createRetryShortfallCheckout(
+    payrollRunId: string,
+    tenantId: string,
+    memberId: string,
+  ): Promise<{ checkoutUrl: string; orderReference: string; amount: number; currency: string }> {
+    const run = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
+    if (!run) throw new NotFoundException('Payroll run not found');
+    const meta = this.readRetryFundingMeta(run);
+    if (
+      !meta.orderReference ||
+      !meta.approvedById ||
+      !meta.selectedItemIds?.length ||
+      !meta.amount ||
+      !meta.currency ||
+      meta.provider !== PaymentProvider.BACHS ||
+      (meta.status !== 'approved' && meta.status !== 'pending')
+    ) {
+      throw new BadRequestException('Approve retry shortfall funding before creating checkout');
+    }
+    const selected = run.items.filter((item) => meta.selectedItemIds?.includes(item.id));
+    if (
+      selected.length !== meta.selectedItemIds.length ||
+      selected.some((item) => item.status !== PayrollItemStatus.FAILED)
+    ) {
+      throw new BadRequestException('Selected failed payouts changed after approval. Approve funding again.');
+    }
+    if (meta.status === 'pending' && meta.checkoutUrl) {
+      return {
+        checkoutUrl: meta.checkoutUrl,
+        orderReference: meta.orderReference,
+        amount: meta.amount,
+        currency: meta.currency,
+      };
+    }
+
+    const provider = PaymentProvider.BACHS as PayrollFloatOrderRefProvider;
+    const adapter = this.paymentFactory.resolveCheckoutAdapter(provider);
+    if (!adapter?.isConfigured()) {
+      throw new BadRequestException('Bachs hosted checkout is not configured');
+    }
+    const customerEmail = await this.resolveBillingEmail(tenantId);
+    if (!customerEmail) {
+      throw new BadRequestException('Billing contact email is not configured. Add it in Settings → Billing.');
+    }
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const callbackUrl = tenant?.slug
+      ? tenantFrontendUrl(tenant.slug, `/payroll?retry_funding=done&runId=${payrollRunId}`)
+      : tenantFrontendUrl('', `/payroll?retry_funding=done&runId=${payrollRunId}`);
+    const checkout = await adapter.createCheckout({
+      orderReference: meta.orderReference,
+      customerEmail,
+      amount: meta.amount,
+      currency: meta.currency,
+      callbackUrl,
+      customerName: resolveCheckoutCustomerFullName(tenant?.name, customerEmail),
+      savePaymentMethod: false,
+      meta: {
+        tenantId,
+        payrollRunId,
+        billingType: 'payroll_retry_funding',
+        expectedAmount: String(meta.amount),
+        selectedItemIds: meta.selectedItemIds.join(','),
+        approvedById: meta.approvedById,
+        initiatedByMemberId: memberId,
+      },
+    });
+
+    run.metadata = {
+      ...run.metadata,
+      retryFunding: {
+        ...meta,
+        orderReference: checkout.orderReference,
+        status: 'pending',
+        checkoutUrl: checkout.checkoutLink,
+      } satisfies RetryFundingMeta,
+    };
+    await this.payrollRunRepository.save(run);
+    return {
+      checkoutUrl: checkout.checkoutLink,
+      orderReference: checkout.orderReference,
+      amount: meta.amount,
+      currency: meta.currency,
+    };
+  }
+
+  private readRetryFundingMeta(run: PayrollRun): RetryFundingMeta {
+    const raw = run.metadata?.retryFunding;
+    if (!raw || typeof raw !== 'object') return {};
+    return raw as RetryFundingMeta;
   }
 
   async completeFloatTopup(input: {
