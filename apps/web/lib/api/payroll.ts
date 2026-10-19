@@ -246,7 +246,10 @@ export async function payNowPayroll(id: string): Promise<{
   });
 }
 
-export async function retryFailedPayrollPayments(id: string): Promise<{
+export async function retryFailedPayrollPayments(
+  id: string,
+  itemIds?: string[],
+): Promise<{
   message: string;
   result: {
     totalItems: number;
@@ -259,7 +262,7 @@ export async function retryFailedPayrollPayments(id: string): Promise<{
   const tenantId = await resolveTenantId();
   return apiClient(tenantPath(tenantId, `payroll/runs/${id}/retry-failed-payments`), {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify(itemIds?.length ? { itemIds } : {}),
   });
 }
 
