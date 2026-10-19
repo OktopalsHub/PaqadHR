@@ -736,7 +736,9 @@ export class PayrollFloatTopupService {
       if (!locked) throw new NotFoundException('Payroll run not found');
       const latest = this.readRetryFundingMeta(locked);
       if (latest.orderReference !== meta.orderReference) {
-        throw new BadRequestException('Retry funding order reference changed while checkout was created');
+        throw new BadRequestException(
+          'Retry funding order reference changed while checkout was created',
+        );
       }
       locked.metadata = {
         ...locked.metadata,
@@ -1078,9 +1080,9 @@ export class PayrollFloatTopupService {
       this.logger.warn(`Retry funding checkout verification invalid for ${input.orderReference}`);
       return { received: true, paid: false };
     }
-    const paidAmount = Math.round(
-      normalizeWebhookAmount(verifiedAmount, expectedAmount, expectedCurrency) * 100,
-    ) / 100;
+    const paidAmount =
+      Math.round(normalizeWebhookAmount(verifiedAmount, expectedAmount, expectedCurrency) * 100) /
+      100;
     const exactExpectedAmount = Math.round(expectedAmount * 100) / 100;
     if (!Number.isFinite(paidAmount) || paidAmount < exactExpectedAmount) {
       this.logger.warn(
@@ -1129,7 +1131,9 @@ export class PayrollFloatTopupService {
       if (!locked) throw new NotFoundException('Payroll run not found');
       const latest = this.readRetryFundingMeta(locked);
       if (latest.orderReference !== input.orderReference) {
-        throw new BadRequestException('Retry funding checkout reference changed during verification');
+        throw new BadRequestException(
+          'Retry funding checkout reference changed during verification',
+        );
       }
       if (latest.status === 'funded') return;
       if (latest.status !== 'pending') {
@@ -1405,9 +1409,9 @@ export class PayrollFloatTopupService {
       // Retry funding covers only the failed employee payouts and required provider
       // reserves. The PaqadHR platform fee was charged on the original payroll run and must
       // not be charged a second time.
-      const requiredAmount = Math.round(
-        ((forRetry ? fee.employeeTotal : fee.checkoutTotal) + payoutFeeReserve) * 100,
-      ) / 100;
+      const requiredAmount =
+        Math.round(((forRetry ? fee.employeeTotal : fee.checkoutTotal) + payoutFeeReserve) * 100) /
+        100;
       if (forRetry) {
         const canCheckout = this.balanceService.supportsHostedFloatTopup(PaymentProvider.BACHS);
         return {
