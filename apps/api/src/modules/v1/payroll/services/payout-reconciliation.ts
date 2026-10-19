@@ -429,7 +429,20 @@ export class PayoutReconciliation {
       if (!item) return false;
 
       if (normalizedStatus === 'completed') {
-        if (item.status === PayrollItemStatus.PAID) return false;
+        if (item.status === PayrollItemStatus.PAID) {
+          // A repeated provider success must not notify or mutate payroll state again.
+          // Keep the persisted item available to the ledger-recovery step below, but only
+          // when this success belongs to the exact payout already recorded on the item.
+          if (
+            provider === PaymentProvider.BACHS &&
+            item.paymentProvider === providerName &&
+            item.transactionId === transactionId
+          ) {
+            outcome.item = item;
+            outcome.kind = 'paid';
+          }
+          return false;
+        }
         if (
           item.metadata?.fxAtPayout !== true &&
           amount != null &&
@@ -538,18 +551,37 @@ export class PayoutReconciliation {
     }
 
     if (
-      changed &&
       changedKind === 'paid' &&
+      outcome.item?.status === PayrollItemStatus.PAID &&
+      outcome.item.transactionId === transactionId &&
       provider === PaymentProvider.BACHS &&
       parsed.payrollRunId &&
       resolvedTenantId &&
       this.fundingLedger
     ) {
       try {
+        // Query the provider even for repeated success events. This repairs the case where
+        // the payroll state committed but the separate ledger write failed on an earlier
+        // webhook. The ledger service makes this write idempotent.
         const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
         const payout = await querier?.queryStatus(transactionId, merchantRef);
+        const verifiedStatus = payout?.status?.trim().toUpperCase();
+        const terminalSuccessStatuses = new Set([
+          'SUCCESS',
+          'SUCCESSFUL',
+          'SUCCEEDED',
+          'COMPLETED',
+          'PAID',
+          'SETTLED',
+          'ACCEPTED',
+        ]);
+        const referenceMatches = payout?.reference === merchantRef;
         if (
-          payout?.sourceDebitedAmount != null &&
+          payout &&
+          referenceMatches &&
+          verifiedStatus &&
+          terminalSuccessStatuses.has(verifiedStatus) &&
+          payout.sourceDebitedAmount != null &&
           Number.isFinite(payout.sourceDebitedAmount) &&
           payout.sourceDebitedAmount > 0 &&
           payout.sourceCurrency
@@ -563,7 +595,7 @@ export class PayoutReconciliation {
             provider: PaymentProvider.BACHS,
             providerReference: transactionId,
             evidence: {
-              verifiedStatus: payout.status,
+              verifiedStatus,
               merchantReference: merchantRef,
               destinationAmount: amount ?? null,
               sourceDebitedAmount: payout.sourceDebitedAmount,
@@ -572,7 +604,7 @@ export class PayoutReconciliation {
           });
         } else {
           this.logger.warn(
-            `Bachs payout ${transactionId} completed but source debit could not be verified; payroll retry remains blocked`,
+            `Bachs payout ${transactionId} completed but provider reference, terminal status, or source debit could not be verified; ledger recovery remains pending`,
           );
         }
       } catch (error) {
