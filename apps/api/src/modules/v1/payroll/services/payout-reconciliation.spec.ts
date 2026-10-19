@@ -226,6 +226,9 @@ describe('PayoutReconciliation', () => {
       findDistinctTenantIdsWithProcessingItems: jest
         .fn()
         .mockResolvedValue(overrides?.resolveTenantId === null ? [] : ['tenant-1']),
+      findDistinctTenantIdsWithPaidBachsItems: jest
+        .fn()
+        .mockResolvedValue(overrides?.paidBachsTenantIds ?? []),
       findByIdWithItems: jest.fn().mockResolvedValue({
         id: 'run-1',
         tenantId: 'tenant-1',
