@@ -262,31 +262,45 @@ export class MultiPaymentService {
           );
         }
         await this.assertRetryQuotesCovered(payrollRun, retriableItems, meta);
-        for (const item of retriableItems) {
+        const reservations = retriableItems.map((item) => {
           const amount = Number(meta.itemFundingAmounts[item.id]);
           if (!Number.isFinite(amount) || amount <= 0) {
             throw new BadRequestException(
               `Missing approved funding allocation for failed payroll item ${item.id}`,
             );
           }
-          await this.fundingLedger.reserveFailedPayout({
-            tenantId,
-            payrollRunId,
+          return {
             payrollItemId: item.id,
             amount,
             currency: meta.currency,
-            provider: PaymentProvider.BACHS,
             reservationKey: `${meta.orderReference}:${item.id}`,
-            performedById: auditContext.performedById ?? meta.approvedById,
-            evidence: {
-              fundingReference: meta.orderReference,
-              approvedById: meta.approvedById,
-              retryFundingPurpose: 'company_funded_retry_shortfall',
-            },
-          });
+          };
+        });
+        await this.fundingLedger.reserveFailedPayoutsForRetry({
+          tenantId,
+          payrollRunId,
+          provider: PaymentProvider.BACHS,
+          performedById: auditContext.performedById ?? meta.approvedById,
+          evidence: {
+            fundingReference: meta.orderReference,
+            approvedById: meta.approvedById,
+            retryFundingPurpose: 'company_funded_retry_shortfall',
+          },
+          reservations,
+        });
+        for (const item of retriableItems) {
+          const priorRetry =
+            typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
+          item.status = PayrollItemStatus.PENDING;
+          item.failureReason = null;
+          item.transactionId = null;
+          item.paymentProvider = null;
+          item.paidAt = null;
+          item.metadata = { ...(item.metadata ?? {}), payoutRetryCount: priorRetry + 1 };
         }
+      } else {
+        await this.validation.resetItemsForRetry(retriableItems, tenantId);
       }
-      await this.validation.resetItemsForRetry(retriableItems, tenantId);
       const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
       const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
       if (payable.length === 0) {
