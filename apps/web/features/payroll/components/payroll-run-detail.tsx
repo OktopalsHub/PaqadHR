@@ -331,10 +331,7 @@ export function PayrollRunDetail({
     (detail?.items ?? []).some((item) =>
       (item.paymentProvider ?? '').toLowerCase().includes('bachs'),
     );
-  const fundingLedgerQuery = usePayrollFundingLedger(
-    runId,
-    Boolean(isAdmin && isBachsFundingRun),
-  );
+  const fundingLedgerQuery = usePayrollFundingLedger(runId, Boolean(isAdmin && isBachsFundingRun));
   const [retryFundingReviewOpen, setRetryFundingReviewOpen] = useState(false);
   const [retryFundingItemIds, setRetryFundingItemIds] = useState<string[]>([]);
   const [retryFundingPreview, setRetryFundingPreview] = useState<{
@@ -505,7 +502,9 @@ export function PayrollRunDetail({
         itemIds?.length
           ? itemIds
           : activeItems.filter((item) => item.status === 'failed').map((item) => item.id)
-      ).slice().sort();
+      )
+        .slice()
+        .sort();
       if (selectedItemIds.length === 0) {
         toast.error('Select at least one failed payout');
         return;
@@ -934,9 +933,7 @@ export function PayrollRunDetail({
                   </AlertDescription>
                 </Alert>
                 <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Amount to fund
-                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Amount to fund</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-slate-100">
                     {formatMoney(retryFundingPreview.amount, retryFundingPreview.currency)}
                   </p>
@@ -964,10 +961,7 @@ export function PayrollRunDetail({
                   {retryFundingItemIds.map((itemId) => {
                     const item = activeItems.find((candidate) => candidate.id === itemId);
                     return (
-                      <div
-                        key={itemId}
-                        className="flex items-center justify-between gap-3 text-sm"
-                      >
+                      <div key={itemId} className="flex items-center justify-between gap-3 text-sm">
                         <span className="truncate">{item ? employeeName(item) : itemId}</span>
                         <span className="shrink-0 text-slate-500 dark:text-slate-400">
                           {item?.paymentCurrency ?? detail?.baseCurrency ?? ''}
@@ -1098,7 +1092,7 @@ export function PayrollRunDetail({
                         <p className="truncate text-xs text-slate-500 dark:text-slate-400">
                           {entry.payrollItemId
                             ? `Payout item ${entry.payrollItemId}`
-                            : entry.providerReference ?? 'Run-level funding event'}
+                            : (entry.providerReference ?? 'Run-level funding event')}
                           {' · '}
                           {new Date(entry.createdAt).toLocaleString()}
                         </p>
