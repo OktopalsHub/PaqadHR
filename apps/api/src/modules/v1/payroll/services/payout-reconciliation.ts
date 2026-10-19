@@ -283,6 +283,11 @@ export class PayoutReconciliation {
     // A retry mints a new merchant reference, so anything already submitted under the
     // previous one stays a live payout. Items whose submission outcome we never learned
     // must not be retried blind — that is how an employee gets paid twice.
+    if (provider === PaymentProvider.BACHS && !reference) {
+      throw new BadRequestException(
+        `Cannot retry payroll item ${item.id}: Bachs has not provided a payout reference to verify a terminal failure.`,
+      );
+    }
     if (!reference && item.metadata?.payoutSubmissionPending === true) {
       throw new BadRequestException(
         `Cannot retry payroll item ${item.id}: its payout submission outcome is still unknown. ` +
@@ -301,6 +306,31 @@ export class PayoutReconciliation {
         status = result.status;
         amount = result.amount;
       }
+    }
+
+    if (provider === PaymentProvider.BACHS) {
+      const terminalFailureStatuses = new Set(['FAILED', 'REJECTED', 'CANCELLED', 'CANCELED']);
+      const verifiedStatus = status?.trim().toUpperCase();
+      if (!verifiedStatus) {
+        throw new BadRequestException(
+          `Cannot retry payroll item ${item.id}: Bachs could not verify its payout status. Try again after provider status is available.`,
+        );
+      }
+      if (terminalFailureStatuses.has(verifiedStatus)) return true;
+      if (SUCCESS_STATUSES.has(verifiedStatus) || PENDING_STATUSES.has(verifiedStatus)) {
+        await this.applyTransferStatus(
+          merchantRef,
+          verifiedStatus,
+          reference,
+          provider,
+          tenantId,
+          amount,
+        );
+        return false;
+      }
+      throw new BadRequestException(
+        `Cannot retry payroll item ${item.id}: Bachs returned non-terminal payout status "${verifiedStatus}".`,
+      );
     }
 
     if (!status) return true;
