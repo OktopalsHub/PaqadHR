@@ -166,6 +166,7 @@ describe('PayoutReconciliation', () => {
       queryStatus?: jest.Mock;
       paidBachsTenantIds?: string[];
       paidBachsItems?: PayrollItem[];
+      transactionItem?: PayrollItem;
       fundingLedger?: {
         hasConfirmedPayoutDebit: jest.Mock;
         recordConfirmedPayoutDebit: jest.Mock;
@@ -182,7 +183,7 @@ describe('PayoutReconciliation', () => {
       payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
     } as unknown as PayrollItem;
     const transactionRepository = {
-      findOne: jest.fn().mockResolvedValue(savedItem),
+      findOne: jest.fn().mockResolvedValue(overrides?.transactionItem ?? savedItem),
       save: jest.fn(async (entity: PayrollItem) => entity),
     };
     const manager = {
@@ -200,6 +201,9 @@ describe('PayoutReconciliation', () => {
       execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     const payrollItemRepo = {
+      findOne: jest.fn().mockImplementation(() =>
+        Promise.resolve(overrides?.transactionItem ?? savedItem),
+      ),
       find: jest
         .fn()
         .mockImplementation((options: { where?: { status?: PayrollItemStatus } }) =>
@@ -429,6 +433,7 @@ describe('PayoutReconciliation', () => {
       queryStatus,
       paidBachsTenantIds: ['tenant-1'],
       paidBachsItems: [paidItem],
+      transactionItem: paidItem,
       fundingLedger,
     });
 
