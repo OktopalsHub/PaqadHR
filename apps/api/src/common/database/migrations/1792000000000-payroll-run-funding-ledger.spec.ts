@@ -19,7 +19,10 @@ describe('PayrollRunFundingLedger1792000000000', () => {
 
   it('allows rollback only when the ledger is empty', async () => {
     const queryRunner = {
-      query: jest.fn().mockResolvedValueOnce([{ count: '0' }]).mockResolvedValueOnce(undefined),
+      query: jest
+        .fn()
+        .mockResolvedValueOnce([{ count: '0' }])
+        .mockResolvedValueOnce(undefined),
     };
 
     await migration.down(queryRunner as never);
