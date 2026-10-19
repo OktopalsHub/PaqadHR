@@ -1,8 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import {
-  PayrollFundingLedgerEventType,
-} from '../entities/payroll-run-funding-ledger-entry.entity';
+import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
