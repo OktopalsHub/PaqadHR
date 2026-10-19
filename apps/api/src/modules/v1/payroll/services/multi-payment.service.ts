@@ -247,7 +247,9 @@ export class MultiPaymentService {
           itemFundingAmounts: Record<string, number>;
         };
         if (!this.fundingLedger) {
-          throw new BadRequestException('Run-scoped funding ledger is unavailable; retry remains blocked');
+          throw new BadRequestException(
+            'Run-scoped funding ledger is unavailable; retry remains blocked',
+          );
         }
         for (const item of retriableItems) {
           const amount = Number(meta.itemFundingAmounts[item.id]);
@@ -317,7 +319,9 @@ export class MultiPaymentService {
     tenantId: string,
   ): Promise<void> {
     if (!this.fundingLedger) {
-      throw new BadRequestException('Run-scoped funding ledger is unavailable; Bachs retry remains blocked');
+      throw new BadRequestException(
+        'Run-scoped funding ledger is unavailable; Bachs retry remains blocked',
+      );
     }
     const raw = payrollRun.metadata?.retryFunding;
     if (!raw || typeof raw !== 'object') {
@@ -360,9 +364,13 @@ export class MultiPaymentService {
         Object.values(allocations).reduce((sum, amount) => sum + Number(amount), 0) -
           Number(meta.amount),
       ) > 0.01 ||
-      Object.values(allocations).some((amount) => !Number.isFinite(Number(amount)) || Number(amount) <= 0)
+      Object.values(allocations).some(
+        (amount) => !Number.isFinite(Number(amount)) || Number(amount) <= 0,
+      )
     ) {
-      throw new BadRequestException('Approved Bachs retry funding allocations are incomplete or inconsistent');
+      throw new BadRequestException(
+        'Approved Bachs retry funding allocations are incomplete or inconsistent',
+      );
     }
 
     const ledger = await this.fundingLedger.getRunLedger(tenantId, payrollRun.id);
