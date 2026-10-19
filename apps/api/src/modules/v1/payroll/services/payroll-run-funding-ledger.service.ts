@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
+import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import { Repository } from 'typeorm';
+import { PayrollItem } from '../entities/payroll-item.entity';
+import { PayrollRun } from '../entities/payroll-run.entity';
 import {
   PayrollFundingLedgerEventType,
   PayrollRunFundingLedgerEntry,
@@ -156,6 +160,136 @@ export class PayrollRunFundingLedgerService {
         throw error;
       }
     }
+  }
+
+  /**
+   * Atomically reserve run-owned funds for one previously failed payout.
+   *
+   * This deliberately requires a fully settled run before reserving: any pending/processing
+   * item or paid item without a provider-confirmed debit makes the run unreconciled. The run
+   * row lock serializes concurrent reservations for the same run. This is a ledger primitive;
+   * callers must still keep retry authorization disabled until the whole funding workflow is
+   * reviewed and wired end-to-end.
+   */
+  async reserveFailedPayout(input: {
+    tenantId: string;
+    payrollRunId: string;
+    payrollItemId: string;
+    amount: number;
+    currency: string;
+    provider: string;
+    reservationKey: string;
+    performedById: string;
+    evidence: Record<string, string | number | boolean | null>;
+  }): Promise<void> {
+    const amount = Math.round(input.amount * 100) / 100;
+    const currency = input.currency.trim().toUpperCase();
+    const reservationKey = input.reservationKey.trim();
+    if (!Number.isFinite(amount) || amount <= 0 || !currency || !reservationKey) {
+      throw new Error('A payout reservation requires a positive amount, currency, and key');
+    }
+
+    await this.ledgerRepository.manager.transaction(async (manager) => {
+      const run = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!run) throw new Error('Payroll run not found for funding reservation');
+      if (run.status !== PayrollStatus.APPROVED) {
+        throw new Error('Funding can only be reserved for an approved payroll run');
+      }
+
+      const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const idempotencyKey = `reservation:${input.payrollRunId}:${reservationKey}`;
+      const existing = await ledger.findOne({ where: { idempotencyKey } });
+      if (existing) {
+        if (
+          existing.tenantId !== input.tenantId ||
+          existing.payrollRunId !== input.payrollRunId ||
+          existing.payrollItemId !== input.payrollItemId ||
+          Number(existing.amount) !== amount ||
+          existing.currency !== currency
+        ) {
+          throw new Error('Reservation key was already used for a different payout');
+        }
+        return;
+      }
+
+      const items = await manager.getRepository(PayrollItem).find({
+        where: { payrollRunId: input.payrollRunId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const selected = items.find((item) => item.id === input.payrollItemId);
+      if (!selected || selected.status !== PayrollItemStatus.FAILED) {
+        throw new Error('Only a confirmed failed payout can be reserved for retry');
+      }
+      if (selected.metadata?.payoutSubmissionPending === true) {
+        throw new Error('Cannot reserve a payout while its submission outcome is unknown');
+      }
+      if (
+        items.some(
+          (item) =>
+            item.status === PayrollItemStatus.PENDING ||
+            item.status === PayrollItemStatus.PROCESSING,
+        )
+      ) {
+        throw new Error('Cannot reserve funds while any payout outcome remains unresolved');
+      }
+
+      const entries = await ledger.find({
+        where: { tenantId: input.tenantId, payrollRunId: input.payrollRunId },
+      });
+      const paidItemIds = new Set(
+        entries
+          .filter((entry) => entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED)
+          .map((entry) => entry.payrollItemId)
+          .filter((id): id is string => Boolean(id)),
+      );
+      if (
+        items.some(
+          (item) => item.status === PayrollItemStatus.PAID && !paidItemIds.has(item.id),
+        )
+      ) {
+        throw new Error('Cannot reserve funds until every paid payout has a confirmed debit');
+      }
+
+      const totals = entries.reduce(
+        (state, entry) => {
+          if (entry.currency !== currency) return state;
+          const value = Number(entry.amount);
+          if (entry.eventType === PayrollFundingLedgerEventType.FUNDING_RECEIVED) {
+            state.funded += value;
+          } else if (entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED) {
+            state.debited += value;
+          } else if (entry.eventType === PayrollFundingLedgerEventType.PAYOUT_RESERVED) {
+            state.reserved += value;
+          } else if (entry.eventType === PayrollFundingLedgerEventType.RESERVATION_RELEASED) {
+            state.released += value;
+          }
+          return state;
+        },
+        { funded: 0, debited: 0, reserved: 0, released: 0 },
+      );
+      const available = Math.round((totals.funded - totals.debited - totals.reserved + totals.released) * 100) / 100;
+      if (available < amount) {
+        throw new Error(`Insufficient verified run-scoped funds: ${available} ${currency} available`);
+      }
+
+      await ledger.insert({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: input.payrollItemId,
+        eventType: PayrollFundingLedgerEventType.PAYOUT_RESERVED,
+        amount: amount.toFixed(2),
+        currency,
+        provider: input.provider,
+        providerReference: null,
+        idempotencyKey,
+        performedById: input.performedById,
+        approvedById: null,
+        evidence: { ...input.evidence, reservationKey },
+      });
+    });
   }
 
   async getRunLedger(tenantId: string, payrollRunId: string) {
