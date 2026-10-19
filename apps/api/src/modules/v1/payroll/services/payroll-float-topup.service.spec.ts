@@ -3,9 +3,9 @@ import type { PaymentProviderFactoryService } from 'src/common/services/payment-
 import type { Repository } from 'typeorm';
 import type { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import type { Tenant } from '../../tenants/entities/tenant.entity';
+import * as payrollDisbursementConfig from '../config/payroll-disbursement.config';
 import type { PayrollRun } from '../entities/payroll-run.entity';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import * as payrollDisbursementConfig from '../config/payroll-disbursement.config';
 import type { PayrollFloatBalanceService } from './payroll-float-balance.service';
 import { PayrollFloatTopupService } from './payroll-float-topup.service';
 import type { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
