@@ -495,7 +495,7 @@ export class PayoutReconciliation {
           // when this success belongs to the exact payout already recorded on the item.
           if (
             provider === PaymentProvider.BACHS &&
-            item.paymentProvider === providerName &&
+            (item.paymentProvider ?? '').toLowerCase() === providerName.toLowerCase() &&
             item.transactionId === transactionId
           ) {
             outcome.item = item;
