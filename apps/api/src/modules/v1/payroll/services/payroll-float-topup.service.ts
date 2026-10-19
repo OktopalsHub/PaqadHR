@@ -664,22 +664,6 @@ export class PayrollFloatTopupService {
     }
 
     const orderReference = buildPayrollFloatOrderRef(PaymentProvider.BACHS, tenantId);
-    await this.fundingLedger.recordRetryShortfallApproval({
-      tenantId,
-      payrollRunId,
-      selectedItemIds: uniqueIds,
-      amount: approvedAmount,
-      currency: preflight.currency,
-      approvedById,
-      provider: PaymentProvider.BACHS,
-      approvalReference: orderReference,
-      evidence: {
-        platformFee: 0,
-        payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
-        approvalType: 'company_funded_retry_shortfall',
-      },
-    });
-
     await this.payrollRunRepository.manager.transaction(async (manager) => {
       const locked = await manager.getRepository(PayrollRun).findOne({
         where: { id: payrollRunId, tenantId },
@@ -713,6 +697,24 @@ export class PayrollFloatTopupService {
         } satisfies RetryFundingMeta,
       };
       await manager.save(locked);
+    });
+
+    // Persist approval evidence only after the locked run metadata accepts this approval.
+    // A competing approval that loses the lock race must not leave a usable ledger approval.
+    await this.fundingLedger.recordRetryShortfallApproval({
+      tenantId,
+      payrollRunId,
+      selectedItemIds: uniqueIds,
+      amount: approvedAmount,
+      currency: preflight.currency,
+      approvedById,
+      provider: PaymentProvider.BACHS,
+      approvalReference: orderReference,
+      evidence: {
+        platformFee: 0,
+        payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
+        approvalType: 'company_funded_retry_shortfall',
+      },
     });
     return {
       approved: true,
