@@ -1,4 +1,14 @@
-import { BadRequestException, Body, Controller, Get, Logger, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RateLimit, RateLimitPresets, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from '../../../../common/enums';
@@ -205,12 +215,7 @@ export class PayrollPayoutController {
     if (!retryDto.itemIds?.length) {
       throw new BadRequestException('Select failed payout items before approving retry funding');
     }
-    return this.payrollService.approveRetryShortfall(
-      id,
-      tenantId,
-      req.member.id,
-      retryDto.itemIds,
-    );
+    return this.payrollService.approveRetryShortfall(id, tenantId, req.member.id, retryDto.itemIds);
   }
 
   @Post('runs/:id/retry-funding/checkout')
