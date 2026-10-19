@@ -130,6 +130,43 @@ describe('PayrollRunFundingLedgerService', () => {
     expect(repository.insert).not.toHaveBeenCalled();
   });
 
+  it('detects whether a paid payroll item has a confirmed debit in its run ledger', async () => {
+    repository.findOne.mockResolvedValue({
+      eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      payrollItemId: 'item-1',
+    });
+
+    await expect(
+      service.hasConfirmedPayoutDebit({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: 'item-1',
+      }),
+    ).resolves.toBe(true);
+    expect(repository.findOne).toHaveBeenCalledWith({
+      where: {
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: 'item-1',
+        eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+      },
+    });
+  });
+
+  it('reports a missing confirmed debit so reconciliation can repair it', async () => {
+    repository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.hasConfirmedPayoutDebit({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: 'item-1',
+      }),
+    ).resolves.toBe(false);
+  });
+
   it('records provider-confirmed payout debits in the source currency', async () => {
     repository.findOne.mockResolvedValue(null);
     repository.insert.mockResolvedValue({ identifiers: [{ id: 'debit-1' }] });
