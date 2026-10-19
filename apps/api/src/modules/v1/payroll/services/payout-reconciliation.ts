@@ -159,11 +159,7 @@ export class PayoutReconciliation {
                 typeof item.metadata?.payoutRetryCount === 'number'
                   ? item.metadata.payoutRetryCount
                   : 0;
-              const merchantRef = buildPayrollMerchantRef(
-                item.payrollRunId,
-                item.id,
-                retryAttempt,
-              );
+              const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
               await this.applyTransferStatus(
                 merchantRef,
                 'COMPLETED',
