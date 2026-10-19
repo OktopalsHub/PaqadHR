@@ -75,10 +75,10 @@ jobs:
       - name: Check DTO module load (TDZ guard)
         run: pnpm --filter api check:dto-load
 
-    #  - name: Run API tests
-        #run: pnpm --filter api test
-        #env:
-         # DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
+      - name: Run API tests
+        run: pnpm --filter api test -- --runInBand
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
 
   build-and-publish:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
@@ -137,9 +137,6 @@ jobs:
 
       - name: Trigger Dokploy webhook
         env:
-          # Each Dokploy app has its own webhook URL, so dev and prod deploy
-          # triggers are separate secrets. DOKPLOY_WEBHOOK_URL is kept as the
-          # dev fallback for setups that only configured the dev app.
           DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}
           DOKPLOY_WEBHOOK_URL_DEV: ${{ secrets.DOKPLOY_WEBHOOK_URL_DEV }}
           DOKPLOY_WEBHOOK_URL_PROD: ${{ secrets.DOKPLOY_WEBHOOK_URL_PROD }}
@@ -155,9 +152,6 @@ jobs:
             echo "DOKPLOY_WEBHOOK_URL_${TARGET^^} not set — skipping $TARGET deploy trigger"
             exit 0
           fi
-          # Docker/GHCR apps need registry_package + matching tag (:dev on the
-          # dev app, :main on the prod app).
-          # Bare POST can return success while redeploying a cached local image.
           IMAGE="ghcr.io/${REPO}:${GITHUB_REF_NAME}"
           BODY=$(jq -nc \
             --arg url "$IMAGE" \
