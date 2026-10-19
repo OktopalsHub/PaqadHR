@@ -859,6 +859,23 @@ export class PayrollFloatTopupService {
       );
     }
     const ledger = await this.fundingLedger.getRunLedger(tenantId, run.id);
+    const releasedReservationKeys = new Set(
+      ledger.entries
+        .filter((entry) => entry.eventType === PayrollFundingLedgerEventType.RESERVATION_RELEASED)
+        .map((entry) => entry.evidence?.releasedReservationKey)
+        .filter((key): key is string => typeof key === 'string'),
+    );
+    const hasActiveReservation = ledger.entries.some((entry) => {
+      if (entry.eventType !== PayrollFundingLedgerEventType.PAYOUT_RESERVED) return false;
+      const reservationKey =
+        typeof entry.evidence?.reservationKey === 'string' ? entry.evidence.reservationKey : '';
+      return Boolean(reservationKey) && !releasedReservationKeys.has(reservationKey);
+    });
+    if (hasActiveReservation) {
+      throw new BadRequestException(
+        'A prior retry reservation is still active. Reconcile the previous payout attempt before approving more funding.',
+      );
+    }
     const debitedItemIds = new Set(
       ledger.entries
         .filter((entry) => entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED)
