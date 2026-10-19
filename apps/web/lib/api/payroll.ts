@@ -310,6 +310,27 @@ export async function createRetryFundingCheckout(
   });
 }
 
+export type RetryFundingReconcileResult = {
+  status: 'funded' | 'pending' | 'unavailable';
+  orderReference?: string;
+  amount?: number;
+  currency?: string;
+  reason?: string;
+};
+
+/**
+ * Re-verify a pending retry-funding checkout with the payout provider. Safe to call repeatedly:
+ * it only proves the company's payment and credits the run's funding ledger, and it never
+ * starts payout. Use it when a checkout was completed but the funding webhook was dropped.
+ */
+export async function reconcileRetryFunding(id: string): Promise<RetryFundingReconcileResult> {
+  const tenantId = await resolveTenantId();
+  return apiClient<RetryFundingReconcileResult>(
+    tenantPath(tenantId, `payroll/runs/${id}/retry-funding/reconcile`),
+    { method: 'POST' },
+  );
+}
+
 export type PayrollFundingLedger = {
   payrollRunId: string;
   entries: Array<{

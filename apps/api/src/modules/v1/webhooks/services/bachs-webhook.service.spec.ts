@@ -115,6 +115,63 @@ describe('BachsWebhookService', () => {
     expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
   });
 
+  it('routes payroll_float_topup collection.succeeded to payroll funding', async () => {
+    const body = JSON.stringify({
+      type: 'collection.succeeded',
+      data: {
+        reference: 'pf_tenant_ref',
+        amount: '5000.00',
+        metadata: {
+          tenantId: 't1',
+          payrollRunId: 'run-1',
+          billingType: 'payroll_float_topup',
+          expectedAmount: '5000',
+        },
+      },
+    });
+
+    await service.dispatch(body, 'sig', '123');
+
+    expect(payrollFloatTopupService.completeFloatTopup).toHaveBeenCalledWith({
+      tenantId: 't1',
+      orderReference: 'pf_tenant_ref',
+      payrollRunId: 'run-1',
+      amount: 5000,
+      initiatedByMemberId: undefined,
+    });
+    expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
+  });
+
+  it('routes payroll_retry_funding collection.succeeded to payroll funding', async () => {
+    const body = JSON.stringify({
+      type: 'collection.succeeded',
+      data: {
+        reference: 'pf_tenant_retry_ref',
+        amount: '1250.00',
+        metadata: {
+          tenantId: 't1',
+          payrollRunId: 'run-1',
+          billingType: 'payroll_retry_funding',
+          expectedAmount: '1250',
+          initiatedByMemberId: 'member-1',
+        },
+      },
+    });
+
+    await service.dispatch(body, 'sig', '123');
+
+    // Without this routing the run's retryFunding metadata stays `pending` forever and every
+    // retry is rejected by the run-scoped funding guard.
+    expect(payrollFloatTopupService.completeFloatTopup).toHaveBeenCalledWith({
+      tenantId: 't1',
+      orderReference: 'pf_tenant_retry_ref',
+      payrollRunId: 'run-1',
+      amount: 1250,
+      initiatedByMemberId: 'member-1',
+    });
+    expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
+  });
+
   it('routes payout.paid events to the payroll payout handler', async () => {
     const body = JSON.stringify({
       type: 'payout.paid',

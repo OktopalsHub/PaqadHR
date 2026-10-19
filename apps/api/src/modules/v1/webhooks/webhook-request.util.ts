@@ -242,7 +242,12 @@ export function extractBachsPayrollFloatTopupCheckout(payload: unknown): {
   if (String(body.type ?? '').toLowerCase() !== 'collection.succeeded') return null;
   const data = body.data ?? {};
   const meta = data.metadata ?? {};
-  if (meta.billingType !== 'payroll_float_topup') return null;
+  // Retry-shortfall checkouts (`payroll_retry_funding`) fund a specific run's failed payouts.
+  // They are resolved by the same orderReference routing as whole-run float top-ups, so both
+  // billing types must reach completeFloatTopup or the run can never be marked funded.
+  if (meta.billingType !== 'payroll_float_topup' && meta.billingType !== 'payroll_retry_funding') {
+    return null;
+  }
   const tenantId = String(meta.tenantId ?? '').trim();
   const orderReference = String(data.reference ?? '').trim();
   if (!tenantId || !orderReference) return null;

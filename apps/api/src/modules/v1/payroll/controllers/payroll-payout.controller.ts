@@ -250,6 +250,18 @@ export class PayrollPayoutController {
     return this.payrollService.createRetryShortfallCheckout(id, tenantId, req.member.id);
   }
 
+  @Post('runs/:id/retry-funding/reconcile')
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async reconcileRetryFunding(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    return this.payrollService.reconcileRetryFunding(id, tenantId, req.member.id);
+  }
+
   @Post('runs/:id/retry-failed-payments')
   @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)

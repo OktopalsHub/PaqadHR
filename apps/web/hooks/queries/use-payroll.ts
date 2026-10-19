@@ -25,6 +25,7 @@ import {
   previewRetryFunding,
   processPayrollRun,
   publishPayslips,
+  reconcileRetryFunding,
   removePayrollItem,
   reopenPayrollRun,
   retryFailedPayrollPayments,
@@ -247,6 +248,10 @@ export function usePayrollActions() {
     }),
     createRetryFundingCheckout: useMutation({
       mutationFn: (id: string) => createRetryFundingCheckout(id),
+      onSuccess: invalidate,
+    }),
+    reconcileRetryFunding: useMutation({
+      mutationFn: (id: string) => reconcileRetryFunding(id),
       onSuccess: invalidate,
     }),
     schedule: useMutation({
