@@ -27,7 +27,7 @@ describe('PayrollRunFundingLedgerService', () => {
     repository = {
       findOne: jest.fn(),
       insert: jest.fn(),
-      find: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
     const manager = {
       getRepository: jest.fn((entity: unknown) => {
