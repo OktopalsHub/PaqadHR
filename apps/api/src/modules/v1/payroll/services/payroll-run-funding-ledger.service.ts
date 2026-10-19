@@ -270,6 +270,17 @@ export class PayrollRunFundingLedgerService {
       const entries = await ledger.find({
         where: { tenantId: input.tenantId, payrollRunId: input.payrollRunId },
       });
+      // A confirmed debit wins over a late failure notification. Never restore reserved
+      // funds after the provider has already confirmed that money left the source account.
+      if (
+        entries.some(
+          (entry) =>
+            entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED &&
+            entry.payrollItemId === input.payrollItemId,
+        )
+      ) {
+        return;
+      }
       const alreadyReleased = entries.some(
         (entry) =>
           entry.eventType === PayrollFundingLedgerEventType.RESERVATION_RELEASED &&
