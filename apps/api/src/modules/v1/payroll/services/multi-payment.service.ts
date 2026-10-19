@@ -20,16 +20,12 @@ import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-l
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
-import {
-  hasActivePayrollProcessingLock,
-  PAYROLL_PROCESSING_LOCK_MS,
-} from '../utils/payroll-processing-lock.util';
+import { PAYROLL_PROCESSING_LOCK_MS } from '../utils/payroll-processing-lock.util';
 import { PaymentBatching } from './payment-batching';
 import { PaymentValidation } from './payment-validation';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
 import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
-
 
 /** Bachs float top-up funding currency only — never stamp Nomba/Monnify NGN onto Bachs items. */
 function bachsFundingCurrencyFromFloatTopup(floatTopup: unknown): string | undefined {
