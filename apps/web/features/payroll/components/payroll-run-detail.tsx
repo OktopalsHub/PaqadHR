@@ -775,7 +775,7 @@ export function PayrollRunDetail({
                 onClick={() => void handleRetryFailed()}
               >
                 <RefreshCw className="mr-1 size-4" />
-                Retry payment
+                {isBachsFundingRun ? 'Review retry funding' : 'Retry payment'}
               </Button>
             ) : null}
             {isAdmin && canDelete ? (
@@ -906,6 +906,99 @@ export function PayrollRunDetail({
                 Confirm schedule
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={retryFundingReviewOpen}
+          onOpenChange={(open) => {
+            setRetryFundingReviewOpen(open);
+            if (!open) {
+              setRetryFundingPreview(null);
+              setRetryFundingApproved(false);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Review retry funding</DialogTitle>
+            </DialogHeader>
+            {retryFundingPreview ? (
+              <div className="space-y-4">
+                <Alert>
+                  <AlertTitle>Company-funded shortfall</AlertTitle>
+                  <AlertDescription>
+                    Only the selected failed payouts are included. PaqadHR will not charge its
+                    platform fee again. Payouts will not start until checkout is verified and you
+                    retry the selected items.
+                  </AlertDescription>
+                </Alert>
+                <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Amount to fund
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-slate-100">
+                    {formatMoney(retryFundingPreview.amount, retryFundingPreview.currency)}
+                  </p>
+                  <div className="mt-3 space-y-1 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500 dark:text-slate-400">Selected payouts</span>
+                      <span>{retryFundingItemIds.length}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500 dark:text-slate-400">PaqadHR platform fee</span>
+                      <span>{formatMoney(0, retryFundingPreview.currency)}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-500 dark:text-slate-400">Payout-fee reserve</span>
+                      <span>
+                        {formatMoney(
+                          retryFundingPreview.payoutFeeReserve,
+                          retryFundingPreview.currency,
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="max-h-36 space-y-2 overflow-y-auto">
+                  {retryFundingItemIds.map((itemId) => {
+                    const item = activeItems.find((candidate) => candidate.id === itemId);
+                    return (
+                      <div
+                        key={itemId}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="truncate">{item ? employeeName(item) : itemId}</span>
+                        <span className="shrink-0 text-slate-500 dark:text-slate-400">
+                          {item?.paymentCurrency ?? detail?.baseCurrency ?? ''}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => setRetryFundingReviewOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="brandSolid"
+                    disabled={busy}
+                    onClick={() => void confirmRetryFunding()}
+                  >
+                    {actions.approveRetryFunding.isPending ||
+                    actions.createRetryFundingCheckout.isPending
+                      ? 'Preparing checkout…'
+                      : retryFundingApproved
+                        ? 'Continue to checkout'
+                        : 'Approve amount and continue'}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </DialogContent>
         </Dialog>
 
@@ -1116,7 +1209,7 @@ export function PayrollRunDetail({
                               onClick={() => void handleRetryFailed([item.id])}
                             >
                               <RefreshCw className="mr-1 size-3.5" />
-                              Retry
+                              {isBachsFundingRun ? 'Review funding' : 'Retry'}
                             </Button>
                           ) : null}
                         </div>
