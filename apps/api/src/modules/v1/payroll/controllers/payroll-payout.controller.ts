@@ -17,6 +17,7 @@ import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-
 import type { IAuthenticatedMemberRequest } from '../../../../common/interfaces';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { ApproveRetryFundingDto } from '../dto/approve-retry-funding.dto';
 import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import { RetryFailedPaymentsDto } from '../dto/retry-failed-payments.dto';
 import { SchedulePayrollPayoutDto } from '../dto/schedule-payroll-payout.dto';
@@ -202,6 +203,21 @@ export class PayrollPayoutController {
     }
   }
 
+  @Post('runs/:id/retry-funding/preflight')
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async previewRetryFunding(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() retryDto: RetryFailedPaymentsDto,
+  ) {
+    if (!retryDto.itemIds?.length) {
+      throw new BadRequestException('Select failed payout items before previewing retry funding');
+    }
+    return this.payrollService.previewRetryShortfall(id, tenantId, retryDto.itemIds);
+  }
+
   @Post('runs/:id/retry-funding/approve')
   @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
@@ -209,13 +225,17 @@ export class PayrollPayoutController {
   async approveRetryFunding(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() retryDto: RetryFailedPaymentsDto,
+    @Body() retryDto: ApproveRetryFundingDto,
     @Req() req: IAuthenticatedMemberRequest,
   ) {
-    if (!retryDto.itemIds?.length) {
-      throw new BadRequestException('Select failed payout items before approving retry funding');
-    }
-    return this.payrollService.approveRetryShortfall(id, tenantId, req.member.id, retryDto.itemIds);
+    return this.payrollService.approveRetryShortfall(
+      id,
+      tenantId,
+      req.member.id,
+      retryDto.itemIds,
+      retryDto.expectedAmount,
+      retryDto.currency,
+    );
   }
 
   @Post('runs/:id/retry-funding/checkout')
