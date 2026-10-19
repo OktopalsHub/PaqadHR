@@ -149,6 +149,24 @@ export class PayrollFloatTopupService {
     } else {
       run = await this.requireApprovedRun(payrollRunId, tenantId);
     }
+    if (
+      !allowProcessingRun &&
+      run.items.some((item) => item.status === PayrollItemStatus.FAILED) &&
+      ((run.metadata?.floatTopup &&
+        typeof run.metadata.floatTopup === 'object' &&
+        'provider' in run.metadata.floatTopup &&
+        run.metadata.floatTopup.provider === PaymentProvider.BACHS) ||
+        (run.metadata?.retryFunding &&
+          typeof run.metadata.retryFunding === 'object' &&
+          'provider' in run.metadata.retryFunding &&
+          run.metadata.retryFunding.provider === PaymentProvider.BACHS) ||
+        run.items.some((item) => (item.paymentProvider ?? '').toLowerCase().includes('bachs')))
+    ) {
+      throw new BadRequestException(
+        'This Bachs payroll run has failed payouts. Use the approved, run-scoped retry funding flow instead of funding or paying the whole run again.',
+      );
+    }
+
     const bachsPreflight = await this.tryBachsFundingPreflight(run, tenantId, allowProcessingRun);
     if (bachsPreflight) return bachsPreflight;
 
