@@ -625,7 +625,7 @@ describe('PayoutReconciliation', () => {
       queryStatus,
       fundingLedger: { recordConfirmedPayoutDebit },
     });
-    payrollItemRepo.findOne.mockResolvedValue(failedItem);
+    (payrollItemRepo.findOne as jest.Mock).mockResolvedValue(failedItem);
     transactionRepository.findOne.mockResolvedValue(failedItem);
 
     const changed = await service.applyTransferStatus(
@@ -673,7 +673,7 @@ describe('PayoutReconciliation', () => {
     const { service, transactionRepository, payrollItemRepo, lifecycleNotify } = createService({
       queryStatus,
     });
-    payrollItemRepo.findOne.mockResolvedValue(failedItem);
+    (payrollItemRepo.findOne as jest.Mock).mockResolvedValue(failedItem);
     transactionRepository.findOne.mockResolvedValue(failedItem);
 
     const changed = await service.applyTransferStatus(
