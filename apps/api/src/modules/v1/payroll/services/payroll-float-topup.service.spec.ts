@@ -296,6 +296,40 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
     expect(paymentOrchestrator.payNowPayroll).not.toHaveBeenCalled();
   });
 
+  it('ignores a retry checkout completion unless the run has a pending checkout', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } = createService();
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-retry',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'USD',
+      items: [{ id: 'item-failed', status: 'FAILED', metadata: {} }],
+      metadata: {
+        retryFunding: {
+          orderReference: 'pb_retry_ref',
+          status: 'approved',
+          selectedItemIds: ['item-failed'],
+          amount: 25,
+          currency: 'USD',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+          itemFundingAmounts: { 'item-failed': 25 },
+        },
+      },
+    } as unknown as PayrollRun);
+
+    const result = await service.completeFloatTopup({
+      tenantId: 'tenant-1',
+      orderReference: 'pb_retry_ref',
+      payrollRunId: 'run-retry',
+      initiatedByMemberId: 'member-1',
+    });
+
+    expect(result).toEqual({ received: true, paid: false });
+    expect(verifyCheckout).not.toHaveBeenCalled();
+    expect(fundingLedger.recordVerifiedFunding).not.toHaveBeenCalled();
+  });
+
   it('marks scheduled checkout as funded without paying employees before the scheduled date', async () => {
     const { service, payrollRunRepository, verifyCheckout, paymentOrchestrator } = createService();
     const run = {
