@@ -1094,9 +1094,9 @@ export function PayrollRunDetail({
                   .slice()
                   .reverse()
                   .slice(
-                      0,
-                      showAllFundingLedgerEntries ? fundingLedgerQuery.data.entries.length : 12,
-                    )
+                    0,
+                    showAllFundingLedgerEntries ? fundingLedgerQuery.data.entries.length : 12,
+                  )
                   .map((entry) => {
                     const item = entry.payrollItemId
                       ? activeItems.find((candidate) => candidate.id === entry.payrollItemId)
