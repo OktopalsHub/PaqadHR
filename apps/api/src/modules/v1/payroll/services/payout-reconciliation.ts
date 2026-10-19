@@ -462,6 +462,39 @@ export class PayoutReconciliation {
       return false;
     }
     const resolvedTenantId = tenantId ?? (await this.resolveTenantId(payrollRunId ?? ''));
+    // A FAILED item may still represent a payout that Bachs completed while PaqadHR
+    // was processing a failure webhook. Only permit that recovery after a fresh provider
+    // lookup confirms both the exact merchant reference and a terminal success status.
+    let verifiedFailedBachsSuccess = false;
+    if (provider === PaymentProvider.BACHS && normalizedStatus === 'completed') {
+      const existingItem = await this.payrollItemRepo.findOne({
+        where: {
+          id: itemId,
+          ...(payrollRunId ? { payrollRunId } : {}),
+          ...(resolvedTenantId ? { payrollRun: { tenantId: resolvedTenantId } } : {}),
+        },
+        relations: ['payrollRun'],
+      });
+      if (
+        existingItem?.status === PayrollItemStatus.FAILED &&
+        existingItem.transactionId === transactionId &&
+        (existingItem.paymentProvider ?? '').toLowerCase() === providerName.toLowerCase()
+      ) {
+        const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
+        const payout = await querier?.queryStatus(transactionId, merchantRef);
+        const verifiedStatus = payout?.status?.trim().toUpperCase();
+        verifiedFailedBachsSuccess =
+          payout?.reference === merchantRef &&
+          !!verifiedStatus &&
+          SUCCESS_STATUSES.has(verifiedStatus);
+        if (!verifiedFailedBachsSuccess) {
+          this.logger.warn(
+            `Bachs success could not be verified for failed payroll item ${itemId}; leaving it failed`,
+          );
+        }
+      }
+    }
+
     const outcome: { item: PayrollItem | null; kind: 'paid' | 'failed' | null } = {
       item: null,
       kind: null,
@@ -522,7 +555,14 @@ export class PayoutReconciliation {
 
         if (
           item.status !== PayrollItemStatus.PENDING &&
-          item.status !== PayrollItemStatus.PROCESSING
+          item.status !== PayrollItemStatus.PROCESSING &&
+          !(
+            item.status === PayrollItemStatus.FAILED &&
+            verifiedFailedBachsSuccess &&
+            provider === PaymentProvider.BACHS &&
+            item.transactionId === transactionId &&
+            (item.paymentProvider ?? '').toLowerCase() === providerName.toLowerCase()
+          )
         ) {
           return false;
         }
