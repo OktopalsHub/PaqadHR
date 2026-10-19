@@ -387,11 +387,13 @@ export class MultiPaymentService {
     const expectedSelectedIds = selectedIds.join(',');
     if (
       !approval ||
+      approval.provider !== PaymentProvider.BACHS ||
       approval.approvedById !== meta.approvedById ||
       Number(approval.amount) !== Number(meta.amount) ||
       approval.currency !== meta.currency.toUpperCase() ||
       approval.evidence?.selectedItemIds !== expectedSelectedIds ||
       !funding ||
+      funding.provider !== PaymentProvider.BACHS ||
       Number(funding.amount) !== Number(meta.amount) ||
       funding.currency !== meta.currency.toUpperCase() ||
       funding.evidence?.fundingPurpose !== 'approved_retry_shortfall' ||
