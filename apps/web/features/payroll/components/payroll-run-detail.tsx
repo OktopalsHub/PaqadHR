@@ -332,6 +332,7 @@ export function PayrollRunDetail({
       (item.paymentProvider ?? '').toLowerCase().includes('bachs'),
     );
   const fundingLedgerQuery = usePayrollFundingLedger(runId, Boolean(isAdmin && isBachsFundingRun));
+  const [showAllFundingLedgerEntries, setShowAllFundingLedgerEntries] = useState(false);
   const [retryFundingReviewOpen, setRetryFundingReviewOpen] = useState(false);
   const [retryFundingItemIds, setRetryFundingItemIds] = useState<string[]>([]);
   const [retryFundingPreview, setRetryFundingPreview] = useState<{
@@ -1060,15 +1061,26 @@ export function PayrollRunDetail({
                   Verified funding and provider-confirmed payout debits for this payroll run.
                 </p>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={fundingLedgerQuery.isFetching}
-                onClick={() => void fundingLedgerQuery.refetch()}
-              >
-                <RefreshCw className="mr-1 size-3.5" />
-                Refresh
-              </Button>
+              <div className="flex items-center gap-2">
+                {fundingLedgerQuery.data && fundingLedgerQuery.data.entries.length > 12 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowAllFundingLedgerEntries((current) => !current)}
+                  >
+                    {showAllFundingLedgerEntries ? 'Show recent' : 'Show all entries'}
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={fundingLedgerQuery.isFetching}
+                  onClick={() => void fundingLedgerQuery.refetch()}
+                >
+                  <RefreshCw className="mr-1 size-3.5" />
+                  Refresh
+                </Button>
+              </div>
             </div>
             {fundingLedgerQuery.isLoading ? (
               <p className="text-sm text-slate-500 dark:text-slate-400">Loading ledger…</p>
@@ -1081,29 +1093,37 @@ export function PayrollRunDetail({
                 {fundingLedgerQuery.data.entries
                   .slice()
                   .reverse()
-                  .slice(0, 12)
-                  .map((entry) => (
-                    <div
-                      key={entry.id}
-                      className="flex flex-col gap-1 border-t border-slate-100 pt-2 text-sm first:border-0 first:pt-0 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-slate-800 dark:text-slate-200">
-                          {entry.eventType.replaceAll('_', ' ').toLowerCase()}
-                        </p>
-                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                          {entry.payrollItemId
-                            ? `Payout item ${entry.payrollItemId}`
-                            : (entry.providerReference ?? 'Run-level funding event')}
-                          {' · '}
-                          {new Date(entry.createdAt).toLocaleString()}
-                        </p>
+                  .slice(0, showAllFundingLedgerEntries ? fundingLedgerQuery.data.entries.length : 12)
+                  .map((entry) => {
+                    const item = entry.payrollItemId
+                      ? activeItems.find((candidate) => candidate.id === entry.payrollItemId)
+                      : undefined;
+                    return (
+                      <div
+                        key={entry.id}
+                        className="flex flex-col gap-1 border-t border-slate-100 pt-2 text-sm first:border-0 first:pt-0 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-800 dark:text-slate-200">
+                            {entry.eventType.replaceAll('_', ' ').toLowerCase()}
+                          </p>
+                          <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                            {item
+                              ? employeeName(item)
+                              : entry.payrollItemId
+                                ? `Payout item ${entry.payrollItemId}`
+                                : (entry.providerReference ?? 'Run-level funding event')}
+                            {entry.providerReference && item ? ` · ${entry.providerReference}` : ''}
+                            {' · '}
+                            {new Date(entry.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <span className="shrink-0 font-medium tabular-nums">
+                          {formatMoney(Number(entry.amount), entry.currency)}
+                        </span>
                       </div>
-                      <span className="shrink-0 font-medium tabular-nums">
-                        {formatMoney(Number(entry.amount), entry.currency)}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 {fundingLedgerQuery.data.retryAuthorization === 'blocked' ? (
                   <p className="text-xs text-amber-700 dark:text-amber-400">
                     This ledger is evidence, not spending approval. Bachs retries must use the
