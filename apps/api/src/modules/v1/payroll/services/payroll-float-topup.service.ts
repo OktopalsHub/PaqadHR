@@ -859,7 +859,15 @@ export class PayrollFloatTopupService {
       if (latest.status === 'funded') {
         throw new BadRequestException('Retry funding checkout has already been verified');
       }
-      if (latest.status !== 'approved' && latest.status !== 'pending') {
+      // A pending checkout with no URL is being created by another request (or its outcome
+      // is unknown). Never issue a second provider checkout for the same approved order.
+      // A caller with a known pending URL returns it before entering this transaction.
+      if (latest.status === 'pending') {
+        throw new BadRequestException(
+          'Retry funding checkout is already being created or reconciled. Check its status before retrying.',
+        );
+      }
+      if (latest.status !== 'approved') {
         throw new BadRequestException('Retry funding approval is no longer active');
       }
       const lockedItems = await manager.getRepository(PayrollItem).find({
