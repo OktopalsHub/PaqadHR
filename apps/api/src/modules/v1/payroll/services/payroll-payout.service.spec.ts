@@ -550,8 +550,18 @@ describe('PayrollPayoutService', () => {
       };
 
       const factory = {
-        resolvePayoutQuerier: jest.fn().mockReturnValue(undefined),
-      } as never;
+        resolvePayoutQuerier: jest.fn((provider: PaymentProvider) =>
+          provider === PaymentProvider.BACHS
+            ? {
+                queryStatus: jest.fn(async (withdrawalId: string, merchantRef: string) => ({
+                  status: withdrawalId === 'pay_bachs_2' ? 'FAILED' : 'COMPLETED',
+                  amount: 1000,
+                  reference: merchantRef,
+                })),
+              }
+            : undefined,
+        ),
+      } as unknown as PaymentProviderFactoryService;
 
       const payrollItemRepository = {
         findOne: jest.fn(),
@@ -590,7 +600,7 @@ describe('PayrollPayoutService', () => {
         buildWebhookEventRepository(),
       );
 
-      return { service, payrollItemRepository, payrollRunRepository };
+      return { service, payrollItemRepository, payrollRunRepository, factory };
     };
 
     const bachsPaidEvent = (reference: string | null, withdrawalId = 'pay_bachs_1') => ({
