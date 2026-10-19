@@ -337,6 +337,18 @@ export class MultiPaymentService {
         'Bachs quote service is unavailable. Retry remains blocked until funding can be revalidated.',
       );
     }
+    if (meta.currency !== 'USD' && meta.currency !== 'NGN') {
+      throw new BadRequestException('Retry funding currency is invalid; Bachs retry remains blocked.');
+    }
+    const originalSourceCurrency = bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup);
+    if (
+      originalSourceCurrency &&
+      originalSourceCurrency.toUpperCase() !== meta.currency.toUpperCase()
+    ) {
+      throw new BadRequestException(
+        'Retry funding currency does not match the original Bachs payout source currency.',
+      );
+    }
     for (const item of items) {
       const paymentCurrency = (item.paymentCurrency || payrollRun.baseCurrency).toUpperCase();
       const fxAtPayout = item.metadata?.fxAtPayout === true;
@@ -350,6 +362,11 @@ export class MultiPaymentService {
           typeof item.metadata?.cryptoNetwork === 'string' ? item.metadata.cryptoNetwork : null,
         fxAtPayout,
       };
+      if (!Number.isFinite(fundingItem.amount) || fundingItem.amount <= 0) {
+        throw new BadRequestException(
+          `Invalid payout amount for payroll item ${item.id}; retry remains blocked.`,
+        );
+      }
       let requiredAmount = await sourceAmountForBachsFundingItem({
         item: fundingItem,
         fundingCurrency: meta.currency as 'USD' | 'NGN',
