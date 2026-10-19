@@ -201,9 +201,9 @@ describe('PayoutReconciliation', () => {
       execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     const payrollItemRepo = {
-      findOne: jest.fn().mockImplementation(() =>
-        Promise.resolve(overrides?.transactionItem ?? savedItem),
-      ),
+      findOne: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(overrides?.transactionItem ?? savedItem)),
       find: jest
         .fn()
         .mockImplementation((options: { where?: { status?: PayrollItemStatus } }) =>
