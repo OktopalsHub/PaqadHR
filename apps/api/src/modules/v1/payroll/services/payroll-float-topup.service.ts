@@ -37,6 +37,7 @@ import { TenantSettingsService } from '../../tenant-settings/services/tenant-set
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PayrollRun } from '../entities/payroll-run.entity';
+import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   buildPayrollFloatOrderRef,
@@ -778,7 +779,7 @@ export class PayrollFloatTopupService {
     const ledger = await this.fundingLedger.getRunLedger(tenantId, run.id);
     const debitedItemIds = new Set(
       ledger.entries
-        .filter((entry) => entry.eventType === 'payout_confirmed')
+        .filter((entry) => entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED)
         .map((entry) => entry.payrollItemId)
         .filter((id): id is string => Boolean(id)),
     );
