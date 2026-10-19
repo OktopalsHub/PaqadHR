@@ -79,6 +79,7 @@ jobs:
         run: pnpm --filter api test --runInBand
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
+          PAYROLL_LEDGER_INTEGRATION_DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
 
   build-and-publish:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
