@@ -45,5 +45,5 @@ export class PayrollRunFundingLedgerEntry extends BaseEntity {
   approvedById: string | null;
 
   @Column({ type: 'jsonb', nullable: true })
-  evidence: Record<string, unknown> | null;
+  evidence: Record<string, string | number | boolean | null> | null;
 }
