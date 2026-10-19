@@ -116,50 +116,100 @@ export class PayrollRunFundingLedgerService {
     }
 
     const idempotencyKey = `payout:${input.provider}:${providerReference}`;
-    const existing = await this.ledgerRepository.findOne({ where: { idempotencyKey } });
-    if (existing) {
-      if (
-        existing.tenantId !== input.tenantId ||
-        existing.payrollRunId !== input.payrollRunId ||
-        existing.payrollItemId !== input.payrollItemId ||
-        Number(existing.amount) !== amount ||
-        existing.currency !== currency
-      ) {
-        throw new Error(
-          'Payout debit reference was already allocated to a different payroll transaction',
-        );
-      }
-      return;
-    }
-
-    try {
-      await this.ledgerRepository.insert({
-        tenantId: input.tenantId,
-        payrollRunId: input.payrollRunId,
-        payrollItemId: input.payrollItemId,
-        eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
-        amount: amount.toFixed(2),
-        currency,
-        provider: input.provider,
-        providerReference,
-        idempotencyKey,
-        performedById: null,
-        approvedById: null,
-        evidence: input.evidence ?? null,
+    await this.ledgerRepository.manager.transaction(async (manager) => {
+      const run = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
       });
-    } catch (error) {
-      const raced = await this.ledgerRepository.findOne({ where: { idempotencyKey } });
-      if (
-        !raced ||
-        raced.tenantId !== input.tenantId ||
-        raced.payrollRunId !== input.payrollRunId ||
-        raced.payrollItemId !== input.payrollItemId ||
-        Number(raced.amount) !== amount ||
-        raced.currency !== currency
-      ) {
-        throw error;
+      if (!run) throw new Error('Payroll run not found for confirmed payout debit');
+
+      const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const existing = await ledger.findOne({ where: { idempotencyKey } });
+      if (existing) {
+        if (
+          existing.tenantId !== input.tenantId ||
+          existing.payrollRunId !== input.payrollRunId ||
+          existing.payrollItemId !== input.payrollItemId ||
+          Number(existing.amount) !== amount ||
+          existing.currency !== currency
+        ) {
+          throw new Error(
+            'Payout debit reference was already allocated to a different payroll transaction',
+          );
+        }
+      } else {
+        await ledger.insert({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          payrollItemId: input.payrollItemId,
+          eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+          amount: amount.toFixed(2),
+          currency,
+          provider: input.provider,
+          providerReference,
+          idempotencyKey,
+          performedById: null,
+          approvedById: null,
+          evidence: input.evidence ?? null,
+        });
       }
-    }
+
+      // A confirmed debit consumes any active reservation for this item in the same
+      // transaction. This prevents the balance from counting both the reservation and
+      // the final debit. Unknown/pending outcomes never reach this method.
+      const entries = await ledger.find({
+        where: { tenantId: input.tenantId, payrollRunId: input.payrollRunId },
+      });
+      const reservations = new Map<string, PayrollRunFundingLedgerEntry>();
+      const released = new Set<string>();
+      for (const entry of entries) {
+        if (entry.payrollItemId !== input.payrollItemId) continue;
+        const evidence = entry.evidence;
+        const reservationKey =
+          evidence && typeof evidence.reservationKey === 'string'
+            ? evidence.reservationKey
+            : undefined;
+        const releasedReservationKey =
+          evidence && typeof evidence.releasedReservationKey === 'string'
+            ? evidence.releasedReservationKey
+            : undefined;
+        if (entry.eventType === PayrollFundingLedgerEventType.PAYOUT_RESERVED && reservationKey) {
+          reservations.set(reservationKey, entry);
+        }
+        if (
+          entry.eventType === PayrollFundingLedgerEventType.RESERVATION_RELEASED &&
+          releasedReservationKey
+        ) {
+          released.add(releasedReservationKey);
+        }
+      }
+
+      for (const [reservationKey, reservation] of reservations) {
+        if (released.has(reservationKey)) continue;
+        const releaseKey = `reservation-release:${reservationKey}:payout:${input.provider}:${providerReference}`;
+        await ledger.insert({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          payrollItemId: input.payrollItemId,
+          eventType: PayrollFundingLedgerEventType.RESERVATION_RELEASED,
+          amount: reservation.amount,
+          currency: reservation.currency,
+          provider: input.provider,
+          providerReference,
+          idempotencyKey: releaseKey,
+          performedById: null,
+          approvedById: null,
+          evidence: {
+            releasedReservationKey: reservationKey,
+            reason: 'provider_confirmed_payout_debit',
+            verifiedStatus:
+              typeof input.evidence?.verifiedStatus === 'string'
+                ? input.evidence.verifiedStatus
+                : null,
+          },
+        });
+      }
+    });
   }
 
   /**
