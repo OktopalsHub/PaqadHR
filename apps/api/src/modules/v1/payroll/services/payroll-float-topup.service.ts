@@ -843,17 +843,54 @@ export class PayrollFloatTopupService {
     const callbackUrl = tenant?.slug
       ? tenantFrontendUrl(tenant.slug, `/payroll?retry_funding=done&runId=${payrollRunId}`)
       : tenantFrontendUrl('', `/payroll?retry_funding=done&runId=${payrollRunId}`);
-    // Persist the order reference before calling the provider. If the provider creates
-    // the checkout but this request times out, the webhook can still resolve the pending
-    // retry-funding attempt and repeated calls will reuse the same reference.
-    run.metadata = {
-      ...run.metadata,
-      retryFunding: {
-        ...meta,
-        status: 'pending',
-      } satisfies RetryFundingMeta,
-    };
-    await this.payrollRunRepository.save(run);
+    // Mark the approved order pending under a row lock before contacting the provider.
+    // Never save the stale run object here: a concurrent webhook may already have marked
+    // this order funded, and a stale save must not overwrite that terminal state.
+    await this.payrollRunRepository.manager.transaction(async (manager) => {
+      const locked = await manager.getRepository(PayrollRun).findOne({
+        where: { id: payrollRunId, tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Payroll run not found');
+      const latest = this.readRetryFundingMeta(locked);
+      if (latest.orderReference !== meta.orderReference) {
+        throw new BadRequestException('Retry funding approval changed before checkout creation');
+      }
+      if (latest.status === 'funded') {
+        throw new BadRequestException('Retry funding checkout has already been verified');
+      }
+      if (latest.status !== 'approved' && latest.status !== 'pending') {
+        throw new BadRequestException('Retry funding approval is no longer active');
+      }
+      const lockedItems = await manager.getRepository(PayrollItem).find({
+        where: { payrollRunId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const selectedItems = lockedItems.filter((item) => latest.selectedItemIds?.includes(item.id));
+      if (
+        selectedItems.length !== latest.selectedItemIds?.length ||
+        selectedItems.some((item) => item.status !== PayrollItemStatus.FAILED) ||
+        lockedItems.some(
+          (item) =>
+            !latest.selectedItemIds?.includes(item.id) &&
+            (item.status === PayrollItemStatus.PENDING ||
+              item.status === PayrollItemStatus.PROCESSING ||
+              item.metadata?.payoutSubmissionPending === true),
+        )
+      ) {
+        throw new BadRequestException(
+          'Selected failed payouts changed before checkout creation. Review the shortfall again.',
+        );
+      }
+      locked.metadata = {
+        ...locked.metadata,
+        retryFunding: {
+          ...latest,
+          status: 'pending',
+        } satisfies RetryFundingMeta,
+      };
+      await manager.save(locked);
+    });
 
     const checkout = await adapter.createCheckout({
       orderReference: meta.orderReference,
