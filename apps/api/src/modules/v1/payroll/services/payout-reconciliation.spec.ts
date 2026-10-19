@@ -405,4 +405,49 @@ describe('PayoutReconciliation', () => {
     expect(transactionRepository.save).not.toHaveBeenCalled();
     expect(lifecycleNotify.onItemPaid).not.toHaveBeenCalled();
   });
+
+  it('does not retry a locally failed Bachs item when provider status cannot be verified', async () => {
+    const item = stuckProcessingItem({
+      status: PayrollItemStatus.FAILED,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-payout-1',
+    });
+    const { service, queryStatus } = buildRequeryService([item], {
+      queryStatus: jest.fn().mockResolvedValue(null),
+    });
+
+    await expect(service.reconcileFailedItemBeforeRetry(item, 'tenant-1')).rejects.toThrow(
+      /Bachs could not verify its payout status/,
+    );
+    expect(queryStatus).toHaveBeenCalledWith('bachs-payout-1', expect.any(String));
+  });
+
+  it('allows Bachs retry verification only after a provider-confirmed terminal failure', async () => {
+    const item = stuckProcessingItem({
+      status: PayrollItemStatus.FAILED,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-payout-2',
+    });
+    const { service } = buildRequeryService([item], {
+      queryStatus: jest.fn().mockResolvedValue({ status: 'REJECTED' }),
+    });
+
+    await expect(service.reconcileFailedItemBeforeRetry(item, 'tenant-1')).resolves.toBe(true);
+  });
+
+  it('does not retry a Bachs item without a provider payout reference', async () => {
+    const item = stuckProcessingItem({
+      status: PayrollItemStatus.FAILED,
+      paymentProvider: 'Bachs',
+      transactionId: null,
+      metadata: {},
+    });
+    const { service, queryStatus } = buildRequeryService([item]);
+
+    await expect(service.reconcileFailedItemBeforeRetry(item, 'tenant-1')).rejects.toThrow(
+      /Bachs has not provided a payout reference/,
+    );
+    expect(queryStatus).not.toHaveBeenCalled();
+  });
+
 });
