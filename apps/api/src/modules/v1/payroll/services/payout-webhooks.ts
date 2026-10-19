@@ -42,17 +42,20 @@ export class PayoutWebhooks {
 
     if ((result.identifiers?.length ?? 0) > 0) return true;
 
-    const existing = await this.webhookEventRepository.findOne({
-      where: { provider, eventId },
-    });
-    if (!existing || existing.processedAt) return false;
+    // Reclaim an abandoned event lease atomically. A read followed by save can let
+    // two webhook workers both observe an expired lease and process the same event.
+    const leaseCutoff = new Date(now.getTime() - 5 * 60 * 1000);
+    const reclaimed = await this.webhookEventRepository
+      .createQueryBuilder()
+      .update(PayrollWebhookEvent)
+      .set({ receivedAt: now })
+      .where('"provider" = :provider', { provider })
+      .andWhere('"event_id" = :eventId', { eventId })
+      .andWhere('"processed_at" IS NULL')
+      .andWhere('"received_at" <= :leaseCutoff', { leaseCutoff })
+      .execute();
 
-    const leaseExpiresAt = new Date(existing.receivedAt.getTime() + 5 * 60 * 1000);
-    if (leaseExpiresAt > now) return false;
-
-    existing.receivedAt = now;
-    await this.webhookEventRepository.save(existing);
-    return true;
+    return (reclaimed.affected ?? 0) === 1;
   }
 
   private async completeWebhookEvent(provider: PaymentProvider, payload: unknown): Promise<void> {
