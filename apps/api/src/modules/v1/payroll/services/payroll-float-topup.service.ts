@@ -1296,7 +1296,22 @@ export class PayrollFloatTopupService {
       return null;
     }
 
-    const fundingCurrency = pickBachsFundingCurrency(fundingItems, getBachsPayoutSourceCurrency());
+    const existingTopup = run.metadata?.floatTopup;
+    const existingFundingCurrency =
+      forRetry &&
+      existingTopup &&
+      typeof existingTopup === 'object' &&
+      'provider' in existingTopup &&
+      existingTopup.provider === PaymentProvider.BACHS &&
+      'fundingCurrency' in existingTopup &&
+      (existingTopup.fundingCurrency === 'USD' || existingTopup.fundingCurrency === 'NGN')
+        ? existingTopup.fundingCurrency
+        : undefined;
+    // Retries must use the same source currency as the original Bachs payout path. A selected
+    // subset may otherwise choose NGN while PaymentBatching still debits the run's USD float.
+    const fundingCurrency =
+      existingFundingCurrency ??
+      pickBachsFundingCurrency(fundingItems, getBachsPayoutSourceCurrency());
     if (!isBachsWalletTopupConfigured(fundingCurrency)) {
       throw new BadRequestException(
         `Bachs checkout is not configured for ${fundingCurrency}. Set BACHS_WALLET_TOPUP_PRODUCT_${fundingCurrency}.`,
