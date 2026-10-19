@@ -585,6 +585,189 @@ export class PayrollRunFundingLedgerService {
     });
   }
 
+  /**
+   * Atomically reserve funding for every selected retry item and reset those items for retry.
+   * The database transaction prevents a partial reservation set or a retry-ready item without
+   * its corresponding funding reservation.
+   */
+  async reserveFailedPayoutsForRetry(input: {
+    tenantId: string;
+    payrollRunId: string;
+    provider: string;
+    performedById: string;
+    evidence: Record<string, string | number | boolean | null>;
+    reservations: Array<{
+      payrollItemId: string;
+      amount: number;
+      currency: string;
+      reservationKey: string;
+    }>;
+  }): Promise<void> {
+    if (input.reservations.length === 0) {
+      throw new Error('At least one payout reservation is required');
+    }
+    const normalized = input.reservations.map((reservation) => ({
+      ...reservation,
+      amount: Math.round(reservation.amount * 100) / 100,
+      currency: reservation.currency.trim().toUpperCase(),
+      reservationKey: reservation.reservationKey.trim(),
+    }));
+    if (
+      normalized.some(
+        (reservation) =>
+          !Number.isFinite(reservation.amount) ||
+          reservation.amount <= 0 ||
+          !reservation.currency ||
+          !reservation.reservationKey ||
+          !reservation.payrollItemId,
+      ) ||
+      new Set(normalized.map((reservation) => reservation.payrollItemId)).size !==
+        normalized.length ||
+      new Set(normalized.map((reservation) => reservation.reservationKey)).size !==
+        normalized.length
+    ) {
+      throw new Error('Retry reservations must have unique items and valid positive allocations');
+    }
+    const currencies = new Set(normalized.map((reservation) => reservation.currency));
+    if (currencies.size !== 1) {
+      throw new Error('Retry reservations must use one source funding currency');
+    }
+    const currency = normalized[0].currency;
+
+    await this.ledgerRepository.manager.transaction(async (manager) => {
+      const run = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!run) throw new Error('Payroll run not found for funding reservation');
+      if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
+        throw new Error('Funding can only be reserved for an approved or processing payroll run');
+      }
+
+      const itemRepository = manager.getRepository(PayrollItem);
+      const items = await itemRepository.find({
+        where: { payrollRunId: input.payrollRunId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const selectedIds = new Set(normalized.map((reservation) => reservation.payrollItemId));
+      const selectedItems = normalized.map((reservation) => {
+        const item = items.find((candidate) => candidate.id === reservation.payrollItemId);
+        if (!item || item.status !== PayrollItemStatus.FAILED) {
+          throw new Error('Only failed items in this payroll run can be reserved for retry');
+        }
+        if (item.metadata?.payoutSubmissionPending === true) {
+          throw new Error('Cannot reserve a payout while its submission outcome is unknown');
+        }
+        return { item, reservation };
+      });
+      if (
+        items.some(
+          (item) =>
+            !selectedIds.has(item.id) &&
+            (item.status === PayrollItemStatus.PENDING ||
+              item.status === PayrollItemStatus.PROCESSING ||
+              item.metadata?.payoutSubmissionPending === true),
+        )
+      ) {
+        throw new Error('Cannot reserve funds while any other payout outcome remains unresolved');
+      }
+
+      const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const entries = await ledger.find({
+        where: { tenantId: input.tenantId, payrollRunId: input.payrollRunId },
+      });
+      const paidItemIds = new Set(
+        entries
+          .filter((entry) => entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED)
+          .map((entry) => entry.payrollItemId)
+          .filter((id): id is string => Boolean(id)),
+      );
+      if (
+        items.some(
+          (item) =>
+            item.status === PayrollItemStatus.PAID &&
+            !paidItemIds.has(item.id),
+        )
+      ) {
+        throw new Error('Cannot reserve funds until every paid payout has a confirmed debit');
+      }
+
+      let newReservationTotal = 0;
+      for (const { item, reservation } of selectedItems) {
+        const idempotencyKey = `reservation:${input.payrollRunId}:${reservation.reservationKey}`;
+        const existing = await ledger.findOne({ where: { idempotencyKey } });
+        if (existing) {
+          if (
+            existing.tenantId !== input.tenantId ||
+            existing.payrollRunId !== input.payrollRunId ||
+            existing.payrollItemId !== item.id ||
+            Number(existing.amount) !== reservation.amount ||
+            existing.currency !== reservation.currency
+          ) {
+            throw new Error('Reservation key was already used for a different payout');
+          }
+          throw new Error('A reservation already exists for this retry attempt; reconcile it before retrying');
+        }
+        newReservationTotal += reservation.amount;
+      }
+
+      const totals = entries.reduce(
+        (state, entry) => {
+          if (entry.currency !== currency) return state;
+          const value = Number(entry.amount);
+          if (entry.eventType === PayrollFundingLedgerEventType.FUNDING_RECEIVED) {
+            state.funded += value;
+          } else if (entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED) {
+            state.debited += value;
+          } else if (entry.eventType === PayrollFundingLedgerEventType.PAYOUT_RESERVED) {
+            state.reserved += value;
+          } else if (entry.eventType === PayrollFundingLedgerEventType.RESERVATION_RELEASED) {
+            state.released += value;
+          }
+          return state;
+        },
+        { funded: 0, debited: 0, reserved: 0, released: 0 },
+      );
+      const available =
+        Math.round((totals.funded - totals.debited - totals.reserved + totals.released) * 100) /
+        100;
+      if (available < newReservationTotal) {
+        throw new Error(
+          `Insufficient verified run-scoped funds: ${available} ${currency} available`,
+        );
+      }
+
+      for (const { item, reservation } of selectedItems) {
+        await ledger.insert({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          payrollItemId: item.id,
+          eventType: PayrollFundingLedgerEventType.PAYOUT_RESERVED,
+          amount: reservation.amount.toFixed(2),
+          currency: reservation.currency,
+          provider: input.provider,
+          providerReference: null,
+          idempotencyKey: `reservation:${input.payrollRunId}:${reservation.reservationKey}`,
+          performedById: input.performedById,
+          approvedById: null,
+          evidence: {
+            ...input.evidence,
+            reservationKey: reservation.reservationKey,
+          },
+        });
+        const priorRetry =
+          typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
+        item.status = PayrollItemStatus.PENDING;
+        item.failureReason = null;
+        item.transactionId = null;
+        item.paymentProvider = null;
+        item.paidAt = null;
+        item.metadata = { ...(item.metadata ?? {}), payoutRetryCount: priorRetry + 1 };
+        await itemRepository.save(item);
+      }
+    });
+  }
+
   async recordRetryShortfallApproval(input: {
     tenantId: string;
     payrollRunId: string;
