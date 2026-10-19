@@ -972,13 +972,17 @@ export class PayrollFloatTopupService {
       this.logger.warn(`Retry funding checkout verification invalid for ${input.orderReference}`);
       return { received: true, paid: false };
     }
-    const paidAmount = normalizeWebhookAmount(verifiedAmount, expectedAmount, expectedCurrency);
+    const paidAmount = Math.round(
+      normalizeWebhookAmount(verifiedAmount, expectedAmount, expectedCurrency) * 100,
+    ) / 100;
+    const exactExpectedAmount = Math.round(expectedAmount * 100) / 100;
     if (
       !Number.isFinite(paidAmount) ||
-      paidAmount + BILLING_AMOUNT_TOLERANCE < expectedAmount ||
-      paidAmount > expectedAmount + BILLING_AMOUNT_TOLERANCE
+      paidAmount !== exactExpectedAmount
     ) {
-      this.logger.warn(`Retry funding checkout amount mismatch for ${input.orderReference}`);
+      this.logger.warn(
+        `Retry funding checkout amount mismatch for ${input.orderReference}: expected ${exactExpectedAmount}, verified ${paidAmount}`,
+      );
       return { received: true, paid: false };
     }
 
