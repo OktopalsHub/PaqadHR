@@ -37,6 +37,11 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       payNowPayroll: jest.fn().mockResolvedValue({ successfulPayments: 1 }),
     } as unknown as PayrollPaymentOrchestrator;
 
+    const fundingLedger = {
+      recordVerifiedFunding: jest.fn().mockResolvedValue(undefined),
+      getRunLedger: jest.fn().mockResolvedValue({ entries: [] }),
+    };
+
     const tenantSettingsService = {
       getTenantSettings: jest.fn(),
     } as unknown as TenantSettingsService;
@@ -58,6 +63,7 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       balanceService,
       paymentFactory,
       paymentOrchestrator,
+      fundingLedger as never,
       tenantSettingsService,
       payrollFeeService as never,
       bachsApi as never,
@@ -70,6 +76,7 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       verifyCheckout,
       paymentOrchestrator,
       paymentFactory,
+      fundingLedger,
     };
   };
 
