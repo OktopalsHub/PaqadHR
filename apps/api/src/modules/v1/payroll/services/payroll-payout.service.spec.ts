@@ -82,6 +82,7 @@ describe('PayrollPayoutService', () => {
 
     const payrollItemRepo = {
       find: jest.fn(),
+      findOne: jest.fn(),
     } as unknown as Repository<PayrollItem>;
 
     const payrollRunRepository = {
