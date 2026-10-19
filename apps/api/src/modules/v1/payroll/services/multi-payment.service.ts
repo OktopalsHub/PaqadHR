@@ -1,16 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
-import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import {
+  type BachsFundingItem,
   quoteSourceAmountForDestination,
   resolveBachsQuoteDestinationCurrency,
   sourceAmountForBachsFundingItem,
-  type BachsFundingItem,
 } from 'src/common/config/bachs-funding-quote.util';
 import { getPayrollPayoutFeePerTransfer } from 'src/common/config/payroll-payout-fee.util';
-import { BachsApiService } from 'src/common/services/bachs-api.service';
-import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
-import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
+import { BachsApiService } from 'src/common/services/bachs-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
@@ -18,6 +16,7 @@ import type { BatchPaymentResult } from '../../../../common/interfaces/batch-pay
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
+import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
@@ -25,6 +24,7 @@ import { PaymentBatching } from './payment-batching';
 import { PaymentValidation } from './payment-validation';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
+import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 const PAYROLL_PROCESSING_LOCK_MS = 30 * 60 * 1000;
 
