@@ -220,6 +220,109 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       expect.objectContaining({ performedById: 'member-1' }),
     );
   });
+
+  it('marks scheduled checkout as funded without paying employees before the scheduled date', async () => {
+    const { service, payrollRunRepository, verifyCheckout, paymentOrchestrator } = createService();
+    const run = {
+      id: 'run-scheduled',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      payoutMode: 'scheduled',
+      baseCurrency: 'NGN',
+      createdById: 'member-1',
+      metadata: {
+        floatTopup: { orderReference: 'pf_scheduled', status: 'pending', shortfall: 1000 },
+      },
+    } as unknown as PayrollRun;
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    verifyCheckout.mockResolvedValue({ status: 'successful', amount: 1000 });
+    (payrollRunRepository.manager.transaction as jest.Mock).mockImplementation(async (fn) => {
+      const locked = { ...run };
+      const manager = {
+        getRepository: () => ({
+          createQueryBuilder: () => ({
+            setLock: () => ({
+              where: () => ({
+                andWhere: () => ({
+                  getOne: async () => locked,
+                }),
+              }),
+            }),
+          }),
+        }),
+        save: jest.fn(async (entity) => entity),
+      };
+      return fn(manager);
+    });
+
+    const result = await service.completeFloatTopup({
+      tenantId: 'tenant-1',
+      orderReference: 'pf_scheduled',
+      payrollRunId: 'run-scheduled',
+      initiatedByMemberId: 'member-1',
+    });
+
+    expect(result).toEqual({ received: true, paid: false });
+    expect(paymentOrchestrator.payNowPayroll).not.toHaveBeenCalled();
+  });
+
+  it('does not report a scheduled payroll as paid on duplicate checkout delivery', async () => {
+    const { service, payrollRunRepository, verifyCheckout, paymentOrchestrator } = createService();
+    const run = {
+      id: 'run-scheduled-duplicate',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      payoutMode: 'scheduled',
+      baseCurrency: 'NGN',
+      createdById: 'member-1',
+      metadata: {
+        floatTopup: {
+          orderReference: 'pf_scheduled_duplicate',
+          status: 'pending',
+          shortfall: 1000,
+        },
+      },
+    } as unknown as PayrollRun;
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    verifyCheckout.mockResolvedValue({ status: 'successful', amount: 1000 });
+    (payrollRunRepository.manager.transaction as jest.Mock).mockImplementation(async (fn) => {
+      const locked = {
+        ...run,
+        metadata: {
+          floatTopup: {
+            orderReference: 'pf_scheduled_duplicate',
+            status: 'completed',
+            shortfall: 1000,
+          },
+        },
+      };
+      const manager = {
+        getRepository: () => ({
+          createQueryBuilder: () => ({
+            setLock: () => ({
+              where: () => ({
+                andWhere: () => ({
+                  getOne: async () => locked,
+                }),
+              }),
+            }),
+          }),
+        }),
+        save: jest.fn(async (entity) => entity),
+      };
+      return fn(manager);
+    });
+
+    const result = await service.completeFloatTopup({
+      tenantId: 'tenant-1',
+      orderReference: 'pf_scheduled_duplicate',
+      payrollRunId: 'run-scheduled-duplicate',
+      initiatedByMemberId: 'member-1',
+    });
+
+    expect(result).toEqual({ received: true, paid: false });
+    expect(paymentOrchestrator.payNowPayroll).not.toHaveBeenCalled();
+  });
 });
 
 describe('PayrollFloatTopupService.fundAndPay', () => {
