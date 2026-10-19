@@ -96,6 +96,64 @@ integrationDescribe('Payroll run funding ledger PostgreSQL integration', () => {
     );
     expect(ledgerCount.rows[0].count).toBe(1);
 
+    await client.query(
+      `INSERT INTO payroll_run_funding_ledger
+        (tenant_id, payroll_run_id, event_type, amount, currency, provider, provider_reference, idempotency_key)
+       VALUES ($1, $2, 'funding_received', 100.00, 'USD', 'BACHS', 'concurrent-reservation-funding', 'funding:concurrent-reservation-funding')`,
+      [tenantId, payrollRunId],
+    );
+
+    // Exercise PostgreSQL's actual row-lock serialization used by approval/reservation
+    // transactions: two different retry attempts each want 70 USD from the same 100 USD.
+    const reserveUnderRunLock = async (connection: Client, reservationKey: string) => {
+      await connection.query('BEGIN');
+      try {
+        await connection.query('SELECT id FROM payroll_runs WHERE id = $1 FOR UPDATE', [
+          payrollRunId,
+        ]);
+        const balance = await connection.query(
+          `SELECT
+             COALESCE(SUM(amount) FILTER (WHERE event_type = 'funding_received'), 0)
+             - COALESCE(SUM(amount) FILTER (WHERE event_type = 'payout_confirmed'), 0)
+             - COALESCE(SUM(amount) FILTER (WHERE event_type = 'payout_reserved'), 0)
+             + COALESCE(SUM(amount) FILTER (WHERE event_type = 'reservation_released'), 0)
+             AS available
+           FROM payroll_run_funding_ledger
+           WHERE tenant_id = $1 AND payroll_run_id = $2 AND currency = 'USD'`,
+          [tenantId, payrollRunId],
+        );
+        if (Number(balance.rows[0].available) < 70) {
+          throw new Error('Insufficient verified run-scoped funds');
+        }
+        await connection.query(
+          `INSERT INTO payroll_run_funding_ledger
+            (tenant_id, payroll_run_id, event_type, amount, currency, provider, idempotency_key)
+           VALUES ($1, $2, 'payout_reserved', 70.00, 'USD', 'BACHS', $3)`,
+          [tenantId, payrollRunId, `reservation:${reservationKey}`],
+        );
+        await connection.query('COMMIT');
+        return true;
+      } catch (error) {
+        await connection.query('ROLLBACK');
+        throw error;
+      }
+    };
+
+    const competingReservations = await Promise.allSettled([
+      reserveUnderRunLock(client, 'concurrent-retry-a'),
+      reserveUnderRunLock(competingClient, 'concurrent-retry-b'),
+    ]);
+    expect(competingReservations.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(competingReservations.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    const reservationTotal = await client.query(
+      `SELECT COALESCE(SUM(amount), 0) AS total
+       FROM payroll_run_funding_ledger
+       WHERE tenant_id = $1 AND payroll_run_id = $2
+         AND currency = 'USD' AND event_type = 'payout_reserved'`,
+      [tenantId, payrollRunId],
+    );
+    expect(Number(reservationTotal.rows[0].total)).toBe(70);
+
     await expect(
       client.query(
         `INSERT INTO payroll_run_funding_ledger
@@ -104,6 +162,15 @@ integrationDescribe('Payroll run funding ledger PostgreSQL integration', () => {
         [tenantId, payrollRunId],
       ),
     ).rejects.toMatchObject({ code: '23514' });
+
+    await expect(
+      client.query(
+        `INSERT INTO payroll_run_funding_ledger
+          (tenant_id, payroll_run_id, event_type, amount, currency, provider, idempotency_key)
+         VALUES ('cccccccc-cccc-4ccc-8ccc-cccccccccccc', $1, 'funding_received', 1.00, 'NGN', 'BACHS', 'funding:missing-tenant')`,
+        [payrollRunId],
+      ),
+    ).rejects.toMatchObject({ code: '23503' });
 
     await expect(
       client.query('DELETE FROM payroll_runs WHERE id = $1', [payrollRunId]),

@@ -50,6 +50,7 @@ export class PayrollPayoutService {
       payrollRunRepository,
       this.reconciliation,
       webhookEventRepository,
+      factory,
     );
   }
 

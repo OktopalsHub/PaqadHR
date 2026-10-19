@@ -307,6 +307,12 @@ export class PayoutWebhooks {
       this.logger.warn(`Bachs payout webhook verification unavailable for ${event.withdrawalId}`);
       return { received: true, matched: false };
     }
+    if (verified.reference && verified.reference !== merchantRef) {
+      this.logger.warn(
+        `Bachs payout webhook reference mismatch for ${event.withdrawalId}; ignoring event`,
+      );
+      return { received: true, matched: false };
+    }
 
     const changed = await this.reconciliation.applyTransferStatus(
       merchantRef,
