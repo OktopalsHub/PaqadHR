@@ -884,4 +884,63 @@ describe('PayrollPayoutService', () => {
       expect(applySpy).not.toHaveBeenCalled();
     });
   });
+
+  describe('recordConfirmedBachsDebit', () => {
+    const buildBachsDebitRecorder = () => {
+      const { service } = createService();
+      const ledger = { recordConfirmedPayoutDebit: jest.fn().mockResolvedValue(undefined) };
+      (service as unknown as { fundingLedger: typeof ledger }).fundingLedger = ledger;
+      const queryStatus = jest.fn();
+      (service.factory.resolvePayoutQuerier as jest.Mock).mockReturnValue({ queryStatus });
+      return { service, ledger, queryStatus };
+    };
+
+    it('does not record a debit while provider status is pending', async () => {
+      const { service, ledger, queryStatus } = buildBachsDebitRecorder();
+      queryStatus.mockResolvedValue({
+        status: 'PENDING',
+        sourceDebitedAmount: 50,
+        sourceCurrency: 'USD',
+      });
+
+      await service.recordConfirmedBachsDebit({
+        tenantId: 'tenant-1',
+        payrollRunId: RUN_ID,
+        payrollItemId: ITEM_ID,
+        transactionId: 'bachs-txn-1',
+        merchantReference: MERCHANT_REF,
+      });
+
+      expect(ledger.recordConfirmedPayoutDebit).not.toHaveBeenCalled();
+    });
+
+    it('records a debit only after terminal provider success is verified', async () => {
+      const { service, ledger, queryStatus } = buildBachsDebitRecorder();
+      queryStatus.mockResolvedValue({
+        status: 'COMPLETED',
+        sourceDebitedAmount: 50,
+        sourceCurrency: 'USD',
+      });
+
+      await service.recordConfirmedBachsDebit({
+        tenantId: 'tenant-1',
+        payrollRunId: RUN_ID,
+        payrollItemId: ITEM_ID,
+        transactionId: 'bachs-txn-1',
+        merchantReference: MERCHANT_REF,
+      });
+
+      expect(ledger.recordConfirmedPayoutDebit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          payrollRunId: RUN_ID,
+          payrollItemId: ITEM_ID,
+          amount: 50,
+          currency: 'USD',
+          provider: PaymentProvider.BACHS,
+          providerReference: 'bachs-txn-1',
+        }),
+      );
+    });
+  });
 });
