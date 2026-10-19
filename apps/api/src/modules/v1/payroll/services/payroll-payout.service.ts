@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
@@ -17,6 +17,7 @@ import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.ser
 
 @Injectable()
 export class PayrollPayoutService {
+  private readonly logger = new Logger(PayrollPayoutService.name);
   private readonly webhooks: PayoutWebhooks;
   private readonly reconciliation: PayoutReconciliation;
 
@@ -31,7 +32,7 @@ export class PayrollPayoutService {
     @InjectRepository(PayrollWebhookEvent)
     readonly webhookEventRepository: Repository<PayrollWebhookEvent>,
     @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
-    @Optional() fundingLedger?: PayrollRunFundingLedgerService,
+    @Optional() private readonly fundingLedger?: PayrollRunFundingLedgerService,
   ) {
     this.reconciliation = new PayoutReconciliation(
       fincraApi,
