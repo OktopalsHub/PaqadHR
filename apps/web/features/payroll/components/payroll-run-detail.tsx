@@ -331,6 +331,11 @@ export function PayrollRunDetail({
     (detail?.items ?? []).some((item) =>
       (item.paymentProvider ?? '').toLowerCase().includes('bachs'),
     );
+  // The last verified retry-funding selection, if any (sorted for set comparison).
+  const verifiedRetryFundingItemIds = Array.isArray(retryFundingMeta?.selectedItemIds)
+    ? (retryFundingMeta.selectedItemIds as string[]).slice().sort()
+    : [];
+  const retryFundingAwaitingVerification = retryFundingMeta?.status === 'pending';
   const fundingLedgerQuery = usePayrollFundingLedger(runId, Boolean(isAdmin && isBachsFundingRun));
   const [showAllFundingLedgerEntries, setShowAllFundingLedgerEntries] = useState(false);
   const [retryFundingReviewOpen, setRetryFundingReviewOpen] = useState(false);
@@ -412,6 +417,25 @@ export function PayrollRunDetail({
       detail?.status === 'processing' ||
       detail?.status === 'approved');
 
+  // Retry funding already verified for exactly the run's current failed payouts: retrying pays
+  // them, and nothing may be funded again.
+  const currentFailedItemIds = activeItems
+    .filter((item) => item.status === 'failed')
+    .map((item) => item.id)
+    .sort();
+  const retryFundingVerifiedForFailedItems =
+    retryFundingMeta?.status === 'funded' &&
+    verifiedRetryFundingItemIds.length > 0 &&
+    verifiedRetryFundingItemIds.length === currentFailedItemIds.length &&
+    verifiedRetryFundingItemIds.every((id, index) => id === currentFailedItemIds[index]);
+  const retryRunLabel =
+    isBachsFundingRun && !retryFundingVerifiedForFailedItems
+      ? 'Review retry funding'
+      : 'Retry payment';
+  // A failed payout that a verified funding round already covers must be paid, not funded again.
+  const retryItemLabel = (itemId: string) =>
+    isBachsFundingRun && !verifiedRetryFundingItemIds.includes(itemId) ? 'Review funding' : 'Retry';
+
   const busy =
     actions.calculate.isPending ||
     actions.approve.isPending ||
@@ -423,6 +447,7 @@ export function PayrollRunDetail({
     actions.previewRetryFunding.isPending ||
     actions.approveRetryFunding.isPending ||
     actions.createRetryFundingCheckout.isPending ||
+    actions.reconcileRetryFunding.isPending ||
     actions.schedule.isPending ||
     actions.publishPayslips.isPending ||
     actions.reopen.isPending ||
@@ -514,6 +539,27 @@ export function PayrollRunDetail({
         ? (retryFundingMeta.selectedItemIds as string[]).slice().sort()
         : [];
       const existingStatus = retryFundingMeta?.status;
+      if (
+        existingStatus === 'funded' &&
+        existingSelectedIds.length > 0 &&
+        selectedItemIds.every((id) => existingSelectedIds.includes(id))
+      ) {
+        // Funding for these payouts is already verified and paid: pay them out instead of quoting
+        // a new shortfall (which would charge the company a second time). The backend only accepts
+        // a retry for the full funded selection, so retry that set even for a single row click.
+        try {
+          const response = await actions.retryFailed.mutateAsync({
+            id: runId,
+            itemIds: existingSelectedIds,
+          });
+          toastPayrollPayoutResult(response.result, 'retry');
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Retry failed');
+        } finally {
+          await refetch();
+        }
+        return;
+      }
       if (
         (existingStatus === 'approved' || existingStatus === 'pending') &&
         existingSelectedIds.length === selectedItemIds.length &&
@@ -642,6 +688,32 @@ export function PayrollRunDetail({
       } else {
         toast.error(message);
       }
+      await refetch();
+    }
+  };
+
+  /**
+   * Re-verify a completed-but-unverified retry funding checkout with the payout provider, then
+   * pay the funded payouts. This is the recovery path when the funding webhook never landed.
+   */
+  const verifyRetryFunding = async () => {
+    try {
+      const result = await actions.reconcileRetryFunding.mutateAsync(runId);
+      await refetch();
+      await fundingLedgerQuery.refetch();
+      if (result.status === 'funded') {
+        toast.success('Retry funding verified with the payout provider.');
+        setRetryFundingReviewOpen(false);
+        await handleRetryFailed(retryFundingItemIds.length > 0 ? retryFundingItemIds : undefined);
+        return;
+      }
+      toast.message(
+        result.status === 'pending'
+          ? 'The provider has not confirmed this payment yet. Finish the checkout, then verify again.'
+          : 'There is no pending retry funding checkout to verify.',
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not verify retry funding');
       await refetch();
     }
   };
@@ -809,7 +881,7 @@ export function PayrollRunDetail({
                 onClick={() => void handleRetryFailed()}
               >
                 <RefreshCw className="mr-1 size-4" />
-                {isBachsFundingRun ? 'Review retry funding' : 'Retry payment'}
+                {retryRunLabel}
               </Button>
             ) : null}
             {isAdmin && canDelete ? (
@@ -962,9 +1034,9 @@ export function PayrollRunDetail({
                 <Alert>
                   <AlertTitle>Company-funded shortfall</AlertTitle>
                   <AlertDescription>
-                    Only the selected failed payouts are included. PaqadHR will not charge its
-                    platform fee again. Payouts will not start until checkout is verified and you
-                    retry the selected items.
+                    {retryFundingAwaitingVerification
+                      ? 'A checkout for this shortfall is already open. Finish it, then verify the funding — payouts start only after the provider confirms the payment.'
+                      : 'Only the selected failed payouts are included. PaqadHR will not charge its platform fee again. Payouts will not start until checkout is verified and you retry the selected items.'}
                   </AlertDescription>
                 </Alert>
                 <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
@@ -1015,6 +1087,17 @@ export function PayrollRunDetail({
                   >
                     Cancel
                   </Button>
+                  {retryFundingAwaitingVerification ? (
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void verifyRetryFunding()}
+                    >
+                      {actions.reconcileRetryFunding.isPending
+                        ? 'Verifying…'
+                        : "I've paid — verify funding"}
+                    </Button>
+                  ) : null}
                   <Button
                     variant="brandSolid"
                     disabled={busy}
@@ -1332,7 +1415,7 @@ export function PayrollRunDetail({
                               onClick={() => void handleRetryFailed([item.id])}
                             >
                               <RefreshCw className="mr-1 size-3.5" />
-                              {isBachsFundingRun ? 'Review funding' : 'Retry'}
+                              {retryItemLabel(item.id)}
                             </Button>
                           ) : null}
                         </div>
