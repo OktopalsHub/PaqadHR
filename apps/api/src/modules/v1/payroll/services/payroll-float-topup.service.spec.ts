@@ -323,6 +323,29 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
     expect(result).toEqual({ received: true, paid: false });
     expect(paymentOrchestrator.payNowPayroll).not.toHaveBeenCalled();
   });
+  it('allows retry against a previously funded Bachs float when balance lookup is unsupported', async () => {
+    const { service, payrollRunRepository } = createService();
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-bachs-funded',
+      tenantId: 'tenant-1',
+      baseCurrency: 'NGN',
+      metadata: {
+        floatTopup: {
+          status: 'completed',
+          provider: 'bachs',
+          fundingCurrency: 'NGN',
+        },
+      },
+    } as unknown as PayrollRun);
+    const preflight = jest.spyOn(service, 'preflight');
+
+    await expect(
+      service.assertRetryFundedOrThrow('run-bachs-funded', 'tenant-1', ['failed-item-1']),
+    ).resolves.toBeUndefined();
+
+    expect(preflight).not.toHaveBeenCalled();
+  });
+
 });
 
 describe('PayrollFloatTopupService.fundAndPay', () => {
