@@ -225,6 +225,14 @@ export class PayrollService {
     return this.payrollFloatTopupService.previewRetryShortfall(payrollRunId, tenantId, itemIds);
   }
 
+  async reconcileRetryFunding(payrollRunId: string, tenantId: string, performedById?: string) {
+    return this.payrollFloatTopupService.reconcileRetryFunding(
+      payrollRunId,
+      tenantId,
+      performedById,
+    );
+  }
+
   async approveRetryShortfall(
     payrollRunId: string,
     tenantId: string,
