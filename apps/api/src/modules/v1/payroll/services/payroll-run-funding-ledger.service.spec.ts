@@ -146,6 +146,62 @@ describe('PayrollRunFundingLedgerService', () => {
     expect(result.retryAuthorization).toBe('blocked');
   });
 
+  describe('releaseFailedPayoutReservation', () => {
+    const releaseInput = {
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      payrollItemId: 'item-failed',
+      reservationKey: 'item-failed-attempt-2',
+      provider: 'BACHS',
+      providerReference: 'payout-final-failed',
+      performedById: 'member-1',
+      evidence: { verifiedStatus: 'FAILED' },
+    };
+
+    it('releases a reservation only after a provider-confirmed terminal failure', async () => {
+      repository.findOne
+        .mockResolvedValueOnce({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          payrollItemId: releaseInput.payrollItemId,
+          eventType: PayrollFundingLedgerEventType.PAYOUT_RESERVED,
+          amount: '40.00',
+          currency: 'USD',
+        })
+        .mockResolvedValueOnce(null);
+      repository.find.mockResolvedValue([]);
+
+      await service.releaseFailedPayoutReservation(releaseInput);
+
+      expect(repository.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: PayrollFundingLedgerEventType.RESERVATION_RELEASED,
+          amount: '40.00',
+          currency: 'USD',
+          payrollItemId: releaseInput.payrollItemId,
+          idempotencyKey:
+            'reservation-release:item-failed-attempt-2:failure:BACHS:payout-final-failed',
+          evidence: expect.objectContaining({
+            verifiedStatus: 'FAILED',
+            releasedReservationKey: releaseInput.reservationKey,
+          }),
+        }),
+      );
+    });
+
+    it('keeps the reservation when the provider outcome is pending or unknown', async () => {
+      await expect(
+        service.releaseFailedPayoutReservation({
+          ...releaseInput,
+          evidence: { verifiedStatus: 'PENDING' },
+        }),
+      ).rejects.toThrow(
+        'A payout reservation can only be released with a provider-confirmed terminal failure',
+      );
+      expect(repository.insert).not.toHaveBeenCalled();
+    });
+  });
+
   describe('reserveFailedPayout', () => {
     const buildTransactionalRepository = (options?: {
       run?: Record<string, unknown> | null;
