@@ -221,11 +221,7 @@ export class PayrollService {
     );
   }
 
-  async previewRetryShortfall(
-    payrollRunId: string,
-    tenantId: string,
-    itemIds: string[],
-  ) {
+  async previewRetryShortfall(payrollRunId: string, tenantId: string, itemIds: string[]) {
     return this.payrollFloatTopupService.previewRetryShortfall(payrollRunId, tenantId, itemIds);
   }
 
