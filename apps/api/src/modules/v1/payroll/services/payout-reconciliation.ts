@@ -128,48 +128,58 @@ export class PayoutReconciliation {
       const paidTenantIds =
         await this.payrollRunRepository.findDistinctTenantIdsWithPaidBachsItems();
       for (const tenantId of paidTenantIds) {
-        const paidItems = await this.payrollItemRepo.find({
-          where: {
-            status: PayrollItemStatus.PAID,
-            paymentProvider: ILike('%bachs%'),
-            payrollRun: { tenantId },
-          },
-          relations: ['payrollRun'],
-          take: 50,
-        });
-        checked += paidItems.length;
+        // Paginate because paid rows do not change during ledger recovery. Without an offset,
+        // the first 50 paid rows could permanently starve later rows in large payroll tenants.
+        let offset = 0;
+        while (true) {
+          const paidItems = await this.payrollItemRepo.find({
+            where: {
+              status: PayrollItemStatus.PAID,
+              paymentProvider: ILike('%bachs%'),
+              payrollRun: { tenantId },
+            },
+            relations: ['payrollRun'],
+            order: { updatedAt: 'ASC', id: 'ASC' },
+            skip: offset,
+            take: 50,
+          });
+          checked += paidItems.length;
 
-        for (const item of paidItems) {
-          if (!item.transactionId) continue;
-          try {
-            const hasDebit = await this.fundingLedger.hasConfirmedPayoutDebit({
-              tenantId,
-              payrollRunId: item.payrollRunId,
-              payrollItemId: item.id,
-            });
-            if (hasDebit) continue;
+          for (const item of paidItems) {
+            if (!item.transactionId) continue;
+            try {
+              const hasDebit = await this.fundingLedger.hasConfirmedPayoutDebit({
+                tenantId,
+                payrollRunId: item.payrollRunId,
+                payrollItemId: item.id,
+              });
+              if (hasDebit) continue;
 
-            const retryAttempt =
-              typeof item.metadata?.payoutRetryCount === 'number'
-                ? item.metadata.payoutRetryCount
-                : 0;
-            const merchantRef = buildPayrollMerchantRef(
-              item.payrollRunId,
-              item.id,
-              retryAttempt,
-            );
-            await this.applyTransferStatus(
-              merchantRef,
-              'COMPLETED',
-              item.transactionId,
-              PaymentProvider.BACHS,
-              tenantId,
-            );
-          } catch (error) {
-            this.logger.warn(
-              `Could not reconcile missing Bachs ledger debit for payroll item ${item.id}: ${error instanceof Error ? error.message : String(error)}`,
-            );
+              const retryAttempt =
+                typeof item.metadata?.payoutRetryCount === 'number'
+                  ? item.metadata.payoutRetryCount
+                  : 0;
+              const merchantRef = buildPayrollMerchantRef(
+                item.payrollRunId,
+                item.id,
+                retryAttempt,
+              );
+              await this.applyTransferStatus(
+                merchantRef,
+                'COMPLETED',
+                item.transactionId,
+                PaymentProvider.BACHS,
+                tenantId,
+              );
+            } catch (error) {
+              this.logger.warn(
+                `Could not reconcile missing Bachs ledger debit for payroll item ${item.id}: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
           }
+
+          if (paidItems.length < 50) break;
+          offset += paidItems.length;
         }
       }
     }
