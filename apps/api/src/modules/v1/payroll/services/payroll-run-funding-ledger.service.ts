@@ -88,6 +88,72 @@ export class PayrollRunFundingLedgerService {
     }
   }
 
+  /**
+   * Record a debit only when the provider reports the amount removed from its source float.
+   * Destination salary amounts are not a safe substitute for cross-currency Bachs debits.
+   */
+  async recordConfirmedPayoutDebit(input: {
+    tenantId: string;
+    payrollRunId: string;
+    payrollItemId: string;
+    amount: number;
+    currency: string;
+    provider: string;
+    providerReference: string;
+    evidence?: Record<string, string | number | boolean | null>;
+  }): Promise<void> {
+    const amount = Math.round(input.amount * 100) / 100;
+    const currency = input.currency.trim().toUpperCase();
+    const providerReference = input.providerReference.trim();
+    if (!Number.isFinite(amount) || amount <= 0 || !currency || !providerReference) {
+      throw new Error('A confirmed payout debit requires a positive amount, currency, and provider reference');
+    }
+
+    const idempotencyKey = `payout:${input.provider}:${providerReference}`;
+    const existing = await this.ledgerRepository.findOne({ where: { idempotencyKey } });
+    if (existing) {
+      if (
+        existing.tenantId !== input.tenantId ||
+        existing.payrollRunId !== input.payrollRunId ||
+        existing.payrollItemId !== input.payrollItemId ||
+        Number(existing.amount) !== amount ||
+        existing.currency !== currency
+      ) {
+        throw new Error('Payout debit reference was already allocated to a different payroll transaction');
+      }
+      return;
+    }
+
+    try {
+      await this.ledgerRepository.insert({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: input.payrollItemId,
+        eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+        amount: amount.toFixed(2),
+        currency,
+        provider: input.provider,
+        providerReference,
+        idempotencyKey,
+        performedById: null,
+        approvedById: null,
+        evidence: input.evidence ?? null,
+      });
+    } catch (error) {
+      const raced = await this.ledgerRepository.findOne({ where: { idempotencyKey } });
+      if (
+        !raced ||
+        raced.tenantId !== input.tenantId ||
+        raced.payrollRunId !== input.payrollRunId ||
+        raced.payrollItemId !== input.payrollItemId ||
+        Number(raced.amount) !== amount ||
+        raced.currency !== currency
+      ) {
+        throw error;
+      }
+    }
+  }
+
   async getRunLedger(tenantId: string, payrollRunId: string) {
     const entries = await this.ledgerRepository.find({
       where: { tenantId, payrollRunId },
