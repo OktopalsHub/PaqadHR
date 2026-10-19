@@ -11,8 +11,8 @@ import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import { RetryFailedPaymentsDto } from '../dto/retry-failed-payments.dto';
 import { SchedulePayrollPayoutDto } from '../dto/schedule-payroll-payout.dto';
 import { MultiPaymentService } from '../services/multi-payment.service';
-import { PayrollRunFundingLedgerService } from '../services/payroll-run-funding-ledger.service';
 import { PayrollService } from '../services/payroll.service';
+import { PayrollRunFundingLedgerService } from '../services/payroll-run-funding-ledger.service';
 
 @ApiTags('Payroll')
 @Controller('tenants/:tenantId/payroll')
