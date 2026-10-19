@@ -386,6 +386,22 @@ export class PaymentBatching {
             ? result.error || `${providerName} transfer failed`
             : null;
 
+        if (
+          itemStatus === PayrollItemStatus.PAID &&
+          providerName.toLowerCase().includes('bachs') &&
+          result.transactionId &&
+          entry.paymentData.merchantTxRef
+        ) {
+          await this.payrollPayoutService.recordConfirmedBachsDebit({
+            tenantId,
+            payrollRunId: item.payrollRunId,
+            payrollItemId: item.id,
+            transactionId: result.transactionId,
+            merchantReference: entry.paymentData.merchantTxRef,
+            destinationAmount: result.amount,
+          });
+        }
+
         if (this.lifecycleNotify && itemStatus === PayrollItemStatus.PAID) {
           await this.lifecycleNotify.onItemPaid({
             tenantId,
