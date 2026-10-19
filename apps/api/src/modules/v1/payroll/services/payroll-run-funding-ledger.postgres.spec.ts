@@ -175,7 +175,9 @@ integrationDescribe('Payroll run funding ledger PostgreSQL integration', () => {
     await expect(
       client.query('DELETE FROM payroll_runs WHERE id = $1', [payrollRunId]),
     ).rejects.toMatchObject({ code: '23503' });
-    await expect(client.query('DELETE FROM tenants WHERE id = $1', [tenantId])).rejects.toMatchObject({
+    await expect(
+      client.query('DELETE FROM tenants WHERE id = $1', [tenantId]),
+    ).rejects.toMatchObject({
       code: '23503',
     });
 
@@ -194,10 +196,9 @@ integrationDescribe('Payroll run funding ledger PostgreSQL integration', () => {
 
     await client.query('DELETE FROM payroll_run_funding_ledger');
     await migration.down(queryRunner as never);
-    const droppedTable = await client.query(
-      `SELECT to_regclass($1) AS table_name`,
-      [`"${schemaName}".payroll_run_funding_ledger`],
-    );
+    const droppedTable = await client.query(`SELECT to_regclass($1) AS table_name`, [
+      `"${schemaName}".payroll_run_funding_ledger`,
+    ]);
     expect(droppedTable.rows[0].table_name).toBeNull();
   });
 });

@@ -8,10 +8,7 @@ import { PayoutWebhooks } from './payout-webhooks';
 describe('PayoutWebhooks Bachs status verification', () => {
   const merchantRef = 'pi_aaaaaaaaaaaa4aaa8aaaaaaaaaaaaaaa';
 
-  const createService = (
-    verifiedStatus: string | null,
-    verifiedReference = merchantRef,
-  ) => {
+  const createService = (verifiedStatus: string | null, verifiedReference = merchantRef) => {
     const eventRepository = {
       createQueryBuilder: jest.fn(() => ({
         insert: jest.fn().mockReturnThis(),
