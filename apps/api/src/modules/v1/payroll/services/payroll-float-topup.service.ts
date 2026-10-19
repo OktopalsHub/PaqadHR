@@ -413,6 +413,28 @@ export class PayrollFloatTopupService {
     tenantId: string,
     retryItemIds?: string[],
   ): Promise<void> {
+    const previouslyFundedRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      select: ['id', 'metadata'],
+    });
+    const floatTopup = previouslyFundedRun
+      ? this.readFloatTopupMeta(previouslyFundedRun)
+      : {};
+
+    // Bachs does not expose a balance lookup. If the original checkout was verified and
+    // completed, do not block a retry by treating the unknown balance as zero. Retry only
+    // the failed items; Bachs remains authoritative about whether the remaining float covers
+    // those transfers. The original checkout already included the payroll fee and reserve.
+    if (
+      floatTopup.status === 'completed' &&
+      floatTopup.provider === PaymentProvider.BACHS
+    ) {
+      this.logger.debug(
+        `Using previously funded Bachs float for retry of payroll run ${payrollRunId}`,
+      );
+      return;
+    }
+
     const preflight = await this.preflight(payrollRunId, tenantId, true, retryItemIds);
     if (!preflight.ok) {
       throw new BadRequestException(
