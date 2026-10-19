@@ -36,6 +36,7 @@ import { normalizeWebhookAmount } from '../../subscriptions/utils/per-seat-prici
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
+import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import {
   PayrollFundingLedgerEventType,
@@ -685,7 +686,7 @@ export class PayrollFloatTopupService {
         );
       }
 
-      const lockedItems = await manager.getRepository(PayrollRun['items'][number]).find({
+      const lockedItems = await manager.getRepository(PayrollItem).find({
         where: { payrollRunId },
         lock: { mode: 'pessimistic_write' },
       });
