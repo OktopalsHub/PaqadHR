@@ -326,8 +326,8 @@ export function PayrollRunDetail({
       ? (detail.metadata.floatTopup as Record<string, unknown>)
       : undefined;
   const isBachsFundingRun =
-    floatTopupMeta?.provider === 'BACHS' ||
-    retryFundingMeta?.provider === 'BACHS' ||
+    String(floatTopupMeta?.provider ?? '').toLowerCase() === 'bachs' ||
+    String(retryFundingMeta?.provider ?? '').toLowerCase() === 'bachs' ||
     (detail?.items ?? []).some((item) =>
       (item.paymentProvider ?? '').toLowerCase().includes('bachs'),
     );
