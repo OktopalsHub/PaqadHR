@@ -1,11 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import {
   type BachsFundingItem,
-  quoteSourceAmountForDestination,
-  resolveBachsQuoteDestinationCurrency,
-  sourceAmountForBachsFundingItem,
+  sourceAmountWithPayoutFeeForBachsFundingItem,
 } from 'src/common/config/bachs-funding-quote.util';
-import { getPayrollPayoutFeePerTransfer } from 'src/common/config/payroll-payout-fee.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { BachsApiService } from 'src/common/services/bachs-api.service';
@@ -18,6 +15,7 @@ import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
 import { PAYROLL_PROCESSING_LOCK_MS } from '../utils/payroll-processing-lock.util';
@@ -235,7 +233,7 @@ export class MultiPaymentService {
     }
 
     try {
-      const retriableItems: PayrollItem[] = [];
+      let retriableItems: PayrollItem[] = [];
       for (const item of failedItems) {
         const canRetry = await this.payrollPayoutService.reconcileFailedItemBeforeRetry(
           item,
@@ -287,17 +285,13 @@ export class MultiPaymentService {
           },
           reservations,
         });
+        const claimedItems: PayrollItem[] = [];
         for (const item of retriableItems) {
           const priorRetry =
             typeof item.metadata?.payoutRetryCount === 'number'
               ? item.metadata.payoutRetryCount
               : 0;
-          item.status = PayrollItemStatus.PENDING;
-          item.failureReason = null;
-          item.transactionId = null;
-          item.paymentProvider = null;
-          item.paidAt = null;
-          item.metadata = {
+          const metadata = {
             ...(item.metadata ?? {}),
             payoutRetryCount: priorRetry + 1,
             retryFundingMaxSourceAmount: Number(meta.itemFundingAmounts[item.id]),
@@ -305,9 +299,52 @@ export class MultiPaymentService {
             payoutNeverSubmitted: false,
             payoutSubmissionPending: false,
           };
+          // The provider can report terminal failure just before a success webhook arrives.
+          // Claim only rows still FAILED so a late success cannot be reset and paid twice.
+          const claimed = await updatePayrollItemScopedIfStatus(
+            this.payrollItemRepository,
+            item.id,
+            tenantId,
+            PayrollItemStatus.FAILED,
+            {
+              status: PayrollItemStatus.PENDING,
+              failureReason: null,
+              transactionId: null,
+              paymentProvider: null,
+              paidAt: null,
+              metadata,
+            },
+          );
+          if (!claimed) {
+            await this.fundingLedger.releaseUnsubmittedPayoutReservation({
+              tenantId,
+              payrollRunId,
+              payrollItemId: item.id,
+              reservationKey: `${meta.orderReference}:${item.id}`,
+              evidence: {
+                validationStage: 'retry_claim',
+                submissionAttempted: false,
+                reason: 'item_status_changed_before_retry_claim',
+              },
+            });
+            continue;
+          }
+          item.status = PayrollItemStatus.PENDING;
+          item.failureReason = null;
+          item.transactionId = null;
+          item.paymentProvider = null;
+          item.paidAt = null;
+          item.metadata = metadata;
+          claimedItems.push(item);
         }
+        retriableItems = claimedItems;
       } else {
-        await this.validation.resetItemsForRetry(retriableItems, tenantId);
+        retriableItems = await this.validation.resetItemsForRetry(retriableItems, tenantId);
+      }
+      if (retriableItems.length === 0) {
+        throw new BadRequestException(
+          'No failed payments remain eligible for retry; their status changed during reconciliation.',
+        );
       }
       const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
       const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
@@ -439,44 +476,12 @@ export class MultiPaymentService {
           `Invalid payout amount for payroll item ${item.id}; retry remains blocked.`,
         );
       }
-      let requiredAmount = await sourceAmountForBachsFundingItem({
+      const allocation = await sourceAmountWithPayoutFeeForBachsFundingItem({
         item: fundingItem,
         fundingCurrency: meta.currency as 'USD' | 'NGN',
         createQuote: (input) => bachsApi.createPayoutQuote(input),
       });
-
-      if (fundingItem.paymentCurrency === fundingItem.amountCurrency) {
-        const feeAmount = getPayrollPayoutFeePerTransfer(
-          fundingItem.paymentCurrency,
-          PaymentProvider.BACHS,
-        );
-        if (feeAmount > 0) {
-          if (fundingItem.paymentCurrency === meta.currency.toUpperCase()) {
-            requiredAmount += feeAmount;
-          } else {
-            const destination = resolveBachsQuoteDestinationCurrency(
-              fundingItem.paymentCurrency,
-              fundingItem.cryptoNetwork,
-            );
-            if (!destination) {
-              throw new BadRequestException(
-                `Cannot revalidate the ${fundingItem.paymentCurrency} payout fee for retry funding.`,
-              );
-            }
-            const quotedFee = await quoteSourceAmountForDestination({
-              createQuote: (input) => bachsApi.createPayoutQuote(input),
-              fromCurrency: meta.currency,
-              toCurrency: destination,
-              targetToAmount: feeAmount,
-              payoutMethod:
-                destination.startsWith('USDT_') || destination.startsWith('USDC_')
-                  ? undefined
-                  : 'BANK_TRANSFER',
-            });
-            requiredAmount += quotedFee.sourceAmount;
-          }
-        }
-      }
+      const requiredAmount = allocation.sourceAmount + allocation.payoutFeeReserve;
 
       const allocated = Number(meta.itemFundingAmounts[item.id]);
       if (!Number.isFinite(allocated) || requiredAmount > allocated + 0.01) {

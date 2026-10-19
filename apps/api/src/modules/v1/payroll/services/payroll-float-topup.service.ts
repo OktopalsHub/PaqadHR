@@ -9,16 +9,9 @@ import {
   applyPayrollFee,
   type BachsFundingItem,
   pickBachsFundingCurrency,
-  quoteSourceAmountForDestination,
-  resolveBachsQuoteDestinationCurrency,
-  sourceAmountForBachsFundingItem,
-  sumBachsFundingSourceAmount,
+  sourceAmountWithPayoutFeeForBachsFundingItem,
 } from 'src/common/config/bachs-funding-quote.util';
-import {
-  calculatePayrollPayoutFeeReserve,
-  getPayrollPayoutFeePerTransfer,
-  hasConfiguredPayrollPayoutFee,
-} from 'src/common/config/payroll-payout-fee.util';
+import { calculatePayrollPayoutFeeReserve } from 'src/common/config/payroll-payout-fee.util';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
@@ -480,7 +473,9 @@ export class PayrollFloatTopupService {
         selectedItemIds.some((id, index) => id !== requestedItemIds[index])
       ) {
         throw new BadRequestException(
-          'Bachs retry requires approved, provider-verified run-scoped funding for exactly the selected failed payouts. Shared Bachs float alone is not sufficient.',
+          'Bachs retry requires approved, provider-verified run-scoped funding for exactly the selected failed payouts. ' +
+            'Open the funding review, approve the shortfall, complete the checkout, then retry once it is verified. ' +
+            'A shared Bachs float balance is not accepted as proof.',
         );
       }
       // MultiPaymentService independently verifies the approval and funding ledger entries,
@@ -971,44 +966,12 @@ export class PayrollFloatTopupService {
           `Could not calculate retry funding for payroll item ${item.id}`,
         );
       }
-      let amount = await sourceAmountForBachsFundingItem({
+      const allocation = await sourceAmountWithPayoutFeeForBachsFundingItem({
         item: fundingItem,
         fundingCurrency: fundingCurrency as 'USD' | 'NGN',
         createQuote: (input) => this.bachsApi.createPayoutQuote(input),
       });
-
-      const sameCurrency =
-        fundingItem.paymentCurrency.toUpperCase() === fundingItem.amountCurrency.toUpperCase();
-      if (sameCurrency) {
-        const payoutCurrency = fundingItem.paymentCurrency.toUpperCase();
-        const feeAmount = getPayrollPayoutFeePerTransfer(payoutCurrency, PaymentProvider.BACHS);
-        if (feeAmount > 0) {
-          if (payoutCurrency === fundingCurrency.toUpperCase()) {
-            amount += feeAmount;
-          } else {
-            const destination = resolveBachsQuoteDestinationCurrency(
-              payoutCurrency,
-              fundingItem.cryptoNetwork,
-            );
-            if (!destination) {
-              throw new BadRequestException(
-                `Cannot convert the ${payoutCurrency} payout-fee reserve into ${fundingCurrency}`,
-              );
-            }
-            const quotedReserve = await quoteSourceAmountForDestination({
-              createQuote: (input) => this.bachsApi.createPayoutQuote(input),
-              fromCurrency: fundingCurrency,
-              toCurrency: destination,
-              targetToAmount: feeAmount,
-              payoutMethod:
-                destination.startsWith('USDT_') || destination.startsWith('USDC_')
-                  ? undefined
-                  : 'BANK_TRANSFER',
-            });
-            amount += quotedReserve.sourceAmount;
-          }
-        }
-      }
+      const amount = allocation.sourceAmount + allocation.payoutFeeReserve;
       const rounded = Math.round(amount * 100) / 100;
       if (!(rounded > 0)) {
         throw new BadRequestException(
@@ -1569,65 +1532,26 @@ export class PayrollFloatTopupService {
     }
 
     try {
-      const employeeTotal = await sumBachsFundingSourceAmount({
-        items: fundingItems,
-        fundingCurrency,
-        createQuote: (input) => this.bachsApi.createPayoutQuote(input),
-      });
+      // Quote each payout once, then add the marked-up Bachs withdrawal fee in the currency
+      // the balance is debited in. Quotes exclude that fee, so omitting it under-funds the run
+      // by one fee per employee and the last payout fails.
+      let employeeTotal = 0;
+      let payoutFeeReserve = 0;
+      let payoutTransferCount = 0;
+      for (const item of fundingItems) {
+        const allocation = await sourceAmountWithPayoutFeeForBachsFundingItem({
+          item,
+          fundingCurrency,
+          createQuote: (input) => this.bachsApi.createPayoutQuote(input),
+        });
+        employeeTotal += allocation.sourceAmount;
+        payoutFeeReserve += allocation.payoutFeeReserve;
+        if (allocation.payoutFeeReserve > 0) payoutTransferCount += 1;
+      }
+      employeeTotal = Math.round(employeeTotal * 100) / 100;
+      payoutFeeReserve = Math.round(payoutFeeReserve * 100) / 100;
       const feePercentage = await this.payrollFeeService.getPayrollFeePercentage(tenantId);
       const fee = applyPayrollFee(employeeTotal, feePercentage);
-      // Cross-currency payouts (GBP/EUR/USDT/USDC and USD-funded NGN) use Bachs'
-      // live quote, which includes the current FX and payout costs in the source amount.
-      // Same-currency payouts cannot be quoted, so require an explicit per-transfer reserve
-      // rather than silently undercharging USD payouts.
-      // A configured reserve applies to same-currency payouts in their payout currency,
-      // not just payouts whose currency matches the checkout balance. Convert each reserve
-      // into the funding currency before calculating the checkout total.
-      const sameCurrencyItems = fundingItems.filter(
-        (item) => item.paymentCurrency.toUpperCase() === item.amountCurrency.toUpperCase(),
-      );
-      const payoutTransferCount = sameCurrencyItems.filter(
-        (item) => getPayrollPayoutFeePerTransfer(item.paymentCurrency, PaymentProvider.BACHS) > 0,
-      ).length;
-      if (
-        sameCurrencyItems.some((item) => item.paymentCurrency.toUpperCase() === 'USD') &&
-        !hasConfiguredPayrollPayoutFee('USD', PaymentProvider.BACHS)
-      ) {
-        throw new Error(
-          'Set PAYROLL_PAYOUT_FEE_BACHS_USD to the confirmed Bachs fee per same-currency USD payout before pricing this payroll.',
-        );
-      }
-      let payoutFeeReserve = 0;
-      for (const item of sameCurrencyItems) {
-        const payoutCurrency = item.paymentCurrency.toUpperCase();
-        const feeAmount = getPayrollPayoutFeePerTransfer(payoutCurrency, PaymentProvider.BACHS);
-        if (feeAmount <= 0) continue;
-        if (payoutCurrency === fundingCurrency) {
-          payoutFeeReserve += feeAmount;
-          continue;
-        }
-        const destination = resolveBachsQuoteDestinationCurrency(
-          payoutCurrency,
-          item.cryptoNetwork,
-        );
-        if (!destination) {
-          throw new Error(
-            `Cannot convert the ${payoutCurrency} payout-fee reserve into ${fundingCurrency}`,
-          );
-        }
-        const quotedReserve = await quoteSourceAmountForDestination({
-          createQuote: (input) => this.bachsApi.createPayoutQuote(input),
-          fromCurrency: fundingCurrency,
-          toCurrency: destination,
-          targetToAmount: feeAmount,
-          payoutMethod:
-            destination.startsWith('USDT_') || destination.startsWith('USDC_')
-              ? undefined
-              : 'BANK_TRANSFER',
-        });
-        payoutFeeReserve += quotedReserve.sourceAmount;
-      }
-      payoutFeeReserve = Math.round(payoutFeeReserve * 100) / 100;
       const payoutFeePerTransfer =
         payoutTransferCount > 0
           ? Math.round((payoutFeeReserve / payoutTransferCount) * 100) / 100
@@ -1706,7 +1630,7 @@ export class PayrollFloatTopupService {
         canCheckout,
         dashboardUrl: '',
         message: canCheckout
-          ? `Your company pays ${requiredAmount} ${fundingCurrency} in one checkout (${fee.employeeTotal} employee pay + ${fee.platformFee} PaqadHR fee at ${fee.feePercentage}% + ${payoutFeeReserve} payout-fee reserve for ${payoutTransferCount} same-currency transfer(s)). We then route each salary via Bachs.`
+          ? `Your company pays ${requiredAmount} ${fundingCurrency} in one checkout (${fee.employeeTotal} employee pay + ${fee.platformFee} PaqadHR fee at ${fee.feePercentage}% + ${payoutFeeReserve} payout-fee reserve for ${payoutTransferCount} transfer(s)). We then route each salary via Bachs.`
           : `Fund ${requiredAmount} ${fundingCurrency} on Bachs, including the payout-fee reserve, then retry.`,
         employeeTotal: fee.employeeTotal,
         platformFee: fee.platformFee,

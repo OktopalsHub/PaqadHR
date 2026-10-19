@@ -2,11 +2,15 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { buildPayrollMerchantRef } from '../utils/payroll-merchant-ref.util';
 import { PayoutReconciliation } from './payout-reconciliation';
 import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
 describe('PayoutReconciliation', () => {
-  const createService = () => {
+  const createService = (overrides?: {
+    queryStatus?: jest.Mock;
+    fundingLedger?: { recordConfirmedPayoutDebit: jest.Mock };
+  }) => {
     const savedItem = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       payrollRunId: 'run-1',
@@ -40,6 +44,7 @@ describe('PayoutReconciliation', () => {
       ),
     };
     const payrollItemRepo = {
+      findOne: jest.fn().mockResolvedValue(lockedItem),
       manager: {
         transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<boolean>) =>
           callback(manager),
@@ -50,7 +55,11 @@ describe('PayoutReconciliation', () => {
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue({ tenantId: 'tenant-1' }),
     } as unknown as PayrollRunRepository;
-    const factory = {} as never;
+    const factory = {
+      resolvePayoutQuerier: jest.fn(() => ({
+        queryStatus: overrides?.queryStatus ?? jest.fn().mockResolvedValue(null),
+      })),
+    } as never;
     const fincraApi = {} as never;
     const lifecycleNotify = {
       onItemPaid: jest.fn().mockResolvedValue(undefined),
@@ -63,9 +72,17 @@ describe('PayoutReconciliation', () => {
       payrollRunRepository,
       payrollItemRepo,
       lifecycleNotify,
+      overrides?.fundingLedger as never,
     );
 
-    return { service, transactionRepository, lifecycleNotify, savedItem };
+    return {
+      service,
+      transactionRepository,
+      payrollItemRepo,
+      lifecycleNotify,
+      savedItem,
+      factory: factory as unknown as { resolvePayoutQuerier: jest.Mock },
+    };
   };
 
   it('serializes duplicate success webhooks with a row lock', async () => {
@@ -144,7 +161,17 @@ describe('PayoutReconciliation', () => {
 
   const buildRequeryService = (
     stuckItems: PayrollItem[],
-    overrides?: { resolveTenantId?: string | null; queryStatus?: jest.Mock },
+    overrides?: {
+      resolveTenantId?: string | null;
+      queryStatus?: jest.Mock;
+      paidBachsTenantIds?: string[];
+      paidBachsItems?: PayrollItem[];
+      transactionItem?: PayrollItem;
+      fundingLedger?: {
+        hasConfirmedPayoutDebit: jest.Mock;
+        recordConfirmedPayoutDebit: jest.Mock;
+      };
+    },
   ) => {
     const savedItem = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -156,7 +183,7 @@ describe('PayoutReconciliation', () => {
       payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
     } as unknown as PayrollItem;
     const transactionRepository = {
-      findOne: jest.fn().mockResolvedValue(savedItem),
+      findOne: jest.fn().mockResolvedValue(overrides?.transactionItem ?? savedItem),
       save: jest.fn(async (entity: PayrollItem) => entity),
     };
     const manager = {
@@ -173,9 +200,23 @@ describe('PayoutReconciliation', () => {
       andWhere: jest.fn().mockReturnThis(),
       execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
+    const paidItemQueryBuilder = {
+      innerJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(overrides?.paidBachsItems ?? []),
+    };
     const payrollItemRepo = {
-      find: jest.fn().mockResolvedValue(stuckItems),
-      createQueryBuilder: jest.fn().mockReturnValue(itemQueryBuilder),
+      findOne: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(overrides?.transactionItem ?? savedItem)),
+      find: jest.fn().mockImplementation(() => Promise.resolve(stuckItems)),
+      createQueryBuilder: jest.fn((alias?: string) =>
+        alias === 'paid_item' ? paidItemQueryBuilder : itemQueryBuilder,
+      ),
       update: jest.fn().mockResolvedValue(undefined),
       manager: {
         transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<boolean>) =>
@@ -196,6 +237,9 @@ describe('PayoutReconciliation', () => {
       findDistinctTenantIdsWithProcessingItems: jest
         .fn()
         .mockResolvedValue(overrides?.resolveTenantId === null ? [] : ['tenant-1']),
+      findDistinctTenantIdsWithPaidBachsItems: jest
+        .fn()
+        .mockResolvedValue(overrides?.paidBachsTenantIds ?? []),
       findByIdWithItems: jest.fn().mockResolvedValue({
         id: 'run-1',
         tenantId: 'tenant-1',
@@ -220,9 +264,17 @@ describe('PayoutReconciliation', () => {
       payrollRunRepository,
       payrollItemRepo,
       lifecycleNotify,
+      overrides?.fundingLedger as never,
     );
 
-    return { service, payrollItemRepo, itemQueryBuilder, lifecycleNotify, queryStatus };
+    return {
+      service,
+      payrollItemRepo,
+      itemQueryBuilder,
+      paidItemQueryBuilder,
+      lifecycleNotify,
+      queryStatus,
+    };
   };
 
   const stuckProcessingItem = (overrides?: Partial<PayrollItem>) =>
@@ -364,6 +416,68 @@ describe('PayoutReconciliation', () => {
     expect(result).toEqual({ checked: 1, updated: 0 });
   });
 
+  it('sweeps paid Bachs items and repairs missing confirmed debits without changing payroll state', async () => {
+    const paidItem = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
+      memberId: 'member-1',
+      status: PayrollItemStatus.PAID,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    } as unknown as PayrollItem;
+    const merchantRef = buildPayrollMerchantRef(paidItem.payrollRunId, paidItem.id, 0);
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: merchantRef,
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const fundingLedger = {
+      hasConfirmedPayoutDebit: jest.fn().mockResolvedValue(false),
+      recordConfirmedPayoutDebit: jest.fn().mockResolvedValue(undefined),
+    };
+    const { service, paidItemQueryBuilder } = buildRequeryService([], {
+      queryStatus,
+      paidBachsTenantIds: ['tenant-1'],
+      paidBachsItems: [paidItem],
+      transactionItem: paidItem,
+      fundingLedger,
+    });
+
+    const result = await service.requeryStuckPayouts();
+
+    // The missing-debit filter must run in the database, scoped to the owning tenant, so the
+    // sweep never loads items that were already reconciled or falls outside the window.
+    expect(paidItemQueryBuilder.innerJoinAndSelect).toHaveBeenCalledWith(
+      'paid_item.payrollRun',
+      'run',
+      expect.stringContaining('run.tenantId'),
+      { tenantId: 'tenant-1' },
+    );
+    expect(paidItemQueryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('NOT EXISTS'),
+      expect.objectContaining({ confirmedDebit: 'payout_confirmed' }),
+    );
+    expect(paidItemQueryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('recoverySince'),
+      expect.objectContaining({ recoverySince: expect.any(Date) }),
+    );
+    expect(queryStatus).toHaveBeenCalledWith('bachs-withdrawal-1', merchantRef);
+    expect(fundingLedger.recordConfirmedPayoutDebit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payrollRunId: '11111111-1111-4111-8111-111111111111',
+        payrollItemId: paidItem.id,
+        providerReference: 'bachs-withdrawal-1',
+        amount: 1005,
+        currency: 'USD',
+      }),
+    );
+    expect(result).toEqual({ checked: 1, updated: 0 });
+  });
+
   it('does not second-fail an item that already carries a provider transaction id', async () => {
     const { service, itemQueryBuilder, queryStatus } = buildRequeryService(
       [stuckProcessingItem({ transactionId: 'pay_existing' })],
@@ -397,6 +511,205 @@ describe('PayoutReconciliation', () => {
       'SUCCESS',
       'txn-duplicate',
       PaymentProvider.NOMBA,
+      'tenant-1',
+      1000,
+    );
+
+    expect(changed).toBe(false);
+    expect(transactionRepository.save).not.toHaveBeenCalled();
+    expect(lifecycleNotify.onItemPaid).not.toHaveBeenCalled();
+  });
+
+  it('repairs a missing Bachs debit when a repeated verified success arrives for an already-paid item', async () => {
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: buildPayrollMerchantRef(
+        '11111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        0,
+      ),
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const recordConfirmedPayoutDebit = jest.fn().mockResolvedValue(undefined);
+    const { service, transactionRepository, lifecycleNotify, factory } = createService({
+      queryStatus,
+      fundingLedger: { recordConfirmedPayoutDebit },
+    });
+    transactionRepository.findOne.mockResolvedValueOnce({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
+      memberId: 'member-1',
+      status: PayrollItemStatus.PAID,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      metadata: {},
+      payrollRun: {
+        id: 'run-1',
+        tenantId: 'tenant-1',
+        createdById: 'admin-1',
+      },
+    });
+
+    const changed = await service.applyTransferStatus(
+      buildPayrollMerchantRef(
+        '11111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        0,
+      ),
+      'SUCCESS',
+      'bachs-withdrawal-1',
+      PaymentProvider.BACHS,
+      'tenant-1',
+      1000,
+    );
+
+    expect(changed).toBe(false);
+    expect(factory.resolvePayoutQuerier).toHaveBeenCalledWith(PaymentProvider.BACHS);
+    expect(queryStatus).toHaveBeenCalledWith(
+      'bachs-withdrawal-1',
+      buildPayrollMerchantRef(
+        '11111111-1111-4111-8111-111111111111',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        0,
+      ),
+    );
+    expect(recordConfirmedPayoutDebit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        payrollRunId: '11111111-1111-4111-8111-111111111111',
+        payrollItemId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        amount: 1005,
+        currency: 'USD',
+        providerReference: 'bachs-withdrawal-1',
+      }),
+    );
+    expect(transactionRepository.save).not.toHaveBeenCalled();
+    expect(lifecycleNotify.onItemPaid).not.toHaveBeenCalled();
+  });
+
+  it('does not repair a Bachs debit when the provider reference does not match the payroll merchant reference', async () => {
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: 'some-other-merchant-reference',
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const recordConfirmedPayoutDebit = jest.fn().mockResolvedValue(undefined);
+    const { service, transactionRepository } = createService({
+      queryStatus,
+      fundingLedger: { recordConfirmedPayoutDebit },
+    });
+    transactionRepository.findOne.mockResolvedValueOnce({
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.PAID,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    });
+
+    await service.applyTransferStatus(
+      'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      'SUCCESS',
+      'bachs-withdrawal-1',
+      PaymentProvider.BACHS,
+      'tenant-1',
+      1000,
+    );
+
+    expect(recordConfirmedPayoutDebit).not.toHaveBeenCalled();
+  });
+
+  it('recovers a failed Bachs item to paid only after verifying the same payout succeeded', async () => {
+    const merchantRef = buildPayrollMerchantRef(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      0,
+    );
+    const failedItem = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
+      memberId: 'member-1',
+      status: PayrollItemStatus.FAILED,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      failureReason: 'Bachs failed',
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    } as unknown as PayrollItem;
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: merchantRef,
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const recordConfirmedPayoutDebit = jest.fn().mockResolvedValue(undefined);
+    const { service, transactionRepository, payrollItemRepo, lifecycleNotify } = createService({
+      queryStatus,
+      fundingLedger: { recordConfirmedPayoutDebit },
+    });
+    (payrollItemRepo.findOne as jest.Mock).mockResolvedValue(failedItem);
+    transactionRepository.findOne.mockResolvedValue(failedItem);
+
+    const changed = await service.applyTransferStatus(
+      merchantRef,
+      'SUCCESS',
+      'bachs-withdrawal-1',
+      PaymentProvider.BACHS,
+      'tenant-1',
+      1000,
+    );
+
+    expect(changed).toBe(true);
+    expect(transactionRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: PayrollItemStatus.PAID,
+        transactionId: 'bachs-withdrawal-1',
+        failureReason: null,
+      }),
+    );
+    expect(queryStatus).toHaveBeenCalledWith('bachs-withdrawal-1', merchantRef);
+    expect(lifecycleNotify.onItemPaid).toHaveBeenCalledTimes(1);
+    expect(lifecycleNotify.onItemFailed).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed Bachs item failed when provider success has a different merchant reference', async () => {
+    const merchantRef = 'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const failedItem = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.FAILED,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      failureReason: 'Bachs failed',
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    } as unknown as PayrollItem;
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: 'another-merchant-reference',
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const { service, transactionRepository, payrollItemRepo, lifecycleNotify } = createService({
+      queryStatus,
+    });
+    (payrollItemRepo.findOne as jest.Mock).mockResolvedValue(failedItem);
+    transactionRepository.findOne.mockResolvedValue(failedItem);
+
+    const changed = await service.applyTransferStatus(
+      merchantRef,
+      'SUCCESS',
+      'bachs-withdrawal-1',
+      PaymentProvider.BACHS,
       'tenant-1',
       1000,
     );

@@ -24,6 +24,7 @@ export class PayrollFeeService {
       currency: params.currency,
       provider: params.provider,
       transferCount: Math.max(1, Math.floor(params.transferCount ?? 1)),
+      sourceAmountPerTransfer: params.totalPayrollAmount,
     });
     const payoutFeePerTransfer = payoutFee.feePerTransfer;
     const payoutTransferCount = Math.max(1, payoutFee.transferCount);

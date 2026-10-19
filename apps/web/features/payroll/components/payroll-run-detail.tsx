@@ -554,7 +554,41 @@ export function PayrollRunDetail({
       toastPayrollPayoutResult(response.result, 'retry');
       await refetch();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Retry failed');
+      const message = err instanceof Error ? err.message : 'Retry failed';
+      // The backend is authoritative about the payout provider. Older or incomplete run
+      // metadata can make the UI miss a Bachs-backed run, so route this specific guard
+      // response into the safe funding-review flow rather than asking the user to retry
+      // the same blocked endpoint again.
+      if (message.includes('Bachs retry requires approved, provider-verified run-scoped funding')) {
+        try {
+          const selectedItemIds = (
+            itemIds?.length
+              ? itemIds
+              : activeItems.filter((item) => item.status === 'failed').map((item) => item.id)
+          )
+            .slice()
+            .sort();
+          const preview = await actions.previewRetryFunding.mutateAsync({
+            id: runId,
+            itemIds: selectedItemIds,
+          });
+          setRetryFundingItemIds(selectedItemIds);
+          setRetryFundingPreview(preview);
+          setRetryFundingApproved(false);
+          setRetryFundingReviewOpen(true);
+          await refetch();
+          return;
+        } catch (previewError) {
+          toast.error(
+            previewError instanceof Error
+              ? previewError.message
+              : 'Could not prepare the required Bachs retry funding',
+          );
+          await refetch();
+          return;
+        }
+      }
+      toast.error(message);
       await refetch();
     }
   };
