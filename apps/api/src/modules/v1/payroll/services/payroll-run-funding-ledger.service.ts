@@ -336,6 +336,104 @@ export class PayrollRunFundingLedgerService {
    * callers must still keep retry authorization disabled until the whole funding workflow is
    * reviewed and wired end-to-end.
    */
+  /**
+   * Release every still-active reservation for an item after a provider-confirmed terminal
+   * failure. This is safe to call repeatedly during retry preflight and reconciliation.
+   */
+  async releaseFailedPayoutReservationsForItem(input: {
+    tenantId: string;
+    payrollRunId: string;
+    payrollItemId: string;
+    provider: string;
+    providerReference: string;
+    evidence: Record<string, string | number | boolean | null>;
+  }): Promise<number> {
+    const providerReference = input.providerReference.trim();
+    const verifiedStatus =
+      typeof input.evidence.verifiedStatus === 'string'
+        ? input.evidence.verifiedStatus.trim().toUpperCase()
+        : '';
+    const terminalFailureStatuses = new Set(['FAILED', 'REJECTED', 'CANCELLED', 'CANCELED']);
+    if (!providerReference || !terminalFailureStatuses.has(verifiedStatus)) {
+      throw new Error('Reservations require provider-confirmed terminal failure evidence');
+    }
+
+    return this.ledgerRepository.manager.transaction(async (manager) => {
+      const run = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!run) throw new Error('Payroll run not found for reservation release');
+
+      const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const entries = await ledger.find({
+        where: { tenantId: input.tenantId, payrollRunId: input.payrollRunId },
+      });
+      if (
+        entries.some(
+          (entry) =>
+            entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED &&
+            entry.payrollItemId === input.payrollItemId,
+        )
+      ) {
+        return 0;
+      }
+
+      const releasedKeys = new Set(
+        entries
+          .filter((entry) => entry.eventType === PayrollFundingLedgerEventType.RESERVATION_RELEASED)
+          .map((entry) => entry.evidence?.releasedReservationKey)
+          .filter((key): key is string => typeof key === 'string'),
+      );
+      let releasedCount = 0;
+      for (const reservation of entries) {
+        if (
+          reservation.eventType !== PayrollFundingLedgerEventType.PAYOUT_RESERVED ||
+          reservation.payrollItemId !== input.payrollItemId
+        ) {
+          continue;
+        }
+        const reservationKey =
+          typeof reservation.evidence?.reservationKey === 'string'
+            ? reservation.evidence.reservationKey
+            : '';
+        if (!reservationKey || releasedKeys.has(reservationKey)) continue;
+
+        const releaseIdempotencyKey = `reservation-release:${reservationKey}:failure:${input.provider}:${providerReference}`;
+        const existingRelease = await ledger.findOne({
+          where: { idempotencyKey: releaseIdempotencyKey },
+        });
+        if (existingRelease) {
+          releasedKeys.add(reservationKey);
+          continue;
+        }
+
+        await ledger.insert({
+          tenantId: input.tenantId,
+          payrollRunId: input.payrollRunId,
+          payrollItemId: input.payrollItemId,
+          eventType: PayrollFundingLedgerEventType.RESERVATION_RELEASED,
+          amount: reservation.amount,
+          currency: reservation.currency,
+          provider: input.provider,
+          providerReference,
+          idempotencyKey: releaseIdempotencyKey,
+          performedById: null,
+          approvedById: null,
+          evidence: {
+            ...input.evidence,
+            verifiedStatus,
+            releasedReservationKey: reservationKey,
+            reason: 'provider_confirmed_terminal_failure',
+          },
+        });
+        releasedKeys.add(reservationKey);
+        releasedCount += 1;
+      }
+      return releasedCount;
+    });
+  }
+
   async reserveFailedPayout(input: {
     tenantId: string;
     payrollRunId: string;
