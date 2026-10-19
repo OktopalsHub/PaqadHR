@@ -303,6 +303,26 @@ export class MultiPaymentService {
       }
       const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
       const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
+      if (isBachsRetry && this.fundingLedger) {
+        const payableIds = new Set(payable.map((item) => item.id));
+        const meta = payrollRun.metadata?.retryFunding as {
+          orderReference: string;
+        };
+        for (const item of retriableItems) {
+          if (payableIds.has(item.id)) continue;
+          await this.fundingLedger.releaseUnsubmittedPayoutReservation({
+            tenantId,
+            payrollRunId,
+            payrollItemId: item.id,
+            reservationKey: `${meta.orderReference}:${item.id}`,
+            evidence: {
+              validationStage: 'payment_readiness',
+              submissionAttempted: false,
+              reason: 'item_not_in_payable_batch',
+            },
+          });
+        }
+      }
       if (payable.length === 0) {
         await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
         throw new BadRequestException(
