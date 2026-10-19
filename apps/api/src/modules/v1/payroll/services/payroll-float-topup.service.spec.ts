@@ -228,6 +228,79 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
     );
   });
 
+  it('records verified retry funding without auto-paying the payroll run', async () => {
+    const {
+      service,
+      payrollRunRepository,
+      verifyCheckout,
+      paymentOrchestrator,
+      fundingLedger,
+    } = createService();
+    const item = {
+      id: 'item-failed',
+      status: 'FAILED',
+      metadata: {},
+    };
+    const run = {
+      id: 'run-retry',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'USD',
+      createdById: 'member-1',
+      items: [item],
+      metadata: {
+        retryFunding: {
+          orderReference: 'pb_retry_ref',
+          status: 'pending',
+          selectedItemIds: ['item-failed'],
+          amount: 25,
+          currency: 'USD',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+          itemFundingAmounts: { 'item-failed': 25 },
+        },
+      },
+    } as unknown as PayrollRun;
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    verifyCheckout.mockResolvedValue({
+      status: 'successful',
+      amount: 25,
+      currency: 'USD',
+    });
+    (payrollRunRepository.manager.transaction as jest.Mock).mockImplementation(async (fn) => {
+      const locked = { ...run };
+      const manager = {
+        getRepository: () => ({
+          findOne: jest.fn().mockResolvedValue(locked),
+        }),
+        save: jest.fn(async (entity) => entity),
+      };
+      return fn(manager);
+    });
+
+    const result = await service.completeFloatTopup({
+      tenantId: 'tenant-1',
+      orderReference: 'pb_retry_ref',
+      payrollRunId: 'run-retry',
+      initiatedByMemberId: 'member-1',
+    });
+
+    expect(result).toEqual({ received: true, paid: false });
+    expect(fundingLedger.recordVerifiedFunding).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payrollRunId: 'run-retry',
+        amount: 25,
+        currency: 'USD',
+        providerReference: 'pb_retry_ref',
+        evidence: expect.objectContaining({
+          fundingPurpose: 'approved_retry_shortfall',
+          selectedItemIds: 'item-failed',
+        }),
+      }),
+    );
+    expect(paymentOrchestrator.payNowPayroll).not.toHaveBeenCalled();
+  });
+
   it('marks scheduled checkout as funded without paying employees before the scheduled date', async () => {
     const { service, payrollRunRepository, verifyCheckout, paymentOrchestrator } = createService();
     const run = {
