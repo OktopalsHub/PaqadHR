@@ -9,9 +9,9 @@ import {
   applyPayrollFee,
   type BachsFundingItem,
   pickBachsFundingCurrency,
-  sumBachsFundingSourceAmount,
   quoteSourceAmountForDestination,
   resolveBachsQuoteDestinationCurrency,
+  sumBachsFundingSourceAmount,
 } from 'src/common/config/bachs-funding-quote.util';
 import {
   calculatePayrollPayoutFeeReserve,
@@ -689,8 +689,7 @@ export class PayrollFloatTopupService {
         (item) => item.paymentCurrency.toUpperCase() === item.amountCurrency.toUpperCase(),
       );
       const payoutTransferCount = sameCurrencyItems.filter(
-        (item) =>
-          getPayrollPayoutFeePerTransfer(item.paymentCurrency, PaymentProvider.BACHS) > 0,
+        (item) => getPayrollPayoutFeePerTransfer(item.paymentCurrency, PaymentProvider.BACHS) > 0,
       ).length;
       if (
         sameCurrencyItems.some((item) => item.paymentCurrency.toUpperCase() === 'USD') &&
@@ -723,9 +722,10 @@ export class PayrollFloatTopupService {
           fromCurrency: fundingCurrency,
           toCurrency: destination,
           targetToAmount: feeAmount,
-          payoutMethod: destination.startsWith('USDT_') || destination.startsWith('USDC_')
-            ? undefined
-            : 'BANK_TRANSFER',
+          payoutMethod:
+            destination.startsWith('USDT_') || destination.startsWith('USDC_')
+              ? undefined
+              : 'BANK_TRANSFER',
         });
         payoutFeeReserve += quotedReserve.sourceAmount;
       }
