@@ -1158,7 +1158,7 @@ export class PayrollFloatTopupService {
     meta: RetryFundingMeta,
   ): Promise<{ received: boolean; paid: boolean }> {
     if (
-      meta.status === 'funded' ||
+      meta.status !== 'pending' ||
       !meta.approvedById ||
       !meta.selectedItemIds?.length ||
       !meta.amount ||
