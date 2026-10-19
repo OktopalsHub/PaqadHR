@@ -216,12 +216,14 @@ describe('PayrollRunFundingLedgerService', () => {
           { id: 'item-failed', status: 'failed', metadata: {} },
           { id: 'item-live', status: 'processing', metadata: {} },
         ],
-        entries: [{
-          eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
-          amount: '100.00',
-          currency: 'USD',
-          payrollItemId: null,
-        }],
+        entries: [
+          {
+            eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
+            amount: '100.00',
+            currency: 'USD',
+            payrollItemId: null,
+          },
+        ],
       });
 
       await expect(
