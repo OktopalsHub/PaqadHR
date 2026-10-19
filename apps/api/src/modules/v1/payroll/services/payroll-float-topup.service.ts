@@ -1056,17 +1056,14 @@ export class PayrollFloatTopupService {
       where: { id: run.id, tenantId: input.tenantId },
       relations: ['items'],
     });
-    if (
-      !currentRun ||
-      selectedItemIds.some(
-        (id) => !currentRun.items.some((item) => item.id === id && item.status === PayrollItemStatus.FAILED),
-      )
-    ) {
-      this.logger.warn(`Retry funding selection changed before checkout completion for run ${run.id}`);
+    if (!currentRun) {
+      this.logger.warn(`Retry funding run disappeared before checkout completion: ${run.id}`);
       return { received: true, paid: false };
     }
-    await this.assertRetryRunSettled(currentRun, input.tenantId);
 
+    // Once the provider confirms that the company paid, record the money even if payroll
+    // item statuses changed while checkout was open. The retry path separately revalidates
+    // every selected item and cannot spend this credit unless the approval still matches.
     await this.fundingLedger.recordVerifiedFunding({
       tenantId: run.tenantId,
       payrollRunId: run.id,
