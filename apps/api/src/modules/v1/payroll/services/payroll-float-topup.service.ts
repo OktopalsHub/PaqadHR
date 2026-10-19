@@ -470,21 +470,26 @@ export class PayrollFloatTopupService {
       return { received: true, paid: false };
     }
 
-    const expected = Number(meta.shortfall ?? input.amount ?? 0);
-    const verifiedAmount = Number(verified.amount ?? 0);
-    const rawPaid =
-      Number.isFinite(verifiedAmount) && verifiedAmount > 0
-        ? verifiedAmount
-        : Number.isFinite(Number(input.amount)) && Number(input.amount) > 0
-          ? Number(input.amount)
-          : verifiedAmount;
-    const paidAmount = normalizeWebhookAmount(
-      rawPaid,
-      expected > 0 ? expected : rawPaid,
-      run.baseCurrency,
-    );
+    const expected = Number(meta.shortfall);
+    // The webhook payload is only a notification. Never use its amount as proof of payment:
+    // only the provider's server-to-server verification response may fund a payroll run.
+    const verifiedAmount = Number(verified.amount);
+    if (!Number.isFinite(verifiedAmount) || verifiedAmount <= 0 || !Number.isFinite(expected) || expected <= 0) {
+      this.logger.warn(`Payroll float top-up missing a valid verified amount or expected amount for ${input.orderReference}`);
+      return { received: true, paid: false };
+    }
+    const verifiedCurrency =
+      typeof verified.currency === 'string' ? verified.currency.toUpperCase() : undefined;
+    const expectedCurrency = (meta.fundingCurrency || run.baseCurrency).toUpperCase();
+    if (verifiedCurrency && verifiedCurrency !== expectedCurrency) {
+      this.logger.warn(
+        `Payroll float top-up currency mismatch for ${input.orderReference}: expected ${expectedCurrency}, got ${verifiedCurrency}`,
+      );
+      return { received: true, paid: false };
+    }
+    const paidAmount = normalizeWebhookAmount(verifiedAmount, expected, expectedCurrency);
     if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
-      this.logger.warn(`Payroll float top-up invalid amount for ${input.orderReference}`);
+      this.logger.warn(`Payroll float top-up invalid verified amount for ${input.orderReference}`);
       return { received: true, paid: false };
     }
     if (expected > 0 && paidAmount + BILLING_AMOUNT_TOLERANCE < expected) {
