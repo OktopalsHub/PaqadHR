@@ -728,15 +728,26 @@ export class PayrollFloatTopupService {
         'Bachs checkout returned a different order reference. Reconcile this checkout before retrying.',
       );
     }
-    run.metadata = {
-      ...run.metadata,
-      retryFunding: {
-        ...meta,
-        status: 'pending',
-        checkoutUrl: checkout.checkoutLink,
-      } satisfies RetryFundingMeta,
-    };
-    await this.payrollRunRepository.save(run);
+    await this.payrollRunRepository.manager.transaction(async (manager) => {
+      const locked = await manager.getRepository(PayrollRun).findOne({
+        where: { id: payrollRunId, tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Payroll run not found');
+      const latest = this.readRetryFundingMeta(locked);
+      if (latest.orderReference !== meta.orderReference) {
+        throw new BadRequestException('Retry funding order reference changed while checkout was created');
+      }
+      locked.metadata = {
+        ...locked.metadata,
+        retryFunding: {
+          ...latest,
+          status: latest.status === 'funded' ? 'funded' : 'pending',
+          checkoutUrl: checkout.checkoutLink,
+        } satisfies RetryFundingMeta,
+      };
+      await manager.save(locked);
+    });
     return {
       checkoutUrl: checkout.checkoutLink,
       orderReference: checkout.orderReference,
