@@ -483,11 +483,16 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
       findOne: jest.fn().mockResolvedValue({ id: 'tenant-1', slug: 'acme', name: 'Acme' }),
     } as unknown as Repository<Tenant>;
 
+    const fundingLedger = {
+      recordVerifiedFunding: jest.fn().mockResolvedValue(undefined),
+      getRunLedger: jest.fn().mockResolvedValue({ entries: [] }),
+    };
     const service = new PayrollFloatTopupService(
       payrollRunRepository,
       balanceService,
       paymentFactory,
       paymentOrchestrator,
+      fundingLedger as never,
       tenantSettingsService,
       payrollFeeService as never,
       bachsApi as never,
