@@ -74,7 +74,13 @@ describe('PayoutReconciliation', () => {
       overrides?.fundingLedger as never,
     );
 
-    return { service, transactionRepository, lifecycleNotify, savedItem, factory };
+    return {
+      service,
+      transactionRepository,
+      lifecycleNotify,
+      savedItem,
+      factory: factory as unknown as { resolvePayoutQuerier: jest.Mock },
+    };
   };
 
   it('serializes duplicate success webhooks with a row lock', async () => {
