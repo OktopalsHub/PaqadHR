@@ -339,6 +339,67 @@ describe('PayrollRunFundingLedgerService', () => {
     );
   });
 
+  it('releases a reservation when local validation proves no provider submission occurred', async () => {
+    const ledger = {
+      find: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: 'item-1',
+        amount: '30.00',
+        currency: 'USD',
+        provider: 'BACHS',
+      }),
+      insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 'release-1' }] }),
+    };
+    const itemRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'item-1',
+        status: PayrollItemStatus.FAILED,
+        metadata: {},
+      }),
+    };
+    const runRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: input.payrollRunId,
+        tenantId: input.tenantId,
+      }),
+    };
+    const manager = {
+      getRepository: jest.fn((entity: unknown) => {
+        if (entity === PayrollRun) return runRepository;
+        if (entity === PayrollItem) return itemRepository;
+        return ledger;
+      }),
+    };
+    repository.manager = {
+      transaction: jest.fn(async (callback: (tx: typeof manager) => Promise<boolean>) =>
+        callback(manager),
+      ),
+    } as never;
+
+    const released = await service.releaseUnsubmittedPayoutReservation({
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      payrollItemId: 'item-1',
+      reservationKey: 'retry-1:item-1',
+      evidence: { validationStage: 'payment_readiness', submissionAttempted: false },
+    });
+
+    expect(released).toBe(true);
+    expect(ledger.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: PayrollFundingLedgerEventType.RESERVATION_RELEASED,
+        payrollItemId: 'item-1',
+        amount: '30.00',
+        evidence: expect.objectContaining({
+          releasedReservationKey: 'retry-1:item-1',
+          submissionAttempted: false,
+        }),
+      }),
+    );
+  });
+
   it('does not authorize retries from funding credits alone', async () => {
     repository.find.mockResolvedValue([
       {
