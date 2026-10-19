@@ -24,9 +24,9 @@ export class PayrollRunFundingLedger1792000000000 implements MigrationInterface 
         CONSTRAINT pk_payroll_run_funding_ledger PRIMARY KEY (id),
         CONSTRAINT uk_payroll_run_funding_ledger_idempotency UNIQUE (idempotency_key),
         CONSTRAINT fk_payroll_run_funding_ledger_run
-          FOREIGN KEY (payroll_run_id) REFERENCES payroll_runs(id) ON DELETE CASCADE,
+          FOREIGN KEY (payroll_run_id) REFERENCES payroll_runs(id) ON DELETE RESTRICT,
         CONSTRAINT fk_payroll_run_funding_ledger_tenant
-          FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE,
+          FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE RESTRICT,
         CONSTRAINT ck_payroll_run_funding_ledger_event_type
           CHECK (event_type IN ('funding_received', 'payout_reserved', 'payout_confirmed', 'reservation_released', 'shortfall_approved'))
       );
@@ -38,6 +38,17 @@ export class PayrollRunFundingLedger1792000000000 implements MigrationInterface 
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
+    const [{ count }] = (await queryRunner.query(
+      'SELECT COUNT(*)::text AS count FROM payroll_run_funding_ledger',
+    )) as Array<{ count: string }>;
+
+    if (Number(count) > 0) {
+      throw new Error(
+        'Refusing to drop payroll_run_funding_ledger because it contains financial audit records. ' +
+          'Export/archive the ledger and perform an explicitly approved retention migration first.',
+      );
+    }
+
     await queryRunner.query('DROP TABLE IF EXISTS payroll_run_funding_ledger');
   }
 }
