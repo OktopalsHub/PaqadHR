@@ -339,7 +339,9 @@ export class MultiPaymentService {
       );
     }
     if (meta.currency !== 'USD' && meta.currency !== 'NGN') {
-      throw new BadRequestException('Retry funding currency is invalid; Bachs retry remains blocked.');
+      throw new BadRequestException(
+        'Retry funding currency is invalid; Bachs retry remains blocked.',
+      );
     }
     const originalSourceCurrency = bachsFundingCurrencyFromFloatTopup(
       payrollRun.metadata?.floatTopup,
