@@ -511,7 +511,9 @@ export class PayrollFloatTopupService {
     });
     if (!run) throw new NotFoundException('Payroll run not found');
     if (hasActivePayrollProcessingLock(run.processingLockedAt)) {
-      throw new BadRequestException('Payroll run is currently being processed. Wait before funding a retry.');
+      throw new BadRequestException(
+        'Payroll run is currently being processed. Wait before funding a retry.',
+      );
     }
     if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
       throw new BadRequestException('Retry funding requires an approved or processing payroll run');
@@ -594,7 +596,9 @@ export class PayrollFloatTopupService {
     });
     if (!run) throw new NotFoundException('Payroll run not found');
     if (hasActivePayrollProcessingLock(run.processingLockedAt)) {
-      throw new BadRequestException('Payroll run is currently being processed. Wait before funding a retry.');
+      throw new BadRequestException(
+        'Payroll run is currently being processed. Wait before funding a retry.',
+      );
     }
     if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
       throw new BadRequestException('Retry funding requires an approved or processing payroll run');
@@ -732,7 +736,9 @@ export class PayrollFloatTopupService {
     });
     if (!run) throw new NotFoundException('Payroll run not found');
     if (hasActivePayrollProcessingLock(run.processingLockedAt)) {
-      throw new BadRequestException('Payroll run is currently being processed. Wait before funding a retry.');
+      throw new BadRequestException(
+        'Payroll run is currently being processed. Wait before funding a retry.',
+      );
     }
     await this.assertRetryRunSettled(run, tenantId);
     const meta = this.readRetryFundingMeta(run);
@@ -1366,7 +1372,9 @@ export class PayrollFloatTopupService {
     });
     if (!run) throw new NotFoundException('Payroll run not found');
     if (hasActivePayrollProcessingLock(run.processingLockedAt)) {
-      throw new BadRequestException('Payroll run is currently being processed. Wait before funding a retry.');
+      throw new BadRequestException(
+        'Payroll run is currently being processed. Wait before funding a retry.',
+      );
     }
     if (run.status !== PayrollStatus.APPROVED) {
       throw new BadRequestException(`Must be APPROVED. Current: ${run.status}`);
