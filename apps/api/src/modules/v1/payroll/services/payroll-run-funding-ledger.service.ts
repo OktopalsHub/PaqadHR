@@ -232,17 +232,8 @@ export class PayrollRunFundingLedgerService {
       typeof input.evidence.verifiedStatus === 'string'
         ? input.evidence.verifiedStatus.trim().toUpperCase()
         : '';
-    const terminalFailureStatuses = new Set([
-      'FAILED',
-      'REJECTED',
-      'CANCELLED',
-      'CANCELED',
-    ]);
-    if (
-      !reservationKey ||
-      !providerReference ||
-      !terminalFailureStatuses.has(verifiedStatus)
-    ) {
+    const terminalFailureStatuses = new Set(['FAILED', 'REJECTED', 'CANCELLED', 'CANCELED']);
+    if (!reservationKey || !providerReference || !terminalFailureStatuses.has(verifiedStatus)) {
       throw new Error(
         'A payout reservation can only be released with a provider-confirmed terminal failure',
       );
