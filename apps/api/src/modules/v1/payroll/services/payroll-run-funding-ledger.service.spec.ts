@@ -368,4 +368,65 @@ describe('PayrollRunFundingLedgerService', () => {
       expect(ledger.insert).not.toHaveBeenCalled();
     });
   });
+
+  it('releases active item reservations when a provider confirms terminal failure', async () => {
+    const entries = [
+      {
+        eventType: PayrollFundingLedgerEventType.PAYOUT_RESERVED,
+        payrollItemId: 'item-failed',
+        amount: '40.00',
+        currency: 'USD',
+        evidence: { reservationKey: 'item-failed-attempt-1' },
+      },
+    ];
+    const ledger = {
+      find: jest.fn().mockResolvedValue(entries),
+      findOne: jest.fn().mockResolvedValue(null),
+      insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 'release-1' }] }),
+    };
+    const manager = {
+      getRepository: jest.fn((entity: unknown) =>
+        entity === PayrollRun
+          ? {
+              findOne: jest.fn().mockResolvedValue({
+                id: input.payrollRunId,
+                tenantId: input.tenantId,
+              }),
+            }
+          : ledger,
+      ),
+    };
+    repository.manager = {
+      transaction: jest.fn(async (callback: (tx: typeof manager) => Promise<number>) =>
+        callback(manager),
+      ),
+    } as never;
+
+    const released = await service.releaseFailedPayoutReservationsForItem({
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      payrollItemId: 'item-failed',
+      provider: 'BACHS',
+      providerReference: 'payout-final-failed',
+      evidence: {
+        verifiedStatus: 'FAILED',
+        verificationSource: 'provider_status_query',
+      },
+    });
+
+    expect(released).toBe(1);
+    expect(ledger.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: PayrollFundingLedgerEventType.RESERVATION_RELEASED,
+        payrollItemId: 'item-failed',
+        idempotencyKey:
+          'reservation-release:item-failed-attempt-1:failure:BACHS:payout-final-failed',
+        evidence: expect.objectContaining({
+          verifiedStatus: 'FAILED',
+          releasedReservationKey: 'item-failed-attempt-1',
+        }),
+      }),
+    );
+  });
+
 });
