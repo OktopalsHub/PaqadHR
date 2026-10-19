@@ -19,6 +19,9 @@ export class PayrollRunFundingLedgerEntry extends BaseEntity {
   @Column({ name: 'payroll_run_id', type: 'uuid' })
   payrollRunId: string;
 
+  @Column({ name: 'payroll_item_id', type: 'uuid', nullable: true })
+  payrollItemId: string | null;
+
   @Column({ name: 'event_type', type: 'varchar', length: 32 })
   eventType: PayrollFundingLedgerEventType;
 
