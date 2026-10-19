@@ -454,7 +454,7 @@ export class PaymentBatching {
 
       if (
         !result.retryable &&
-        providerName === 'Bachs' &&
+        providerName.toLowerCase() === 'bachs' &&
         !result.transactionId &&
         !result.reference
       ) {
