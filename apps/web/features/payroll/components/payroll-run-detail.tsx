@@ -40,6 +40,7 @@ import { useEmployees } from '@/hooks/queries/use-employees';
 import { useCurrentSalaries } from '@/hooks/queries/use-employment';
 import {
   usePayrollActions,
+  usePayrollFundingLedger,
   usePayrollRun,
   usePayrollSetupSummary,
   useRunPayslips,
@@ -316,6 +317,34 @@ export function PayrollRunDetail({
   }, [tenantSettings?.settings?.general?.emailPayslipOnPublish]);
 
   const detail = run as PayrollRunDetailType | undefined;
+  const retryFundingMeta =
+    detail?.metadata?.retryFunding && typeof detail.metadata.retryFunding === 'object'
+      ? (detail.metadata.retryFunding as Record<string, unknown>)
+      : undefined;
+  const floatTopupMeta =
+    detail?.metadata?.floatTopup && typeof detail.metadata.floatTopup === 'object'
+      ? (detail.metadata.floatTopup as Record<string, unknown>)
+      : undefined;
+  const isBachsFundingRun =
+    floatTopupMeta?.provider === 'BACHS' ||
+    retryFundingMeta?.provider === 'BACHS' ||
+    (detail?.items ?? []).some((item) =>
+      (item.paymentProvider ?? '').toLowerCase().includes('bachs'),
+    );
+  const fundingLedgerQuery = usePayrollFundingLedger(
+    runId,
+    Boolean(isAdmin && isBachsFundingRun),
+  );
+  const [retryFundingReviewOpen, setRetryFundingReviewOpen] = useState(false);
+  const [retryFundingItemIds, setRetryFundingItemIds] = useState<string[]>([]);
+  const [retryFundingPreview, setRetryFundingPreview] = useState<{
+    amount: number;
+    currency: string;
+    selectedItemIds: string[];
+    platformFee: 0;
+    payoutFeeReserve: number;
+  } | null>(null);
+  const [retryFundingApproved, setRetryFundingApproved] = useState(false);
   const isDraft = detail?.status === 'draft';
   const isLocked =
     detail?.status === 'approved' || detail?.status === 'completed' || detail?.status === 'failed';
@@ -393,6 +422,9 @@ export function PayrollRunDetail({
     actions.payNow.isPending ||
     actions.fundAndPay.isPending ||
     actions.retryFailed.isPending ||
+    actions.previewRetryFunding.isPending ||
+    actions.approveRetryFunding.isPending ||
+    actions.createRetryFundingCheckout.isPending ||
     actions.schedule.isPending ||
     actions.publishPayslips.isPending ||
     actions.reopen.isPending ||
@@ -468,12 +500,114 @@ export function PayrollRunDetail({
   };
 
   const handleRetryFailed = async (itemIds?: string[]) => {
+    if (isBachsFundingRun) {
+      const selectedItemIds = (
+        itemIds?.length
+          ? itemIds
+          : activeItems.filter((item) => item.status === 'failed').map((item) => item.id)
+      ).slice().sort();
+      if (selectedItemIds.length === 0) {
+        toast.error('Select at least one failed payout');
+        return;
+      }
+      const existingSelectedIds = Array.isArray(retryFundingMeta?.selectedItemIds)
+        ? (retryFundingMeta.selectedItemIds as string[]).slice().sort()
+        : [];
+      const existingStatus = retryFundingMeta?.status;
+      if (
+        (existingStatus === 'approved' || existingStatus === 'pending') &&
+        existingSelectedIds.length === selectedItemIds.length &&
+        existingSelectedIds.every((id, index) => id === selectedItemIds[index]) &&
+        Number(retryFundingMeta?.amount) > 0 &&
+        typeof retryFundingMeta?.currency === 'string'
+      ) {
+        setRetryFundingItemIds(selectedItemIds);
+        setRetryFundingPreview({
+          amount: Number(retryFundingMeta.amount),
+          currency: String(retryFundingMeta.currency),
+          selectedItemIds,
+          platformFee: 0,
+          payoutFeeReserve: Number(retryFundingMeta.payoutFeeReserve ?? 0),
+        });
+        setRetryFundingApproved(true);
+        setRetryFundingReviewOpen(true);
+        return;
+      }
+      try {
+        const preview = await actions.previewRetryFunding.mutateAsync({
+          id: runId,
+          itemIds: selectedItemIds,
+        });
+        setRetryFundingItemIds(selectedItemIds);
+        setRetryFundingPreview(preview);
+        setRetryFundingApproved(false);
+        setRetryFundingReviewOpen(true);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not price retry funding');
+        await refetch();
+      }
+      return;
+    }
+
     try {
       const response = await actions.retryFailed.mutateAsync({ id: runId, itemIds });
       toastPayrollPayoutResult(response.result, 'retry');
       await refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Retry failed');
+      await refetch();
+    }
+  };
+
+  const confirmRetryFunding = async () => {
+    if (!retryFundingPreview) return;
+    const checkoutTab = window.open('about:blank', '_blank');
+    let approvalRecorded = retryFundingApproved;
+    try {
+      if (!retryFundingApproved) {
+        await actions.approveRetryFunding.mutateAsync({
+          id: runId,
+          itemIds: retryFundingItemIds,
+          expectedAmount: retryFundingPreview.amount,
+          currency: retryFundingPreview.currency,
+        });
+        approvalRecorded = true;
+        setRetryFundingApproved(true);
+      }
+      const checkout = await actions.createRetryFundingCheckout.mutateAsync(runId);
+      if (!checkout.checkoutUrl) {
+        checkoutTab?.close();
+        toast.error('Checkout URL was not returned. You can continue checkout from this dialog.');
+        return;
+      }
+      await openCheckoutUrlWithOptionalTab(checkout.checkoutUrl, checkoutTab);
+      toast.message(
+        `Complete the company-funded retry checkout for ${checkout.amount.toLocaleString()} ${checkout.currency}. Employee payouts will not start until you retry after funding is verified.`,
+      );
+      setRetryFundingReviewOpen(false);
+      await refetch();
+      await fundingLedgerQuery.refetch();
+    } catch (err) {
+      checkoutTab?.close();
+      if (approvalRecorded) setRetryFundingApproved(true);
+      const message = err instanceof Error ? err.message : 'Retry funding checkout failed';
+      if (message.includes('quote changed after preview')) {
+        try {
+          const preview = await actions.previewRetryFunding.mutateAsync({
+            id: runId,
+            itemIds: retryFundingItemIds,
+          });
+          setRetryFundingPreview(preview);
+          setRetryFundingApproved(false);
+          toast.warning('The payout quote changed. Review the updated amount before approving.');
+        } catch (previewError) {
+          toast.error(
+            previewError instanceof Error ? previewError.message : 'Could not refresh the quote',
+          );
+        }
+      } else {
+        toast.error(message);
+      }
       await refetch();
     }
   };
