@@ -44,6 +44,7 @@ import {
   type PayrollFloatOrderRefProvider,
 } from '../utils/payroll-float-order-ref.util';
 import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
+import { hasActivePayrollProcessingLock } from '../utils/payroll-processing-lock.util';
 import { PayrollFeeService } from './payroll-fee.service';
 import { PayrollFloatBalanceService } from './payroll-float-balance.service';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
@@ -509,6 +510,9 @@ export class PayrollFloatTopupService {
       relations: ['items'],
     });
     if (!run) throw new NotFoundException('Payroll run not found');
+    if (hasActivePayrollProcessingLock(run.processingLockedAt)) {
+      throw new BadRequestException('Payroll run is currently being processed. Wait before funding a retry.');
+    }
     if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
       throw new BadRequestException('Retry funding requires an approved or processing payroll run');
     }
@@ -589,6 +593,9 @@ export class PayrollFloatTopupService {
       relations: ['items'],
     });
     if (!run) throw new NotFoundException('Payroll run not found');
+    if (hasActivePayrollProcessingLock(run.processingLockedAt)) {
+      throw new BadRequestException('Payroll run is currently being processed. Wait before funding a retry.');
+    }
     if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
       throw new BadRequestException('Retry funding requires an approved or processing payroll run');
     }
@@ -675,6 +682,11 @@ export class PayrollFloatTopupService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!locked) throw new NotFoundException('Payroll run not found');
+      if (hasActivePayrollProcessingLock(locked.processingLockedAt)) {
+        throw new BadRequestException(
+          'Payroll run is currently being processed. Wait before approving retry funding.',
+        );
+      }
       const latest = this.readRetryFundingMeta(locked);
       if (latest.status === 'approved' || latest.status === 'pending') {
         throw new BadRequestException(
@@ -719,6 +731,9 @@ export class PayrollFloatTopupService {
       relations: ['items'],
     });
     if (!run) throw new NotFoundException('Payroll run not found');
+    if (hasActivePayrollProcessingLock(run.processingLockedAt)) {
+      throw new BadRequestException('Payroll run is currently being processed. Wait before funding a retry.');
+    }
     await this.assertRetryRunSettled(run, tenantId);
     const meta = this.readRetryFundingMeta(run);
     if (
@@ -1350,6 +1365,9 @@ export class PayrollFloatTopupService {
       relations: ['items'],
     });
     if (!run) throw new NotFoundException('Payroll run not found');
+    if (hasActivePayrollProcessingLock(run.processingLockedAt)) {
+      throw new BadRequestException('Payroll run is currently being processed. Wait before funding a retry.');
+    }
     if (run.status !== PayrollStatus.APPROVED) {
       throw new BadRequestException(`Must be APPROVED. Current: ${run.status}`);
     }
