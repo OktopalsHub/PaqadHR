@@ -223,9 +223,7 @@ export type PayrollFundingPreflight = {
   payoutTransferCount?: number;
 };
 
-export async function fetchPayrollFundingPreflight(
-  id: string,
-): Promise<PayrollFundingPreflight> {
+export async function fetchPayrollFundingPreflight(id: string): Promise<PayrollFundingPreflight> {
   const tenantId = await resolveTenantId();
   return apiClient<PayrollFundingPreflight>(
     tenantPath(tenantId, `payroll/runs/${id}/fund-and-pay/preflight`),
