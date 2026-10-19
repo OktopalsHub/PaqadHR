@@ -1053,6 +1053,76 @@ export function PayrollRunDetail({
           </div>
         </div>
 
+        {isAdmin && isBachsFundingRun ? (
+          <section className="dashboard-panel space-y-3 rounded-[8px] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                  Run funding ledger
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Verified funding and provider-confirmed payout debits for this payroll run.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={fundingLedgerQuery.isFetching}
+                onClick={() => void fundingLedgerQuery.refetch()}
+              >
+                <RefreshCw className="mr-1 size-3.5" />
+                Refresh
+              </Button>
+            </div>
+            {fundingLedgerQuery.isLoading ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Loading ledger…</p>
+            ) : fundingLedgerQuery.isError ? (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                Could not load the funding ledger. Refresh to try again.
+              </p>
+            ) : fundingLedgerQuery.data?.entries.length ? (
+              <div className="space-y-2">
+                {fundingLedgerQuery.data.entries
+                  .slice()
+                  .reverse()
+                  .slice(0, 12)
+                  .map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex flex-col gap-1 border-t border-slate-100 pt-2 text-sm first:border-0 first:pt-0 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800 dark:text-slate-200">
+                          {entry.eventType.replaceAll('_', ' ').toLowerCase()}
+                        </p>
+                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                          {entry.payrollItemId
+                            ? `Payout item ${entry.payrollItemId}`
+                            : entry.providerReference ?? 'Run-level funding event'}
+                          {' · '}
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-medium tabular-nums">
+                        {formatMoney(Number(entry.amount), entry.currency)}
+                      </span>
+                    </div>
+                  ))}
+                {fundingLedgerQuery.data.retryAuthorization === 'blocked' ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Retry authorization remains blocked until all funding, debits, and reservations
+                    are reconciled.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                No verified funding ledger entries are recorded for this run yet.
+              </p>
+            )}
+          </section>
+        ) : null}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Showing {visibleItems.length} of {activeItems.length} recipients. Amounts in the summary
