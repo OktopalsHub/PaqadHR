@@ -253,6 +253,12 @@ describe('BachsProvider', () => {
   });
 
   it('quotes a GBP salary from the USD balance to hit the destination amount', async () => {
+    bachsApi.createPayoutQuote.mockImplementation(async ({ amount }: { amount: string }) => ({
+      quote_id: 'qt_1',
+      from_amount: amount,
+      to_amount: (Number(amount) * 0.743).toFixed(2),
+      exchange_rate: '0.743',
+    }));
     const result = await provider.createPayment({
       amount: 371.5,
       currency: 'GBP',
