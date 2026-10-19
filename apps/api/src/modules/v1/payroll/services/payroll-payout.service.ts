@@ -7,12 +7,12 @@ import { PaymentProviderFactoryService } from 'src/common/services/payment-provi
 import { Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
-import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { PayoutReconciliation } from './payout-reconciliation';
 import { PayoutWebhooks } from './payout-webhooks';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
+import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 @Injectable()
 export class PayrollPayoutService {
