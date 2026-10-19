@@ -11,6 +11,7 @@ import {
   pickBachsFundingCurrency,
   quoteSourceAmountForDestination,
   resolveBachsQuoteDestinationCurrency,
+  sourceAmountForBachsFundingItem,
   sumBachsFundingSourceAmount,
 } from 'src/common/config/bachs-funding-quote.util';
 import {
@@ -91,6 +92,7 @@ type RetryFundingMeta = {
   approvedAt?: string;
   checkoutUrl?: string;
   fundedAt?: string;
+  itemFundingAmounts?: Record<string, number>;
 };
 
 @Injectable()
@@ -491,15 +493,24 @@ export class PayrollFloatTopupService {
       );
     }
 
-    const orderReference = buildPayrollFloatOrderRef(
-      PaymentProvider.BACHS,
-      tenantId,
+    const itemFundingAmounts = await this.calculateBachsRetryItemFundingAmounts(
+      run,
+      selected,
+      preflight.currency,
     );
+    const approvedAmount = Math.round(
+      Object.values(itemFundingAmounts).reduce((sum, amount) => sum + amount, 0) * 100,
+    ) / 100;
+    if (!(approvedAmount > 0)) {
+      throw new BadRequestException('Could not calculate a positive Bachs retry funding amount');
+    }
+
+    const orderReference = buildPayrollFloatOrderRef(PaymentProvider.BACHS, tenantId);
     await this.fundingLedger.recordRetryShortfallApproval({
       tenantId,
       payrollRunId,
       selectedItemIds: uniqueIds,
-      amount: preflight.requiredAmount,
+      amount: approvedAmount,
       currency: preflight.currency,
       approvedById,
       provider: PaymentProvider.BACHS,
@@ -517,18 +528,19 @@ export class PayrollFloatTopupService {
         orderReference,
         status: 'approved',
         selectedItemIds: uniqueIds,
-        amount: preflight.requiredAmount,
+        amount: approvedAmount,
         currency: preflight.currency,
         provider: PaymentProvider.BACHS,
         approvedById,
         approvedAt: new Date().toISOString(),
+        itemFundingAmounts,
       } satisfies RetryFundingMeta,
     };
     await this.payrollRunRepository.save(run);
     return {
       approved: true,
       orderReference,
-      amount: preflight.requiredAmount,
+      amount: approvedAmount,
       currency: preflight.currency,
       selectedItemIds: uniqueIds,
       platformFee: 0,
@@ -622,6 +634,79 @@ export class PayrollFloatTopupService {
       amount: meta.amount,
       currency: meta.currency,
     };
+  }
+
+  private async calculateBachsRetryItemFundingAmounts(
+    run: PayrollRun,
+    selectedItems: PayrollRun['items'],
+    fundingCurrency: string,
+  ): Promise<Record<string, number>> {
+    const allocations: Record<string, number> = {};
+    let total = 0;
+    for (const item of selectedItems) {
+      const fundingItem = this.buildBachsFundingItems({
+        ...run,
+        items: [item],
+      } as PayrollRun)[0];
+      if (!fundingItem) {
+        throw new BadRequestException(`Could not calculate retry funding for payroll item ${item.id}`);
+      }
+      let amount = await sourceAmountForBachsFundingItem({
+        item: fundingItem,
+        fundingCurrency: fundingCurrency as 'USD' | 'NGN',
+        createQuote: (input) => this.bachsApi.createPayoutQuote(input),
+      });
+
+      const sameCurrency = fundingItem.paymentCurrency.toUpperCase() === fundingItem.amountCurrency.toUpperCase();
+      if (sameCurrency) {
+        const payoutCurrency = fundingItem.paymentCurrency.toUpperCase();
+        const feeAmount = getPayrollPayoutFeePerTransfer(payoutCurrency, PaymentProvider.BACHS);
+        if (feeAmount > 0) {
+          if (payoutCurrency === fundingCurrency.toUpperCase()) {
+            amount += feeAmount;
+          } else {
+            const destination = resolveBachsQuoteDestinationCurrency(
+              payoutCurrency,
+              fundingItem.cryptoNetwork,
+            );
+            if (!destination) {
+              throw new BadRequestException(
+                `Cannot convert the ${payoutCurrency} payout-fee reserve into ${fundingCurrency}`,
+              );
+            }
+            const quotedReserve = await quoteSourceAmountForDestination({
+              createQuote: (input) => this.bachsApi.createPayoutQuote(input),
+              fromCurrency: fundingCurrency,
+              toCurrency: destination,
+              targetToAmount: feeAmount,
+              payoutMethod:
+                destination.startsWith('USDT_') || destination.startsWith('USDC_')
+                  ? undefined
+                  : 'BANK_TRANSFER',
+            });
+            amount += quotedReserve.sourceAmount;
+          }
+        }
+      }
+      const rounded = Math.round(amount * 100) / 100;
+      if (!(rounded > 0)) {
+        throw new BadRequestException(`Invalid retry funding allocation for payroll item ${item.id}`);
+      }
+      allocations[item.id] = rounded;
+      total += rounded;
+    }
+
+    // Keep the sum exactly equal to the amount the company funds.
+    const roundedTotal = Math.round(total * 100) / 100;
+    const keys = Object.keys(allocations);
+    const difference = Math.round(
+      (roundedTotal - Object.values(allocations).reduce((sum, amount) => sum + amount, 0)) * 100,
+    ) / 100;
+    if (keys.length > 0 && difference !== 0) {
+      allocations[keys[keys.length - 1]] =
+        Math.round((allocations[keys[keys.length - 1]] + difference) * 100) / 100;
+    }
+    return allocations;
   }
 
   private readRetryFundingMeta(run: PayrollRun): RetryFundingMeta {
