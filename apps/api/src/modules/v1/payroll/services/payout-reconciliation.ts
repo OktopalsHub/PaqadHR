@@ -422,6 +422,12 @@ export class PayoutReconciliation {
     // previous one stays a live payout. Items whose submission outcome we never learned
     // must not be retried blind — that is how an employee gets paid twice.
     if (provider === PaymentProvider.BACHS && !reference) {
+      // Bachs only omits the merchant reference when it never received the payout, so
+      // there is no live payout to double-pay and the retry is safe. Any other missing
+      // reference is an unknown submission and stays blocked.
+      if (item.metadata?.payoutNeverSubmitted === true) {
+        return true;
+      }
       throw new BadRequestException(
         `Cannot retry payroll item ${item.id}: Bachs has not provided a payout reference to verify a terminal failure.`,
       );

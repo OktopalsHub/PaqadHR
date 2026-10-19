@@ -785,4 +785,19 @@ describe('PayoutReconciliation', () => {
     );
     expect(queryStatus).not.toHaveBeenCalled();
   });
+
+  it('retries a Bachs item the provider never received', async () => {
+    // Bachs rejects before it creates a payout when the balance is short, so there is no
+    // reference and nothing live at the provider: the retry cannot pay anyone twice.
+    const item = stuckProcessingItem({
+      status: PayrollItemStatus.FAILED,
+      paymentProvider: 'Bachs',
+      transactionId: null,
+      metadata: { payoutNeverSubmitted: true },
+    });
+    const { service, queryStatus } = buildRequeryService([item]);
+
+    await expect(service.reconcileFailedItemBeforeRetry(item, 'tenant-1')).resolves.toBe(true);
+    expect(queryStatus).not.toHaveBeenCalled();
+  });
 });
