@@ -105,9 +105,11 @@ describe('PayrollRunFundingLedgerService', () => {
 
   it('rejects funding when the payroll run does not belong to the tenant', async () => {
     repository.manager?.transaction.mockImplementationOnce(
-      async (callback: (tx: {
-        getRepository: (entity: unknown) => { findOne: jest.Mock };
-      }) => Promise<void>) =>
+      async (
+        callback: (tx: {
+          getRepository: (entity: unknown) => { findOne: jest.Mock };
+        }) => Promise<void>,
+      ) =>
         callback({
           getRepository: (entity: unknown) => ({
             findOne: jest.fn().mockResolvedValue(entity === PayrollRun ? null : null),
