@@ -619,8 +619,12 @@ export class PayrollRunFundingLedgerService {
           'Only a locally rejected failed item can release an unsubmitted reservation',
         );
       }
-      if (item.metadata?.payoutSubmissionPending === true) {
-        throw new Error('Cannot release a reservation while payout submission is unresolved');
+      if (
+        item.metadata?.payoutSubmissionPending === true ||
+        item.transactionId ||
+        item.paymentProvider
+      ) {
+        throw new Error('Cannot release a reservation when provider submission may have occurred');
       }
       const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
       const reservationIdempotencyKey = `reservation:${input.payrollRunId}:${input.reservationKey}`;
