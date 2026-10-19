@@ -2,6 +2,7 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { buildPayrollMerchantRef } from '../utils/payroll-merchant-ref.util';
 import { PayoutReconciliation } from './payout-reconciliation';
 import type { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 
@@ -152,7 +153,16 @@ describe('PayoutReconciliation', () => {
 
   const buildRequeryService = (
     stuckItems: PayrollItem[],
-    overrides?: { resolveTenantId?: string | null; queryStatus?: jest.Mock },
+    overrides?: {
+      resolveTenantId?: string | null;
+      queryStatus?: jest.Mock;
+      paidBachsTenantIds?: string[];
+      paidBachsItems?: PayrollItem[];
+      fundingLedger?: {
+        hasConfirmedPayoutDebit: jest.Mock;
+        recordConfirmedPayoutDebit: jest.Mock;
+      };
+    },
   ) => {
     const savedItem = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -182,7 +192,13 @@ describe('PayoutReconciliation', () => {
       execute: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     const payrollItemRepo = {
-      find: jest.fn().mockResolvedValue(stuckItems),
+      find: jest.fn().mockImplementation((options: { where?: { status?: PayrollItemStatus } }) =>
+        Promise.resolve(
+          options.where?.status === PayrollItemStatus.PAID
+            ? (overrides?.paidBachsItems ?? [])
+            : stuckItems,
+        ),
+      ),
       createQueryBuilder: jest.fn().mockReturnValue(itemQueryBuilder),
       update: jest.fn().mockResolvedValue(undefined),
       manager: {
@@ -228,6 +244,7 @@ describe('PayoutReconciliation', () => {
       payrollRunRepository,
       payrollItemRepo,
       lifecycleNotify,
+      overrides?.fundingLedger as never,
     );
 
     return { service, payrollItemRepo, itemQueryBuilder, lifecycleNotify, queryStatus };
@@ -369,6 +386,64 @@ describe('PayoutReconciliation', () => {
 
     expect(itemQueryBuilder.execute).not.toHaveBeenCalled();
     expect(lifecycleNotify.onItemFailed).not.toHaveBeenCalled();
+    expect(result).toEqual({ checked: 1, updated: 0 });
+  });
+
+  it('sweeps paid Bachs items and repairs missing confirmed debits without changing payroll state', async () => {
+    const paidItem = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.PAID,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    } as unknown as PayrollItem;
+    const merchantRef = buildPayrollMerchantRef(paidItem.payrollRunId, paidItem.id, 0);
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: merchantRef,
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const fundingLedger = {
+      hasConfirmedPayoutDebit: jest.fn().mockResolvedValue(false),
+      recordConfirmedPayoutDebit: jest.fn().mockResolvedValue(undefined),
+    };
+    const { service, payrollItemRepo } = buildRequeryService([], {
+      queryStatus,
+      paidBachsTenantIds: ['tenant-1'],
+      paidBachsItems: [paidItem],
+      fundingLedger,
+    });
+
+    const result = await service.requeryStuckPayouts();
+
+    expect(payrollItemRepo.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: PayrollItemStatus.PAID,
+          payrollRun: { tenantId: 'tenant-1' },
+        }),
+      }),
+    );
+    expect(fundingLedger.hasConfirmedPayoutDebit).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      payrollRunId: 'run-1',
+      payrollItemId: paidItem.id,
+    });
+    expect(queryStatus).toHaveBeenCalledWith('bachs-withdrawal-1', merchantRef);
+    expect(fundingLedger.recordConfirmedPayoutDebit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payrollRunId: 'run-1',
+        payrollItemId: paidItem.id,
+        providerReference: 'bachs-withdrawal-1',
+        amount: 1005,
+        currency: 'USD',
+      }),
+    );
     expect(result).toEqual({ checked: 1, updated: 0 });
   });
 
