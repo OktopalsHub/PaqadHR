@@ -181,7 +181,11 @@ export class MultiPaymentService {
           periodStart: payrollRun.periodStart,
           periodEnd: payrollRun.periodEnd,
           baseCurrency: payrollRun.baseCurrency,
-          bachsSourceCurrency: bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
+          bachsSourceCurrency: isBachsRetry
+            ? (
+                payrollRun.metadata?.retryFunding as { currency?: string } | undefined
+              )?.currency ?? bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup)
+            : bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
         },
       );
       if (isBachsRetry && this.fundingLedger) {
