@@ -34,11 +34,16 @@ function isBachsBackedRun(
   items: PayrollItem[],
 ): boolean {
   const floatTopup = run.metadata?.floatTopup;
+  const retryFunding = run.metadata?.retryFunding;
   if (
-    floatTopup &&
-    typeof floatTopup === 'object' &&
-    'provider' in floatTopup &&
-    floatTopup.provider === PaymentProvider.BACHS
+    (floatTopup &&
+      typeof floatTopup === 'object' &&
+      'provider' in floatTopup &&
+      floatTopup.provider === PaymentProvider.BACHS) ||
+    (retryFunding &&
+      typeof retryFunding === 'object' &&
+      'provider' in retryFunding &&
+      retryFunding.provider === PaymentProvider.BACHS)
   ) {
     return true;
   }
