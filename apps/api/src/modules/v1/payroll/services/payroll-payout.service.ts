@@ -5,6 +5,7 @@ import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { Repository } from 'typeorm';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
@@ -49,6 +50,53 @@ export class PayrollPayoutService {
       this.reconciliation,
       webhookEventRepository,
     );
+  }
+
+  async recordConfirmedBachsDebit(input: {
+    tenantId: string;
+    payrollRunId: string;
+    payrollItemId: string;
+    transactionId: string;
+    merchantReference: string;
+    destinationAmount?: number;
+  }): Promise<void> {
+    if (!this.fundingLedger) return;
+    try {
+      const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
+      const payout = await querier?.queryStatus(input.transactionId, input.merchantReference);
+      if (
+        payout?.sourceDebitedAmount == null ||
+        !Number.isFinite(payout.sourceDebitedAmount) ||
+        payout.sourceDebitedAmount <= 0 ||
+        !payout.sourceCurrency
+      ) {
+        return;
+      }
+      const ledger = this.fundingLedger;
+      if (!ledger) return;
+      await ledger.recordConfirmedPayoutDebit({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: input.payrollItemId,
+        amount: payout.sourceDebitedAmount,
+        currency: payout.sourceCurrency,
+        provider: PaymentProvider.BACHS,
+        providerReference: input.transactionId,
+        evidence: {
+          verifiedStatus: payout.status,
+          merchantReference: input.merchantReference,
+          destinationAmount: input.destinationAmount ?? null,
+          sourceDebitedAmount: payout.sourceDebitedAmount,
+          sourceCurrency: payout.sourceCurrency,
+        },
+      });
+    } catch (error) {
+      // Payout status is already confirmed. Keep the ledger incomplete and retry authorization
+      // blocked rather than converting a debit-reconciliation failure into a payout failure.
+      this.logger.warn(
+        `Could not record confirmed Bachs debit for item ${input.payrollItemId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async handleNombaWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
