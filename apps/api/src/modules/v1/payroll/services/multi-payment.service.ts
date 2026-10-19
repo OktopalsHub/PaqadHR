@@ -332,7 +332,8 @@ export class MultiPaymentService {
       itemFundingAmounts: Record<string, number>;
     },
   ): Promise<void> {
-    if (!this.bachsApi) {
+    const bachsApi = this.bachsApi;
+    if (!bachsApi) {
       throw new BadRequestException(
         'Bachs quote service is unavailable. Retry remains blocked until funding can be revalidated.',
       );
@@ -372,7 +373,7 @@ export class MultiPaymentService {
       let requiredAmount = await sourceAmountForBachsFundingItem({
         item: fundingItem,
         fundingCurrency: meta.currency as 'USD' | 'NGN',
-        createQuote: (input) => this.bachsApi!.createPayoutQuote(input),
+        createQuote: (input) => bachsApi.createPayoutQuote(input),
       });
 
       if (fundingItem.paymentCurrency === fundingItem.amountCurrency) {
@@ -394,7 +395,7 @@ export class MultiPaymentService {
               );
             }
             const quotedFee = await quoteSourceAmountForDestination({
-              createQuote: (input) => this.bachsApi!.createPayoutQuote(input),
+              createQuote: (input) => bachsApi.createPayoutQuote(input),
               fromCurrency: meta.currency,
               toCurrency: destination,
               targetToAmount: feeAmount,
