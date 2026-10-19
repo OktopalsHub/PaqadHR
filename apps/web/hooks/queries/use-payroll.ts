@@ -3,12 +3,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approvePayrollRun,
+  approveRetryFunding,
   calculatePayrollRun,
   createPayrollRun,
+  createRetryFundingCheckout,
   deletePayrollRun,
   disbursePayrollRun,
   downloadPayrollBankFile,
   fetchMemberPublishedPayslips,
+  fetchPayrollFundingLedger,
   fetchPayrollFundingPreflight,
   fetchPayrollReadiness,
   fetchPayrollRun,
@@ -19,6 +22,7 @@ import {
   notifyEmployeePaymentSetup,
   notifyMemberPaymentSetup,
   payNowPayroll,
+  previewRetryFunding,
   processPayrollRun,
   publishPayslips,
   removePayrollItem,
@@ -120,6 +124,16 @@ export function useRunPayslips(runId?: string) {
   });
 }
 
+export function usePayrollFundingLedger(runId?: string, enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.payroll.all, tenantId, 'funding-ledger', runId],
+    queryFn: () => fetchPayrollFundingLedger(runId!),
+    enabled: enabled && !tenantLoading && Boolean(tenantId && runId),
+  });
+}
+
 export function useCreatePayrollRun() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
@@ -211,6 +225,28 @@ export function usePayrollActions() {
     retryFailed: useMutation({
       mutationFn: ({ id, itemIds }: { id: string; itemIds?: string[] }) =>
         retryFailedPayrollPayments(id, itemIds),
+      onSuccess: invalidate,
+    }),
+    previewRetryFunding: useMutation({
+      mutationFn: ({ id, itemIds }: { id: string; itemIds: string[] }) =>
+        previewRetryFunding(id, itemIds),
+    }),
+    approveRetryFunding: useMutation({
+      mutationFn: ({
+        id,
+        itemIds,
+        expectedAmount,
+        currency,
+      }: {
+        id: string;
+        itemIds: string[];
+        expectedAmount: number;
+        currency: string;
+      }) => approveRetryFunding(id, itemIds, expectedAmount, currency),
+      onSuccess: invalidate,
+    }),
+    createRetryFundingCheckout: useMutation({
+      mutationFn: (id: string) => createRetryFundingCheckout(id),
       onSuccess: invalidate,
     }),
     schedule: useMutation({

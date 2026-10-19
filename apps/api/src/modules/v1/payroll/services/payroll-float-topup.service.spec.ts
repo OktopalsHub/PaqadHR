@@ -3,6 +3,7 @@ import type { PaymentProviderFactoryService } from 'src/common/services/payment-
 import type { Repository } from 'typeorm';
 import type { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import type { Tenant } from '../../tenants/entities/tenant.entity';
+import * as payrollDisbursementConfig from '../config/payroll-disbursement.config';
 import type { PayrollRun } from '../entities/payroll-run.entity';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import type { PayrollFloatBalanceService } from './payroll-float-balance.service';
@@ -10,6 +11,10 @@ import { PayrollFloatTopupService } from './payroll-float-topup.service';
 import type { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 
 describe('PayrollFloatTopupService.completeFloatTopup', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   const createService = () => {
     const payrollRunRepository = {
       findOne: jest.fn(),
@@ -37,6 +42,11 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       payNowPayroll: jest.fn().mockResolvedValue({ successfulPayments: 1 }),
     } as unknown as PayrollPaymentOrchestrator;
 
+    const fundingLedger = {
+      recordVerifiedFunding: jest.fn().mockResolvedValue(undefined),
+      getRunLedger: jest.fn().mockResolvedValue({ entries: [] }),
+    };
+
     const tenantSettingsService = {
       getTenantSettings: jest.fn(),
     } as unknown as TenantSettingsService;
@@ -58,6 +68,7 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       balanceService,
       paymentFactory,
       paymentOrchestrator,
+      fundingLedger as never,
       tenantSettingsService,
       payrollFeeService as never,
       bachsApi as never,
@@ -70,6 +81,7 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       verifyCheckout,
       paymentOrchestrator,
       paymentFactory,
+      fundingLedger,
     };
   };
 
@@ -219,6 +231,108 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
       'tenant-1',
       expect.objectContaining({ performedById: 'member-1' }),
     );
+  });
+
+  it('records verified retry funding without auto-paying the payroll run', async () => {
+    const { service, payrollRunRepository, verifyCheckout, paymentOrchestrator, fundingLedger } =
+      createService();
+    const item = {
+      id: 'item-failed',
+      status: 'FAILED',
+      metadata: {},
+    };
+    const run = {
+      id: 'run-retry',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'USD',
+      createdById: 'member-1',
+      items: [item],
+      metadata: {
+        retryFunding: {
+          orderReference: 'pb_retry_ref',
+          status: 'pending',
+          selectedItemIds: ['item-failed'],
+          amount: 25,
+          currency: 'USD',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+          itemFundingAmounts: { 'item-failed': 25 },
+        },
+      },
+    } as unknown as PayrollRun;
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    verifyCheckout.mockResolvedValue({
+      status: 'successful',
+      amount: 25,
+      currency: 'USD',
+    });
+    (payrollRunRepository.manager.transaction as jest.Mock).mockImplementation(async (fn) => {
+      const locked = { ...run };
+      const manager = {
+        getRepository: () => ({
+          findOne: jest.fn().mockResolvedValue(locked),
+        }),
+        save: jest.fn(async (entity) => entity),
+      };
+      return fn(manager);
+    });
+
+    const result = await service.completeFloatTopup({
+      tenantId: 'tenant-1',
+      orderReference: 'pb_retry_ref',
+      payrollRunId: 'run-retry',
+      initiatedByMemberId: 'member-1',
+    });
+
+    expect(result).toEqual({ received: true, paid: false });
+    expect(fundingLedger.recordVerifiedFunding).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payrollRunId: 'run-retry',
+        amount: 25,
+        currency: 'USD',
+        providerReference: 'pb_retry_ref',
+        evidence: expect.objectContaining({
+          fundingPurpose: 'approved_retry_shortfall',
+          selectedItemIds: 'item-failed',
+        }),
+      }),
+    );
+    expect(paymentOrchestrator.payNowPayroll).not.toHaveBeenCalled();
+  });
+
+  it('ignores a retry checkout completion unless the run has a pending checkout', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } = createService();
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-retry',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'USD',
+      items: [{ id: 'item-failed', status: 'FAILED', metadata: {} }],
+      metadata: {
+        retryFunding: {
+          orderReference: 'pb_retry_ref',
+          status: 'approved',
+          selectedItemIds: ['item-failed'],
+          amount: 25,
+          currency: 'USD',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+          itemFundingAmounts: { 'item-failed': 25 },
+        },
+      },
+    } as unknown as PayrollRun);
+
+    const result = await service.completeFloatTopup({
+      tenantId: 'tenant-1',
+      orderReference: 'pb_retry_ref',
+      payrollRunId: 'run-retry',
+      initiatedByMemberId: 'member-1',
+    });
+
+    expect(result).toEqual({ received: true, paid: false });
+    expect(verifyCheckout).not.toHaveBeenCalled();
+    expect(fundingLedger.recordVerifiedFunding).not.toHaveBeenCalled();
   });
 
   it('marks scheduled checkout as funded without paying employees before the scheduled date', async () => {
@@ -374,11 +488,16 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
       findOne: jest.fn().mockResolvedValue({ id: 'tenant-1', slug: 'acme', name: 'Acme' }),
     } as unknown as Repository<Tenant>;
 
+    const fundingLedger = {
+      recordVerifiedFunding: jest.fn().mockResolvedValue(undefined),
+      getRunLedger: jest.fn().mockResolvedValue({ entries: [] }),
+    };
     const service = new PayrollFloatTopupService(
       payrollRunRepository,
       balanceService,
       paymentFactory,
       paymentOrchestrator,
+      fundingLedger as never,
       tenantSettingsService,
       payrollFeeService as never,
       bachsApi as never,
@@ -388,7 +507,8 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
     return { service, paymentOrchestrator, createCheckout, payrollRunRepository };
   };
 
-  it('always opens checkout for full run amount when hosted top-up is supported', async () => {
+  it('opens checkout for the full run amount including platform and payout fees', async () => {
+    jest.spyOn(payrollDisbursementConfig, 'isPayrollGatewayEnabled').mockReturnValue(true);
     const { service, paymentOrchestrator, createCheckout, payrollRunRepository } =
       createFundService();
     (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
@@ -410,10 +530,11 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
     expect(outcome.action).toBe('checkout');
     if (outcome.action !== 'checkout') return;
     expect(outcome.checkoutUrl).toBe('https://checkout.nomba.com/pay');
-    expect(outcome.preflight.shortfall).toBe(50_000);
+    // Checkout must cover employee net pay plus the 3% PaqadHR fee and payout-fee reserve.
+    expect(outcome.preflight.shortfall).toBe(51_600);
     expect(createCheckout).toHaveBeenCalledWith(
       expect.objectContaining({
-        amount: 50_000,
+        amount: 51_600,
         currency: 'NGN',
         savePaymentMethod: false,
       }),

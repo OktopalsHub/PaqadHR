@@ -4,6 +4,9 @@ export interface PayoutStatusResult {
   status: string;
   amount?: number;
   reference?: string;
+  /** Provider source-float debit, when reported separately from the delivered amount. */
+  sourceDebitedAmount?: number;
+  sourceCurrency?: string;
 }
 
 export interface PayoutStatusQuerier {

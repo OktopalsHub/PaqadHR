@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Logger, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RateLimit, RateLimitPresets, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from '../../../../common/enums';
@@ -7,11 +17,13 @@ import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-
 import type { IAuthenticatedMemberRequest } from '../../../../common/interfaces';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { ApproveRetryFundingDto } from '../dto/approve-retry-funding.dto';
 import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import { RetryFailedPaymentsDto } from '../dto/retry-failed-payments.dto';
 import { SchedulePayrollPayoutDto } from '../dto/schedule-payroll-payout.dto';
 import { MultiPaymentService } from '../services/multi-payment.service';
 import { PayrollService } from '../services/payroll.service';
+import { PayrollRunFundingLedgerService } from '../services/payroll-run-funding-ledger.service';
 
 @ApiTags('Payroll')
 @Controller('tenants/:tenantId/payroll')
@@ -22,6 +34,7 @@ export class PayrollPayoutController {
   constructor(
     private payrollService: PayrollService,
     private multiPaymentService: MultiPaymentService,
+    private payrollRunFundingLedger: PayrollRunFundingLedgerService,
   ) {}
 
   @Post('runs/:id/disburse')
@@ -190,6 +203,53 @@ export class PayrollPayoutController {
     }
   }
 
+  @Post('runs/:id/retry-funding/preflight')
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async previewRetryFunding(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() retryDto: RetryFailedPaymentsDto,
+  ) {
+    if (!retryDto.itemIds?.length) {
+      throw new BadRequestException('Select failed payout items before previewing retry funding');
+    }
+    return this.payrollService.previewRetryShortfall(id, tenantId, retryDto.itemIds);
+  }
+
+  @Post('runs/:id/retry-funding/approve')
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async approveRetryFunding(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() retryDto: ApproveRetryFundingDto,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    return this.payrollService.approveRetryShortfall(
+      id,
+      tenantId,
+      req.member.id,
+      retryDto.itemIds,
+      retryDto.expectedAmount,
+      retryDto.currency,
+    );
+  }
+
+  @Post('runs/:id/retry-funding/checkout')
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async createRetryFundingCheckout(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    return this.payrollService.createRetryShortfallCheckout(id, tenantId, req.member.id);
+  }
+
   @Post('runs/:id/retry-failed-payments')
   @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
@@ -225,6 +285,13 @@ export class PayrollPayoutController {
       this.logger.error(`Failed to retry payments for payroll run: ${id}`, error);
       throw error;
     }
+  }
+
+  @Get('runs/:id/funding-ledger')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async getFundingLedger(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.payrollRunFundingLedger.getRunLedger(tenantId, id);
   }
 
   @Get('runs/:id/payment-status')
