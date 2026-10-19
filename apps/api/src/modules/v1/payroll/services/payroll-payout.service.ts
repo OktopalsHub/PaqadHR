@@ -7,6 +7,7 @@ import { PaymentProviderFactoryService } from 'src/common/services/payment-provi
 import { Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
+import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { PayoutReconciliation } from './payout-reconciliation';
@@ -29,6 +30,7 @@ export class PayrollPayoutService {
     @InjectRepository(PayrollWebhookEvent)
     readonly webhookEventRepository: Repository<PayrollWebhookEvent>,
     @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
+    @Optional() fundingLedger?: PayrollRunFundingLedgerService,
   ) {
     this.reconciliation = new PayoutReconciliation(
       fincraApi,
@@ -36,6 +38,7 @@ export class PayrollPayoutService {
       payrollRunRepository,
       payrollItemRepo,
       lifecycleNotify,
+      fundingLedger,
     );
     this.webhooks = new PayoutWebhooks(
       nombaTransferApi,
