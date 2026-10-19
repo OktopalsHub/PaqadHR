@@ -83,6 +83,32 @@ describe('PayrollRunFundingLedgerService', () => {
     expect(repository.insert).not.toHaveBeenCalled();
   });
 
+  it('records provider-confirmed payout debits in the source currency', async () => {
+    repository.findOne.mockResolvedValue(null);
+    repository.insert.mockResolvedValue({ identifiers: [{ id: 'debit-1' }] });
+
+    await service.recordConfirmedPayoutDebit({
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      payrollItemId: 'item-1',
+      amount: 40.25,
+      currency: 'usd',
+      provider: 'BACHS',
+      providerReference: 'payout-123',
+      evidence: { verifiedStatus: 'completed' },
+    });
+
+    expect(repository.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+        payrollItemId: 'item-1',
+        amount: '40.25',
+        currency: 'USD',
+        idempotencyKey: 'payout:BACHS:payout-123',
+      }),
+    );
+  });
+
   it('does not authorize retries from funding credits alone', async () => {
     repository.find.mockResolvedValue([
       {
