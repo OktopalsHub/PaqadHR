@@ -54,7 +54,9 @@ export class PayrollRunFundingLedgerService {
     const provider = input.provider.trim();
     const providerReference = input.providerReference.trim();
     if (!currency || !provider || !providerReference) {
-      throw new Error('Verified payroll funding requires provider, currency, and provider reference');
+      throw new Error(
+        'Verified payroll funding requires provider, currency, and provider reference',
+      );
     }
 
     const idempotencyKey = `funding:${providerReference}`;
