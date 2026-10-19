@@ -65,12 +65,28 @@ export class PayrollPayoutService {
     try {
       const querier = this.factory.resolvePayoutQuerier(PaymentProvider.BACHS);
       const payout = await querier?.queryStatus(input.transactionId, input.merchantReference);
+      // A successful local response or a stale webhook is not enough to book a debit.
+      // Only accept a terminal-success status from the provider's status endpoint.
+      const verifiedStatus = payout?.status?.trim().toUpperCase();
+      const confirmedStatuses = new Set([
+        'SUCCESS',
+        'SUCCEEDED',
+        'COMPLETED',
+        'PAID',
+        'SETTLED',
+        'ACCEPTED',
+      ]);
       if (
+        !verifiedStatus ||
+        !confirmedStatuses.has(verifiedStatus) ||
         payout?.sourceDebitedAmount == null ||
         !Number.isFinite(payout.sourceDebitedAmount) ||
         payout.sourceDebitedAmount <= 0 ||
         !payout.sourceCurrency
       ) {
+        this.logger.warn(
+          `Bachs payout debit not recorded for item ${input.payrollItemId}: provider status or source debit evidence is not confirmed`,
+        );
         return;
       }
       const ledger = this.fundingLedger;
