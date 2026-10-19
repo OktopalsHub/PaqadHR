@@ -860,6 +860,8 @@ export class PayrollRunFundingLedgerService {
           payoutRetryCount: priorRetry + 1,
           retryFundingMaxSourceAmount: reservation.amount,
           retryFundingSourceCurrency: reservation.currency,
+          payoutNeverSubmitted: false,
+          payoutSubmissionPending: false,
         };
         await itemRepository.save(item);
       }
