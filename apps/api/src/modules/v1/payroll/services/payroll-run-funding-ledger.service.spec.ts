@@ -9,6 +9,7 @@ describe('PayrollRunFundingLedgerService', () => {
     findOne: jest.Mock;
     insert: jest.Mock;
     find: jest.Mock;
+    manager?: { transaction: jest.Mock };
   };
 
   const input = {
