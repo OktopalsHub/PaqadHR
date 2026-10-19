@@ -458,8 +458,8 @@ export class PayrollRunFundingLedgerService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!run) throw new Error('Payroll run not found for funding reservation');
-      if (run.status !== PayrollStatus.APPROVED) {
-        throw new Error('Funding can only be reserved for an approved payroll run');
+      if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
+        throw new Error('Funding can only be reserved for an approved or processing payroll run');
       }
 
       const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
