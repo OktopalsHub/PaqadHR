@@ -460,11 +460,13 @@ export class PayrollFloatTopupService {
       });
       const retryFunding = run ? this.readRetryFundingMeta(run) : {};
       const selectedItemIds = [...(retryFunding.selectedItemIds ?? [])].sort();
-      const requestedItemIds = (retryItemIds ??
+      const requestedItemIds = (
+        retryItemIds ??
         run?.items
           .filter((item) => item.status === PayrollItemStatus.FAILED)
           .map((item) => item.id) ??
-        []).sort();
+        []
+      ).sort();
       if (
         retryFunding.status !== 'funded' ||
         !retryFunding.orderReference ||
@@ -556,9 +558,9 @@ export class PayrollFloatTopupService {
       selected,
       preflight.currency,
     );
-    const approvedAmount = Math.round(
-      Object.values(itemFundingAmounts).reduce((sum, amount) => sum + amount, 0) * 100,
-    ) / 100;
+    const approvedAmount =
+      Math.round(Object.values(itemFundingAmounts).reduce((sum, amount) => sum + amount, 0) * 100) /
+      100;
     if (!(approvedAmount > 0)) {
       throw new BadRequestException('Could not calculate a positive Bachs retry funding amount');
     }
@@ -662,7 +664,9 @@ export class PayrollFloatTopupService {
         entry.evidence?.selectedItemIds === [...meta.selectedItemIds!].sort().join(','),
     );
     if (!approval) {
-      throw new BadRequestException('Retry funding approval evidence is missing or does not match this checkout.');
+      throw new BadRequestException(
+        'Retry funding approval evidence is missing or does not match this checkout.',
+      );
     }
     if (meta.status === 'pending' && meta.checkoutUrl) {
       return {
@@ -680,7 +684,9 @@ export class PayrollFloatTopupService {
     }
     const customerEmail = await this.resolveBillingEmail(tenantId);
     if (!customerEmail) {
-      throw new BadRequestException('Billing contact email is not configured. Add it in Settings → Billing.');
+      throw new BadRequestException(
+        'Billing contact email is not configured. Add it in Settings → Billing.',
+      );
     }
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const callbackUrl = tenant?.slug
@@ -752,7 +758,9 @@ export class PayrollFloatTopupService {
         items: [item],
       } as PayrollRun)[0];
       if (!fundingItem) {
-        throw new BadRequestException(`Could not calculate retry funding for payroll item ${item.id}`);
+        throw new BadRequestException(
+          `Could not calculate retry funding for payroll item ${item.id}`,
+        );
       }
       let amount = await sourceAmountForBachsFundingItem({
         item: fundingItem,
@@ -760,7 +768,8 @@ export class PayrollFloatTopupService {
         createQuote: (input) => this.bachsApi.createPayoutQuote(input),
       });
 
-      const sameCurrency = fundingItem.paymentCurrency.toUpperCase() === fundingItem.amountCurrency.toUpperCase();
+      const sameCurrency =
+        fundingItem.paymentCurrency.toUpperCase() === fundingItem.amountCurrency.toUpperCase();
       if (sameCurrency) {
         const payoutCurrency = fundingItem.paymentCurrency.toUpperCase();
         const feeAmount = getPayrollPayoutFeePerTransfer(payoutCurrency, PaymentProvider.BACHS);
@@ -793,7 +802,9 @@ export class PayrollFloatTopupService {
       }
       const rounded = Math.round(amount * 100) / 100;
       if (!(rounded > 0)) {
-        throw new BadRequestException(`Invalid retry funding allocation for payroll item ${item.id}`);
+        throw new BadRequestException(
+          `Invalid retry funding allocation for payroll item ${item.id}`,
+        );
       }
       allocations[item.id] = rounded;
       total += rounded;
@@ -802,9 +813,10 @@ export class PayrollFloatTopupService {
     // Keep the sum exactly equal to the amount the company funds.
     const roundedTotal = Math.round(total * 100) / 100;
     const keys = Object.keys(allocations);
-    const difference = Math.round(
-      (roundedTotal - Object.values(allocations).reduce((sum, amount) => sum + amount, 0)) * 100,
-    ) / 100;
+    const difference =
+      Math.round(
+        (roundedTotal - Object.values(allocations).reduce((sum, amount) => sum + amount, 0)) * 100,
+      ) / 100;
     if (keys.length > 0 && difference !== 0) {
       allocations[keys[keys.length - 1]] =
         Math.round((allocations[keys[keys.length - 1]] + difference) * 100) / 100;
