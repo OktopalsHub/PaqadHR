@@ -449,7 +449,7 @@ describe('PayoutReconciliation', () => {
     );
     expect(fundingLedger.hasConfirmedPayoutDebit).toHaveBeenCalledWith({
       tenantId: 'tenant-1',
-      payrollRunId: 'run-1',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
       payrollItemId: paidItem.id,
     });
     expect(queryStatus).toHaveBeenCalledWith('bachs-withdrawal-1', merchantRef);
