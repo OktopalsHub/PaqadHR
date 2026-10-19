@@ -44,6 +44,7 @@ describe('PayoutReconciliation', () => {
       ),
     };
     const payrollItemRepo = {
+      findOne: jest.fn().mockResolvedValue(lockedItem),
       manager: {
         transaction: jest.fn(async (callback: (txManager: typeof manager) => Promise<boolean>) =>
           callback(manager),
@@ -77,6 +78,7 @@ describe('PayoutReconciliation', () => {
     return {
       service,
       transactionRepository,
+      payrollItemRepo,
       lifecycleNotify,
       savedItem,
       factory: factory as unknown as { resolvePayoutQuerier: jest.Mock },
@@ -591,6 +593,96 @@ describe('PayoutReconciliation', () => {
     );
 
     expect(recordConfirmedPayoutDebit).not.toHaveBeenCalled();
+  });
+
+  it('recovers a failed Bachs item to paid only after verifying the same payout succeeded', async () => {
+    const merchantRef = 'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const failedItem = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.FAILED,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      failureReason: 'Bachs failed',
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    } as unknown as PayrollItem;
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: merchantRef,
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const recordConfirmedPayoutDebit = jest.fn().mockResolvedValue(undefined);
+    const { service, transactionRepository, payrollItemRepo, lifecycleNotify } = createService({
+      queryStatus,
+      fundingLedger: { recordConfirmedPayoutDebit },
+    });
+    payrollItemRepo.findOne.mockResolvedValue(failedItem);
+    transactionRepository.findOne.mockResolvedValue(failedItem);
+
+    const changed = await service.applyTransferStatus(
+      merchantRef,
+      'SUCCESS',
+      'bachs-withdrawal-1',
+      PaymentProvider.BACHS,
+      'tenant-1',
+      1000,
+    );
+
+    expect(changed).toBe(true);
+    expect(transactionRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: PayrollItemStatus.PAID,
+        transactionId: 'bachs-withdrawal-1',
+        failureReason: null,
+      }),
+    );
+    expect(queryStatus).toHaveBeenCalledWith('bachs-withdrawal-1', merchantRef);
+    expect(lifecycleNotify.onItemPaid).toHaveBeenCalledTimes(1);
+    expect(lifecycleNotify.onItemFailed).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed Bachs item failed when provider success has a different merchant reference', async () => {
+    const merchantRef = 'pi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const failedItem = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: 'run-1',
+      memberId: 'member-1',
+      status: PayrollItemStatus.FAILED,
+      paymentAmount: 1000,
+      paymentProvider: 'Bachs',
+      transactionId: 'bachs-withdrawal-1',
+      failureReason: 'Bachs failed',
+      metadata: {},
+      payrollRun: { id: 'run-1', tenantId: 'tenant-1', createdById: 'admin-1' },
+    } as unknown as PayrollItem;
+    const queryStatus = jest.fn().mockResolvedValue({
+      status: 'COMPLETED',
+      reference: 'another-merchant-reference',
+      sourceDebitedAmount: 1005,
+      sourceCurrency: 'USD',
+    });
+    const { service, transactionRepository, payrollItemRepo, lifecycleNotify } = createService({
+      queryStatus,
+    });
+    payrollItemRepo.findOne.mockResolvedValue(failedItem);
+    transactionRepository.findOne.mockResolvedValue(failedItem);
+
+    const changed = await service.applyTransferStatus(
+      merchantRef,
+      'SUCCESS',
+      'bachs-withdrawal-1',
+      PaymentProvider.BACHS,
+      'tenant-1',
+      1000,
+    );
+
+    expect(changed).toBe(false);
+    expect(transactionRepository.save).not.toHaveBeenCalled();
+    expect(lifecycleNotify.onItemPaid).not.toHaveBeenCalled();
   });
 
   it('does not downgrade a paid item when a late failure webhook arrives', async () => {
