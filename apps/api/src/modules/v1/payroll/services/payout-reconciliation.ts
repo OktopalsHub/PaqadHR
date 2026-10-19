@@ -152,6 +152,25 @@ export class PayoutReconciliation {
 
     if (!status) return false;
 
+    if (
+      provider === PaymentProvider.BACHS &&
+      this.fundingLedger &&
+      new Set(['FAILED', 'REJECTED', 'CANCELLED', 'CANCELED']).has(status.trim().toUpperCase())
+    ) {
+      await this.fundingLedger.releaseFailedPayoutReservationsForItem({
+        tenantId,
+        payrollRunId: item.payrollRunId,
+        payrollItemId: item.id,
+        provider: PaymentProvider.BACHS,
+        providerReference: reference,
+        evidence: {
+          verifiedStatus: status.trim().toUpperCase(),
+          merchantReference: merchantRef,
+          verificationSource: 'provider_status_query',
+        },
+      });
+    }
+
     const changed = await this.applyTransferStatus(
       merchantRef,
       status,
