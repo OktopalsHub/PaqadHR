@@ -213,6 +213,103 @@ export class PayrollRunFundingLedgerService {
   }
 
   /**
+   * Release a reservation only after the provider confirms a terminal failure.
+   * Pending, unknown, and timeout outcomes are intentionally rejected.
+   */
+  async releaseFailedPayoutReservation(input: {
+    tenantId: string;
+    payrollRunId: string;
+    payrollItemId: string;
+    reservationKey: string;
+    provider: string;
+    providerReference: string;
+    performedById?: string | null;
+    evidence: Record<string, string | number | boolean | null>;
+  }): Promise<void> {
+    const reservationKey = input.reservationKey.trim();
+    const providerReference = input.providerReference.trim();
+    const verifiedStatus =
+      typeof input.evidence.verifiedStatus === 'string'
+        ? input.evidence.verifiedStatus.trim().toUpperCase()
+        : '';
+    const terminalFailureStatuses = new Set([
+      'FAILED',
+      'REJECTED',
+      'CANCELLED',
+      'CANCELED',
+    ]);
+    if (
+      !reservationKey ||
+      !providerReference ||
+      !terminalFailureStatuses.has(verifiedStatus)
+    ) {
+      throw new Error(
+        'A payout reservation can only be released with a provider-confirmed terminal failure',
+      );
+    }
+
+    await this.ledgerRepository.manager.transaction(async (manager) => {
+      const run = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!run) throw new Error('Payroll run not found for reservation release');
+
+      const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const reservationIdempotencyKey = `reservation:${input.payrollRunId}:${reservationKey}`;
+      const reservation = await ledger.findOne({
+        where: { idempotencyKey: reservationIdempotencyKey },
+      });
+      if (
+        !reservation ||
+        reservation.tenantId !== input.tenantId ||
+        reservation.payrollRunId !== input.payrollRunId ||
+        reservation.payrollItemId !== input.payrollItemId ||
+        reservation.eventType !== PayrollFundingLedgerEventType.PAYOUT_RESERVED
+      ) {
+        throw new Error('Matching payout reservation was not found');
+      }
+
+      const releaseIdempotencyKey = `reservation-release:${reservationKey}:failure:${input.provider}:${providerReference}`;
+      const existingRelease = await ledger.findOne({
+        where: { idempotencyKey: releaseIdempotencyKey },
+      });
+      if (existingRelease) return;
+
+      const entries = await ledger.find({
+        where: { tenantId: input.tenantId, payrollRunId: input.payrollRunId },
+      });
+      const alreadyReleased = entries.some(
+        (entry) =>
+          entry.eventType === PayrollFundingLedgerEventType.RESERVATION_RELEASED &&
+          entry.payrollItemId === input.payrollItemId &&
+          entry.evidence?.releasedReservationKey === reservationKey,
+      );
+      if (alreadyReleased) return;
+
+      await ledger.insert({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: input.payrollItemId,
+        eventType: PayrollFundingLedgerEventType.RESERVATION_RELEASED,
+        amount: reservation.amount,
+        currency: reservation.currency,
+        provider: input.provider,
+        providerReference,
+        idempotencyKey: releaseIdempotencyKey,
+        performedById: input.performedById ?? null,
+        approvedById: null,
+        evidence: {
+          ...input.evidence,
+          verifiedStatus,
+          releasedReservationKey: reservationKey,
+          reason: 'provider_confirmed_terminal_failure',
+        },
+      });
+    });
+  }
+
+  /**
    * Atomically reserve run-owned funds for one previously failed payout.
    *
    * This deliberately requires a fully settled run before reserving: any pending/processing
