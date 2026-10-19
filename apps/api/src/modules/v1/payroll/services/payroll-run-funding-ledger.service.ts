@@ -606,6 +606,7 @@ export class PayrollRunFundingLedgerService {
       !currency ||
       !approvalReference ||
       !input.approvedById ||
+      input.provider !== 'BACHS' ||
       selectedItemIds.length === 0
     ) {
       throw new Error(
