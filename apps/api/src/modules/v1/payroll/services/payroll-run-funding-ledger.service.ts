@@ -88,16 +88,13 @@ export class PayrollRunFundingLedgerService {
       };
     }
 
-    const verifiedFundingByCurrency = entries.reduce<Record<string, number>>(
-      (totals, entry) => {
-        if (entry.eventType === PayrollFundingLedgerEventType.FUNDING_RECEIVED) {
-          totals[entry.currency] =
-            Math.round(((totals[entry.currency] ?? 0) + Number(entry.amount)) * 100) / 100;
-        }
-        return totals;
-      },
-      {},
-    );
+    const verifiedFundingByCurrency = entries.reduce<Record<string, number>>((totals, entry) => {
+      if (entry.eventType === PayrollFundingLedgerEventType.FUNDING_RECEIVED) {
+        totals[entry.currency] =
+          Math.round(((totals[entry.currency] ?? 0) + Number(entry.amount)) * 100) / 100;
+      }
+      return totals;
+    }, {});
 
     // Funding credits alone are never enough to authorize a retry. Payout debits and unresolved
     // provider statuses must be reconciled before available funds can be safely calculated.
