@@ -156,6 +156,55 @@ describe('PayrollRunFundingLedgerService', () => {
     );
   });
 
+  it('does not insert a second payout debit for the same provider reference', async () => {
+    repository.findOne.mockResolvedValue({
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      payrollItemId: 'item-1',
+      amount: '40.25',
+      currency: 'USD',
+      eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+    });
+
+    await service.recordConfirmedPayoutDebit({
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      payrollItemId: 'item-1',
+      amount: 40.25,
+      currency: 'usd',
+      provider: 'BACHS',
+      providerReference: 'payout-123',
+      evidence: { verifiedStatus: 'COMPLETED' },
+    });
+
+    expect(repository.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects reusing a payout reference for a different debit amount', async () => {
+    repository.findOne.mockResolvedValue({
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      payrollItemId: 'item-1',
+      amount: '40.25',
+      currency: 'USD',
+      eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+    });
+
+    await expect(
+      service.recordConfirmedPayoutDebit({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: 'item-1',
+        amount: 99,
+        currency: 'usd',
+        provider: 'BACHS',
+        providerReference: 'payout-123',
+        evidence: { verifiedStatus: 'COMPLETED' },
+      }),
+    ).rejects.toThrow('Payout debit reference was already allocated to a different payroll transaction');
+    expect(repository.insert).not.toHaveBeenCalled();
+  });
+
   it('atomically reserves and prepares every selected retry item', async () => {
     const selectedItems = [
       {
