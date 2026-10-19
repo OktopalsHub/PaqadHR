@@ -56,19 +56,36 @@ export class PayrollRunFundingLedgerService {
       return;
     }
 
-    await this.ledgerRepository.insert({
-      tenantId: input.tenantId,
-      payrollRunId: input.payrollRunId,
-      eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
-      amount: amount.toFixed(2),
-      currency,
-      provider: input.provider,
-      providerReference,
-      idempotencyKey: `funding:${providerReference}`,
-      performedById: input.performedById ?? null,
-      approvedById: null,
-      evidence: input.evidence ?? null,
-    });
+    try {
+      await this.ledgerRepository.insert({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
+        amount: amount.toFixed(2),
+        currency,
+        provider: input.provider,
+        providerReference,
+        idempotencyKey: `funding:${providerReference}`,
+        performedById: input.performedById ?? null,
+        approvedById: null,
+        evidence: input.evidence ?? null,
+      });
+    } catch (error) {
+      // A concurrent delivery may pass the initial lookup before the other insert commits.
+      // Re-read the unique key and accept only an exact match; all other database errors escape.
+      const raced = await this.ledgerRepository.findOne({
+        where: { idempotencyKey: `funding:${providerReference}` },
+      });
+      if (
+        !raced ||
+        raced.tenantId !== input.tenantId ||
+        raced.payrollRunId !== input.payrollRunId ||
+        Number(raced.amount) !== amount ||
+        raced.currency !== currency
+      ) {
+        throw error;
+      }
+    }
   }
 
   async getRunLedger(tenantId: string, payrollRunId: string) {
