@@ -103,6 +103,24 @@ describe('PayrollRunFundingLedgerService', () => {
     expect(repository.insert).not.toHaveBeenCalled();
   });
 
+  it('rejects funding when the payroll run does not belong to the tenant', async () => {
+    repository.manager?.transaction.mockImplementationOnce(
+      async (callback: (tx: {
+        getRepository: (entity: unknown) => { findOne: jest.Mock };
+      }) => Promise<void>) =>
+        callback({
+          getRepository: (entity: unknown) => ({
+            findOne: jest.fn().mockResolvedValue(entity === PayrollRun ? null : null),
+          }),
+        }),
+    );
+
+    await expect(service.recordVerifiedFunding(input)).rejects.toThrow(
+      'Payroll run not found for verified funding allocation',
+    );
+    expect(repository.insert).not.toHaveBeenCalled();
+  });
+
   it('rejects non-positive funding amounts', async () => {
     await expect(service.recordVerifiedFunding({ ...input, amount: 0 })).rejects.toThrow(
       'Verified payroll funding amount must be positive',
