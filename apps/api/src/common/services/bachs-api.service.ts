@@ -151,6 +151,27 @@ export class BachsApiService {
     return Boolean(getBachsSecretKey());
   }
 
+  /**
+   * Read the account balance snapshot. `available_balance` is what withdrawals and payouts
+   * debit; a currency with no activity is absent from `balances` (effectively zero).
+   */
+  async getBalances(): Promise<{
+    balances?: Array<{ currency?: string; available_balance?: string; pending_balance?: string }>;
+  }> {
+    return this.request('/v1/balances');
+  }
+
+  async getAvailableBalance(currency: string): Promise<number | null> {
+    const payload = await this.getBalances();
+    const code = currency.trim().toUpperCase();
+    const entry = (payload.balances ?? []).find(
+      (balance) => String(balance.currency ?? '').toUpperCase() === code,
+    );
+    if (!entry) return 0;
+    const available = Number(entry.available_balance);
+    return Number.isFinite(available) && available >= 0 ? Math.round(available * 100) / 100 : null;
+  }
+
   async listProducts(includeArchived = false): Promise<Array<Record<string, unknown>>> {
     const params = new URLSearchParams({ limit: '100' });
     if (includeArchived) params.set('include_archived', 'true');

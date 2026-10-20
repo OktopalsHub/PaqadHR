@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Lock, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Lock, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PersonAvatar } from '@/components/person-avatar';
@@ -46,7 +46,6 @@ import {
   useRunPayslips,
 } from '@/hooks/queries/use-payroll';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
-import { downloadPayslipPdf } from '@/lib/api/payroll';
 import { canManageMember } from '@/lib/auth/manager-access';
 import { openCheckoutUrlWithOptionalTab } from '@/lib/bachs-checkout';
 import { formatDate } from '@/lib/format-date';
@@ -342,6 +341,9 @@ export function PayrollRunDetail({
   const [retryFundingItemIds, setRetryFundingItemIds] = useState<string[]>([]);
   const [retryFundingPreview, setRetryFundingPreview] = useState<{
     amount: number;
+    requiredAmount?: number;
+    balanceApplied?: number;
+    availableBalance?: number | null;
     currency: string;
     selectedItemIds: string[];
     platformFee: 0;
@@ -462,22 +464,6 @@ export function PayrollRunDetail({
     }
   }, [detail?.paymentDate]);
 
-  const handleDownloadPayslip = async (payslip: {
-    runId: string;
-    itemId: string;
-    employeeName: string;
-  }) => {
-    try {
-      await downloadPayslipPdf(
-        payslip.runId,
-        payslip.itemId,
-        `payslip-${payslip.employeeName.replace(/\s+/g, '-').toLowerCase()}.pdf`,
-      );
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Download failed');
-    }
-  };
-
   const handleCalculate = async () => {
     try {
       const result = await actions.calculate.mutateAsync({ id: runId });
@@ -539,6 +525,10 @@ export function PayrollRunDetail({
         ? (retryFundingMeta.selectedItemIds as string[]).slice().sort()
         : [];
       const existingStatus = retryFundingMeta?.status;
+      const existingCheckoutAmount = Number(
+        retryFundingMeta?.checkoutAmount ?? retryFundingMeta?.amount ?? 0,
+      );
+      const existingRequiredAmount = Number(retryFundingMeta?.amount ?? 0);
       if (
         existingStatus === 'funded' &&
         existingSelectedIds.length > 0 &&
@@ -564,12 +554,19 @@ export function PayrollRunDetail({
         (existingStatus === 'approved' || existingStatus === 'pending') &&
         existingSelectedIds.length === selectedItemIds.length &&
         existingSelectedIds.every((id, index) => id === selectedItemIds[index]) &&
-        Number(retryFundingMeta?.amount) > 0 &&
+        existingRequiredAmount > 0 &&
+        Number.isFinite(existingCheckoutAmount) &&
         typeof retryFundingMeta?.currency === 'string'
       ) {
         setRetryFundingItemIds(selectedItemIds);
         setRetryFundingPreview({
-          amount: Number(retryFundingMeta.amount),
+          amount: existingCheckoutAmount,
+          requiredAmount: existingRequiredAmount,
+          balanceApplied: Number(retryFundingMeta.balanceApplied ?? 0),
+          availableBalance:
+            typeof retryFundingMeta.availableBalance === 'number'
+              ? retryFundingMeta.availableBalance
+              : null,
           currency: String(retryFundingMeta.currency),
           selectedItemIds,
           platformFee: 0,
@@ -645,7 +642,7 @@ export function PayrollRunDetail({
     let approvalRecorded = retryFundingApproved;
     try {
       if (!retryFundingApproved) {
-        await actions.approveRetryFunding.mutateAsync({
+        const approval = await actions.approveRetryFunding.mutateAsync({
           id: runId,
           itemIds: retryFundingItemIds,
           expectedAmount: retryFundingPreview.amount,
@@ -653,8 +650,38 @@ export function PayrollRunDetail({
         });
         approvalRecorded = true;
         setRetryFundingApproved(true);
+        // The provider balance already covers the retry: the backend credits it to the run and
+        // marks the funding verified, so skip checkout and pay the run's failed items now.
+        if (Number(approval.amount) <= 0) {
+          checkoutTab?.close();
+          setRetryFundingReviewOpen(false);
+          await refetch();
+          await fundingLedgerQuery.refetch();
+          toast.success('Your provider balance covers these payouts. Retrying them now.');
+          const response = await actions.retryFailed.mutateAsync({
+            id: runId,
+            itemIds: retryFundingItemIds,
+          });
+          toastPayrollPayoutResult(response.result, 'retry');
+          await refetch();
+          return;
+        }
       }
       const checkout = await actions.createRetryFundingCheckout.mutateAsync(runId);
+      if (Number(checkout.amount) <= 0) {
+        checkoutTab?.close();
+        setRetryFundingReviewOpen(false);
+        await refetch();
+        await fundingLedgerQuery.refetch();
+        toast.success('Your provider balance covers these payouts. Retrying them now.');
+        const response = await actions.retryFailed.mutateAsync({
+          id: runId,
+          itemIds: retryFundingItemIds,
+        });
+        toastPayrollPayoutResult(response.result, 'retry');
+        await refetch();
+        return;
+      }
       if (!checkout.checkoutUrl) {
         checkoutTab?.close();
         toast.error('Checkout URL was not returned. You can continue checkout from this dialog.');
@@ -1032,11 +1059,17 @@ export function PayrollRunDetail({
             {retryFundingPreview ? (
               <div className="space-y-4">
                 <Alert>
-                  <AlertTitle>Company-funded shortfall</AlertTitle>
+                  <AlertTitle>
+                    {retryFundingPreview.amount > 0
+                      ? 'Company-funded shortfall'
+                      : 'Covered by your provider balance'}
+                  </AlertTitle>
                   <AlertDescription>
                     {retryFundingAwaitingVerification
                       ? 'A checkout for this shortfall is already open. Finish it, then verify the funding — payouts start only after the provider confirms the payment.'
-                      : 'Only the selected failed payouts are included. PaqadHR will not charge its platform fee again. Payouts will not start until checkout is verified and you retry the selected items.'}
+                      : retryFundingPreview.amount > 0
+                        ? 'Only the uncovered part of the selected failed payouts is charged. Your provider balance is credited to this run first, and PaqadHR will not charge its platform fee again. Payouts start after checkout is verified and you retry the selected items.'
+                        : 'Your provider balance already covers these failed payouts. Approving credits that balance to this run and retries without a checkout.'}
                   </AlertDescription>
                 </Alert>
                 <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
@@ -1045,6 +1078,47 @@ export function PayrollRunDetail({
                     {formatMoney(retryFundingPreview.amount, retryFundingPreview.currency)}
                   </p>
                   <div className="mt-3 space-y-1 text-sm">
+                    {retryFundingPreview.requiredAmount != null ? (
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          Total funding required
+                        </span>
+                        <span>
+                          {formatMoney(
+                            retryFundingPreview.requiredAmount,
+                            retryFundingPreview.currency,
+                          )}
+                        </span>
+                      </div>
+                    ) : null}
+                    {retryFundingPreview.balanceApplied != null &&
+                    retryFundingPreview.balanceApplied > 0 ? (
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          Covered by provider balance
+                        </span>
+                        <span>
+                          −{' '}
+                          {formatMoney(
+                            retryFundingPreview.balanceApplied,
+                            retryFundingPreview.currency,
+                          )}
+                        </span>
+                      </div>
+                    ) : null}
+                    {retryFundingPreview.availableBalance != null ? (
+                      <div className="flex justify-between gap-3">
+                        <span className="text-slate-500 dark:text-slate-400">
+                          Provider balance available
+                        </span>
+                        <span>
+                          {formatMoney(
+                            retryFundingPreview.availableBalance,
+                            retryFundingPreview.currency,
+                          )}
+                        </span>
+                      </div>
+                    ) : null}
                     <div className="flex justify-between gap-3">
                       <span className="text-slate-500 dark:text-slate-400">Selected payouts</span>
                       <span>{retryFundingItemIds.length}</span>
@@ -1108,7 +1182,9 @@ export function PayrollRunDetail({
                       ? 'Preparing checkout…'
                       : retryFundingApproved
                         ? 'Continue to checkout'
-                        : 'Approve amount and continue'}
+                        : retryFundingPreview.amount > 0
+                          ? 'Approve amount and continue'
+                          : 'Approve and retry now'}
                   </Button>
                 </div>
               </div>
@@ -1174,9 +1250,6 @@ export function PayrollRunDetail({
                 <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
                   Run funding ledger
                 </h3>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Verified funding and provider-confirmed payout debits for this payroll run.
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 {fundingLedgerQuery.data && fundingLedgerQuery.data.entries.length > 12 ? (
@@ -1218,6 +1291,14 @@ export function PayrollRunDetail({
                     const item = entry.payrollItemId
                       ? activeItems.find((candidate) => candidate.id === entry.payrollItemId)
                       : undefined;
+                    const evidence = entry.evidence ?? {};
+                    const checkoutAmount = Number(evidence.checkoutAmount);
+                    const balanceApplied = Number(evidence.balanceApplied);
+                    const showsBalanceSplit =
+                      entry.eventType === 'funding_received' &&
+                      Number.isFinite(checkoutAmount) &&
+                      Number.isFinite(balanceApplied) &&
+                      balanceApplied > 0;
                     return (
                       <div
                         key={entry.id}
@@ -1231,12 +1312,17 @@ export function PayrollRunDetail({
                             {item
                               ? employeeName(item)
                               : entry.payrollItemId
-                                ? `Payout item ${entry.payrollItemId}`
-                                : (entry.providerReference ?? 'Run-level funding event')}
-                            {entry.providerReference && item ? ` · ${entry.providerReference}` : ''}
+                                ? 'Payout'
+                                : 'Run-level funding'}
                             {' · '}
                             {new Date(entry.createdAt).toLocaleString()}
                           </p>
+                          {showsBalanceSplit ? (
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Checkout {formatMoney(checkoutAmount, entry.currency)} · provider
+                              balance {formatMoney(balanceApplied, entry.currency)}
+                            </p>
+                          ) : null}
                         </div>
                         <span className="shrink-0 font-medium tabular-nums">
                           {formatMoney(Number(entry.amount), entry.currency)}
@@ -1246,8 +1332,7 @@ export function PayrollRunDetail({
                   })}
                 {fundingLedgerQuery.data.retryAuthorization === 'blocked' ? (
                   <p className="text-xs text-amber-700 dark:text-amber-400">
-                    This ledger is evidence, not spending approval. Bachs retries must use the
-                    selected-item approval and reservation flow.
+                    Retry funding for this run must be approved from the selected failed payouts.
                   </p>
                 ) : null}
               </div>
@@ -1389,11 +1474,6 @@ export function PayrollRunDetail({
                             Paid {formatDate(item.paidAt)}
                           </p>
                         ) : null}
-                        {item.transactionId ? (
-                          <p className="max-w-[220px] break-all text-xs text-slate-500 dark:text-slate-400">
-                            Ref: {item.transactionId}
-                          </p>
-                        ) : null}
                       </div>
                     </AppTableCell>
                     {isAdmin && (isDraft || (canRetry && item.status === 'failed')) ? (
@@ -1505,15 +1585,11 @@ export function PayrollRunDetail({
                           />
                           {payslip.published ? 'Published' : 'Unpublished'}
                         </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                          onClick={() => void handleDownloadPayslip(payslip)}
-                        >
-                          <Download className="mr-1 size-3.5" />
-                          {payslip.published ? 'Download' : 'Preview'}
-                        </Button>
+                        {payslip.published ? (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            PDF emailed to employee
+                          </p>
+                        ) : null}
                         {!payslip.published ? (
                           <Button
                             size="sm"

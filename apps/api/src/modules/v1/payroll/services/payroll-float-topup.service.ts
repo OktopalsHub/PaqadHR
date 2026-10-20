@@ -100,7 +100,14 @@ type RetryFundingMeta = {
   orderReference?: string;
   status?: 'approved' | 'pending' | 'funded';
   selectedItemIds?: string[];
+  /** Total run-scoped funding the failed payouts need (employee pay + provider reserves). */
   amount?: number;
+  /** Portion of `amount` the company pays at checkout (total minus the provider balance used). */
+  checkoutAmount?: number;
+  /** Portion of `amount` already held in the provider float and credited to this run. */
+  balanceApplied?: number;
+  /** Provider balance snapshot the checkout (or balance credit) was sized against. */
+  availableBalance?: number;
   currency?: string;
   provider?: string;
   approvedById?: string;
@@ -528,7 +535,13 @@ export class PayrollFloatTopupService {
     tenantId: string,
     selectedItemIds: string[],
   ): Promise<{
+    /** Amount the company pays at checkout (required funding minus the provider balance used). */
     amount: number;
+    /** Total run-scoped funding the selected failed payouts need. */
+    requiredAmount: number;
+    /** Provider balance already covering part of `requiredAmount`, credited to this run. */
+    balanceApplied: number;
+    availableBalance: number | null;
     currency: string;
     selectedItemIds: string[];
     platformFee: 0;
@@ -587,7 +600,7 @@ export class PayrollFloatTopupService {
         'This retry funding preview is only available for Bachs payouts',
       );
     }
-    if (!preflight.canCheckout || preflight.requiredAmount <= 0) {
+    if (!preflight.canCheckout && preflight.shortfall > 0) {
       throw new BadRequestException(
         preflight.message || 'Bachs hosted checkout is unavailable for retry funding',
       );
@@ -597,13 +610,23 @@ export class PayrollFloatTopupService {
       selected,
       preflight.currency,
     );
-    const amount =
+    const requiredAmount =
       Math.round(Object.values(allocations).reduce((sum, value) => sum + value, 0) * 100) / 100;
-    if (!(amount > 0)) {
+    if (!(requiredAmount > 0)) {
       throw new BadRequestException('Could not calculate a positive retry funding amount');
     }
+    // Only the uncovered part is charged: any provider float already held is credited to the run
+    // instead of asking the company to pay for the same money twice.
+    const amount = Math.min(
+      requiredAmount,
+      Math.max(0, Math.round(preflight.shortfall * 100) / 100),
+    );
+    const balanceApplied = Math.round((requiredAmount - amount) * 100) / 100;
     return {
       amount,
+      requiredAmount,
+      balanceApplied,
+      availableBalance: preflight.availableBalance,
       currency: preflight.currency.toUpperCase(),
       selectedItemIds: uniqueIds,
       platformFee: 0,
@@ -621,7 +644,10 @@ export class PayrollFloatTopupService {
   ): Promise<{
     approved: true;
     orderReference: string;
+    /** Amount the company pays at checkout (zero when the provider float fully covers the retry). */
     amount: number;
+    requiredAmount: number;
+    balanceApplied: number;
     currency: string;
     selectedItemIds: string[];
     platformFee: 0;
@@ -677,7 +703,7 @@ export class PayrollFloatTopupService {
         'This approval flow is only available for Bachs-backed payroll retries',
       );
     }
-    if (!preflight.canCheckout || preflight.requiredAmount <= 0) {
+    if (!preflight.canCheckout && preflight.shortfall > 0) {
       throw new BadRequestException(
         preflight.message || 'Bachs hosted checkout is unavailable for retry funding',
       );
@@ -688,19 +714,25 @@ export class PayrollFloatTopupService {
       selected,
       preflight.currency,
     );
-    const approvedAmount =
+    const requiredAmount =
       Math.round(Object.values(itemFundingAmounts).reduce((sum, amount) => sum + amount, 0) * 100) /
       100;
-    if (!(approvedAmount > 0)) {
+    if (!(requiredAmount > 0)) {
       throw new BadRequestException('Could not calculate a positive Bachs retry funding amount');
     }
+    // The company only pays the part the provider float does not already cover.
+    const checkoutAmount = Math.min(
+      requiredAmount,
+      Math.max(0, Math.round(preflight.shortfall * 100) / 100),
+    );
+    const balanceApplied = Math.round((requiredAmount - checkoutAmount) * 100) / 100;
     if (
       expectedCurrency.toUpperCase() !== preflight.currency.toUpperCase() ||
       !Number.isFinite(expectedAmount) ||
-      Math.abs(approvedAmount - expectedAmount) > 0.01
+      Math.abs(checkoutAmount - expectedAmount) > 0.01
     ) {
       throw new BadRequestException(
-        'The Bachs quote changed after preview. Review the updated retry funding amount before approving again.',
+        'The Bachs quote or available balance changed after preview. Review the updated retry funding amount before approving again.',
       );
     }
 
@@ -767,7 +799,9 @@ export class PayrollFloatTopupService {
         payrollRunId,
         payrollItemId: null,
         eventType: PayrollFundingLedgerEventType.SHORTFALL_APPROVED,
-        amount: approvedAmount.toFixed(2),
+        // Approval covers the full run-scoped funding need; the split below records how much the
+        // company pays now and how much is credited from the provider float it already holds.
+        amount: requiredAmount.toFixed(2),
         currency: preflight.currency.trim().toUpperCase(),
         provider: PaymentProvider.BACHS,
         providerReference: orderReference,
@@ -780,6 +814,9 @@ export class PayrollFloatTopupService {
           approvalType: 'company_funded_retry_shortfall',
           selectedItemIds: uniqueIds.join(','),
           approvalStatus: 'approved',
+          checkoutAmount,
+          balanceApplied,
+          availableBalance: preflight.availableBalance ?? null,
         },
       });
 
@@ -789,7 +826,10 @@ export class PayrollFloatTopupService {
           orderReference,
           status: 'approved',
           selectedItemIds: uniqueIds,
-          amount: approvedAmount,
+          amount: requiredAmount,
+          checkoutAmount,
+          balanceApplied,
+          availableBalance: preflight.availableBalance ?? undefined,
           currency: preflight.currency,
           provider: PaymentProvider.BACHS,
           approvedById,
@@ -801,10 +841,26 @@ export class PayrollFloatTopupService {
       await manager.save(locked);
     });
 
+    if (checkoutAmount <= 0) {
+      // The provider float already covers the whole retry: credit it to the run so the same
+      // guarded ledger path authorizes the payout, and skip checkout entirely.
+      await this.applyProviderBalanceRetryFunding({
+        tenantId,
+        payrollRunId,
+        orderReference,
+        approvedById,
+        requiredAmount,
+        currency: preflight.currency,
+        selectedItemIds: uniqueIds,
+      });
+    }
+
     return {
       approved: true,
       orderReference,
-      amount: approvedAmount,
+      amount: checkoutAmount,
+      requiredAmount,
+      balanceApplied,
       currency: preflight.currency,
       selectedItemIds: uniqueIds,
       platformFee: 0,
@@ -840,6 +896,10 @@ export class PayrollFloatTopupService {
     ) {
       throw new BadRequestException('Approve retry shortfall funding before creating checkout');
     }
+    const checkoutAmount = Number(meta.checkoutAmount ?? meta.amount);
+    if (!Number.isFinite(checkoutAmount)) {
+      throw new BadRequestException('Retry funding amount is invalid. Approve funding again.');
+    }
     const selected = run.items.filter((item) => meta.selectedItemIds?.includes(item.id));
     if (
       selected.length !== meta.selectedItemIds.length ||
@@ -864,13 +924,49 @@ export class PayrollFloatTopupService {
         'Retry funding approval evidence is missing or does not match this checkout.',
       );
     }
+    if (checkoutAmount <= 0) {
+      // Recovery path: approval already credited the provider balance, but the credit or the
+      // `funded` flip did not complete. Repeat both idempotently instead of dead-ending.
+      await this.applyProviderBalanceRetryFunding({
+        tenantId,
+        payrollRunId,
+        orderReference: meta.orderReference,
+        approvedById: meta.approvedById,
+        requiredAmount: Number(meta.amount),
+        currency: meta.currency,
+        selectedItemIds: meta.selectedItemIds,
+      });
+      return {
+        checkoutUrl: '',
+        orderReference: meta.orderReference,
+        amount: 0,
+        currency: meta.currency,
+      };
+    }
     if (meta.status === 'pending' && meta.checkoutUrl) {
       return {
         checkoutUrl: meta.checkoutUrl,
         orderReference: meta.orderReference,
-        amount: meta.amount,
+        amount: checkoutAmount,
         currency: meta.currency,
       };
+    }
+
+    // Re-price against the live balance and quotes: a drained float must not under-fund the run,
+    // and a quote increase must be re-approved. A larger float is safe to leave as extra credit,
+    // so the approved checkout still covers the retry rather than forcing a second approval.
+    const livePreflight = await this.preflight(payrollRunId, tenantId, true, meta.selectedItemIds);
+    const liveCheckoutAmount = Math.min(
+      Number(meta.amount),
+      Math.max(0, Math.round(livePreflight.shortfall * 100) / 100),
+    );
+    if (
+      livePreflight.requiredAmount - Number(meta.amount) > 0.01 ||
+      liveCheckoutAmount - checkoutAmount > 0.01
+    ) {
+      throw new BadRequestException(
+        'The Bachs quote or available balance changed after preview. Review the updated retry funding amount before checking out.',
+      );
     }
 
     const provider = PaymentProvider.BACHS as PayrollFloatOrderRefProvider;
@@ -948,7 +1044,7 @@ export class PayrollFloatTopupService {
     const checkout = await adapter.createCheckout({
       orderReference: meta.orderReference,
       customerEmail,
-      amount: meta.amount,
+      amount: checkoutAmount,
       currency: meta.currency,
       callbackUrl,
       customerName: resolveCheckoutCustomerFullName(tenant?.name, customerEmail),
@@ -957,7 +1053,7 @@ export class PayrollFloatTopupService {
         tenantId,
         payrollRunId,
         billingType: 'payroll_retry_funding',
-        expectedAmount: String(meta.amount),
+        expectedAmount: String(checkoutAmount),
         selectedItemIds: meta.selectedItemIds.join(','),
         approvedById: meta.approvedById,
         initiatedByMemberId: memberId,
@@ -994,9 +1090,60 @@ export class PayrollFloatTopupService {
     return {
       checkoutUrl: checkout.checkoutLink,
       orderReference: checkout.orderReference,
-      amount: meta.amount,
+      amount: checkoutAmount,
       currency: meta.currency,
     };
+  }
+
+  /**
+   * Credit a retry that the provider float already covers, without creating a checkout.
+   * The run-scoped ledger entry is what authorizes the guarded retry, so it is recorded before
+   * the metadata flips to `funded`; both steps are safe to repeat.
+   */
+  private async applyProviderBalanceRetryFunding(input: {
+    tenantId: string;
+    payrollRunId: string;
+    orderReference: string;
+    approvedById: string;
+    requiredAmount: number;
+    currency: string;
+    selectedItemIds: string[];
+  }): Promise<void> {
+    await this.fundingLedger.recordVerifiedFunding({
+      tenantId: input.tenantId,
+      payrollRunId: input.payrollRunId,
+      amount: input.requiredAmount,
+      currency: input.currency,
+      provider: PaymentProvider.BACHS,
+      providerReference: input.orderReference,
+      performedById: input.approvedById,
+      evidence: {
+        fundingPurpose: 'approved_retry_shortfall',
+        selectedItemIds: [...input.selectedItemIds].sort().join(','),
+        approvedById: input.approvedById,
+        checkoutAmount: 0,
+        balanceApplied: input.requiredAmount,
+        fundingSource: 'provider_balance',
+      },
+    });
+    await this.payrollRunRepository.manager.transaction(async (manager) => {
+      const locked = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) return;
+      const latest = this.readRetryFundingMeta(locked);
+      if (latest.orderReference !== input.orderReference || latest.status !== 'approved') return;
+      locked.metadata = {
+        ...locked.metadata,
+        retryFunding: {
+          ...latest,
+          status: 'funded',
+          fundedAt: new Date().toISOString(),
+        } satisfies RetryFundingMeta,
+      };
+      await manager.save(locked);
+    });
   }
 
   private async calculateBachsRetryItemFundingAmounts(
@@ -1433,7 +1580,9 @@ export class PayrollFloatTopupService {
     const verifiedAmount = Number(verified.amount);
     const verifiedCurrency =
       typeof verified.currency === 'string' ? verified.currency.toUpperCase() : undefined;
-    const expectedAmount = Number(meta.amount);
+    const fundedAmount = Math.round(Number(meta.amount) * 100) / 100;
+    // The checkout only asks for the part the provider float did not already cover.
+    const expectedAmount = Math.round(Number(meta.checkoutAmount ?? meta.amount) * 100) / 100;
     const expectedCurrency = meta.currency.toUpperCase();
     if (
       !Number.isFinite(verifiedAmount) ||
@@ -1446,9 +1595,19 @@ export class PayrollFloatTopupService {
     const paidAmount =
       Math.round(normalizeWebhookAmount(verifiedAmount, expectedAmount, expectedCurrency) * 100) /
       100;
-    const exactExpectedAmount = Math.round(expectedAmount * 100) / 100;
-    if (!Number.isFinite(paidAmount) || paidAmount < exactExpectedAmount) {
+    if (!Number.isFinite(paidAmount) || paidAmount < expectedAmount) {
       return { outcome: 'pending', orderReference, reason: 'checkout_underpaid' };
+    }
+    const balanceApplied =
+      Math.round(Number(meta.balanceApplied ?? fundedAmount - expectedAmount) * 100) / 100;
+    if (
+      !Number.isFinite(balanceApplied) ||
+      balanceApplied < 0 ||
+      Math.abs(expectedAmount + balanceApplied - fundedAmount) > 0.01
+    ) {
+      // Never credit the run with money the company did not pay and the provider balance
+      // did not already hold; a mismatch would let a retry spend the float twice.
+      return { outcome: 'pending', orderReference, reason: 'retry_funding_split_mismatch' };
     }
 
     const selectedItemIds = [...meta.selectedItemIds].sort();
@@ -1459,13 +1618,15 @@ export class PayrollFloatTopupService {
       return { outcome: 'pending', orderReference, reason: 'payroll_run_missing' };
     }
 
-    // Once the provider confirms that the company paid, record the money even if payroll
-    // item statuses changed while checkout was open. The retry path separately revalidates
-    // every selected item and cannot spend this credit unless the approval still matches.
+    // Once the provider confirms that the company paid, record the full run-scoped funding even
+    // if payroll item statuses changed while checkout was open. The retry path separately
+    // revalidates every selected item and cannot spend this credit unless the approval matches.
+    // `checkoutAmount` is the money the company just paid; `balanceApplied` was already held in
+    // the provider float and credited to this run.
     await this.fundingLedger.recordVerifiedFunding({
       tenantId: run.tenantId,
       payrollRunId: run.id,
-      amount: paidAmount,
+      amount: fundedAmount,
       currency: expectedCurrency,
       provider,
       providerReference: orderReference,
@@ -1474,6 +1635,8 @@ export class PayrollFloatTopupService {
         verifiedStatus: verified.status,
         verifiedAmount,
         expectedAmount,
+        checkoutAmount: Math.min(paidAmount, expectedAmount),
+        balanceApplied,
         currencyReportedByProvider: verifiedCurrency,
         fundingPurpose: 'approved_retry_shortfall',
         selectedItemIds: selectedItemIds.join(','),
@@ -1507,9 +1670,14 @@ export class PayrollFloatTopupService {
     }
 
     this.logger.log(
-      `Retry funding verified for payroll run ${run.id} (${orderReference}): ${paidAmount} ${expectedCurrency}`,
+      `Retry funding verified for payroll run ${run.id} (${orderReference}): ${fundedAmount} ${expectedCurrency} (checkout ${paidAmount}, balance ${balanceApplied})`,
     );
-    return { outcome: 'funded', orderReference, amount: paidAmount, currency: expectedCurrency };
+    return {
+      outcome: 'funded',
+      orderReference,
+      amount: fundedAmount,
+      currency: expectedCurrency,
+    };
   }
 
   private async createFloatTopupCheckout(
@@ -1737,19 +1905,34 @@ export class PayrollFloatTopupService {
         100;
       if (forRetry) {
         const canCheckout = this.balanceService.supportsHostedFloatTopup(PaymentProvider.BACHS);
+        // A retry only needs to top up the difference between what the failed payouts need and
+        // what the company already holds in the provider float. Charging the full amount again
+        // would double-fund the run whenever the float already covers part of it.
+        const balance = await this.balanceService.getAvailableBalance(
+          PaymentProvider.BACHS,
+          fundingCurrency,
+        );
+        const available = balance.supported ? balance.available : null;
+        const shortfall =
+          available == null
+            ? requiredAmount
+            : Math.max(0, Math.round((requiredAmount - available) * 100) / 100);
         return {
-          ok: false,
+          ok: shortfall <= 0,
           provider: PaymentProvider.BACHS,
           currency: fundingCurrency,
           requiredAmount,
-          availableBalance: null,
-          shortfall: requiredAmount,
-          balanceSupported: false,
+          availableBalance: available,
+          shortfall,
+          balanceSupported: balance.supported,
           canCheckout,
           dashboardUrl: '',
-          message: canCheckout
-            ? `Approve and fund ${requiredAmount} ${fundingCurrency} for the selected failed payouts. The PaqadHR platform fee is not charged again.`
-            : `Fund ${requiredAmount} ${fundingCurrency} for the selected failed payouts in Bachs, then reconcile the verified funding.`,
+          message:
+            shortfall <= 0 && available != null
+              ? `Your Bachs balance (${available} ${fundingCurrency}) already covers the ${requiredAmount} ${fundingCurrency} these failed payouts need. Retry the selected payouts.`
+              : canCheckout
+                ? `The selected failed payouts need ${requiredAmount} ${fundingCurrency}. Your Bachs balance covers ${available ?? 0} ${fundingCurrency}, so checkout only asks for the remaining ${shortfall} ${fundingCurrency}. The PaqadHR platform fee is not charged again.`
+                : `Fund the remaining ${shortfall} ${fundingCurrency} for the selected failed payouts in Bachs, then reconcile the verified funding.`,
           employeeTotal: fee.employeeTotal,
           platformFee: 0,
           feePercentage: 0,

@@ -118,48 +118,15 @@ export class PayrollExportService {
     return lines.join('\n');
   }
 
-  renderPayslipHtml(payrollRun: PayrollRun, item: PayrollItem): string {
-    const employee = item.employee;
-    const employeeName = employee
-      ? `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim()
-      : item.memberId;
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Payslip — ${employeeName}</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; color: #111; }
-    h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
-    .muted { color: #666; font-size: 0.9rem; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
-    th, td { text-align: left; padding: 0.5rem 0; border-bottom: 1px solid #eee; }
-    th { width: 40%; color: #444; font-weight: 600; }
-    .total td { font-weight: 700; border-top: 2px solid #111; }
-  </style>
-</head>
-<body>
-  <h1>Payslip</h1>
-  <p class="muted">${payrollRun.title}</p>
-  <p class="muted">Period: ${payrollRun.periodStart} — ${payrollRun.periodEnd}</p>
-  <p><strong>Employee:</strong> ${employeeName}</p>
-  <table>
-    <tr><th>Base salary</th><td>${item.baseSalary} ${item.baseSalaryCurrency}</td></tr>
-    <tr><th>Gross</th><td>${item.grossAmount} ${payrollRun.baseCurrency}</td></tr>
-    <tr><th>Adjustments</th><td>${item.adjustments}</td></tr>
-    <tr><th>Deductions</th><td>${item.deductions}</td></tr>
-    <tr class="total"><th>Net pay</th><td>${item.netAmount} ${payrollRun.baseCurrency}</td></tr>
-    <tr><th>Payment amount</th><td>${item.paymentAmount} ${item.paymentCurrency}</td></tr>
-    <tr><th>Status</th><td>${item.status}</td></tr>
-    ${item.paidAt ? `<tr><th>Paid at</th><td>${item.paidAt}</td></tr>` : ''}
-  </table>
-  ${item.description ? `<p class="muted">${item.description}</p>` : ''}
-</body>
-</html>`;
-  }
-
-  renderPayslipPdf(payrollRun: PayrollRun, item: PayrollItem): Promise<Buffer> {
+  renderPayslipPdf(
+    payrollRun: {
+      title: string;
+      periodStart?: string | Date | null;
+      periodEnd?: string | Date | null;
+      baseCurrency?: string | null;
+    },
+    item: PayrollItem,
+  ): Promise<Buffer> {
     const employee = item.employee;
     const employeeName = employee
       ? `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim()

@@ -21,7 +21,6 @@ import { AuditService } from './audit.service';
 import { MultiPaymentService } from './multi-payment.service';
 import { PayrollAccessGuard } from './payroll-access-guard';
 import { PayrollCalculationService } from './payroll-calculation.service';
-import { PayrollExportService } from './payroll-export.service';
 import { PayrollFloatTopupService } from './payroll-float-topup.service';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
@@ -36,7 +35,6 @@ export class PayrollService {
     private readonly accessGuard: PayrollAccessGuard,
     private readonly payrollCalculationService: PayrollCalculationService,
     readonly _auditService: AuditService,
-    private readonly payrollExportService: PayrollExportService,
     readonly _multiPaymentService: MultiPaymentService,
     readonly _managerAccessService: ManagerAccessService,
     readonly _productAnalytics: ProductAnalyticsService,
@@ -398,56 +396,6 @@ export class PayrollService {
       },
     });
     return { notified: true, memberId };
-  }
-
-  async getPayslipHtml(
-    payrollRunId: string,
-    itemId: string,
-    tenantId: string,
-    requesterMemberId: string,
-    requesterRole: string,
-  ) {
-    const run = await this.payrollExportService.getPayrollRunForExport(payrollRunId, tenantId);
-    const item = run.items?.find((e) => e.id === itemId);
-    if (!item) throw new BadRequestException('Item not found');
-    if (item.status !== PayrollItemStatus.PAID)
-      throw new BadRequestException('Only available for paid items');
-    await this.assertPayslipAccess(tenantId, item, requesterMemberId, requesterRole);
-    return this.payrollExportService.renderPayslipHtml(run, item);
-  }
-
-  async getPayslipPdf(
-    payrollRunId: string,
-    itemId: string,
-    tenantId: string,
-    requesterMemberId: string,
-    requesterRole: string,
-  ) {
-    const run = await this.payrollExportService.getPayrollRunForExport(payrollRunId, tenantId);
-    const item = run.items?.find((e) => e.id === itemId);
-    if (!item) throw new BadRequestException('Item not found');
-    if (item.status !== PayrollItemStatus.PAID)
-      throw new BadRequestException('Only available for paid items');
-    await this.assertPayslipAccess(tenantId, item, requesterMemberId, requesterRole);
-    return this.payrollExportService.renderPayslipPdf(run, item);
-  }
-
-  private async assertPayslipAccess(
-    tenantId: string,
-    item: { memberId: string; metadata?: { payslipPublished?: unknown } | null },
-    requesterMemberId: string,
-    requesterRole: string,
-  ): Promise<void> {
-    await this.accessGuard.assertPayrollMemberAccess(
-      tenantId,
-      item.memberId,
-      requesterMemberId,
-      requesterRole,
-    );
-    if (this.accessGuard.isPayrollAdmin(requesterRole)) return;
-    if (item.memberId === requesterMemberId && !item.metadata?.payslipPublished) {
-      throw new ForbiddenException('This payslip is not available yet');
-    }
   }
 
   async getMemberPublishedPayslips(

@@ -7,7 +7,6 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
-  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -46,41 +45,6 @@ export class PayrollExportController {
     };
     const csv = await this.payrollService.exportBankFile(id, tenantId, auditContext);
     return csv;
-  }
-
-  @Get('runs/:id/items/:itemId/payslip')
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
-  @Header('Content-Type', 'text/html')
-  async getPayslip(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-    @Param('itemId') itemId: string,
-    @Req() req: IAuthenticatedMemberRequest,
-  ) {
-    const member = req.member;
-    return this.payrollService.getPayslipHtml(id, itemId, tenantId, member.id, member.role);
-  }
-
-  @Get('runs/:id/items/:itemId/payslip/download')
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
-  async downloadPayslip(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-    @Param('itemId') itemId: string,
-    @Req() req: IAuthenticatedMemberRequest,
-  ): Promise<StreamableFile> {
-    const member = req.member;
-    const buffer = await this.payrollService.getPayslipPdf(
-      id,
-      itemId,
-      tenantId,
-      member.id,
-      member.role,
-    );
-    return new StreamableFile(buffer, {
-      type: 'application/pdf',
-      disposition: `attachment; filename="payslip-${itemId.slice(0, 8)}.pdf"`,
-    });
   }
 
   @Get('members/:memberId/published-payslips')

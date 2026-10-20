@@ -3,7 +3,6 @@
 import {
   AlertTriangle,
   CalendarDays,
-  Download,
   FileText,
   MoreHorizontal,
   Pencil,
@@ -51,12 +50,11 @@ import {
   usePayrollRuns,
   usePayrollSetupSummary,
 } from '@/hooks/queries/use-payroll';
-import { downloadPayslipPdf } from '@/lib/api/payroll';
 import { canViewTeamPayroll, isTenantAdmin } from '@/lib/auth/manager-access';
 import { openCheckoutUrlWithOptionalTab } from '@/lib/bachs-checkout';
 import { formatDate } from '@/lib/format-date';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
-import type { PayrollRun, PublishedPayslip } from '@/lib/schemas/payroll';
+import type { PayrollRun } from '@/lib/schemas/payroll';
 import { resolvePrimaryPayrollCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
 import { payrollRowAction } from './payroll-payout-action';
@@ -274,19 +272,6 @@ function PersonalPayslips({
 }) {
   const { data: payslips = [], isLoading, isError, error } = useMemberPublishedPayslips(memberId);
 
-  const handleDownload = async (payslip: PublishedPayslip) => {
-    const period = payslip.periodEnd ? formatDate(payslip.periodEnd) : payslip.runTitle;
-    try {
-      await downloadPayslipPdf(
-        payslip.runId,
-        payslip.itemId,
-        `payslip-${period.replace(/\s+/g, '-').toLowerCase()}.pdf`,
-      );
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to download payslip');
-    }
-  };
-
   if (!memberId) {
     return (
       <Alert variant="destructive">
@@ -314,7 +299,7 @@ function PersonalPayslips({
   return (
     <ContentCard
       title="My payslips"
-      description="Published payslips from completed payroll runs. Payment details are managed in your profile settings."
+      description="Published payslips from completed payroll runs are sent to your email. Payment details are managed in your profile settings."
       action={
         paymentSettingsHref ? (
           <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
@@ -351,15 +336,7 @@ function PersonalPayslips({
               <p className="font-medium text-slate-950 dark:text-slate-100">
                 {Number(payslip.netAmount ?? 0).toLocaleString()} {payslip.currency ?? ''}
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                onClick={() => void handleDownload(payslip)}
-              >
-                <Download className="mr-1 size-4" />
-                Download
-              </Button>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Emailed to you</p>
             </div>
           </div>
         ))
