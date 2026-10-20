@@ -325,6 +325,51 @@
   background: linear-gradient(180deg, #fff 0%, #fbfcfb 100%);
 }
 
+/* Entrance motion in CSS so the landing does not ship an animation library. */
+@keyframes landing-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-rise {
+  animation: landing-rise-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-reveal .landing-reveal-item {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.landing-reveal.is-visible .landing-reveal-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Skip layout/paint for below-the-fold sections until they approach the viewport. */
+.landing-deferred-paint {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise,
+  .landing-reveal .landing-reveal-item {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 @media (max-width: 1023px) {
   .landing-hero-grid {
     mask-image: linear-gradient(to bottom, black 0%, transparent 68%);

@@ -114,6 +114,10 @@ type RetryFundingMeta = {
   approvedAt?: string;
   payoutFeeReserve?: number;
   checkoutUrl?: string;
+  /** When the provider checkout creation started, so a wedged "pending" can be retried. */
+  checkoutRequestedAt?: string;
+  lastCheckoutError?: string;
+  lastCheckoutErrorAt?: string;
   fundedAt?: string;
   itemFundingAmounts?: Record<string, number>;
 };
@@ -499,24 +503,37 @@ export class PayrollFloatTopupService {
           );
         }
       }
-      const selectedItemIds = [...(retryFunding.selectedItemIds ?? [])].sort();
-      const requestedItemIds = (
-        retryItemIds ??
-        run?.items
+      const fundedItemIds = new Set(retryFunding.selectedItemIds ?? []);
+      const failedItemIds = new Set(
+        (run?.items ?? [])
           .filter((item) => item.status === PayrollItemStatus.FAILED)
-          .map((item) => item.id) ??
-        []
-      ).sort();
-      if (
-        retryFunding.status !== 'funded' ||
-        !retryFunding.orderReference ||
-        selectedItemIds.length !== requestedItemIds.length ||
-        selectedItemIds.some((id, index) => id !== requestedItemIds[index])
-      ) {
+          .map((item) => item.id),
+      );
+      const requestedItemIds = [...new Set(retryItemIds?.length ? retryItemIds : failedItemIds)];
+      if (requestedItemIds.length === 0) {
+        throw new BadRequestException('There are no failed payouts to retry.');
+      }
+      const notFailed = requestedItemIds.filter((id) => !failedItemIds.has(id));
+      if (notFailed.length > 0) {
         throw new BadRequestException(
-          'Bachs retry requires approved, provider-verified run-scoped funding for exactly the selected failed payouts. ' +
+          'Only payouts that are still failed can be retried. Refresh the run and retry the payouts that still show as failed.',
+        );
+      }
+      if (retryFunding.status !== 'funded' || !retryFunding.orderReference) {
+        throw new BadRequestException(
+          'Bachs retry requires approved, provider-verified run-scoped funding for the selected failed payouts. ' +
             'Open the funding review, approve the shortfall, complete the checkout, then retry once it is verified. ' +
             'A shared Bachs float balance is not accepted as proof.',
+        );
+      }
+      // Funding is approved for a set of failed payouts. Retrying a subset of that set is
+      // always covered, so let the user retry only the payouts that are still failed instead of
+      // forcing the whole funded set (which may now include payouts that already succeeded).
+      const uncoveredItemIds = requestedItemIds.filter((id) => !fundedItemIds.has(id));
+      if (uncoveredItemIds.length > 0) {
+        throw new BadRequestException(
+          `Bachs retry requires approved, provider-verified run-scoped funding that covers every selected payout. ${uncoveredItemIds.length} selected payout(s) are not covered by this run's verified funding. ` +
+            'Open the funding review, approve the shortfall for the payouts you want to retry, complete the checkout, then retry once it is verified.',
         );
       }
       // MultiPaymentService independently verifies the approval and funding ledger entries,
@@ -868,6 +885,53 @@ export class PayrollFloatTopupService {
     };
   }
 
+  /**
+   * Roll a failed checkout creation back to `approved` so the user can try again. Without this
+   * the run stays `pending` with no `checkoutUrl`: no checkout can be opened, every retry is
+   * rejected, and reconciliation reports `pending` forever.
+   */
+  private async resetRetryFundingPendingCheckout(
+    payrollRunId: string,
+    tenantId: string,
+    orderReference: string,
+    error: unknown,
+  ): Promise<void> {
+    const message = error instanceof Error ? error.message : String(error);
+    try {
+      await this.payrollRunRepository.manager.transaction(async (manager) => {
+        const locked = await manager.getRepository(PayrollRun).findOne({
+          where: { id: payrollRunId, tenantId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!locked) return;
+        const latest = this.readRetryFundingMeta(locked);
+        if (
+          latest.orderReference !== orderReference ||
+          latest.status !== 'pending' ||
+          latest.checkoutUrl
+        ) {
+          return;
+        }
+        locked.metadata = {
+          ...locked.metadata,
+          retryFunding: {
+            ...latest,
+            status: 'approved',
+            lastCheckoutError: message.slice(0, 500),
+            lastCheckoutErrorAt: new Date().toISOString(),
+          } satisfies RetryFundingMeta,
+        };
+        await manager.save(locked);
+      });
+    } catch (resetError) {
+      this.logger.warn(
+        `Failed to reset retry funding checkout state for payroll run ${payrollRunId}: ${
+          resetError instanceof Error ? resetError.message : String(resetError)
+        }`,
+      );
+    }
+  }
+
   async createRetryShortfallCheckout(
     payrollRunId: string,
     tenantId: string,
@@ -1000,28 +1064,37 @@ export class PayrollFloatTopupService {
       if (latest.status === 'funded') {
         throw new BadRequestException('Retry funding checkout has already been verified');
       }
-      // A pending checkout with no URL is being created by another request (or its outcome
-      // is unknown). Never issue a second provider checkout for the same approved order.
-      // A caller with a known pending URL returns it before entering this transaction.
+      // A pending checkout with no URL is either being created by another request or its
+      // creation failed after the pending flag was written. Allow a retry once the in-flight
+      // window has passed, otherwise the run is wedged with no checkout and no way out.
+      let effective = latest;
       if (latest.status === 'pending') {
-        throw new BadRequestException(
-          'Retry funding checkout is already being created or reconciled. Check its status before retrying.',
-        );
+        const requestedAt = latest.checkoutRequestedAt
+          ? Date.parse(latest.checkoutRequestedAt)
+          : Number.NaN;
+        const inFlight = Number.isFinite(requestedAt) && Date.now() - requestedAt < 180_000;
+        if (inFlight) {
+          throw new BadRequestException(
+            'Retry funding checkout is already being created or reconciled. Check its status before retrying.',
+          );
+        }
+        effective = { ...latest, status: 'approved' };
       }
-      if (latest.status !== 'approved') {
+      if (effective.status !== 'approved') {
         throw new BadRequestException('Retry funding approval is no longer active');
       }
       const lockedItems = await manager.getRepository(PayrollItem).find({
         where: { payrollRunId },
         lock: { mode: 'pessimistic_write' },
       });
-      const selectedItems = lockedItems.filter((item) => latest.selectedItemIds?.includes(item.id));
+      const effectiveSelectedIds = effective.selectedItemIds;
+      const selectedItems = lockedItems.filter((item) => effectiveSelectedIds?.includes(item.id));
       if (
-        selectedItems.length !== latest.selectedItemIds?.length ||
+        selectedItems.length !== effectiveSelectedIds?.length ||
         selectedItems.some((item) => item.status !== PayrollItemStatus.FAILED) ||
         lockedItems.some(
           (item) =>
-            !latest.selectedItemIds?.includes(item.id) &&
+            !effectiveSelectedIds?.includes(item.id) &&
             (item.status === PayrollItemStatus.PENDING ||
               item.status === PayrollItemStatus.PROCESSING ||
               item.metadata?.payoutSubmissionPending === true),
@@ -1034,36 +1107,48 @@ export class PayrollFloatTopupService {
       locked.metadata = {
         ...locked.metadata,
         retryFunding: {
-          ...latest,
+          ...effective,
           status: 'pending',
+          checkoutRequestedAt: new Date().toISOString(),
         } satisfies RetryFundingMeta,
       };
       await manager.save(locked);
     });
 
-    const checkout = await adapter.createCheckout({
-      orderReference: meta.orderReference,
-      customerEmail,
-      amount: checkoutAmount,
-      currency: meta.currency,
-      callbackUrl,
-      customerName: resolveCheckoutCustomerFullName(tenant?.name, customerEmail),
-      savePaymentMethod: false,
-      meta: {
-        tenantId,
-        payrollRunId,
-        billingType: 'payroll_retry_funding',
-        expectedAmount: String(checkoutAmount),
-        selectedItemIds: meta.selectedItemIds.join(','),
-        approvedById: meta.approvedById,
-        initiatedByMemberId: memberId,
-      },
-    });
+    let checkout: { orderReference: string; checkoutLink: string };
+    try {
+      checkout = await adapter.createCheckout({
+        orderReference: meta.orderReference,
+        customerEmail,
+        amount: checkoutAmount,
+        currency: meta.currency,
+        callbackUrl,
+        customerName: resolveCheckoutCustomerFullName(tenant?.name, customerEmail),
+        savePaymentMethod: false,
+        meta: {
+          tenantId,
+          payrollRunId,
+          billingType: 'payroll_retry_funding',
+          expectedAmount: String(checkoutAmount),
+          selectedItemIds: meta.selectedItemIds.join(','),
+          approvedById: meta.approvedById,
+          initiatedByMemberId: memberId,
+        },
+      });
 
-    if (checkout.orderReference !== meta.orderReference) {
-      throw new BadRequestException(
-        'Bachs checkout returned a different order reference. Reconcile this checkout before retrying.',
+      if (checkout.orderReference !== meta.orderReference) {
+        throw new BadRequestException(
+          'Bachs checkout returned a different order reference. Reconcile this checkout before retrying.',
+        );
+      }
+    } catch (error) {
+      await this.resetRetryFundingPendingCheckout(
+        payrollRunId,
+        tenantId,
+        meta.orderReference,
+        error,
       );
+      throw error;
     }
     await this.payrollRunRepository.manager.transaction(async (manager) => {
       const locked = await manager.getRepository(PayrollRun).findOne({

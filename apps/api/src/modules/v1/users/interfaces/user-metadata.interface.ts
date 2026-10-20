@@ -11,6 +11,26 @@ export interface UserConsentMetadata {
 
 export interface UserMetadata {
   consent?: UserConsentMetadata;
+  /** Marketing attribution captured at signup (see web attribution module). */
+  attribution?: UserSignupAttribution;
+}
+
+export interface UserSignupAttribution {
+  source: string;
+  medium: string;
+  campaign?: string;
+  term?: string;
+  content?: string;
+  clickId?: string;
+  clickIdType?: string;
+  referrer?: string;
+  landingPage?: string;
+  capturedAt?: string;
+  firstSource?: string;
+  firstMedium?: string;
+  firstCampaign?: string;
+  firstLandingPage?: string;
+  firstCapturedAt?: string;
 }
 
 export function buildUserConsentMetadata(termsAccepted = true): UserMetadata {

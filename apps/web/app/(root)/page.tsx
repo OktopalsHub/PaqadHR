@@ -3,7 +3,12 @@ import { LandingJsonLd } from '@/features/home/components/landing-json-ld';
 import { LandingPage } from '@/features/home/components/landing-page';
 
 export const metadata: Metadata = {
-  title: 'PaqadHR',
+  // `absolute` bypasses the root layout's `%s · PaqadHR` template, which turned
+  // a page title of "PaqadHR" into "PaqadHR · PaqadHR" and spent the whole title
+  // budget on the brand instead of the category.
+  title: {
+    absolute: 'PaqadHR — HR, payroll & recognition in one workspace',
+  },
   description:
     'Hire, pay, and recognize your people in one workspace. Recruitment kanban, payroll, leave management, and Slack shoutouts for growing teams.',
   keywords: [
@@ -20,7 +25,7 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: 'PaqadHR',
+    title: 'PaqadHR — HR, payroll & recognition in one workspace',
     description:
       'Hire, pay, and recognize your people in one workspace. Recruitment, payroll, leave, and shoutouts.',
     type: 'website',
@@ -37,7 +42,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PaqadHR',
+    title: 'PaqadHR — HR, payroll & recognition in one workspace',
     description:
       'Hire, pay, and recognize your people in one workspace. Recruitment, payroll, leave, and shoutouts.',
     images: ['/opengraph-image'],

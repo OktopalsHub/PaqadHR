@@ -11,7 +11,7 @@ const showcasePalettes = [
 export const LandingShowcase = () => {
   return (
     <section
-      className="landing-showcase-section relative overflow-hidden py-24 md:py-32"
+      className="landing-showcase-section landing-deferred-paint relative overflow-hidden py-24 md:py-32"
       id="product"
     >
       <div className="pointer-events-none absolute -left-40 top-40 size-[31rem] rounded-full bg-[#ebe4ff]/55 blur-3xl" />

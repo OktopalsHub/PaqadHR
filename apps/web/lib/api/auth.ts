@@ -4,6 +4,7 @@ import { fetchUserTenants } from '@/lib/api/tenants';
 import { cacheKeys, MAX_CACHE_TTL, setCached } from '@/lib/cache';
 import { isPublicAuthOrMarketingPath } from '@/lib/navigation/public-routes';
 import { isOnTenantSubdomain } from '@/lib/navigation/tenant-routes';
+import { readSignupAttribution } from '@/lib/observability/attribution';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
 import { type SessionBootstrap, sessionBootstrapSchema } from '@/lib/schemas/session-bootstrap';
@@ -194,12 +195,15 @@ export async function login(input: LoginInput): Promise<SessionBootstrap> {
 }
 
 export async function register(input: SignupInput): Promise<RegistrationResponse> {
+  const attribution = readSignupAttribution();
+
   return apiClient<RegistrationResponse>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({
       email: input.email,
       password: input.password,
       termsAccepted: true,
+      ...(attribution ? { attribution } : {}),
     }),
     skipCsrf: true,
   });

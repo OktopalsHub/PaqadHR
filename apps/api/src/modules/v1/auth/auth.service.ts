@@ -10,6 +10,7 @@ import type { User } from '../users/entities/user.entity';
 import { UserRepository } from '../users/repositories/users.repository';
 import type { OtpPurpose } from './dto/otp.dto';
 import type { SessionBootstrapResponseDto } from './dto/session-bootstrap-response.dto';
+import type { SignupAttributionDto } from './dto/signup-attribution.dto';
 import { type AuthAuditContext, AuthCredentialService } from './services/auth-credential.service';
 import { AuthEmailVerificationService } from './services/auth-email-verification.service';
 import { AuthOAuthService } from './services/auth-oauth.service';
@@ -54,8 +55,16 @@ export class AuthService {
     geo: GeoRequestContext = {},
     inviteToken?: string,
     termsAccepted?: boolean,
+    attribution?: SignupAttributionDto,
   ): Promise<{ user: User; invitation?: unknown }> {
-    return this.credentialService.register(email, password, geo, inviteToken, termsAccepted);
+    return this.credentialService.register(
+      email,
+      password,
+      geo,
+      inviteToken,
+      termsAccepted,
+      attribution,
+    );
   }
 
   async findOrCreateGoogleUser(

@@ -83,11 +83,12 @@ export function AppVersionWatcher() {
       }
     };
 
-    void checkVersion();
+    const initialCheck = window.setTimeout(() => void checkVersion(), 15_000);
     const interval = window.setInterval(() => void checkVersion(), POLL_MS);
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
+      window.clearTimeout(initialCheck);
       window.clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
     };

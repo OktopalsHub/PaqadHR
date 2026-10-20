@@ -2,40 +2,42 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+import { captureAttribution } from '@/lib/observability/attribution';
 import { resetCorrelationId } from '@/lib/observability/correlation-id';
 import {
   capturePageview,
-  identifyPostHog,
   initPostHog,
-  resetPostHog,
+  registerAttribution,
 } from '@/lib/observability/posthog-client';
 
-type ObservabilityProviderProps = {
-  children: React.ReactNode;
-  userId?: string | null;
-  /** Salted id the API reports for the signed-in user; null when analytics is off. */
-  analyticsDistinctId?: string | null;
-  /** Only act on identity once the session bootstrap has settled. */
-  ready?: boolean;
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
 };
 
-export function ObservabilityProvider({
-  children,
-  userId,
-  analyticsDistinctId,
-  ready = false,
-}: ObservabilityProviderProps) {
+/**
+ * Marketing-safe analytics. It owns anonymous pageviews for every route, but
+ * never mounts auth/tenant/query state. Signed-in identity is attached later by
+ * `ObservabilityIdentity` inside `AppProviders`.
+ */
+export function ObservabilityProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    initPostHog();
-  }, []);
+    // Queue attribution before the first pageview, then load PostHog when the
+    // browser is idle so it never competes with first paint.
+    const attribution = captureAttribution();
+    registerAttribution(attribution);
 
-  useEffect(() => {
-    if (!ready) return;
-    if (userId && analyticsDistinctId) identifyPostHog(analyticsDistinctId);
-    else resetPostHog();
-  }, [ready, userId, analyticsDistinctId]);
+    const idleWindow = window as IdleWindow;
+    if (idleWindow.requestIdleCallback) {
+      const handle = idleWindow.requestIdleCallback(() => initPostHog(), { timeout: 3000 });
+      return () => idleWindow.cancelIdleCallback?.(handle);
+    }
+
+    const timer = window.setTimeout(() => initPostHog(), 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     resetCorrelationId();

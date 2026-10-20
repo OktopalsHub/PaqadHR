@@ -75,6 +75,7 @@ export class AuthSessionController {
       { ip, headers: req.headers },
       undefined,
       body.termsAccepted,
+      body.attribution,
     );
     return {
       email: user.email,

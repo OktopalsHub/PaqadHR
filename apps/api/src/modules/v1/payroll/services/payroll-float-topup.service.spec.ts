@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import type { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
@@ -963,5 +964,46 @@ describe('PayrollFloatTopupService retry funding verification and reuse guards',
         service.previewRetryShortfall('run-1', 'tenant-1', ['item-failed']),
       ).rejects.toThrow(/Reconcile all paid payroll items/);
     });
+  });
+
+  it('allows retrying a subset of a funded selection of failed payouts', async () => {
+    const { service, payrollRunRepository } = createReconcileService();
+    const run = retryRun(
+      undefined,
+      {
+        retryFunding: {
+          orderReference: 'pb_retry_ref',
+          status: 'funded',
+          selectedItemIds: ['item-failed', 'item-payer'],
+          amount: 50,
+          currency: 'USD',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+          itemFundingAmounts: { 'item-failed': 25, 'item-payer': 25 },
+        },
+      },
+      [
+        { id: 'item-failed', status: PayrollItemStatus.FAILED },
+        { id: 'item-payer', status: PayrollItemStatus.PAID },
+        { id: 'item-unfunded', status: PayrollItemStatus.FAILED },
+      ],
+    );
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    jest.spyOn(service, 'preflight').mockResolvedValue({
+      provider: PaymentProvider.BACHS,
+    } as never);
+
+    // Only the payout that failed again is retried, even though funding covered both.
+    await expect(
+      service.assertRetryFundedOrThrow('run-retry', 'tenant-1', ['item-failed']),
+    ).resolves.toBeUndefined();
+    // A payout that already succeeded cannot be retried.
+    await expect(
+      service.assertRetryFundedOrThrow('run-retry', 'tenant-1', ['item-payer']),
+    ).rejects.toThrow(/Only payouts that are still failed/);
+    // A failed payout outside the funded selection needs a new approval.
+    await expect(
+      service.assertRetryFundedOrThrow('run-retry', 'tenant-1', ['item-unfunded']),
+    ).rejects.toThrow(/are not covered by this run's verified funding/);
   });
 });

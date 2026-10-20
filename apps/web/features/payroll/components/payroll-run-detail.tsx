@@ -535,12 +535,12 @@ export function PayrollRunDetail({
         selectedItemIds.every((id) => existingSelectedIds.includes(id))
       ) {
         // Funding for these payouts is already verified and paid: pay them out instead of quoting
-        // a new shortfall (which would charge the company a second time). The backend only accepts
-        // a retry for the full funded selection, so retry that set even for a single row click.
+        // a new shortfall (which would charge the company a second time). Retry only the payouts
+        // the user actually selected — the backend accepts any subset of the funded selection.
         try {
           const response = await actions.retryFailed.mutateAsync({
             id: runId,
-            itemIds: existingSelectedIds,
+            itemIds: selectedItemIds,
           });
           toastPayrollPayoutResult(response.result, 'retry');
         } catch (err) {
@@ -622,6 +622,39 @@ export function PayrollRunDetail({
           await refetch();
           return;
         } catch (previewError) {
+          // The run may already hold an active or already-funded retry approval (the UI failed to
+          // classify the run as Bachs, or the failed set changed after funding). Surface that
+          // approval in the review dialog so the user can verify it instead of dead-ending on a
+          // toast that asks them to do something the dialog is the only place to do.
+          const existingIds = Array.isArray(retryFundingMeta?.selectedItemIds)
+            ? (retryFundingMeta.selectedItemIds as string[]).slice().sort()
+            : [];
+          const existingCurrency =
+            typeof retryFundingMeta?.currency === 'string' ? retryFundingMeta.currency : null;
+          const existingAmount = Number(retryFundingMeta?.amount ?? 0);
+          if (existingIds.length > 0 && existingCurrency && existingAmount > 0) {
+            setRetryFundingItemIds(existingIds);
+            setRetryFundingPreview({
+              amount: Number(retryFundingMeta?.checkoutAmount ?? existingAmount),
+              requiredAmount: existingAmount,
+              balanceApplied: Number(retryFundingMeta?.balanceApplied ?? 0),
+              availableBalance:
+                typeof retryFundingMeta?.availableBalance === 'number'
+                  ? retryFundingMeta.availableBalance
+                  : null,
+              currency: existingCurrency,
+              selectedItemIds: existingIds,
+              platformFee: 0,
+              payoutFeeReserve: Number(retryFundingMeta?.payoutFeeReserve ?? 0),
+            });
+            setRetryFundingApproved(
+              retryFundingMeta?.status === 'approved' || retryFundingMeta?.status === 'funded',
+            );
+            setRetryFundingReviewOpen(true);
+            toast.message('This run already has retry funding. Verify it before retrying.');
+            await refetch();
+            return;
+          }
           toast.error(
             previewError instanceof Error
               ? previewError.message
@@ -687,11 +720,20 @@ export function PayrollRunDetail({
         toast.error('Checkout URL was not returned. You can continue checkout from this dialog.');
         return;
       }
-      await openCheckoutUrlWithOptionalTab(checkout.checkoutUrl, checkoutTab);
+      await openCheckoutUrlWithOptionalTab(checkout.checkoutUrl, checkoutTab, {
+        // The overlay can complete before the collection webhook lands. Reconciling here proves
+        // the credit server-to-server, so the run unlocks without the user having to guess.
+        onCompleted: () => {
+          void actions.reconcileRetryFunding
+            .mutateAsync(runId)
+            .then(() => refetch())
+            .catch(() => undefined);
+        },
+      });
+      setRetryFundingReviewOpen(false);
       toast.message(
         `Complete the company-funded retry checkout for ${checkout.amount.toLocaleString()} ${checkout.currency}. Employee payouts will not start until you retry after funding is verified.`,
       );
-      setRetryFundingReviewOpen(false);
       await refetch();
       await fundingLedgerQuery.refetch();
     } catch (err) {
