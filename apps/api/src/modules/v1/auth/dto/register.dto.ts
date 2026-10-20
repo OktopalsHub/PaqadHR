@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   Equals,
   IsBoolean,
@@ -8,12 +9,14 @@ import {
   IsString,
   Matches,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import {
   STRONG_PASSWORD_MESSAGE,
   STRONG_PASSWORD_REGEX,
 } from 'src/common/constants/password-policy.constant';
 import { NormalizeEmail } from 'src/common/decorators';
+import { SignupAttributionDto } from './signup-attribution.dto';
 
 export class RegisterDto {
   @ApiProperty({ example: 'user@example.com' })
@@ -38,4 +41,10 @@ export class RegisterDto {
   @IsBoolean()
   @Equals(true, { message: 'You must accept the terms and privacy policy to register' })
   termsAccepted: boolean;
+
+  @ApiPropertyOptional({ type: SignupAttributionDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SignupAttributionDto)
+  attribution?: SignupAttributionDto;
 }

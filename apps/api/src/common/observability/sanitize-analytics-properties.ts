@@ -37,6 +37,10 @@ const ALLOWED_PROPERTY_KEYS = new Set([
   'ok',
   'type',
   'is_first',
+  'signup_source',
+  'signup_medium',
+  'utm_campaign',
+  'landing_page',
 ]);
 
 export function sanitizeAnalyticsProperties(

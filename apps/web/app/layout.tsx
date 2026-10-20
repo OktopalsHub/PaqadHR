@@ -2,15 +2,9 @@ import type { Metadata } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
 import { headers } from 'next/headers';
 import './globals.css';
-import { AppVersionWatcher } from '@/components/app-version-watcher';
-import { Toaster } from '@/components/ui/sonner';
 import { brandFaviconUrls } from '@/lib/brand';
 import { CSP_NONCE_HEADER } from '@/lib/security/csp-nonce';
-import { AuthProvider } from '@/providers/auth-provider';
-import { CsrfBootstrap } from '@/providers/csrf-bootstrap';
-import { ObservabilityBridge } from '@/providers/observability-bridge';
-import { QueryProvider } from '@/providers/query-provider';
-import { TenantProvider } from '@/providers/tenant-provider';
+import { ObservabilityProvider } from '@/providers/observability-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
 
 const montserrat = Montserrat({
@@ -77,24 +71,15 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning nonce={nonce}>
       <body className={`${montserrat.variable} ${inter.variable} antialiased font-sans`}>
-        <QueryProvider>
-          <AppVersionWatcher />
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-            nonce={nonce}
-          >
-            <AuthProvider>
-              <CsrfBootstrap />
-              <ObservabilityBridge>
-                <TenantProvider>{children}</TenantProvider>
-              </ObservabilityBridge>
-            </AuthProvider>
-            <Toaster position="top-center" invert richColors closeButton />
-          </ThemeProvider>
-        </QueryProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          nonce={nonce}
+        >
+          <ObservabilityProvider>{children}</ObservabilityProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

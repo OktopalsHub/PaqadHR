@@ -1,6 +1,6 @@
 # Cookie Notice
 
-**Last modified:** 8 October 2026
+**Last modified:** 20 October 2026
 
 This Cookie Notice explains how Oktopals Limited ("**Oktopals Limited**," "**we**," "**us**," or "**our**"), operating Paqad, uses cookies and similar technologies on paqadhr.com and other sites or apps that link to this notice (the "**Sites**").
 
@@ -15,10 +15,11 @@ We may use session cookies (deleted when you close the browser) and persistent c
 | Type | Purpose | Examples | How to control |
 | --- | --- | --- | --- |
 | Essential | Required for sign-in, security, load balancing, and core product operation | Auth session cookies (httpOnly), CSRF/security tokens | Required for the Service; block via browser may prevent sign-in |
+| Attribution | Remember which campaign or website brought a visitor to Paqad so we can measure marketing | `paqad_attribution` (first-party, 90 days, stores UTM parameters and ad click identifiers) | Browser cookie controls; contact info@paqadhr.com |
 | Analytics | Understand product usage and improve Paqad | PostHog | Browser cookie controls; contact info@paqadhr.com |
 | Functionality / diagnostics | Detect errors and improve reliability | Sentry | Browser controls; contact info@paqadhr.com |
 
-We do **not** use advertising or social-media advertising cookies.
+We do **not** set advertising or social-media advertising cookies, and we do not use advertising cookies to target ads. When you follow a campaign link, we do record the campaign parameters and ad click identifiers from that link (for example `utm_source`, `gclid`, or `fbclid`) in our first-party attribution cookie and analytics so we can measure which campaigns bring visitors to Paqad.
 
 ## Other technologies
 

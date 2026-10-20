@@ -447,8 +447,25 @@ export function PayrollPage() {
         return;
       }
       if (action === 'retry') {
-        const response = await actions.retryFailed.mutateAsync({ id });
-        toastPayrollPayoutResult(response.result, 'retry');
+        try {
+          const response = await actions.retryFailed.mutateAsync({ id });
+          toastPayrollPayoutResult(response.result, 'retry');
+        } catch (err) {
+          const message = err instanceof Error ? err.message : '';
+          // Bachs retries need run-scoped funding, which can only be reviewed on the run page.
+          // Sending the user there beats retrying an endpoint that will keep returning 400.
+          if (
+            message.includes(
+              'Bachs retry requires approved, provider-verified run-scoped funding',
+            ) ||
+            message.includes('Bachs retry funding does not cover')
+          ) {
+            setSelectedRunId(id);
+            toast.message('This run needs company-funded retry funding. Review it here.');
+            return;
+          }
+          throw err;
+        }
         return;
       }
       if (action === 'schedule') {

@@ -50,7 +50,7 @@ export const LandingNav = () => {
     <header className="sticky top-0 z-50 border-b border-border/80 bg-background/85 backdrop-blur-xl">
       <div className="mx-auto grid h-[4.5rem] max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6 lg:px-8">
         <Link href="/" aria-label="Paqad home" className="justify-self-start">
-          <PaqadLogo />
+          <PaqadLogo priority />
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex" aria-label="Main">

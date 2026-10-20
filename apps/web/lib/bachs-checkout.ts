@@ -21,6 +21,10 @@ type BachsSdk = {
 
 const BACHS_SCRIPT_SRC = 'https://checkout.bachs.io/bachs.js';
 const BACHS_CHECKOUT_HOSTS = new Set(['checkout.bachs.io', 'sandbox-checkout.bachs.io']);
+/** A blocked or stalled loader must fall back to the hosted page instead of hanging forever. */
+const BACHS_SDK_TIMEOUT_MS = 10_000;
+/** `Checkout.open()` resolves once the modal is mounted; a stuck mount falls back too. */
+const BACHS_OPEN_TIMEOUT_MS = 10_000;
 
 let loadPromise: Promise<BachsSdk> | null = null;
 /** Which SDK instance currently holds which checkout origin, so we never skip Initialize. */
@@ -60,16 +64,37 @@ function loadBachsSdk(): Promise<BachsSdk> {
   if (loadPromise) return loadPromise;
 
   loadPromise = new Promise((resolve, reject) => {
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const succeed = (sdk: BachsSdk) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      resolve(sdk);
+    };
+    const fail = (element: HTMLScriptElement | null) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      failSdkLoad(element, reject);
+    };
+
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${BACHS_SCRIPT_SRC}"]`);
     if (existing) {
       const nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce;
       if (nonce && !existing.nonce) existing.nonce = nonce;
       existing.addEventListener('load', () => {
-        if (window.Bachs) resolve(window.Bachs);
-        else failSdkLoad(existing, reject);
+        if (window.Bachs) succeed(window.Bachs);
+        else fail(existing);
       });
-      existing.addEventListener('error', () => failSdkLoad(existing, reject));
-      if (window.Bachs) resolve(window.Bachs);
+      existing.addEventListener('error', () => fail(existing));
+      if (window.Bachs) {
+        succeed(window.Bachs);
+        return;
+      }
+      // The tag is already in the document (possibly stalled by a proxy or an extension that
+      // never fires `error`), so bound the wait and let the caller redirect instead.
+      timer = setTimeout(() => fail(existing), BACHS_SDK_TIMEOUT_MS);
       return;
     }
 
@@ -81,11 +106,15 @@ function loadBachsSdk(): Promise<BachsSdk> {
     const nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce;
     if (nonce) script.nonce = nonce;
     script.onload = () => {
-      if (window.Bachs) resolve(window.Bachs);
-      else failSdkLoad(script, reject);
+      if (window.Bachs) succeed(window.Bachs);
+      else fail(script);
     };
-    script.onerror = () => failSdkLoad(script, reject);
+    script.onerror = () => fail(script);
     document.head.appendChild(script);
+    // A stalled request (captive portal, DNS blackhole, extension that swallows the request
+    // without firing `error`) would otherwise leave the checkout button spinning forever.
+    // `failSdkLoad` also clears the cached promise so the next attempt can load again.
+    timer = setTimeout(() => fail(script), BACHS_SDK_TIMEOUT_MS);
   });
 
   return loadPromise;
@@ -120,18 +149,28 @@ async function openBachsOverlay(
 
   try {
     const Bachs = await ensureInitialized(origin);
-    await Bachs.Checkout.open({
-      checkoutUrl,
-      onEvent: (event) => {
-        if (event.type === 'checkout.completed') {
-          options.onCompleted?.(event.data?.reference);
-        } else if (event.type === 'checkout.failed' || event.type === 'checkout.expired') {
-          options.onFailed?.();
-        } else if (event.type === 'checkout.closed') {
-          options.onClosed?.(event.data?.reason);
-        }
-      },
-    });
+    // Wait for the modal to mount, but never longer than the timeout: a stuck mount means the
+    // caller should fall back to the hosted checkout page rather than spin indefinitely.
+    let openTimer: ReturnType<typeof setTimeout> | undefined;
+    const mounted = await Promise.race([
+      Bachs.Checkout.open({
+        checkoutUrl,
+        onEvent: (event) => {
+          if (event.type === 'checkout.completed') {
+            options.onCompleted?.(event.data?.reference);
+          } else if (event.type === 'checkout.failed' || event.type === 'checkout.expired') {
+            options.onFailed?.();
+          } else if (event.type === 'checkout.closed') {
+            options.onClosed?.(event.data?.reason);
+          }
+        },
+      }).then(() => true),
+      new Promise<boolean>((resolve) => {
+        openTimer = setTimeout(() => resolve(false), BACHS_OPEN_TIMEOUT_MS);
+      }),
+    ]);
+    if (openTimer) clearTimeout(openTimer);
+    if (!mounted) return false;
   } catch {
     // SDK load / Initialize / open() failures all reject before anything is mounted
     // (bad token, wrong origin, script blocked). The hosted checkout page is a valid

@@ -1,12 +1,10 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { ArrowDownRight, ArrowUpRight, Check, Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { fadeUp, stagger } from '../../constants/landing-motion';
 
 const ProductDemoShell = dynamic(
   () => import('../product-demo/product-demo-shell').then((mod) => mod.ProductDemoShell),
@@ -50,41 +48,39 @@ export const LandingHero = () => {
       <div className="landing-hero-grid pointer-events-none absolute inset-0" />
       <div className="landing-hero-orb pointer-events-none absolute -right-40 -top-32 size-[34rem] rounded-full" />
 
-      <motion.div
-        className="relative mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-end lg:gap-8 lg:px-8"
-        initial="hidden"
-        animate="show"
-        variants={stagger}
-      >
+      <div className="relative mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-end lg:gap-8 lg:px-8">
         <div className="max-w-2xl pt-3 lg:pb-8">
-          <motion.div
-            variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/75 py-1.5 pl-2 pr-3 text-xs font-semibold text-foreground shadow-sm backdrop-blur"
+          <div
+            className="landing-rise inline-flex items-center gap-2 rounded-full border border-primary/20 bg-card/75 py-1.5 pl-2 pr-3 text-xs font-semibold text-foreground shadow-sm backdrop-blur"
+            style={{ animationDelay: '0.04s' }}
           >
             <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <Sparkles className="size-3" />
             </span>
             The calm way to run a growing team
-          </motion.div>
+          </div>
 
-          <motion.h1
-            variants={fadeUp}
-            className="mt-7 max-w-xl text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.06em] text-foreground sm:text-6xl lg:text-[4.7rem]"
+          <h1
+            className="landing-rise mt-7 max-w-xl text-[2.75rem] font-semibold leading-[0.98] tracking-[-0.06em] text-foreground sm:text-6xl lg:text-[4.7rem]"
+            style={{ animationDelay: '0.1s' }}
           >
             People work is
             <span className="block text-primary">real work.</span>
             Treat it that way.
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            variants={fadeUp}
-            className="mt-7 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg"
+          <p
+            className="landing-rise mt-7 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg"
+            style={{ animationDelay: '0.16s' }}
           >
             Paqad gives your team one considered place to hire, pay, plan time off, and make good
             work visible.
-          </motion.p>
+          </p>
 
-          <motion.div variants={fadeUp} className="mt-8 flex flex-wrap items-center gap-3">
+          <div
+            className="landing-rise mt-8 flex flex-wrap items-center gap-3"
+            style={{ animationDelay: '0.22s' }}
+          >
             <Button
               asChild
               size="lg"
@@ -100,21 +96,24 @@ export const LandingHero = () => {
             >
               See the workspace <ArrowDownRight className="size-4 text-primary" />
             </a>
-          </motion.div>
+          </div>
 
-          <motion.div
-            variants={fadeUp}
-            className="mt-8 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground"
+          <div
+            className="landing-rise mt-8 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground"
+            style={{ animationDelay: '0.28s' }}
           >
             {['14 days free', 'No card required', 'Set up in an afternoon'].map((item) => (
               <span key={item} className="inline-flex items-center gap-1.5">
                 <Check className="size-3.5 text-primary" /> {item}
               </span>
             ))}
-          </motion.div>
+          </div>
         </div>
 
-        <motion.div variants={fadeUp} className="relative mx-auto w-full max-w-md lg:mx-0 lg:mb-1">
+        <div
+          className="landing-rise relative mx-auto w-full max-w-md lg:mx-0 lg:mb-1"
+          style={{ animationDelay: '0.18s' }}
+        >
           <div className="landing-note-card landing-note-card-top absolute -left-4 -top-4 z-10 hidden w-52 rounded-2xl p-4 shadow-lg lg:block">
             <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               This week <span className="text-primary">On track</span>
@@ -170,8 +169,8 @@ export const LandingHero = () => {
               </div>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       <div className="relative mx-auto mt-20 max-w-7xl px-6 pb-8 lg:px-8 md:mt-24 md:pb-12">
         <div className="mb-4 flex items-center justify-between">

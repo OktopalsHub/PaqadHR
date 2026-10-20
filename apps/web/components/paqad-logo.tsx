@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils';
 type PaqadLogoProps = {
   className?: string;
   showWordmark?: boolean;
+  priority?: boolean;
 };
 
-export function PaqadLogo({ className, showWordmark = true }: PaqadLogoProps) {
+export function PaqadLogo({ className, showWordmark = true, priority = false }: PaqadLogoProps) {
   const mode = useBrandMode();
   const variant = showWordmark ? 'lockup' : 'icon';
   const src = brandAssetUrl(variant, mode);
@@ -19,6 +20,11 @@ export function PaqadLogo({ className, showWordmark = true }: PaqadLogoProps) {
     <img
       src={src}
       alt="Paqadhr"
+      width={showWordmark ? 357 : 58}
+      height={67}
+      decoding="async"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
       className={cn(showWordmark ? 'h-8 w-auto' : 'size-8 object-contain', className)}
     />
   );

@@ -519,35 +519,51 @@ export class MultiPaymentService {
       approvedById?: string;
       itemFundingAmounts?: Record<string, number>;
     };
-    const selectedIds = [...(meta.selectedItemIds ?? [])].sort();
-    const requestedIds = failedItems.map((item) => item.id).sort();
+    const fundedIds = [...(meta.selectedItemIds ?? [])].sort();
+    const fundedIdSet = new Set(fundedIds);
+    const requestedIds = [...new Set(failedItems.map((item) => item.id))].sort();
+    if (requestedIds.length === 0) {
+      throw new BadRequestException('No failed payments found to retry');
+    }
     if (
       meta.status !== 'funded' ||
       !meta.orderReference ||
       !meta.approvedById ||
       !meta.currency ||
       !Number.isFinite(Number(meta.amount)) ||
-      Number(meta.amount) <= 0 ||
-      selectedIds.length !== requestedIds.length ||
-      selectedIds.some((id, index) => id !== requestedIds[index])
+      Number(meta.amount) <= 0
     ) {
       throw new BadRequestException(
-        'Bachs retry requires completed checkout funding approved for exactly the selected failed payouts.',
+        'Bachs retry requires completed checkout funding approved for this run. Approve and fund the retry shortfall before retrying failed payouts.',
+      );
+    }
+    // Retrying a subset of the funded selection is always covered by that funding; only a
+    // payout outside it needs a new approval. This is what lets a user retry just the payout
+    // that failed again after the rest of a funded batch succeeded.
+    const uncoveredIds = requestedIds.filter((id) => !fundedIdSet.has(id));
+    if (uncoveredIds.length > 0) {
+      throw new BadRequestException(
+        `Bachs retry funding does not cover ${uncoveredIds.length} of the selected failed payout(s). Approve the retry shortfall for them before retrying.`,
       );
     }
 
     const allocations = meta.itemFundingAmounts ?? {};
     const allocationIds = Object.keys(allocations).sort();
+    const requestedAllocationsValid = requestedIds.every((id) => {
+      const amount = Number(allocations[id]);
+      return Number.isFinite(amount) && amount > 0;
+    });
     if (
-      allocationIds.length !== selectedIds.length ||
-      allocationIds.some((id, index) => id !== selectedIds[index]) ||
+      allocationIds.length !== fundedIds.length ||
+      allocationIds.some((id, index) => id !== fundedIds[index]) ||
       Math.abs(
         Object.values(allocations).reduce((sum, amount) => sum + Number(amount), 0) -
           Number(meta.amount),
       ) > 0.01 ||
       Object.values(allocations).some(
         (amount) => !Number.isFinite(Number(amount)) || Number(amount) <= 0,
-      )
+      ) ||
+      !requestedAllocationsValid
     ) {
       throw new BadRequestException(
         'Approved Bachs retry funding allocations are incomplete or inconsistent',
@@ -565,7 +581,7 @@ export class MultiPaymentService {
         entry.eventType === PayrollFundingLedgerEventType.FUNDING_RECEIVED &&
         entry.providerReference === meta.orderReference,
     );
-    const expectedSelectedIds = selectedIds.join(',');
+    const expectedSelectedIds = fundedIds.join(',');
     if (
       !approval ||
       approval.provider !== PaymentProvider.BACHS ||
@@ -611,7 +627,7 @@ export class MultiPaymentService {
       ledger.entries.some(
         (entry) =>
           entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED &&
-          selectedIds.includes(entry.payrollItemId ?? ''),
+          requestedIds.includes(entry.payrollItemId ?? ''),
       )
     ) {
       throw new BadRequestException(

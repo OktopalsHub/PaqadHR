@@ -1,31 +1,39 @@
 'use client';
 
-import { motion, useInView } from 'framer-motion';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
-import { fetchLandingPricing } from '@/lib/api/subscriptions';
 import { LANDING_PRICING_BY_CURRENCY, PLAN_CATALOG } from '@/lib/constants/plan-catalog';
-import { fadeUp, stagger } from '../../constants/landing-motion';
 import { createLandingPricingCurrencyController } from '../../lib/landing-pricing-currency';
+import { useLandingReveal } from '../../lib/use-landing-reveal';
 
 export const LandingCta = () => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-60px' });
+  const { ref, visible } = useLandingReveal<HTMLElement>('-60px');
   const [currency, setCurrency] = useState('USD');
 
   useEffect(() => {
+    if (!visible) return;
+
+    let cancelled = false;
     const controller = createLandingPricingCurrencyController(setCurrency);
 
-    void fetchLandingPricing()
-      .then((result) => controller.applyResolvedCurrency(result))
-      .catch(() => controller.applyFallbackCurrency());
+    // Keep axios and the API client out of the landing page's initial bundle;
+    // this only runs once the pricing section is near the viewport.
+    void import('@/lib/api/subscriptions')
+      .then(({ fetchLandingPricing }) => fetchLandingPricing())
+      .then((result) => {
+        if (!cancelled) controller.applyResolvedCurrency(result);
+      })
+      .catch(() => {
+        if (!cancelled) controller.applyFallbackCurrency();
+      });
 
     return () => {
+      cancelled = true;
       controller.cleanup();
     };
-  }, []);
+  }, [visible]);
 
   const plans = useMemo(() => {
     const prices = LANDING_PRICING_BY_CURRENCY[currency] ?? LANDING_PRICING_BY_CURRENCY.USD;
@@ -36,18 +44,16 @@ export const LandingCta = () => {
   }, [currency]);
 
   return (
-    <section id="pricing" ref={ref} className="landing-pricing-section py-24 md:py-32">
-      <motion.div
-        className="mx-auto max-w-7xl px-6 lg:px-8"
-        initial="hidden"
-        animate={inView ? 'show' : 'hidden'}
-        variants={stagger}
-      >
+    <section
+      id="pricing"
+      ref={ref}
+      className={`landing-pricing-section landing-reveal landing-deferred-paint py-24 md:py-32 ${
+        visible ? 'is-visible' : ''
+      }`}
+    >
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="overflow-hidden rounded-[2rem] border border-border bg-[#f4f8f6] px-6 py-12 sm:px-8 md:px-12 md:py-16">
-          <motion.div
-            variants={fadeUp}
-            className="grid gap-5 md:grid-cols-[0.85fr_1.15fr] md:items-end"
-          >
+          <div className="landing-reveal-item grid gap-5 md:grid-cols-[0.85fr_1.15fr] md:items-end">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
               Pricing that scales gently
             </p>
@@ -60,11 +66,15 @@ export const LandingCta = () => {
                 add-ons.
               </p>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div variants={stagger} className="mt-10 grid gap-4 md:grid-cols-3">
-            {plans.map((plan) => (
-              <motion.div key={plan.slug} variants={fadeUp}>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {plans.map((plan, index) => (
+              <div
+                key={plan.slug}
+                className="landing-reveal-item"
+                style={{ transitionDelay: `${index * 70}ms` }}
+              >
                 <PlanPricingCard
                   slug={plan.slug}
                   name={plan.name}
@@ -77,11 +87,11 @@ export const LandingCta = () => {
                   isPopular={plan.slug === 'growth'}
                   variant="marketing"
                 />
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
 
-          <motion.div variants={fadeUp} className="mt-10 text-center">
+          <div className="landing-reveal-item mt-10 text-center">
             <Button
               asChild
               size="lg"
@@ -92,9 +102,9 @@ export const LandingCta = () => {
             <p className="mt-4 text-sm text-muted-foreground">
               14 days free · No card required · Manual payroll & bank export free on all plans
             </p>
-          </motion.div>
+          </div>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 };

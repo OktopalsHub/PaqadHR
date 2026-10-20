@@ -22,9 +22,15 @@ import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../../invitations/invitations.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type { User } from '../../users/entities/user.entity';
-import { buildUserConsentMetadata } from '../../users/interfaces/user-metadata.interface';
+import {
+  buildUserConsentMetadata,
+  type UserMetadata,
+  type UserSignupAttribution,
+} from '../../users/interfaces/user-metadata.interface';
 import { UserRepository } from '../../users/repositories/users.repository';
+import type { SignupAttributionDto } from '../dto/signup-attribution.dto';
 import { Account } from '../entities/account.entity';
+import { normalizeSignupAttribution } from '../utils/signup-attribution.util';
 import { AuthEmailVerificationService } from './auth-email-verification.service';
 import { AuthSessionService } from './auth-session.service';
 
@@ -222,16 +228,32 @@ export class AuthCredentialService {
     }
   }
 
-  private async stampConsentMetadata(user: User): Promise<void> {
-    const consentMetadata = buildUserConsentMetadata(true);
-    const metadata = { ...(user.metadata ?? {}), ...consentMetadata };
+  private async stampConsentMetadata(
+    user: User,
+    attribution?: UserSignupAttribution,
+  ): Promise<void> {
+    const metadata: UserMetadata = {
+      ...(user.metadata ?? {}),
+      ...buildUserConsentMetadata(true),
+    };
+    if (attribution) metadata.attribution = attribution;
     await this.userRepository.update(user.id, { metadata });
     user.metadata = metadata;
   }
 
-  private trackSignup(userId: string): void {
+  private trackSignup(userId: string, attribution?: UserSignupAttribution): void {
     this.productAnalytics.capture('anonymous', 'signup_started');
-    this.productAnalytics.capture(userId, 'signup_completed', { userId });
+    this.productAnalytics.capture(
+      userId,
+      'signup_completed',
+      {},
+      {
+        signup_source: attribution?.source,
+        signup_medium: attribution?.medium,
+        utm_campaign: attribution?.campaign,
+        landing_page: attribution?.landingPage,
+      },
+    );
   }
 
   async register(
@@ -240,12 +262,14 @@ export class AuthCredentialService {
     geo: GeoRequestContext = {},
     inviteToken?: string,
     termsAccepted?: boolean,
+    attributionInput?: SignupAttributionDto,
   ): Promise<{ user: User; invitation?: unknown }> {
     try {
       if (termsAccepted !== true)
         throw new BadRequestException('You must accept the terms and privacy policy to register');
       if (!STRONG_PASSWORD_REGEX.test(password))
         throw new BadRequestException(STRONG_PASSWORD_MESSAGE);
+      const attribution = normalizeSignupAttribution(attributionInput);
       const normalizedEmail = StringUtility.trimAndLowerCase(email);
       const emailExist = await this.userRepository.findUserByEmail(normalizedEmail);
       if (emailExist) {
@@ -254,10 +278,10 @@ export class AuthCredentialService {
             'This email is already registered. Please sign in.',
           );
         const user = await this.resolveExistingUserOnRegister(emailExist, password);
-        await this.stampConsentMetadata(user);
+        await this.stampConsentMetadata(user, attribution);
         const invitation = await this.processInviteToken(user, inviteToken, password);
         await this.emailVerificationService.sendEmailVerificationOtp(user);
-        this.trackSignup(user.id);
+        this.trackSignup(user.id, attribution);
         return { user, invitation };
       }
       const [hashedPassword, countryCode] = await Promise.all([
@@ -270,7 +294,10 @@ export class AuthCredentialService {
         role: UserRole.BASIC,
         countryCode,
         emailVerified: false,
-        metadata: buildUserConsentMetadata(termsAccepted),
+        metadata: {
+          ...buildUserConsentMetadata(termsAccepted),
+          ...(attribution ? { attribution } : {}),
+        },
       });
       await this.accountRepository.save(
         this.accountRepository.create({
@@ -281,7 +308,7 @@ export class AuthCredentialService {
       );
       const invitation = await this.processInviteToken(user, inviteToken, password);
       await this.emailVerificationService.sendEmailVerificationOtp(user);
-      this.trackSignup(user.id);
+      this.trackSignup(user.id, attribution);
       return { user, invitation };
     } catch (error) {
       this.logger.error('Error during user registration:', error);
