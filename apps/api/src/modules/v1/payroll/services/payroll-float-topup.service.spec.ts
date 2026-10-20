@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import type { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import type { Repository } from 'typeorm';
@@ -628,7 +629,14 @@ describe('PayrollFloatTopupService retry funding verification and reuse guards',
       payrollPayoutService as never,
     );
 
-    return { service, payrollRunRepository, verifyCheckout, fundingLedger, payrollPayoutService };
+    return {
+      service,
+      payrollRunRepository,
+      verifyCheckout,
+      fundingLedger,
+      payrollPayoutService,
+      balanceService,
+    };
   };
 
   const mockFundingTransaction = (
@@ -686,6 +694,92 @@ describe('PayrollFloatTopupService retry funding verification and reuse guards',
     expect(
       (locked.metadata as { retryFunding?: { status?: string; fundedAt?: string } }).retryFunding,
     ).toMatchObject({ status: 'funded' });
+  });
+
+  it('credits the provider balance portion when checkout only covers the shortfall', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } =
+      createReconcileService();
+    const run = retryRun('pending', {
+      retryFunding: {
+        orderReference: 'pb_retry_ref',
+        status: 'pending',
+        selectedItemIds: ['item-failed'],
+        amount: 1555,
+        checkoutAmount: 80.94,
+        balanceApplied: 1474.06,
+        currency: 'NGN',
+        provider: 'BACHS',
+        approvedById: 'member-1',
+        itemFundingAmounts: { 'item-failed': 1555 },
+      },
+    });
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    mockFundingTransaction(payrollRunRepository, run);
+    verifyCheckout.mockResolvedValue({ status: 'successful', amount: 80.94, currency: 'NGN' });
+
+    const result = await service.reconcileRetryFunding('run-retry', 'tenant-1', 'member-1');
+
+    expect(result).toEqual({
+      status: 'funded',
+      orderReference: 'pb_retry_ref',
+      amount: 1555,
+      currency: 'NGN',
+    });
+    expect(fundingLedger.recordVerifiedFunding).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 1555,
+        currency: 'NGN',
+        evidence: expect.objectContaining({
+          fundingPurpose: 'approved_retry_shortfall',
+          checkoutAmount: 80.94,
+          balanceApplied: 1474.06,
+        }),
+      }),
+    );
+  });
+
+  it('charges only the shortfall when the provider balance already holds part of the retry', async () => {
+    jest.spyOn(payrollDisbursementConfig, 'isPayrollGatewayEnabled').mockReturnValue(true);
+    process.env.BACHS_SECRET_KEY = 'sk_test';
+    process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn';
+    try {
+      const { service, payrollRunRepository, balanceService } = createReconcileService();
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+        id: 'run-retry',
+        tenantId: 'tenant-1',
+        status: PayrollStatus.APPROVED,
+        baseCurrency: 'NGN',
+        processingLockedAt: null,
+        items: [
+          {
+            id: 'item-failed',
+            status: PayrollItemStatus.FAILED,
+            netAmount: 1500,
+            paymentAmount: 1500,
+            paymentCurrency: 'NGN',
+            paymentProvider: 'bachs',
+            metadata: {},
+          },
+        ],
+        metadata: {},
+      } as unknown as PayrollRun);
+      (balanceService.getAvailableBalance as jest.Mock).mockResolvedValue({
+        supported: true,
+        available: 1474.06,
+      });
+
+      const preview = await service.previewRetryShortfall('run-retry', 'tenant-1', ['item-failed']);
+
+      // ₦1,500 payout + the ₦55 NGN payout-fee reserve (₦50 + 10% markup) = ₦1,555 needed;
+      // ₦1,474.06 is already in the Bachs float, so the company only tops up ₦80.94.
+      expect(preview.requiredAmount).toBe(1555);
+      expect(preview.availableBalance).toBe(1474.06);
+      expect(preview.balanceApplied).toBe(1474.06);
+      expect(preview.amount).toBe(80.94);
+    } finally {
+      delete process.env.BACHS_SECRET_KEY;
+      delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
+    }
   });
 
   it('stays pending and credits nothing while the provider has not confirmed payment', async () => {

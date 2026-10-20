@@ -68,16 +68,16 @@ describe('payroll payout fee reserve', () => {
     ).toBe(100);
   });
 
-  describe('Bachs withdrawal schedule with markup', () => {
-    it('reserves a doubled ₦50 NGN withdrawal fee per transfer', () => {
+  describe('Bachs withdrawal schedule', () => {
+    it('reserves the ₦50 NGN withdrawal fee plus the default 10% markup', () => {
       expect(getBachsWithdrawalFeePerTransfer(250_000, 'NGN')).toBe(50);
       expect(
         resolvePayrollPayoutFeePerTransfer({ currency: 'NGN', provider: 'bachs', env: {} }),
-      ).toBe(100);
+      ).toBe(55);
     });
 
-    it('prices USD from the source amount (1%, min $1, cap $15) then doubles it', () => {
-      // 1% of $500 = $5 → reserve $10
+    it('prices USD from the source amount (1%, min $1, cap $15)', () => {
+      // 1% of $500 = $5, plus the 10% markup
       expect(
         resolvePayrollPayoutFeePerTransfer({
           currency: 'USD',
@@ -85,7 +85,7 @@ describe('payroll payout fee reserve', () => {
           sourceAmount: 500,
           env: {},
         }),
-      ).toBe(10);
+      ).toBe(5.5);
       // Below the $1 minimum
       expect(
         resolvePayrollPayoutFeePerTransfer({
@@ -94,7 +94,7 @@ describe('payroll payout fee reserve', () => {
           sourceAmount: 20,
           env: {},
         }),
-      ).toBe(2);
+      ).toBe(1.1);
       // Above the $15 cap
       expect(
         resolvePayrollPayoutFeePerTransfer({
@@ -103,7 +103,7 @@ describe('payroll payout fee reserve', () => {
           sourceAmount: 10_000,
           env: {},
         }),
-      ).toBe(30);
+      ).toBe(16.5);
     });
 
     it('prices stablecoin and other-currency transfers from the same schedule', () => {
@@ -115,7 +115,7 @@ describe('payroll payout fee reserve', () => {
           sourceAmount: 250,
           env: {},
         }),
-      ).toBe(5);
+      ).toBe(2.75);
       expect(getBachsWithdrawalFeePerTransfer(1_000, 'EUR')).toBe(3);
       expect(
         resolvePayrollPayoutFeePerTransfer({
@@ -124,7 +124,7 @@ describe('payroll payout fee reserve', () => {
           sourceAmount: 1_000,
           env: {},
         }),
-      ).toBe(6);
+      ).toBe(3.3);
     });
 
     it('honours an explicit override before the derived schedule', () => {
@@ -138,8 +138,25 @@ describe('payroll payout fee reserve', () => {
       ).toBe(0.75);
     });
 
+    it('ignores the currency-only override for Bachs but honours the provider-specific one', () => {
+      expect(
+        resolvePayrollPayoutFeePerTransfer({
+          currency: 'NGN',
+          provider: 'bachs',
+          env: { PAYROLL_PAYOUT_FEE_NGN: '100' },
+        }),
+      ).toBe(55);
+      expect(
+        resolvePayrollPayoutFeePerTransfer({
+          currency: 'NGN',
+          provider: 'bachs',
+          env: { PAYROLL_PAYOUT_FEE_BACHS_NGN: '60' },
+        }),
+      ).toBe(60);
+    });
+
     it('supports a different markup without code changes', () => {
-      expect(DEFAULT_PAYROLL_PAYOUT_FEE_MARKUP_PERCENT).toBe(100);
+      expect(DEFAULT_PAYROLL_PAYOUT_FEE_MARKUP_PERCENT).toBe(10);
       expect(
         resolvePayrollPayoutFeePerTransfer({
           currency: 'NGN',
@@ -147,6 +164,13 @@ describe('payroll payout fee reserve', () => {
           env: { PAYROLL_PAYOUT_FEE_MARKUP_PERCENT: '50' },
         }),
       ).toBe(75);
+      expect(
+        resolvePayrollPayoutFeePerTransfer({
+          currency: 'NGN',
+          provider: 'bachs',
+          env: { PAYROLL_PAYOUT_FEE_MARKUP_PERCENT: '100' },
+        }),
+      ).toBe(100);
     });
   });
 });

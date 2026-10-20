@@ -513,6 +513,8 @@ export class MultiPaymentService {
       status?: string;
       selectedItemIds?: string[];
       amount?: number;
+      checkoutAmount?: number;
+      balanceApplied?: number;
       currency?: string;
       approvedById?: string;
       itemFundingAmounts?: Record<string, number>;
@@ -580,6 +582,28 @@ export class MultiPaymentService {
     ) {
       throw new BadRequestException(
         'Bachs retry funding approval and provider-verified checkout credit do not match. Retry remains blocked.',
+      );
+    }
+
+    // A retry may be funded partly by the company's provider float. The approval and the
+    // verified credit must split the same way, or a retry could spend the float twice.
+    const checkoutAmount = Number(meta.checkoutAmount ?? meta.amount);
+    const balanceApplied = Number(meta.balanceApplied ?? 0);
+    if (
+      !Number.isFinite(checkoutAmount) ||
+      checkoutAmount < 0 ||
+      !Number.isFinite(balanceApplied) ||
+      balanceApplied < 0 ||
+      Math.abs(checkoutAmount + balanceApplied - Number(meta.amount)) > 0.01 ||
+      (meta.checkoutAmount != null &&
+        Math.abs(Number(approval.evidence?.checkoutAmount ?? checkoutAmount) - checkoutAmount) >
+          0.01) ||
+      (meta.balanceApplied != null &&
+        Math.abs(Number(funding.evidence?.balanceApplied ?? balanceApplied) - balanceApplied) >
+          0.01)
+    ) {
+      throw new BadRequestException(
+        'Bachs retry funding does not reconcile the checkout payment with the provider balance it used. Retry remains blocked.',
       );
     }
 

@@ -6,6 +6,7 @@ import {
   getNombaSubAccountId,
 } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { BachsApiService } from 'src/common/services/bachs-api.service';
 import { FincraAuthService } from 'src/common/services/fincra-auth.service';
 import { MonnifyAuthService } from 'src/common/services/monnify-auth.service';
 import { NombaAuthService } from 'src/common/services/nomba-auth.service';
@@ -22,6 +23,7 @@ export class PayrollFloatBalanceService {
     private readonly nombaAuth: NombaAuthService,
     private readonly monnifyAuth: MonnifyAuthService,
     private readonly fincraAuth: FincraAuthService,
+    private readonly bachsApi: BachsApiService,
   ) {}
 
   async getAvailableBalance(
@@ -38,6 +40,7 @@ export class PayrollFloatBalanceService {
         case PaymentProvider.FINCRA:
           return await this.getFincraBalance(code);
         case PaymentProvider.BACHS:
+          return await this.getBachsBalance(code);
         case PaymentProvider.NOAH:
           return {
             supported: false,
@@ -200,5 +203,20 @@ export class PayrollFloatBalanceService {
       available,
       currency: (match.currency || currency).toUpperCase(),
     };
+  }
+
+  /**
+   * Bachs debits payouts from the per-currency `available_balance`; the checkout shortfall must
+   * be sized against it or the company pays for money the float already holds.
+   */
+  private async getBachsBalance(currency: string): Promise<PayrollFloatBalanceResult> {
+    if (!this.bachsApi.isConfigured()) {
+      return { supported: false, reason: 'Bachs is not configured for balance lookup' };
+    }
+    const available = await this.bachsApi.getAvailableBalance(currency);
+    if (available == null) {
+      return { supported: false, reason: 'Bachs balance response was incomplete' };
+    }
+    return { supported: true, available, currency: currency.toUpperCase() };
   }
 }

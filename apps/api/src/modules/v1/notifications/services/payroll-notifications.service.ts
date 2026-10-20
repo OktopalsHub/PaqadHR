@@ -47,7 +47,6 @@ export class PayrollNotificationsService {
     variables: {
       employeeName: string;
       payrollPeriod: string;
-      profileUrl: string;
       documentId?: string;
       payrollRunId?: string;
     },
@@ -56,17 +55,13 @@ export class PayrollNotificationsService {
     const payer = organizationName ? ` from ${organizationName}` : '';
     await this.notificationService.createNotification({
       type: NotificationType.USER,
-      channel: NotificationChannel.BOTH,
+      // The PDF is emailed separately with the payslip attached; this is the in-app notice.
+      channel: NotificationChannel.IN_APP,
       priority: NotificationPriority.HIGH,
       title: 'Your payslip is ready',
-      message: `Hi ${variables.employeeName}, your payslip for ${variables.payrollPeriod}${payer} is ready to download.`,
+      message: `Hi ${variables.employeeName}, your payslip for ${variables.payrollPeriod}${payer} was sent to your email.`,
       recipientId,
       tenantId,
-      actionData: {
-        url: variables.profileUrl,
-        buttonText: 'Download payslip',
-        actionType: 'navigate',
-      },
       metadata: {
         type: 'payslip_published',
         documentId: variables.documentId,

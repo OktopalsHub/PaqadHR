@@ -84,23 +84,6 @@ export async function fetchMemberPublishedPayslips(memberId: string) {
   );
 }
 
-export async function downloadPayslipPdf(runId: string, itemId: string, filename: string) {
-  const tenantId = await resolveTenantId();
-  const response = await fetchWithCsrf(
-    `${getApiV1Base()}${tenantPath(tenantId, `payroll/runs/${runId}/items/${itemId}/payslip/download`)}`,
-  );
-  if (!response.ok) {
-    throw new Error('Failed to download payslip');
-  }
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 export async function fetchPayrollReadiness(id: string): Promise<PayrollReadiness> {
   const tenantId = await resolveTenantId();
   return apiClient<PayrollReadiness>(tenantPath(tenantId, `payroll/runs/${id}/readiness`));
@@ -267,7 +250,13 @@ export async function retryFailedPayrollPayments(
 }
 
 export type RetryFundingPreview = {
+  /** Amount the company pays at checkout (required funding minus the provider balance used). */
   amount: number;
+  /** Total run-scoped funding the selected failed payouts need. */
+  requiredAmount?: number;
+  /** Provider balance credited to this run instead of being charged at checkout. */
+  balanceApplied?: number;
+  availableBalance?: number | null;
   currency: string;
   selectedItemIds: string[];
   platformFee: 0;

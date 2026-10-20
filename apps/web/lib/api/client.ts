@@ -275,7 +275,9 @@ export async function fetchWithCsrf(
   const finishActivity = beginNetworkActivity();
   try {
     return await executeFetchWithCsrf(input, init, {
-      fetchImpl: fetch,
+      // Bind to globalThis: a bare `fetch` reference invoked as `fetchImpl(...)` throws
+      // "Illegal invocation" in browsers because the receiver is lost.
+      fetchImpl: (input, init) => fetch(input, init),
       ensureCsrfToken,
       clearCsrfToken,
       csrfHeader: CSRF_HEADER,

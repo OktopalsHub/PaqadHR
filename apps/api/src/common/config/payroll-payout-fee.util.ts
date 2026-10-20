@@ -16,9 +16,8 @@ export const DEFAULT_NGN_PAYOUT_FEE_RESERVE = 100;
  * `from_amount` is the source amount *before* that fee, so a checkout sized from the quote
  * alone under-funds the payout by one fee per employee — the last payout then fails.
  *
- * PaqadHR reserves a marked-up copy of the provider fee per payout. NGN is a flat ₦50 → ₦100,
- * and every other currency is priced from the same schedule at the configured markup (default
- * 100%, i.e. double).
+ * PaqadHR reserves the provider fee per payout plus a small markup (default 10%) that stays with
+ * PaqadHR. NGN is a flat ₦50 → ₦55. Set PAYROLL_PAYOUT_FEE_MARKUP_PERCENT to change the markup.
  */
 const BACHS_NGN_WITHDRAWAL_FEE = 50;
 const BACHS_USD_WITHDRAWAL_RATE = 0.01;
@@ -26,7 +25,7 @@ const BACHS_USD_WITHDRAWAL_MIN = 1;
 const BACHS_USD_WITHDRAWAL_CAP = 15;
 const BACHS_OTHER_WITHDRAWAL_RATE = 0.003;
 
-export const DEFAULT_PAYROLL_PAYOUT_FEE_MARKUP_PERCENT = 100;
+export const DEFAULT_PAYROLL_PAYOUT_FEE_MARKUP_PERCENT = 10;
 
 type Environment = Record<string, string | undefined>;
 
@@ -40,7 +39,7 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** How much PaqadHR marks up the provider's transfer charge (default 100% = double). */
+/** How much PaqadHR adds on top of the provider's transfer charge (default 10%). */
 export function getPayrollPayoutFeeMarkupPercent(env: Environment = process.env): number {
   return (
     parseNonNegativeAmount(env.PAYROLL_PAYOUT_FEE_MARKUP_PERCENT) ??
@@ -77,9 +76,11 @@ export function getBachsWithdrawalFeePerTransfer(
  * The per-payout reserve PaqadHR adds to a checkout or retry allocation.
  *
  * An explicit provider/currency env override still wins (operators may have negotiated a
- * different rate). Otherwise Bachs payouts are reserved from Bachs' published schedule marked
- * up by {@link getPayrollPayoutFeeMarkupPercent}, which requires the source amount leaving the
- * balance. Non-Bachs rails keep the flat currency default.
+ * different rate). Otherwise Bachs payouts are reserved from Bachs' published schedule plus the
+ * configured markup, which requires the source amount leaving the balance. The currency-only
+ * override (PAYROLL_PAYOUT_FEE_<CURRENCY>) applies to non-Bachs rails only, so a legacy NGN
+ * reserve can never override the fee Bachs actually charges. Non-Bachs rails keep the flat
+ * currency default.
  */
 export function resolvePayrollPayoutFeePerTransfer(params: {
   currency: string;
@@ -89,22 +90,24 @@ export function resolvePayrollPayoutFeePerTransfer(params: {
 }): number {
   const env = params.env ?? process.env;
   const currency = params.currency.trim().toUpperCase();
-  const configured = getConfiguredPayrollPayoutFeePerTransfer(currency, params.provider, env);
-  if (configured != null) return configured;
-
   const providerLabel = (params.provider ?? '').trim().toLowerCase();
   if (providerLabel.includes('bachs')) {
+    const override = getProviderPayrollPayoutFeeOverride(currency, params.provider, env);
+    if (override != null) return override;
     const sourceAmount = params.sourceAmount ?? 0;
     const providerFee = getBachsWithdrawalFeePerTransfer(sourceAmount, currency);
     const markup = getPayrollPayoutFeeMarkupPercent(env);
     return round2(providerFee * (1 + markup / 100));
   }
 
+  const configured = getConfiguredPayrollPayoutFeePerTransfer(currency, params.provider, env);
+  if (configured != null) return configured;
+
   return currency === 'NGN' ? DEFAULT_NGN_PAYOUT_FEE_RESERVE : 0;
 }
 
-/** Explicit env override for a provider+currency or currency, or null when unset. */
-function getConfiguredPayrollPayoutFeePerTransfer(
+/** Provider+currency override only (PAYROLL_PAYOUT_FEE_<PROVIDER>_<CURRENCY>). */
+function getProviderPayrollPayoutFeeOverride(
   currency: string,
   provider: string | null | undefined,
   env: Environment,
@@ -113,9 +116,17 @@ function getConfiguredPayrollPayoutFeePerTransfer(
     ?.trim()
     .replace(/[^a-zA-Z0-9]/g, '_')
     .toUpperCase();
-  const providerAmount = providerCode
-    ? parseNonNegativeAmount(env[`PAYROLL_PAYOUT_FEE_${providerCode}_${currency}`])
-    : null;
+  if (!providerCode) return null;
+  return parseNonNegativeAmount(env[`PAYROLL_PAYOUT_FEE_${providerCode}_${currency}`]);
+}
+
+/** Explicit env override for a provider+currency or currency, or null when unset. */
+function getConfiguredPayrollPayoutFeePerTransfer(
+  currency: string,
+  provider: string | null | undefined,
+  env: Environment,
+): number | null {
+  const providerAmount = getProviderPayrollPayoutFeeOverride(currency, provider, env);
   if (providerAmount != null) return providerAmount;
   return parseNonNegativeAmount(env[`PAYROLL_PAYOUT_FEE_${currency}`]);
 }

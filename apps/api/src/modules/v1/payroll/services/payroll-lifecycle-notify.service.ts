@@ -1,11 +1,13 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { TenantMemberRole } from 'src/common/enums/tenant-member.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
-import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
+import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
+import { escapeHtml } from '../../notifications/templates/brand';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { AuditService } from './audit.service';
+import { PayrollExportService } from './payroll-export.service';
 
 type RunNotifyContext = {
   id: string;
@@ -25,6 +27,8 @@ export class PayrollLifecycleNotifyService {
     private readonly auditService: AuditService,
     private readonly tenantMembersService: TenantMembersService,
     @Optional() private readonly notifications?: NotificationHelperService,
+    @Optional() private readonly payrollExportService?: PayrollExportService,
+    @Optional() private readonly emailService?: ZeptomailEmailService,
   ) {}
 
   async notifyPaymentSetup(input: {
@@ -139,20 +143,98 @@ export class PayrollLifecycleNotifyService {
     sendEmail: boolean;
     tenantSlug?: string | null;
   }): Promise<void> {
-    if (!this.notifications || !input.sendEmail) return;
+    if (!input.sendEmail) return;
     const period = this.periodLabel(input.run);
     for (const item of input.items) {
       try {
-        const profileUrl = tenantFrontendUrl(input.tenantSlug ?? '', `/employees/${item.memberId}`);
+        if (!this.notifications) continue;
         await this.notifications.sendPayslipPublishedNotification(item.memberId, input.tenantId, {
           employeeName: this.employeeName(item),
           payrollPeriod: period,
-          profileUrl,
           payrollRunId: input.run.id,
         });
       } catch (error) {
         this.logger.warn(
           `Payslip notification failed for item ${item.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    // PDFs are generated and emailed off the request path: publishing must not wait on one
+    // provider call per employee, and a slow mail provider must not fail the publish.
+    this.queuePayslipEmails(input, period);
+  }
+
+  private queuePayslipEmails(
+    input: {
+      tenantId: string;
+      run: RunNotifyContext;
+      items: PayrollItem[];
+    },
+    period: string,
+  ): void {
+    if (!this.payrollExportService || !this.emailService || input.items.length === 0) return;
+    void this.sendPayslipEmails(input, period).catch((error) => {
+      this.logger.warn(
+        `Payslip email batch failed for run ${input.run.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
+  }
+
+  private async sendPayslipEmails(
+    input: {
+      tenantId: string;
+      run: RunNotifyContext;
+      items: PayrollItem[];
+    },
+    period: string,
+  ): Promise<void> {
+    for (const item of input.items) {
+      try {
+        const member = await this.tenantMembersService.getTenantMember(
+          item.memberId,
+          input.tenantId,
+        );
+        const email = member.user?.email;
+        if (!email) {
+          this.logger.warn(`No email on file for payslip recipient of item ${item.id}`);
+          continue;
+        }
+
+        const employeeName = this.employeeName(item);
+        const currency = (item.paymentCurrency || input.run.baseCurrency || '').toUpperCase();
+        const amount = Number(item.paymentAmount ?? item.netAmount ?? 0);
+        const pdf = await this.payrollExportService!.renderPayslipPdf(input.run, item);
+        const result = await this.emailService!.sendEmail({
+          to: email,
+          subject: `Your payslip for ${period}`,
+          html: `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#18181b;line-height:1.5">
+  <p>Hi ${escapeHtml(employeeName)},</p>
+  <p>Your payslip for <strong>${escapeHtml(period)}</strong> is attached to this email.</p>
+  <p>Net pay: <strong>${escapeHtml(currency)} ${escapeHtml(amount.toLocaleString())}</strong></p>
+  <p style="color:#71717a;font-size:12px">This payslip was sent by PaqadHR on behalf of your employer.</p>
+</div>`,
+          text: `Hi ${employeeName},\n\nYour payslip for ${period} is attached to this email.\nNet pay: ${currency} ${amount.toLocaleString()}\n\nThis payslip was sent by PaqadHR on behalf of your employer.`,
+          attachments: [
+            {
+              filename: `payslip-${period.replace(/[^a-z0-9-]+/gi, '-').toLowerCase()}.pdf`,
+              content: pdf,
+              contentType: 'application/pdf',
+            },
+          ],
+        });
+        if (!result.success) {
+          this.logger.warn(
+            `Payslip email failed for item ${item.id}: ${result.error ?? 'unknown error'}`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Payslip email failed for item ${item.id}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );

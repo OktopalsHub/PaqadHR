@@ -44,7 +44,6 @@ export class NotificationHelperService {
     variables: {
       employeeName: string;
       payrollPeriod: string;
-      profileUrl: string;
       documentId?: string;
       payrollRunId?: string;
     },

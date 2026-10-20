@@ -43,7 +43,7 @@ import {
   verifyMemberDocument,
 } from '@/lib/api/documents';
 import { requestDocumentUploadUrl, uploadFileToPresignedUrl } from '@/lib/api/files';
-import { downloadPayslipPdf, fetchMemberPublishedPayslips } from '@/lib/api/payroll';
+import { fetchMemberPublishedPayslips } from '@/lib/api/payroll';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -137,23 +137,6 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
       toast.error(err instanceof Error ? err.message : 'Upload failed');
     },
   });
-
-  const handleDownloadPayslip = async (payslip: {
-    runId: string;
-    itemId: string;
-    runTitle: string;
-    periodEnd?: string | Date;
-  }) => {
-    try {
-      const period =
-        payslip.periodEnd != null
-          ? new Date(payslip.periodEnd).toISOString().slice(0, 10)
-          : payslip.runTitle.replace(/\s+/g, '-').toLowerCase();
-      await downloadPayslipPdf(payslip.runId, payslip.itemId, `payslip-${period}.pdf`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Download failed');
-    }
-  };
 
   const handleDownload = async (documentId: string, name: string) => {
     try {
@@ -398,25 +381,18 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
         </p>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-8"
-          onClick={() => {
-            if (payslip.type === 'published') {
-              void handleDownloadPayslip({
-                runId: payslip.runId!,
-                itemId: payslip.itemId!,
-                runTitle: payslip.name,
-                periodEnd: payslip.periodEnd,
-              });
-            } else {
-              void handleDownload(payslip.docId!, payslip.name);
-            }
-          }}
-        >
-          <Download className="size-4" />
-        </Button>
+        {payslip.type === 'published' ? (
+          <span className="text-xs text-muted-foreground">Emailed</span>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => void handleDownload(payslip.docId!, payslip.name)}
+          >
+            <Download className="size-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

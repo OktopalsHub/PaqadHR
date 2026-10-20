@@ -292,25 +292,25 @@ describe('bachs-funding-quote.util', () => {
   });
 
   describe('sourceAmountWithPayoutFeeForBachsFundingItem', () => {
-    it('adds the doubled Bachs withdrawal fee on top of the quoted source amount', async () => {
-      // $500 USD → USD needs no quote; Bachs charges 1% ($5), PaqadHR reserves $10.
+    it('adds the Bachs withdrawal fee plus markup on top of the quoted source amount', async () => {
+      // $500 USD → USD needs no quote; Bachs charges 1% ($5), PaqadHR reserves $5.50.
       await expect(
         sourceAmountWithPayoutFeeForBachsFundingItem({
           fundingCurrency: 'USD',
           createQuote: jest.fn(),
           item: { amount: 500, amountCurrency: 'USD', paymentCurrency: 'USD' },
         }),
-      ).resolves.toEqual({ sourceAmount: 500, payoutFeeReserve: 10 });
+      ).resolves.toEqual({ sourceAmount: 500, payoutFeeReserve: 5.5 });
     });
 
-    it('reserves a doubled ₦50 fee for NGN payouts', async () => {
+    it('reserves the ₦50 fee plus markup for NGN payouts', async () => {
       await expect(
         sourceAmountWithPayoutFeeForBachsFundingItem({
           fundingCurrency: 'NGN',
           createQuote: jest.fn(),
           item: { amount: 250_000, amountCurrency: 'NGN', paymentCurrency: 'NGN' },
         }),
-      ).resolves.toEqual({ sourceAmount: 250_000, payoutFeeReserve: 100 });
+      ).resolves.toEqual({ sourceAmount: 250_000, payoutFeeReserve: 55 });
     });
 
     it('reserves the fee for cross-currency quotes too', async () => {
@@ -328,7 +328,7 @@ describe('bachs-funding-quote.util', () => {
           createQuote,
           item: { amount: 380, amountCurrency: 'GBP', paymentCurrency: 'GBP' },
         }),
-      ).resolves.toEqual({ sourceAmount: 500, payoutFeeReserve: 10 });
+      ).resolves.toEqual({ sourceAmount: 500, payoutFeeReserve: 5.5 });
     });
   });
 });

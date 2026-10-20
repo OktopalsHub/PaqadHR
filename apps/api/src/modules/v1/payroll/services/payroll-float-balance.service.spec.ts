@@ -13,7 +13,12 @@ describe('PayrollFloatBalanceService getFincraBalance', () => {
       resolveBusinessId: jest.fn().mockResolvedValue('biz-abc'),
       request,
     };
-    const service = new PayrollFloatBalanceService({} as never, {} as never, fincraAuth as never);
+    const service = new PayrollFloatBalanceService(
+      {} as never,
+      {} as never,
+      fincraAuth as never,
+      {} as never,
+    );
 
     const result = await service.getAvailableBalance(PaymentProvider.FINCRA, 'NGN');
 
@@ -49,7 +54,12 @@ describe('PayrollFloatBalanceService getNombaBalance', () => {
       isConfigured: () => true,
       getAccessToken: jest.fn().mockResolvedValue('tok'),
     };
-    const service = new PayrollFloatBalanceService(nombaAuth as never, {} as never, {} as never);
+    const service = new PayrollFloatBalanceService(
+      nombaAuth as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
 
     const result = await service.getAvailableBalance(PaymentProvider.NOMBA, 'NGN');
     expect(global.fetch).toHaveBeenCalledWith(
@@ -57,5 +67,46 @@ describe('PayrollFloatBalanceService getNombaBalance', () => {
       expect.objectContaining({ method: 'GET' }),
     );
     expect(result).toEqual({ supported: true, available: 10000.5, currency: 'NGN' });
+  });
+});
+
+describe('PayrollFloatBalanceService getBachsBalance', () => {
+  it('reads the per-currency available_balance from /v1/balances', async () => {
+    const bachsApi = {
+      isConfigured: () => true,
+      getAvailableBalance: jest.fn().mockResolvedValue(1474.06),
+    };
+    const service = new PayrollFloatBalanceService(
+      {} as never,
+      {} as never,
+      {} as never,
+      bachsApi as never,
+    );
+
+    const result = await service.getAvailableBalance(PaymentProvider.BACHS, 'NGN');
+
+    expect(bachsApi.getAvailableBalance).toHaveBeenCalledWith('NGN');
+    expect(result).toEqual({ supported: true, available: 1474.06, currency: 'NGN' });
+  });
+
+  it('reports unsupported when Bachs is not configured', async () => {
+    const bachsApi = {
+      isConfigured: () => false,
+      getAvailableBalance: jest.fn(),
+    };
+    const service = new PayrollFloatBalanceService(
+      {} as never,
+      {} as never,
+      {} as never,
+      bachsApi as never,
+    );
+
+    const result = await service.getAvailableBalance(PaymentProvider.BACHS, 'NGN');
+
+    expect(bachsApi.getAvailableBalance).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      supported: false,
+      reason: 'Bachs is not configured for balance lookup',
+    });
   });
 });

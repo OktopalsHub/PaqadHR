@@ -31,11 +31,12 @@ describe('PayrollNotificationsService', () => {
     await service.sendPayslipPublishedNotification('member-1', 'tenant-1', {
       employeeName: 'Ada Lovelace',
       payrollPeriod: 'March 2026',
-      profileUrl: 'https://app.example.com/employees/member-1',
     });
 
     const payload = createNotification.mock.calls[0][0];
     expect(payload.message).toContain('from Acme Holdings');
+    expect(payload.message).toContain('sent to your email');
+    expect(payload.channel).toBe('in_app');
     expect(payload.metadata).toMatchObject({ organizationName: 'Acme Holdings' });
   });
 
