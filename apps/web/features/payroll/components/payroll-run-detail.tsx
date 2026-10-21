@@ -634,10 +634,14 @@ export function PayrollRunDetail({
           const existingAmount = Number(retryFundingMeta?.amount ?? 0);
           if (existingIds.length > 0 && existingCurrency && existingAmount > 0) {
             setRetryFundingItemIds(existingIds);
+            const existingCheckoutAmount = Number(retryFundingMeta?.checkoutAmount);
+            const existingBalanceApplied = Number(retryFundingMeta?.balanceApplied ?? 0);
             setRetryFundingPreview({
-              amount: Number(retryFundingMeta?.checkoutAmount ?? existingAmount),
+              amount: Number.isFinite(existingCheckoutAmount)
+                ? existingCheckoutAmount
+                : Math.max(0, existingAmount - existingBalanceApplied),
               requiredAmount: existingAmount,
-              balanceApplied: Number(retryFundingMeta?.balanceApplied ?? 0),
+              balanceApplied: existingBalanceApplied,
               availableBalance:
                 typeof retryFundingMeta?.availableBalance === 'number'
                   ? retryFundingMeta.availableBalance
@@ -1100,20 +1104,14 @@ export function PayrollRunDetail({
             </DialogHeader>
             {retryFundingPreview ? (
               <div className="space-y-4">
-                <Alert>
-                  <AlertTitle>
-                    {retryFundingPreview.amount > 0
-                      ? 'Company-funded shortfall'
-                      : 'Covered by your provider balance'}
-                  </AlertTitle>
-                  <AlertDescription>
-                    {retryFundingAwaitingVerification
-                      ? 'A checkout for this shortfall is already open. Finish it, then verify the funding — payouts start only after the provider confirms the payment.'
-                      : retryFundingPreview.amount > 0
-                        ? 'Only the uncovered part of the selected failed payouts is charged. Your provider balance is credited to this run first, and PaqadHR will not charge its platform fee again. Payouts start after checkout is verified and you retry the selected items.'
-                        : 'Your provider balance already covers these failed payouts. Approving credits that balance to this run and retries without a checkout.'}
-                  </AlertDescription>
-                </Alert>
+                {retryFundingAwaitingVerification && (
+                  <Alert>
+                    <AlertTitle>Checkout in progress</AlertTitle>
+                    <AlertDescription>
+                      Complete the payment in the checkout window. Payouts start after the provider confirms payment.
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                   <p className="text-sm text-slate-500 dark:text-slate-400">Amount to fund</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-950 dark:text-slate-100">
@@ -1203,20 +1201,9 @@ export function PayrollRunDetail({
                   >
                     Cancel
                   </Button>
-                  {retryFundingAwaitingVerification ? (
-                    <Button
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void verifyRetryFunding()}
-                    >
-                      {actions.reconcileRetryFunding.isPending
-                        ? 'Verifying…'
-                        : "I've paid — verify funding"}
-                    </Button>
-                  ) : null}
                   <Button
                     variant="brandSolid"
-                    disabled={busy}
+                    disabled={busy || retryFundingAwaitingVerification}
                     onClick={() => void confirmRetryFunding()}
                   >
                     {actions.approveRetryFunding.isPending ||
