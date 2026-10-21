@@ -193,6 +193,7 @@ jobs:
           min-versions-to-keep: 5
 
       - name: Trigger Dokploy webhook
+        if: secrets.DOKPLOY_WEB_WEBHOOK_URL != '' || secrets.DOKPLOY_WEB_WEBHOOK_URL_DEV != '' || secrets.DOKPLOY_WEB_WEBHOOK_URL_PROD != ''
         env:
           # Each Dokploy app has its own webhook URL, so dev and prod deploy
           # triggers are separate secrets. DOKPLOY_WEB_WEBHOOK_URL is kept as
