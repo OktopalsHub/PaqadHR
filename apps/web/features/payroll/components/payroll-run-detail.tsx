@@ -769,7 +769,7 @@ export function PayrollRunDetail({
    * Re-verify a completed-but-unverified retry funding checkout with the payout provider, then
    * pay the funded payouts. This is the recovery path when the funding webhook never landed.
    */
-  const verifyRetryFunding = async () => {
+  const _verifyRetryFunding = async () => {
     try {
       const result = await actions.reconcileRetryFunding.mutateAsync(runId);
       await refetch();
@@ -1108,7 +1108,8 @@ export function PayrollRunDetail({
                   <Alert>
                     <AlertTitle>Checkout in progress</AlertTitle>
                     <AlertDescription>
-                      Complete the payment in the checkout window. Payouts start after the provider confirms payment.
+                      Complete the payment in the checkout window. Payouts start after the provider
+                      confirms payment.
                     </AlertDescription>
                   </Alert>
                 )}
