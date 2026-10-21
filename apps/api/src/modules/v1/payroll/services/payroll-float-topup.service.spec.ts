@@ -460,7 +460,9 @@ describe('PayrollFloatTopupService.fundAndPay', () => {
       providerDashboardUrl: jest.fn().mockReturnValue('https://dashboard.nomba.com'),
       getAvailableBalance: jest.fn().mockResolvedValue({
         supported: true,
-        available: 10_000_000,
+        // No provider float yet, so the company funds the run in full. A funded
+        // balance would offset the shortfall and is covered separately.
+        available: 0,
       }),
     } as unknown as PayrollFloatBalanceService;
 

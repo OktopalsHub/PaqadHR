@@ -1,5 +1,6 @@
 import dynamic from 'next/dynamic';
 import { ForceLightTheme } from '@/providers/force-light-theme';
+import { LandingFaq } from './sections/landing-faq';
 import { LandingNav } from './sections/landing-nav';
 
 function SectionFallback() {
@@ -33,6 +34,7 @@ export const LandingPage = () => {
         <LandingHero />
         <LandingShowcase />
         <LandingFeaturesSection />
+        <LandingFaq />
         <LandingCta />
       </main>
       <LandingFooter />

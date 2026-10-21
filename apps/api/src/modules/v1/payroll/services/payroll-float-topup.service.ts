@@ -336,8 +336,13 @@ export class PayrollFloatTopupService {
       const checkoutPreflight: PayrollFundPreflight = {
         ...preflight,
         ok: false,
-        shortfall: preflight.requiredAmount,
-        message: `Your company pays ${preflight.requiredAmount} ${preflight.currency}${feeNote} in checkout. We then route each employee’s salary via ${this.providerDisplayName(preflight.provider)}.`,
+        shortfall: preflight.shortfall,
+        message:
+          preflight.balanceSupported &&
+          preflight.availableBalance != null &&
+          preflight.shortfall < preflight.requiredAmount
+            ? `Your company pays ${preflight.shortfall} ${preflight.currency}${feeNote} in checkout. Your provider balance covers ${preflight.availableBalance} ${preflight.currency}. We then route each employee's salary via ${this.providerDisplayName(preflight.provider)}.`
+            : `Your company pays ${preflight.requiredAmount} ${preflight.currency}${feeNote} in checkout. We then route each employee's salary via ${this.providerDisplayName(preflight.provider)}.`,
       };
       const checkout = await this.createFloatTopupCheckout(
         payrollRunId,
@@ -419,8 +424,13 @@ export class PayrollFloatTopupService {
       const checkoutPreflight: PayrollFundPreflight = {
         ...preflight,
         ok: false,
-        shortfall: preflight.requiredAmount,
-        message: `Your company pays ${preflight.requiredAmount} ${preflight.currency}${feeNote} now. Employees are paid on ${this.toIsoDatePart(run.paymentDate)} via ${this.providerDisplayName(preflight.provider)}.`,
+        shortfall: preflight.shortfall,
+        message:
+          preflight.balanceSupported &&
+          preflight.availableBalance != null &&
+          preflight.shortfall < preflight.requiredAmount
+            ? `Your company pays ${preflight.shortfall} ${preflight.currency}${feeNote} now. Your provider balance covers ${preflight.availableBalance} ${preflight.currency}. Employees are paid on ${this.toIsoDatePart(run.paymentDate)} via ${this.providerDisplayName(preflight.provider)}.`
+            : `Your company pays ${preflight.requiredAmount} ${preflight.currency}${feeNote} now. Employees are paid on ${this.toIsoDatePart(run.paymentDate)} via ${this.providerDisplayName(preflight.provider)}.`,
       };
       const checkout = await this.createFloatTopupCheckout(
         payrollRunId,
@@ -520,11 +530,33 @@ export class PayrollFloatTopupService {
         );
       }
       if (retryFunding.status !== 'funded' || !retryFunding.orderReference) {
-        throw new BadRequestException(
-          'Bachs retry requires approved, provider-verified run-scoped funding for the selected failed payouts. ' +
-            'Open the funding review, approve the shortfall, complete the checkout, then retry once it is verified. ' +
-            'A shared Bachs float balance is not accepted as proof.',
+        const hasRetryFundingMeta = Boolean(
+          retryFunding.status ||
+            retryFunding.orderReference ||
+            retryFunding.selectedItemIds?.length,
         );
+        let message =
+          'Bachs retry requires approved, provider-verified run-scoped funding for the selected failed payouts. ';
+        if (!hasRetryFundingMeta) {
+          message += 'Follow these steps:\n';
+          message += '1. POST /runs/:id/retry-funding/preflight - Preview the funding shortfall\n';
+          message += '2. POST /runs/:id/retry-funding/approve - Approve the funding amount\n';
+          message += '3. Complete the checkout (if amount > 0)\n';
+          message +=
+            "4. POST /runs/:id/retry-funding/reconcile - Verify funding (if webhook doesn't fire)\n";
+          message += '5. POST /runs/:id/retry-failed-payments - Retry the payouts\n';
+        } else if (retryFunding.status === 'approved') {
+          message +=
+            'Funding is approved but not yet verified. Complete the checkout (if required) or call /runs/:id/retry-funding/reconcile to verify payment before retrying.';
+        } else if (retryFunding.status === 'pending') {
+          message +=
+            'Funding checkout is pending. Complete the checkout or call /runs/:id/retry-funding/reconcile to verify payment before retrying.';
+        } else {
+          message +=
+            'Open the funding review, approve the shortfall, complete the checkout, then retry once it is verified.';
+        }
+        message += ' A shared Bachs float balance is not accepted as proof.';
+        throw new BadRequestException(message);
       }
       // Funding is approved for a set of failed payouts. Retrying a subset of that set is
       // always covered, so let the user retry only the payouts that are still failed instead of

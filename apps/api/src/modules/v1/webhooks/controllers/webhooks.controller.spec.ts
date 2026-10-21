@@ -1,4 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common';
+import { RATE_LIMIT_KEY, RateLimitPresets } from 'src/common/decorators';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
 import { FincraWebhookService } from '../services/fincra-webhook.service';
@@ -70,6 +71,22 @@ describe('WebhooksController', () => {
 
     it('rejects missing raw body', () => {
       expect(() => controller.handleMonnifyWebhook({} as any, {})).toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('rate limiting', () => {
+    it.each([
+      ['nomba', WebhooksController.prototype.handleNombaWebhook],
+      ['monnify', WebhooksController.prototype.handleMonnifyWebhook],
+      ['noah', WebhooksController.prototype.handleNoahWebhook],
+      ['fincra', WebhooksController.prototype.handleFincraWebhook],
+      ['bachs', WebhooksController.prototype.handleBachsWebhook],
+      ['tremendous', WebhooksController.prototype.handleTremendousWebhook],
+      ['slack events', WebhooksController.prototype.handleSlackEvents],
+      ['slack interactive', WebhooksController.prototype.handleSlackInteractive],
+      ['slack slash commands', WebhooksController.prototype.handleSlashCommand],
+    ])('rate limits the %s webhook endpoint', (_name, handler) => {
+      expect(Reflect.getMetadata(RATE_LIMIT_KEY, handler)).toEqual(RateLimitPresets.PUBLIC);
     });
   });
 });

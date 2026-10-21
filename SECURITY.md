@@ -134,6 +134,24 @@ new ValidationPipe({
 - Return `429` with `Retry-After` when exceeded.
 - Use Redis-backed limits when `REDIS_URL` is set (multi-instance); in-memory acceptable for single instance only.
 
+### Route-level rate limits
+
+Decorate the handler with `@RateLimit(RateLimitPresets.X)`. The global `RateLimitGuard`
+(`src/common/guards/rate-limit.guard.ts`, registered in `app.module.ts`) enforces the metadata
+and returns `429` with `Retry-After` once the limit is exceeded.
+
+| Preset | Window / max | Use for |
+|--------|--------------|---------|
+| `RateLimitPresets.AUTH` | 3 / minute | login, OTP, password reset |
+| `RateLimitPresets.SENSITIVE` | 5 / minute | money movement — payroll run create/approve/process, payouts |
+| `RateLimitPresets.API` | 60 / minute | general authenticated writes |
+| `RateLimitPresets.PUBLIC` | 100 / minute | public and webhook endpoints |
+
+- Buckets are keyed by the authenticated principal, falling back to the client IP for public routes.
+- The route pattern (not the raw path) is part of the key, so a limit cannot be bypassed by
+  varying path parameters such as `tenantId`.
+- Read-only endpoints stay unthrottled unless they are abusable — add a preset when in doubt.
+
 ### Payload and upload constraints
 
 - Reject request bodies exceeding **10 MB** unless explicitly justified and guarded.

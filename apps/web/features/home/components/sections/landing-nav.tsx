@@ -10,6 +10,7 @@ const navLinks = [
   { label: 'The workspace', href: '#product' },
   { label: 'What it handles', href: '#features' },
   { label: 'Pricing', href: '#pricing' },
+  { label: 'Questions', href: '#faq' },
 ];
 
 export const LandingNav = () => {

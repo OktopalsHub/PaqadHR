@@ -81,6 +81,46 @@ Deploys run with `--keep-vars`: any var set directly on the Worker in the
 Cloudflare dashboard wins over the config, and vars that only exist in the
 dashboard (PostHog, Sentry, …) survive every deploy.
 
+## AI crawler access
+
+`apps/web/app/robots.ts` is the single source of truth for crawl policy. It
+names each search and AI crawler explicitly and keeps the private app routes
+disallowed for every one of them.
+
+Cloudflare must not layer a managed robots.txt on top of it. Bot Preference Sync
+prepends its own groups ahead of the origin's, and the first group naming a
+crawler wins, so its `Disallow: /` groups shadow the allow rules the app
+publishes. The same setting also enables edge blocking, which answers `403` to
+the AI bots it blocks — no `robots.txt` can undo that.
+
+The zone is therefore configured as:
+
+| Setting | Value |
+|---------|-------|
+| `ai_bots_protection` | `disabled` |
+| `ai_training` | `disabled` |
+| `ai_search` | `disabled` |
+| `ai_user` | `disabled` |
+| `is_robots_txt_managed` | `false` |
+| `bot_preference_sync_enabled` | `false` |
+
+Apply it with the `cf` CLI:
+
+```bash
+cf bot-management update -z <domain> \
+  --ai-bots-protection disabled \
+  --ai-training disabled \
+  --ai-search disabled \
+  --ai-user disabled \
+  --is-robots-txt-managed false \
+  --bot-preference-sync-enabled false
+```
+
+The AI policies have no `allow` value — `disabled` is what withdraws the
+restriction. `apps/web/scripts/check-ai-readiness.mjs` fails if a managed block
+reappears and shadows an AI crawler, so a regression shows up in the readiness
+check instead of in a chatbot quietly ceasing to cite the site.
+
 ## Tenant subdomains
 
 Workspaces are served at `<slug>.<app-domain>` (`acme.paqadhr.com`, and

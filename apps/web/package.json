@@ -13,6 +13,7 @@
     "prebuild": "node scripts/generate-build-version.mjs && node scripts/generate-legal-content.mjs",
     "build": "pnpm run typecheck:tests && next build --webpack",
     "test": "node --test scripts/cf-config.test.mjs && tsx --test \"**/*.test.ts\"",
+    "check:ai": "node --no-warnings scripts/check-ai-readiness.mjs",
     "start": "next start",
     "lint": "biome check .",
     "check": "biome check . && pnpm run typecheck:tests",

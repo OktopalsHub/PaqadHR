@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { RequireFeatures } from 'src/common/decorators';
+import { RateLimit, RateLimitPresets, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from '../../../../common/enums';
 import { FeatureAccess } from '../../../../common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-role.guard';
@@ -38,6 +38,7 @@ export class PayrollRunsController {
   ) {}
 
   @Post('runs')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createPayrollRun(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
@@ -97,6 +98,7 @@ export class PayrollRunsController {
   }
 
   @Post('runs/:id/calculate')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async calculatePayroll(
@@ -121,6 +123,7 @@ export class PayrollRunsController {
   }
 
   @Post('runs/:id/calculate-with-adjustments')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async calculatePayrollWithAdjustments(
@@ -157,6 +160,7 @@ export class PayrollRunsController {
   }
 
   @Post('notify-payment-setup')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async notifyMemberPaymentSetup(
     @Param('tenantId') tenantId: string,
@@ -183,6 +187,7 @@ export class PayrollRunsController {
   }
 
   @Delete('runs/:id')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async deletePayrollRun(
@@ -206,6 +211,7 @@ export class PayrollRunsController {
   }
 
   @Patch('runs/:id')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async patchPayrollRun(
@@ -230,6 +236,7 @@ export class PayrollRunsController {
   }
 
   @Post('runs/:id/reopen')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async reopenPayrollRun(
@@ -253,6 +260,7 @@ export class PayrollRunsController {
   }
 
   @Post('runs/:id/approve')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async approvePayrollRun(
@@ -278,6 +286,7 @@ export class PayrollRunsController {
   }
 
   @Post('runs/:id/process')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async processPayroll(
