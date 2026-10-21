@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Montserrat } from 'next/font/google';
-import { headers } from 'next/headers';
 import './globals.css';
 import { brandFaviconUrls } from '@/lib/brand';
-import { CSP_NONCE_HEADER } from '@/lib/security/csp-nonce';
 import { ObservabilityProvider } from '@/providers/observability-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
 
@@ -61,22 +59,28 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const nonce = (await headers()).get(CSP_NONCE_HEADER) ?? undefined;
-
+  // The layout deliberately does not read request headers. Calling `headers()`
+  // here would opt every route in the tree into dynamic rendering, so the
+  // public marketing pages could never be prerendered or edge-cached.
+  //
+  // The per-request CSP nonce is still applied to the framework's inline
+  // scripts: Next.js extracts it from the `Content-Security-Policy` request
+  // header that the middleware sets (see lib/security/content-security-policy).
+  // `style-src` allows `'unsafe-inline'`, so the theme provider's injected
+  // style tag needs no nonce.
   return (
-    <html lang="en" suppressHydrationWarning nonce={nonce}>
+    <html lang="en" suppressHydrationWarning>
       <body className={`${montserrat.variable} ${inter.variable} antialiased font-sans`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-          nonce={nonce}
         >
           <ObservabilityProvider>{children}</ObservabilityProvider>
         </ThemeProvider>

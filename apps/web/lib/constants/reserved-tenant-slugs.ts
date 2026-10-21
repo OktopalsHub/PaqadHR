@@ -25,6 +25,17 @@ export const RESERVED_ROUTE_SEGMENTS = new Set([
   'api',
   '_next',
   'pricing',
+  // Public marketing pages. These are also reserved tenant slugs, so without an
+  // entry here the middleware answers them with a 404 before Next can route them.
+  'about',
+  'security',
+  'payroll',
+  'employee-recognition',
+  'hr-software',
+  'hr',
+  // Discovery endpoints live under a dot-prefixed directory; without an entry here
+  // the middleware would try to resolve them as a tenant slug.
+  '.well-known',
   // OAuth completion lives at /google/complete — without this the legacy
   // path→subdomain redirect sends the browser to google.<appdomain>, which has
   // no certificate (ERR_CERT_AUTHORITY_INVALID) and breaks Google sign-in.

@@ -42,6 +42,8 @@ const STATIC_FILE_PATHS = new Set([
   '/icon.png',
   '/favicon.ico',
   '/opengraph-image',
+  '/.well-known/ai-catalog.json',
+  '/.well-known/security.txt',
 ]);
 
 const FILE_LIKE_PATH = /\.[a-z0-9]{2,12}$/i;

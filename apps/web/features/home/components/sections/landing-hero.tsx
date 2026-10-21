@@ -74,7 +74,8 @@ export const LandingHero = () => {
             style={{ animationDelay: '0.16s' }}
           >
             Paqad gives your team one considered place to hire, pay, plan time off, and make good
-            work visible.
+            work visible — HR, payroll, leave, and recognition in a single workspace, priced per
+            active user.
           </p>
 
           <div
