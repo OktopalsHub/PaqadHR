@@ -1200,8 +1200,19 @@ export function PayrollRunDetail({
                     disabled={busy}
                     onClick={() => setRetryFundingReviewOpen(false)}
                   >
-                    Cancel
+                    Close
                   </Button>
+                  {retryFundingAwaitingVerification ? (
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void _verifyRetryFunding()}
+                    >
+                      {actions.reconcileRetryFunding.isPending
+                        ? 'Verifying…'
+                        : 'Verify payment'}
+                    </Button>
+                  ) : null}
                   <Button
                     variant="brandSolid"
                     disabled={busy || retryFundingAwaitingVerification}
