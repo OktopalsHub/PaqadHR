@@ -94,16 +94,8 @@ jobs:
           NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
           NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
 
-      - name: Upload OpenNext build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: opennext-build
-          path: apps/web/.open-next
-          retention-days: 1
-
   cf-deploy:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
-    needs: cf-build
     environment: ${{ (github.ref_name == 'main') && 'production' || 'development' }}
     runs-on: ubuntu-latest
     steps:
@@ -121,11 +113,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download OpenNext build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: opennext-build
-          path: apps/web/.open-next
+      - name: OpenNext Cloudflare build
+        run: pnpm --filter web cf:build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_APP_DOMAIN: ${{ vars.NEXT_PUBLIC_APP_DOMAIN }}
+          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: ${{ vars.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS }}
+          NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
 
       - name: Deploy to Cloudflare Workers
         run: pnpm --filter web cf:deploy
