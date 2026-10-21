@@ -11,6 +11,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
 import { JwtAuthGuard } from './common/guards';
 import { FeatureAccessGuard } from './common/guards/feature-access.guard';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { TenantMemberGuard } from './common/guards/tenant-member.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
@@ -120,6 +121,11 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    // After JwtAuthGuard so rate-limit buckets can be keyed by the authenticated principal.
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
     },
     {
       provide: APP_GUARD,

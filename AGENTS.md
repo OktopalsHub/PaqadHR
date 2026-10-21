@@ -40,6 +40,7 @@ If a file mixes layers (e.g. a feature hook calling the API), apply both backend
 - BOLA/IDOR prevention — verify ownership and tenant scope on every resource access
 - httpOnly cookies for tokens — never `localStorage`
 - Select only DB columns needed for the response — do not load full entities for partial DTOs
+- Rate limits on public/abusable and money-moving endpoints — `@RateLimit(RateLimitPresets.X)` (see [SECURITY.md](./SECURITY.md#route-level-rate-limits))
 - No secrets, PII, or tokens in logs
 
 ## Reporting security issues

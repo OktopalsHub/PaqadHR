@@ -1,6 +1,6 @@
 import { Controller, HttpCode, HttpStatus, Logger, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Public } from 'src/common/decorators';
+import { Public, RateLimit, RateLimitPresets } from 'src/common/decorators';
 
 @ApiTags('Payroll Webhooks')
 @Controller('payroll/webhooks')
@@ -9,6 +9,7 @@ export class PayrollWebhooksController {
 
   @Post('nomba')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.GONE)
   @ApiOperation({ summary: 'Deprecated — use /webhooks/nomba' })
   handleNombaWebhookMoved() {

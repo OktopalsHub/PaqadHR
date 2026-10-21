@@ -49,27 +49,46 @@ export class RateLimitService implements OnModuleDestroy {
     };
   }
 
+  /**
+   * Fixed-window limiter. Every rule in `config.rules` is enforced — the request is
+   * allowed only when all rules are under their limit. Each rule keeps its own bucket.
+   */
   async checkRateLimit(key: string, config: RateLimitConfig): Promise<RateLimitResult> {
     const now = Date.now();
-    const windowMs = config.rules[0]?.windowMs || 60_000;
-    const maxRequests = config.rules[0]?.maxRequests || 100;
+    const rules = config.rules?.length ? config.rules : [{ windowMs: 60_000, maxRequests: 100 }];
 
-    const result = this.inMemoryRateLimitCache.incrWithTtl(`ratelimit:${key}`, windowMs);
-    const count = result.count;
-    const resetTime = result.resetTime;
+    let remaining = Number.POSITIVE_INFINITY;
+    let resetTime = now + (rules[0].windowMs || 60_000);
+    let retryAfter: number | undefined;
 
-    if (count > maxRequests) {
+    for (const [index, rule] of rules.entries()) {
+      const windowMs = rule.windowMs || 60_000;
+      const maxRequests = rule.maxRequests || 100;
+      // Rule 0 keeps the original bucket key so existing limits are unaffected.
+      const bucketKey = index === 0 ? key : `${key}:${index}`;
+      const result = this.inMemoryRateLimitCache.incrWithTtl(`ratelimit:${bucketKey}`, windowMs);
+      const count = result.count;
+
+      if (index === 0) resetTime = result.resetTime;
+      remaining = Math.min(remaining, Math.max(0, maxRequests - count));
+
+      if (count > maxRequests) {
+        retryAfter = Math.max(retryAfter ?? 0, Math.ceil((result.resetTime - now) / 1000));
+      }
+    }
+
+    if (retryAfter !== undefined) {
       return {
         allowed: false,
         remaining: 0,
         resetTime,
-        retryAfter: Math.ceil((resetTime - now) / 1000),
+        retryAfter,
       };
     }
 
     return {
       allowed: true,
-      remaining: Math.max(0, maxRequests - count),
+      remaining,
       resetTime,
     };
   }

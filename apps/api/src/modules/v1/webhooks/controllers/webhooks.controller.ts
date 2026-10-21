@@ -77,6 +77,7 @@ export class WebhooksController {
 
   @Post('nomba')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Nomba payment webhook (subscriptions, payroll, wallet funding)' })
   handleNombaWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
@@ -96,6 +97,7 @@ export class WebhooksController {
 
   @Post('monnify')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Monnify payment webhook (rewards virtual account funding)' })
   handleMonnifyWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
@@ -111,6 +113,7 @@ export class WebhooksController {
 
   @Post('noah')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Noah payment webhook (payroll payouts, wallet funding)' })
   handleNoahWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
@@ -139,6 +142,7 @@ export class WebhooksController {
 
   @Post('bachs')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Bachs billing webhook (subscriptions)' })
   handleBachsWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
@@ -158,6 +162,7 @@ export class WebhooksController {
 
   @Post('slack/events')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Slack events webhook' })
   async handleSlackEvents(
@@ -182,6 +187,7 @@ export class WebhooksController {
 
   @Post('slack/interactive')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Slack interactive components webhook' })
   async handleSlackInteractive(
@@ -211,6 +217,7 @@ export class WebhooksController {
 
   @Post('slack/slash-commands')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Slack slash commands webhook' })
   async handleSlashCommand(
