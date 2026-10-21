@@ -94,6 +94,13 @@ jobs:
           NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
           NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
 
+      - name: Upload OpenNext build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opennext-build
+          path: apps/web/.open-next
+          retention-days: 1
+
   cf-deploy:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     needs: cf-build
@@ -113,6 +120,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Download OpenNext build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: opennext-build
+          path: apps/web/.open-next
 
       - name: Deploy to Cloudflare Workers
         run: pnpm --filter web cf:deploy
