@@ -1208,9 +1208,7 @@ export function PayrollRunDetail({
                       disabled={busy}
                       onClick={() => void _verifyRetryFunding()}
                     >
-                      {actions.reconcileRetryFunding.isPending
-                        ? 'Verifying…'
-                        : 'Verify payment'}
+                      {actions.reconcileRetryFunding.isPending ? 'Verifying…' : 'Verify payment'}
                     </Button>
                   ) : null}
                   <Button
