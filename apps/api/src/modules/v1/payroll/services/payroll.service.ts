@@ -257,6 +257,20 @@ export class PayrollService {
     );
   }
 
+  async cancelRetryFunding(
+    payrollRunId: string,
+    tenantId: string,
+    performedById?: string | null,
+    options?: { reason?: string; staleBefore?: Date },
+  ) {
+    return this.payrollFloatTopupService.cancelRetryFunding(
+      payrollRunId,
+      tenantId,
+      performedById,
+      options,
+    );
+  }
+
   async fundScheduledPayroll(payrollRunId: string, tenantId: string, auditContext: AuditContext) {
     return this.payrollFloatTopupService.fundScheduledPayroll(payrollRunId, tenantId, auditContext);
   }

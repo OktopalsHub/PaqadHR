@@ -1009,3 +1009,388 @@ describe('PayrollFloatTopupService retry funding verification and reuse guards',
     ).rejects.toThrow(/are not covered by this run's verified funding/);
   });
 });
+
+describe('PayrollFloatTopupService retry funding cancellation and expiry', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const retryRun = (status: string, overrides: Record<string, unknown> = {}) =>
+    ({
+      id: 'run-retry',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      processingLockedAt: null,
+      items: [],
+      metadata: {
+        retryFunding: {
+          orderReference: 'pb_retry_ref',
+          status,
+          selectedItemIds: ['item-failed'],
+          amount: 1600,
+          checkoutAmount: 1600,
+          balanceApplied: 0,
+          currency: 'NGN',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+          checkoutRequestedAt: '2026-10-21T10:00:00.000Z',
+          ...overrides,
+        },
+      },
+    }) as unknown as PayrollRun;
+
+  const createService = () => {
+    const payrollRunRepository = {
+      findOne: jest.fn(),
+      exists: jest.fn().mockResolvedValue(true),
+      findRunsWithOpenRetryFundingBefore: jest.fn().mockResolvedValue([]),
+      manager: { transaction: jest.fn() },
+    } as unknown as PayrollRunRepository;
+
+    const verifyCheckout = jest.fn();
+    const paymentFactory = {
+      resolveCheckoutAdapter: jest.fn().mockReturnValue({
+        isConfigured: () => true,
+        verifyCheckout,
+      }),
+    } as unknown as PaymentProviderFactoryService;
+
+    const fundingLedger = {
+      recordVerifiedFunding: jest.fn().mockResolvedValue(undefined),
+      recordRetryShortfallCancellation: jest.fn().mockResolvedValue(undefined),
+      getRunLedger: jest.fn().mockResolvedValue({ entries: [] }),
+    };
+
+    const service = new PayrollFloatTopupService(
+      payrollRunRepository,
+      {} as never,
+      paymentFactory,
+      {} as never,
+      fundingLedger as never,
+      {} as never,
+      { getPayrollFeePercentage: jest.fn().mockResolvedValue(3) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    return { service, payrollRunRepository, verifyCheckout, fundingLedger };
+  };
+
+  /** Mirrors the service's locked-row transaction so the test can assert the saved metadata. */
+  const mockCancelTransaction = (payrollRunRepository: PayrollRunRepository, run: PayrollRun) => {
+    const locked = {
+      ...run,
+      metadata: {
+        ...run.metadata,
+        retryFunding: {
+          ...((run.metadata as Record<string, unknown> | null)?.retryFunding as Record<
+            string,
+            unknown
+          >),
+        },
+      },
+    } as unknown as PayrollRun;
+    (payrollRunRepository.manager.transaction as jest.Mock).mockImplementation(async (fn) =>
+      fn({
+        getRepository: () => ({ findOne: jest.fn().mockResolvedValue(locked) }),
+        save: jest.fn(async (entity) => entity),
+      }),
+    );
+    return locked;
+  };
+
+  it('cancels a pending checkout the provider confirms was never paid', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } = createService();
+    const run = retryRun('pending');
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    const locked = mockCancelTransaction(payrollRunRepository, run);
+    verifyCheckout.mockResolvedValue({ status: 'pending', amount: 0, currency: 'NGN' });
+
+    const result = await service.cancelRetryFunding('run-retry', 'tenant-1', 'member-1');
+
+    expect(result).toMatchObject({ status: 'cancelled', orderReference: 'pb_retry_ref' });
+    expect(
+      (locked.metadata as { retryFunding?: { status?: string; cancelledById?: string } })
+        .retryFunding,
+    ).toMatchObject({ status: 'cancelled', cancelledById: 'member-1' });
+    expect(fundingLedger.recordVerifiedFunding).not.toHaveBeenCalled();
+    expect(fundingLedger.recordRetryShortfallCancellation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        payrollRunId: 'run-retry',
+        orderReference: 'pb_retry_ref',
+        amount: 1600,
+        currency: 'NGN',
+      }),
+    );
+  });
+
+  it('credits the run instead of cancelling when the checkout was actually paid', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } = createService();
+    const run = retryRun('pending');
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    mockCancelTransaction(payrollRunRepository, run);
+    verifyCheckout.mockResolvedValue({ status: 'successful', amount: 1600, currency: 'NGN' });
+
+    const result = await service.cancelRetryFunding('run-retry', 'tenant-1', 'member-1');
+
+    expect(result).toMatchObject({ status: 'funded' });
+    expect(fundingLedger.recordVerifiedFunding).toHaveBeenCalled();
+    expect(fundingLedger.recordRetryShortfallCancellation).not.toHaveBeenCalled();
+  });
+
+  it('refuses to cancel when the provider cannot confirm the payment state', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } = createService();
+    const run = retryRun('pending');
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    verifyCheckout.mockRejectedValue(new Error('provider unavailable'));
+
+    await expect(service.cancelRetryFunding('run-retry', 'tenant-1', 'member-1')).rejects.toThrow(
+      /could not confirm with the payment provider/i,
+    );
+    expect(fundingLedger.recordRetryShortfallCancellation).not.toHaveBeenCalled();
+  });
+
+  it('cancels an approval without asking the provider because no checkout was opened', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } = createService();
+    const run = retryRun('approved', { checkoutRequestedAt: undefined });
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    mockCancelTransaction(payrollRunRepository, run);
+
+    const result = await service.cancelRetryFunding('run-retry', 'tenant-1', 'member-1');
+
+    expect(result).toMatchObject({ status: 'cancelled' });
+    expect(verifyCheckout).not.toHaveBeenCalled();
+    expect(fundingLedger.recordRetryShortfallCancellation).toHaveBeenCalled();
+  });
+
+  it('expires retry funding that stayed pending past the pending window', async () => {
+    const { service, payrollRunRepository, verifyCheckout } = createService();
+    const run = retryRun('pending');
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    mockCancelTransaction(payrollRunRepository, run);
+    (payrollRunRepository.findRunsWithOpenRetryFundingBefore as jest.Mock).mockResolvedValue([run]);
+    verifyCheckout.mockResolvedValue({ status: 'pending', amount: 0, currency: 'NGN' });
+
+    const result = await service.expireStaleRetryFunding(new Date('2026-10-21T12:00:00.000Z'));
+
+    expect(result).toEqual({ expired: 1, verified: 0, skipped: 0 });
+  });
+
+  it('leaves pending funding alone when the provider cannot be reached', async () => {
+    const { service, payrollRunRepository, verifyCheckout } = createService();
+    const run = retryRun('pending');
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    (payrollRunRepository.findRunsWithOpenRetryFundingBefore as jest.Mock).mockResolvedValue([run]);
+    verifyCheckout.mockRejectedValue(new Error('provider unavailable'));
+
+    const result = await service.expireStaleRetryFunding(new Date('2026-10-21T12:00:00.000Z'));
+
+    expect(result).toEqual({ expired: 0, verified: 0, skipped: 1 });
+  });
+});
+
+describe('PayrollFloatTopupService late payment on a cancelled retry funding', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const createService = () => {
+    const payrollRunRepository = {
+      findOne: jest.fn(),
+      exists: jest.fn().mockResolvedValue(true),
+      createQueryBuilder: jest.fn(),
+      manager: { transaction: jest.fn() },
+    } as unknown as PayrollRunRepository;
+
+    const verifyCheckout = jest.fn();
+    const paymentFactory = {
+      resolveCheckoutAdapter: jest.fn().mockReturnValue({
+        isConfigured: () => true,
+        verifyCheckout,
+      }),
+    } as unknown as PaymentProviderFactoryService;
+
+    const fundingLedger = {
+      recordVerifiedFunding: jest.fn().mockResolvedValue(undefined),
+      recordRetryShortfallCancellation: jest.fn().mockResolvedValue(undefined),
+      getRunLedger: jest.fn().mockResolvedValue({ entries: [] }),
+    };
+
+    const service = new PayrollFloatTopupService(
+      payrollRunRepository,
+      {} as never,
+      paymentFactory,
+      {} as never,
+      fundingLedger as never,
+      {} as never,
+      { getPayrollFeePercentage: jest.fn().mockResolvedValue(3) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    return { service, payrollRunRepository, verifyCheckout, fundingLedger };
+  };
+
+  it('credits a payment that lands on a checkout the run already released', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } = createService();
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-retry',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      createdById: 'member-1',
+      metadata: {
+        retryFunding: {
+          orderReference: 'pb_new_ref',
+          status: 'approved',
+          cancelledOrderReferences: ['pb_old_ref'],
+          selectedItemIds: ['item-failed'],
+          amount: 1600,
+          currency: 'NGN',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+        },
+      },
+    } as unknown as PayrollRun);
+    verifyCheckout.mockResolvedValue({ status: 'successful', amount: 1600, currency: 'NGN' });
+
+    const result = await service.completeFloatTopup({
+      tenantId: 'tenant-1',
+      orderReference: 'pb_old_ref',
+      payrollRunId: 'run-retry',
+      initiatedByMemberId: 'member-1',
+    });
+
+    expect(result).toEqual({ received: true, paid: false });
+    expect(fundingLedger.recordVerifiedFunding).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        payrollRunId: 'run-retry',
+        amount: 1600,
+        currency: 'NGN',
+        providerReference: 'pb_old_ref',
+        evidence: expect.objectContaining({
+          fundingPurpose: 'cancelled_retry_shortfall_late_payment',
+        }),
+      }),
+    );
+  });
+
+  it('ignores a cancelled checkout payment the provider has not confirmed', async () => {
+    const { service, payrollRunRepository, verifyCheckout, fundingLedger } = createService();
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-retry',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      createdById: 'member-1',
+      metadata: {
+        retryFunding: {
+          orderReference: 'pb_new_ref',
+          status: 'approved',
+          cancelledOrderReferences: ['pb_old_ref'],
+          selectedItemIds: ['item-failed'],
+          amount: 1600,
+          currency: 'NGN',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+        },
+      },
+    } as unknown as PayrollRun);
+    verifyCheckout.mockResolvedValue({ status: 'pending', amount: 0, currency: 'NGN' });
+
+    const result = await service.completeFloatTopup({
+      tenantId: 'tenant-1',
+      orderReference: 'pb_old_ref',
+      payrollRunId: 'run-retry',
+    });
+
+    expect(result).toEqual({ received: true, paid: false });
+    expect(fundingLedger.recordVerifiedFunding).not.toHaveBeenCalled();
+  });
+});
+
+describe('PayrollFloatTopupService retry funding expiry race guard', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('leaves a checkout that was re-created during the sweep alone', async () => {
+    const payrollRunRepository = {
+      findOne: jest.fn(),
+      exists: jest.fn().mockResolvedValue(true),
+      findRunsWithOpenRetryFundingBefore: jest.fn().mockResolvedValue([]),
+      manager: { transaction: jest.fn() },
+    } as unknown as PayrollRunRepository;
+
+    const verifyCheckout = jest.fn();
+    const paymentFactory = {
+      resolveCheckoutAdapter: jest.fn().mockReturnValue({
+        isConfigured: () => true,
+        verifyCheckout,
+      }),
+    } as unknown as PaymentProviderFactoryService;
+
+    const fundingLedger = {
+      recordVerifiedFunding: jest.fn().mockResolvedValue(undefined),
+      recordRetryShortfallCancellation: jest.fn().mockResolvedValue(undefined),
+      getRunLedger: jest.fn().mockResolvedValue({ entries: [] }),
+    };
+
+    const service = new PayrollFloatTopupService(
+      payrollRunRepository,
+      {} as never,
+      paymentFactory,
+      {} as never,
+      fundingLedger as never,
+      {} as never,
+      { getPayrollFeePercentage: jest.fn().mockResolvedValue(3) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    // The run was approved long ago, but the checkout was re-created just now.
+    const run = {
+      id: 'run-retry',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      processingLockedAt: null,
+      items: [],
+      metadata: {
+        retryFunding: {
+          orderReference: 'pb_retry_ref',
+          status: 'pending',
+          selectedItemIds: ['item-failed'],
+          amount: 1600,
+          checkoutAmount: 1600,
+          balanceApplied: 0,
+          currency: 'NGN',
+          provider: 'BACHS',
+          approvedById: 'member-1',
+          approvedAt: '2026-10-21T08:00:00.000Z',
+          checkoutRequestedAt: '2026-10-21T11:55:00.000Z',
+        },
+      },
+    } as unknown as PayrollRun;
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue(run);
+    (payrollRunRepository.findRunsWithOpenRetryFundingBefore as jest.Mock).mockResolvedValue([run]);
+    (payrollRunRepository.manager.transaction as jest.Mock).mockImplementation(async (fn) =>
+      fn({
+        getRepository: () => ({ findOne: jest.fn().mockResolvedValue(run) }),
+        save: jest.fn(async (entity) => entity),
+      }),
+    );
+    verifyCheckout.mockResolvedValue({ status: 'pending', amount: 0, currency: 'NGN' });
+
+    const result = await service.expireStaleRetryFunding(new Date('2026-10-21T12:00:00.000Z'));
+
+    expect(result).toEqual({ expired: 0, verified: 0, skipped: 1 });
+    expect(fundingLedger.recordRetryShortfallCancellation).not.toHaveBeenCalled();
+  });
+});

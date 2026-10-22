@@ -5,6 +5,7 @@ import {
   approvePayrollRun,
   approveRetryFunding,
   calculatePayrollRun,
+  cancelRetryFunding,
   createPayrollRun,
   createRetryFundingCheckout,
   deletePayrollRun,
@@ -252,6 +253,10 @@ export function usePayrollActions() {
     }),
     reconcileRetryFunding: useMutation({
       mutationFn: (id: string) => reconcileRetryFunding(id),
+      onSuccess: invalidate,
+    }),
+    cancelRetryFunding: useMutation({
+      mutationFn: (id: string) => cancelRetryFunding(id),
       onSuccess: invalidate,
     }),
     schedule: useMutation({

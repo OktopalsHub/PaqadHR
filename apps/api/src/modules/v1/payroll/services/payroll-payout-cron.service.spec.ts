@@ -1,4 +1,5 @@
 import type { PayrollService } from './payroll.service';
+import type { PayrollFloatTopupService } from './payroll-float-topup.service';
 import type { PayrollPayoutService } from './payroll-payout.service';
 import { PayrollPayoutCronService } from './payroll-payout-cron.service';
 
@@ -29,10 +30,17 @@ describe('PayrollPayoutCronService', () => {
     const payrollService = {
       processDueScheduledPayouts: jest.fn(),
     } as unknown as PayrollService;
+    const payrollFloatTopupService = {
+      expireStaleRetryFunding: jest.fn(),
+    } as unknown as PayrollFloatTopupService;
 
-    const cronService = new PayrollPayoutCronService(payrollPayoutService, payrollService);
+    const cronService = new PayrollPayoutCronService(
+      payrollPayoutService,
+      payrollService,
+      payrollFloatTopupService,
+    );
 
-    return { cronService, payrollPayoutService, payrollService };
+    return { cronService, payrollPayoutService, payrollService, payrollFloatTopupService };
   };
 
   afterEach(() => {
@@ -66,5 +74,31 @@ describe('PayrollPayoutCronService', () => {
     await cronService.requeryStuckPayouts();
 
     expect(payrollPayoutService.requeryStuckPayouts).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the retry funding expiry sweep when payroll gateway is not configured', async () => {
+    clearGatewayEnv();
+    const { cronService, payrollFloatTopupService } = createService();
+
+    await cronService.expireStaleRetryFunding();
+
+    expect(payrollFloatTopupService.expireStaleRetryFunding).not.toHaveBeenCalled();
+  });
+
+  it('expires stale retry funding when Nomba is configured', async () => {
+    process.env.NOMBA_CLIENT_ID = 'client-id';
+    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+
+    const { cronService, payrollFloatTopupService } = createService();
+    (payrollFloatTopupService.expireStaleRetryFunding as jest.Mock).mockResolvedValue({
+      expired: 1,
+      verified: 0,
+      skipped: 0,
+    });
+
+    await cronService.expireStaleRetryFunding();
+
+    expect(payrollFloatTopupService.expireStaleRetryFunding).toHaveBeenCalledTimes(1);
   });
 });

@@ -12,6 +12,7 @@ import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantsModule } from '../tenants/tenants.module';
+import { PayrollAdminController } from './controllers/payroll-admin.controller';
 import { PayrollExportController } from './controllers/payroll-export.controller';
 import { PayrollFeeController } from './controllers/payroll-fee.controller';
 import { PayrollItemsController } from './controllers/payroll-items.controller';
@@ -65,6 +66,7 @@ import { PayrollRunFundingLedgerService } from './services/payroll-run-funding-l
     PayrollRunsController,
     PayrollItemsController,
     PayrollPayoutController,
+    PayrollAdminController,
     PayrollExportController,
     PayrollFeeController,
     PayrollWebhooksController,

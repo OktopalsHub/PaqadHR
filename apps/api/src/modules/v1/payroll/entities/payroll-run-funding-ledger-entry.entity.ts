@@ -7,6 +7,7 @@ export enum PayrollFundingLedgerEventType {
   PAYOUT_CONFIRMED = 'payout_confirmed',
   RESERVATION_RELEASED = 'reservation_released',
   SHORTFALL_APPROVED = 'shortfall_approved',
+  SHORTFALL_CANCELLED = 'shortfall_cancelled',
 }
 
 @Entity({ name: 'payroll_run_funding_ledger' })

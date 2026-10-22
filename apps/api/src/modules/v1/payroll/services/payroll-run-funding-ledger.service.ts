@@ -986,6 +986,65 @@ export class PayrollRunFundingLedgerService {
     });
   }
 
+  /**
+   * Record that an open retry funding approval or checkout was released.
+   *
+   * This entry is history only: it never changes the funded/debited totals, so a cancelled
+   * approval cannot be mistaken for money that arrived. The provider reference keeps it
+   * idempotent — releasing the same approval twice writes one entry.
+   */
+  async recordRetryShortfallCancellation(input: {
+    tenantId: string;
+    payrollRunId: string;
+    orderReference: string;
+    amount: number;
+    currency: string;
+    provider: string;
+    performedById?: string | null;
+    reason: string;
+    cancelledAt?: string;
+  }): Promise<void> {
+    const orderReference = input.orderReference.trim();
+    const currency = input.currency.trim().toUpperCase();
+    const amount = Math.round(Number(input.amount) * 100) / 100;
+    if (!orderReference || !currency || !Number.isFinite(amount) || amount < 0) {
+      throw new Error(
+        'A retry funding cancellation requires an order reference, currency, and a non-negative amount',
+      );
+    }
+
+    const idempotencyKey = `shortfall-cancelled:${input.payrollRunId}:${orderReference}`;
+    await this.ledgerRepository.manager.transaction(async (manager) => {
+      const run = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!run) throw new Error('Payroll run not found for retry funding cancellation');
+
+      const ledger = manager.getRepository(PayrollRunFundingLedgerEntry);
+      const existing = await ledger.findOne({ where: { idempotencyKey } });
+      if (existing) return;
+
+      await ledger.insert({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        payrollItemId: null,
+        eventType: PayrollFundingLedgerEventType.SHORTFALL_CANCELLED,
+        amount: amount.toFixed(2),
+        currency,
+        provider: input.provider,
+        providerReference: orderReference,
+        idempotencyKey,
+        performedById: input.performedById ?? null,
+        approvedById: null,
+        evidence: {
+          reason: input.reason,
+          cancelledAt: input.cancelledAt ?? new Date().toISOString(),
+        },
+      });
+    });
+  }
+
   async getRunLedger(tenantId: string, payrollRunId: string) {
     const entries = await this.ledgerRepository.find({
       where: { tenantId, payrollRunId },
