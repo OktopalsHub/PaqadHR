@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import {
   getTenantSlugFromHost,
   getTenantSlugFromPath,
@@ -83,6 +84,30 @@ function notFoundResponse(
   return response;
 }
 
+/**
+ * Whether a workspace slug exists.
+ *
+ * `true`/`false` when the API answered, `null` when it could not be reached.
+ * An address that does not exist must not be answered with a page that behaves
+ * like a real workspace, but an API outage must never take a real workspace
+ * offline — so an unknown answer is treated as "assume it exists".
+ */
+async function workspaceExists(slug: string, requestHost: string): Promise<boolean | null> {
+  const apiBase = normalizeApiV1Base(resolveApiBaseUrl({ requestHost }));
+  try {
+    const response = await fetch(`${apiBase}/tenants/slug/${encodeURIComponent(slug)}`, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(2000),
+      cache: 'no-store',
+    });
+    if (response.status === 404) return false;
+    if (response.ok) return true;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function applySecurityHeaders(response: NextResponse, requestHost: string, nonce: string): void {
   response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(requestHost, nonce));
   response.headers.set('X-Frame-Options', 'DENY');
@@ -105,7 +130,7 @@ function applySecurityHeaders(response: NextResponse, requestHost: string, nonce
   response.headers.delete('x-powered-by');
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const nonce = createNonce();
   const requestHost = request.nextUrl.hostname;
   const hostHeader = request.headers.get('host') ?? requestHost;
@@ -162,6 +187,12 @@ export function middleware(request: NextRequest) {
         // /blog, /careers, /security, /company, /legal, /recruitment and /payroll.
         // Those addresses are not pages either, so answer 404 instead of a 5xx.
         if (isReservedTenantSlug(legacySlug)) {
+          return notFoundResponse(requestHost, nonce, { 'X-Robots-Tag': 'noindex, nofollow' });
+        }
+        // A slug that was never a tenant must answer 404 instead of being sent to a
+        // workspace host that renders an empty app shell with a 200 status.
+        const exists = await workspaceExists(legacySlug, requestHost);
+        if (exists === false) {
           return notFoundResponse(requestHost, nonce, { 'X-Robots-Tag': 'noindex, nofollow' });
         }
         const rest = pathname.slice(`/${legacySlug}`.length) || '/';
