@@ -92,8 +92,8 @@ export class PaymentMethodVerificationService {
     const employeeName = pm.member
       ? `${pm.member.firstName ?? ''} ${pm.member.lastName ?? ''}`.trim()
       : 'Employee';
-    void this.notifyAdmins(tenantId, employeeName, pm.currency ?? 'NGN', saved.id).catch((e) =>
-      this.logger.error('Failed to notify admins', e),
+    void this.notifyAdmins(tenantId, employeeName, pm.currency ?? 'NGN', saved.id, memberId).catch(
+      (e) => this.logger.error('Failed to notify admins', e),
     );
     return saved;
   }
@@ -197,20 +197,38 @@ export class PaymentMethodVerificationService {
       }));
   }
 
+  /**
+   * Notify the admins who can actually review a submitted payment account.
+   *
+   * Only active owners and admins are recipients: plain members never see payment details that
+   * are waiting for review, and the member who submitted the account is excluded because they
+   * are not allowed to verify their own payment account.
+   */
   private async notifyAdmins(
     tenantId: string,
     employeeName: string,
     currency: string,
     paymentMethodId: string,
+    submittedByMemberId?: string,
   ) {
     const admins = await this.memberRepo.find({
       where: [
-        { tenantId, role: TenantMemberRole.ADMIN },
-        { tenantId, role: TenantMemberRole.OWNER },
+        { tenantId, role: TenantMemberRole.ADMIN, isActive: true },
+        { tenantId, role: TenantMemberRole.OWNER, isActive: true },
       ],
-      select: ['id'],
+      select: ['id', 'role', 'isActive'],
     });
-    const ids = admins.map((a) => a.id);
+    // The role and active filters are applied again here so the guarantee does not depend on
+    // the query alone: only active owners and admins may receive payment details to review,
+    // and never the member who submitted them.
+    const ids = admins
+      .filter(
+        (admin) =>
+          (admin.role === TenantMemberRole.ADMIN || admin.role === TenantMemberRole.OWNER) &&
+          admin.isActive !== false,
+      )
+      .map((admin) => admin.id)
+      .filter((id) => id !== submittedByMemberId);
     if (ids.length > 0)
       await this.notificationHelper.sendPaymentMethodSubmittedAdminNotification(ids, tenantId, {
         employeeName,
