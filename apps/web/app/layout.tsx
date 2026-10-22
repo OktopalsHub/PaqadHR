@@ -57,6 +57,9 @@ export const metadata: Metadata = {
     apple: [{ url: brandFaviconUrls.light, type: 'image/png' }],
     shortcut: [{ url: brandFaviconUrls.light, type: 'image/png' }],
   },
+  other: {
+    'postship-verification': 'sy_b5ZB0LkKeHy5_B0xEGm0MNlF',
+  },
 };
 
 export default function RootLayout({

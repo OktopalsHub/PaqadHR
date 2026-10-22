@@ -61,7 +61,7 @@ export function MarketingShell({
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-6">
           <Link href="/" aria-label="PaqadHR home">
-            <PaqadLogo />
+            <PaqadLogo priority />
           </Link>
           <nav aria-label="Marketing" className="hidden items-center gap-6 md:flex">
             {navItems.map((item) => (

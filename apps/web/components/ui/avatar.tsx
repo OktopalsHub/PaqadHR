@@ -19,6 +19,10 @@ function AvatarImage({ className, ...props }: React.ComponentProps<typeof Avatar
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
+      // Avatars are small, user-uploaded images that are rarely the LCP element.
+      // Lazy-loading them keeps off-screen avatars off the critical path.
+      loading="lazy"
+      decoding="async"
       className={cn('aspect-square size-full', className)}
       {...props}
     />

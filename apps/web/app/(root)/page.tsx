@@ -2,6 +2,12 @@ import type { Metadata } from 'next';
 import { LandingJsonLd } from '@/features/home/components/landing-json-ld';
 import { LandingPage } from '@/features/home/components/landing-page';
 
+/**
+ * This page looks the same to every visitor, so it is served from the edge
+ * cache and revalidated every 60 seconds instead of being rendered per request.
+ */
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   // `absolute` bypasses the root layout's `%s · PaqadHR` template, which turned
   // a page title of "PaqadHR" into "PaqadHR · PaqadHR" and spent the whole title

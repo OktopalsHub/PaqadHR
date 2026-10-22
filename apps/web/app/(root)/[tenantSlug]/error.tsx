@@ -1,9 +1,9 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { captureSentryException } from '@/lib/observability/sentry-client';
 
 export default function AppError({
   error,
@@ -13,7 +13,7 @@ export default function AppError({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    void captureSentryException(error);
   }, [error]);
 
   return (

@@ -59,7 +59,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             <div className="flex flex-col justify-center py-2 sm:py-0">
               <div className="mx-auto mb-2 w-full max-w-[34rem] px-1 sm:hidden">
                 <Link href="/" aria-label="Paqad home" className="inline-flex items-center gap-2.5">
-                  <PaqadLogo showWordmark={false} className="size-8" />
+                  <PaqadLogo showWordmark={false} className="size-8" priority />
                   <span className="text-base font-semibold tracking-[-0.03em] text-slate-950">
                     Paqad HR
                   </span>

@@ -38,7 +38,7 @@ function showUpdatePrompt(): void {
   toast.info('A new version is ready', {
     id: UPDATE_TOAST_ID,
     duration: Infinity,
-    description: 'Refresh when it suits you — nothing changes until you do.',
+    description: 'Refresh to update',
     action: {
       label: 'Refresh',
       onClick: () => window.location.reload(),
