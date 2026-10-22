@@ -320,6 +320,29 @@ export async function reconcileRetryFunding(id: string): Promise<RetryFundingRec
   );
 }
 
+export type RetryFundingCancelResult = {
+  status: 'cancelled' | 'funded' | 'not_pending';
+  orderReference?: string;
+  amount?: number;
+  currency?: string;
+  reason?: string;
+};
+
+/**
+ * Cancel an open retry funding approval or checkout.
+ *
+ * The server asks the payment provider first: a checkout that was actually paid is credited to
+ * the run instead of being cancelled, so cancelling can never cost the company a second
+ * payment. Cancelling only releases the run so a fresh funding review can be started.
+ */
+export async function cancelRetryFunding(id: string): Promise<RetryFundingCancelResult> {
+  const tenantId = await resolveTenantId();
+  return apiClient<RetryFundingCancelResult>(
+    tenantPath(tenantId, `payroll/runs/${id}/retry-funding/cancel`),
+    { method: 'POST' },
+  );
+}
+
 export type PayrollFundingLedger = {
   payrollRunId: string;
   entries: Array<{

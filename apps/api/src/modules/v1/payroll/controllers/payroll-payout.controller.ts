@@ -262,6 +262,18 @@ export class PayrollPayoutController {
     return this.payrollService.reconcileRetryFunding(id, tenantId, req.member.id);
   }
 
+  @Post('runs/:id/retry-funding/cancel')
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async cancelRetryFunding(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    return this.payrollService.cancelRetryFunding(id, tenantId, req.member.id);
+  }
+
   @Post('runs/:id/retry-failed-payments')
   @RateLimit(RateLimitPresets.SENSITIVE)
   @UseGuards(TenantRoleGuard)

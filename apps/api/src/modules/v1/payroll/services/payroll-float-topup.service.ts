@@ -51,6 +51,14 @@ import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.ser
 
 const SUCCESSFUL_CHECKOUT_STATUSES = new Set(['success', 'successful', 'succeeded', 'accepted']);
 
+/**
+ * How long an open retry funding approval or checkout may stay pending before it is treated as
+ * abandoned and cancelled. Without this window an abandoned checkout wedges the run: no new
+ * approval can be made, and every retry is refused until the user pays a checkout they no
+ * longer want.
+ */
+export const RETRY_FUNDING_PENDING_TTL_MS = 60 * 60 * 1000;
+
 export type PayrollFundPreflight = {
   ok: boolean;
   provider: PaymentProvider;
@@ -96,9 +104,24 @@ export type RetryFundingReconcileStatus = {
   reason?: string;
 };
 
+/**
+ * Outcome of a retry funding cancellation.
+ *
+ * `funded` means the checkout had actually been paid, so it was credited to the run instead of
+ * being cancelled. `cancelled` means the open approval or unpaid checkout was released and the
+ * run can be funded again. `not_pending` means the run moved on before the cancel landed.
+ */
+export type RetryFundingCancelStatus = {
+  status: 'cancelled' | 'funded' | 'not_pending';
+  orderReference?: string;
+  amount?: number;
+  currency?: string;
+  reason?: string;
+};
+
 type RetryFundingMeta = {
   orderReference?: string;
-  status?: 'approved' | 'pending' | 'funded';
+  status?: 'approved' | 'pending' | 'funded' | 'cancelled';
   selectedItemIds?: string[];
   /** Total run-scoped funding the failed payouts need (employee pay + provider reserves). */
   amount?: number;
@@ -120,6 +143,16 @@ type RetryFundingMeta = {
   lastCheckoutErrorAt?: string;
   fundedAt?: string;
   itemFundingAmounts?: Record<string, number>;
+  /** Set when an open approval or checkout is cancelled so the run can be funded again. */
+  cancelledAt?: string;
+  cancelledById?: string | null;
+  cancelReason?: string;
+  /**
+   * Order references of retry funding checkouts this run released. A checkout can still be paid
+   * after it was cancelled (the user kept the provider window open), so the references are kept
+   * to credit any late payment to this run instead of losing it.
+   */
+  cancelledOrderReferences?: string[];
 };
 
 @Injectable()
@@ -551,6 +584,9 @@ export class PayrollFloatTopupService {
         } else if (retryFunding.status === 'pending') {
           message +=
             'Funding checkout is pending. Complete the checkout or call /runs/:id/retry-funding/reconcile to verify payment before retrying.';
+        } else if (retryFunding.status === 'cancelled') {
+          message +=
+            'The retry funding checkout was cancelled. Open the funding review again, approve the shortfall for the payouts you want to retry, and complete the checkout.';
         } else {
           message +=
             'Open the funding review, approve the shortfall, complete the checkout, then retry once it is verified.';
@@ -617,7 +653,7 @@ export class PayrollFloatTopupService {
     const existingRetryFunding = this.readRetryFundingMeta(run);
     if (existingRetryFunding.status === 'pending' || existingRetryFunding.status === 'approved') {
       throw new BadRequestException(
-        'A retry funding approval or checkout is already active. Complete or reconcile it first.',
+        'A retry funding approval or checkout is already active. Complete or reconcile it first, or cancel it to start a fresh funding review.',
       );
     }
     if (
@@ -800,7 +836,7 @@ export class PayrollFloatTopupService {
       const latest = this.readRetryFundingMeta(locked);
       if (latest.status === 'approved' || latest.status === 'pending') {
         throw new BadRequestException(
-          'Another retry funding approval or checkout is already active for this payroll run.',
+          'Another retry funding approval or checkout is already active for this payroll run. Cancel it first to approve a different amount.',
         );
       }
       if (
@@ -885,6 +921,9 @@ export class PayrollFloatTopupService {
           approvedAt: new Date().toISOString(),
           payoutFeeReserve: preflight.payoutFeeReserve ?? 0,
           itemFundingAmounts,
+          // Keep the released checkouts so a late payment on one of them is still credited
+          // to this run instead of being lost.
+          cancelledOrderReferences: latest.cancelledOrderReferences,
         } satisfies RetryFundingMeta,
       };
       await manager.save(locked);
@@ -981,6 +1020,11 @@ export class PayrollFloatTopupService {
     }
     await this.assertRetryRunSettled(run, tenantId);
     const meta = this.readRetryFundingMeta(run);
+    if (meta.status === 'cancelled') {
+      throw new BadRequestException(
+        'This retry funding was cancelled or expired. Review the funding amount and approve it again before checking out.',
+      );
+    }
     if (
       !meta.orderReference ||
       !meta.approvedById ||
@@ -1452,6 +1496,11 @@ export class PayrollFloatTopupService {
     if (retryFunding.orderReference === input.orderReference) {
       return this.completeRetryFundingCheckout(run, input, retryFunding);
     }
+    // A checkout the user released can still be paid from a provider window they left open.
+    // The money still belongs to this run, so credit it instead of dropping the payment.
+    if (retryFunding.cancelledOrderReferences?.includes(input.orderReference)) {
+      return this.completeCancelledRetryFundingCheckout(run, input);
+    }
 
     const meta = this.readFloatTopupMeta(run);
     if (!meta.orderReference || meta.orderReference !== input.orderReference) {
@@ -1619,6 +1668,75 @@ export class PayrollFloatTopupService {
   }
 
   /**
+   * A payment that landed on a retry funding checkout this run already released.
+   *
+   * The user kept the provider window open and paid after cancelling. The money is credited to
+   * the run's funding ledger so it is accounted for, and the operator is warned because the
+   * released approval cannot fund a retry on its own — support settles it with the tenant.
+   */
+  private async completeCancelledRetryFundingCheckout(
+    run: PayrollRun,
+    input: {
+      orderReference: string;
+      initiatedByMemberId?: string;
+    },
+  ): Promise<{ received: boolean; paid: boolean }> {
+    const provider = PaymentProvider.BACHS as PayrollFloatOrderRefProvider;
+    const adapter = this.paymentFactory.resolveCheckoutAdapter(provider);
+    if (!adapter?.isConfigured()) {
+      this.logger.warn(
+        `Cancelled retry funding payment ignored: checkout adapter unavailable for ${input.orderReference}`,
+      );
+      return { received: true, paid: false };
+    }
+    const verified = await adapter.verifyCheckout({ orderReference: input.orderReference });
+    if (!verified || !SUCCESSFUL_CHECKOUT_STATUSES.has(verified.status.toLowerCase())) {
+      this.logger.warn(
+        `Cancelled retry funding payment ignored: provider has not confirmed ${input.orderReference}`,
+      );
+      return { received: true, paid: false };
+    }
+    const verifiedAmount = Number(verified.amount);
+    const verifiedCurrency =
+      typeof verified.currency === 'string' ? verified.currency.toUpperCase() : undefined;
+    if (!Number.isFinite(verifiedAmount) || verifiedAmount <= 0 || !verifiedCurrency) {
+      this.logger.warn(
+        `Cancelled retry funding payment ignored: invalid verified amount for ${input.orderReference}`,
+      );
+      return { received: true, paid: false };
+    }
+    try {
+      await this.fundingLedger.recordVerifiedFunding({
+        tenantId: run.tenantId,
+        payrollRunId: run.id,
+        amount: verifiedAmount,
+        currency: verifiedCurrency,
+        provider,
+        providerReference: input.orderReference,
+        performedById: input.initiatedByMemberId,
+        evidence: {
+          verifiedStatus: verified.status,
+          verifiedAmount,
+          currencyReportedByProvider: verifiedCurrency,
+          fundingPurpose: 'cancelled_retry_shortfall_late_payment',
+          cancelledOrderReference: input.orderReference,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Could not credit the late payment for cancelled retry funding ${input.orderReference}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { received: true, paid: false };
+    }
+    this.logger.warn(
+      `Retry funding checkout ${input.orderReference} was paid after it was cancelled. ${verifiedAmount} ${verifiedCurrency} was credited to payroll run ${run.id}; review the run and settle it with the tenant.`,
+    );
+    return { received: true, paid: false };
+  }
+
+  /**
    * Re-verify a pending run-scoped retry funding checkout with the provider. This is the only
    * repair path for a paid checkout whose webhook never landed (or was answered after the run
    * moved on): it proves the company's payment server-to-server, credits the run's funding
@@ -1648,6 +1766,16 @@ export class PayrollFloatTopupService {
       };
     }
     if (verification.outcome === 'pending') {
+      const meta = this.readRetryFundingMeta(run);
+      if (meta.status === 'cancelled') {
+        // The funding was released, so there is nothing left to wait for. A late payment on a
+        // cancelled checkout is still credited to the run when it lands.
+        return {
+          status: 'unavailable',
+          orderReference: verification.orderReference,
+          reason: 'retry_funding_cancelled',
+        };
+      }
       return {
         status: 'pending',
         orderReference: verification.orderReference,
@@ -1676,7 +1804,11 @@ export class PayrollFloatTopupService {
   ): Promise<RetryFundingVerification> {
     const meta = this.readRetryFundingMeta(run);
     const orderReference = meta.orderReference?.trim();
-    if (!orderReference || meta.status !== 'pending') return { outcome: 'not_pending' };
+    // A cancelled checkout can still be paid from a provider window the user left open, so a
+    // cancelled order reference is verified too: the money must reach the run either way.
+    if (!orderReference || (meta.status !== 'pending' && meta.status !== 'cancelled')) {
+      return { outcome: 'not_pending' };
+    }
     if (!meta.approvedById || !meta.selectedItemIds?.length || !meta.amount || !meta.currency) {
       return { outcome: 'pending', orderReference, reason: 'retry_funding_metadata_incomplete' };
     }
@@ -1770,7 +1902,7 @@ export class PayrollFloatTopupService {
       const latest = this.readRetryFundingMeta(locked);
       if (latest.orderReference !== orderReference) return false;
       if (latest.status === 'funded') return true;
-      if (latest.status !== 'pending') return false;
+      if (latest.status !== 'pending' && latest.status !== 'cancelled') return false;
       locked.metadata = {
         ...locked.metadata,
         retryFunding: {
@@ -1795,6 +1927,267 @@ export class PayrollFloatTopupService {
       amount: fundedAmount,
       currency: expectedCurrency,
     };
+  }
+
+  /**
+   * Cancel an open retry funding approval or checkout.
+   *
+   * The provider is asked first whether the company actually paid. A paid checkout is never
+   * cancelled: it is credited to the run instead, so a dropped webhook can never turn into a
+   * second payment for the same shortfall. Only an approval (no checkout was ever opened) or a
+   * checkout the provider confirms is unpaid can be released, and releasing only unlocks the
+   * run for a fresh approval — it never moves money.
+   */
+  async cancelRetryFunding(
+    payrollRunId: string,
+    tenantId: string,
+    performedById?: string | null,
+    options?: { reason?: string; staleBefore?: Date },
+  ): Promise<RetryFundingCancelStatus> {
+    const run = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      select: { id: true, tenantId: true, status: true, metadata: true },
+    });
+    if (!run) throw new NotFoundException('Payroll run not found');
+
+    const meta = this.readRetryFundingMeta(run);
+    if (!meta.orderReference || !meta.status) {
+      throw new BadRequestException('There is no retry funding to cancel on this payroll run.');
+    }
+    if (meta.status === 'funded') {
+      return {
+        status: 'funded',
+        orderReference: meta.orderReference,
+        amount: meta.amount,
+        currency: meta.currency,
+        reason: 'retry_funding_already_verified',
+      };
+    }
+    if (meta.status === 'cancelled') {
+      return {
+        status: 'cancelled',
+        orderReference: meta.orderReference,
+        amount: meta.amount,
+        currency: meta.currency,
+        reason: 'retry_funding_already_cancelled',
+      };
+    }
+    if (meta.status !== 'approved' && meta.status !== 'pending') {
+      throw new BadRequestException(
+        'There is no open retry funding to cancel on this payroll run.',
+      );
+    }
+
+    if (meta.status === 'pending') {
+      const paymentState = await this.resolveRetryFundingPaymentState(meta.orderReference);
+      if (paymentState.state === 'paid') {
+        // The company paid but the webhook never landed. Credit the run instead of cancelling:
+        // cancelling here would let the user pay a second time for the same shortfall.
+        const verification = await this.verifyRetryFundingCheckout(run, performedById ?? undefined);
+        if (verification.outcome === 'funded') {
+          return {
+            status: 'funded',
+            orderReference: verification.orderReference,
+            amount: verification.amount,
+            currency: verification.currency,
+            reason: 'retry_funding_verified_on_cancel',
+          };
+        }
+        throw new BadRequestException(
+          'This retry funding checkout was already paid but could not be credited to the run yet. ' +
+            'Contact PaqadHR support so we can verify the payment before you retry.',
+        );
+      }
+      if (paymentState.state === 'unknown') {
+        throw new BadRequestException(
+          `We could not confirm with the payment provider whether this checkout was paid (${paymentState.reason}). ` +
+            'Try again in a moment, or contact PaqadHR support to have it reviewed.',
+        );
+      }
+    }
+
+    return this.markRetryFundingCancelled({
+      payrollRunId,
+      tenantId,
+      orderReference: meta.orderReference,
+      performedById,
+      reason: options?.reason ?? 'cancelled_by_user',
+      staleBefore: options?.staleBefore,
+    });
+  }
+
+  /**
+   * Release an open retry funding approval or checkout under a row lock and record the release
+   * in the run's funding ledger. Cancelling never debits or credits anything: the ledger entry
+   * is history that shows which approval was dropped.
+   */
+  private async markRetryFundingCancelled(input: {
+    payrollRunId: string;
+    tenantId: string;
+    orderReference: string;
+    performedById?: string | null;
+    reason: string;
+    /** Only release funding that has been open since before this moment. */
+    staleBefore?: Date;
+  }): Promise<RetryFundingCancelStatus> {
+    const cancelledAt = new Date().toISOString();
+    const outcome = await this.payrollRunRepository.manager.transaction(async (manager) => {
+      const locked = await manager.getRepository(PayrollRun).findOne({
+        where: { id: input.payrollRunId, tenantId: input.tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new NotFoundException('Payroll run not found');
+      const latest = this.readRetryFundingMeta(locked);
+      if (latest.orderReference !== input.orderReference) {
+        return { status: 'not_pending' as const, reason: 'retry_funding_state_changed' };
+      }
+      if (latest.status === 'funded') {
+        return {
+          status: 'funded' as const,
+          orderReference: latest.orderReference,
+          amount: latest.amount,
+          currency: latest.currency,
+        };
+      }
+      if (latest.status === 'cancelled') {
+        return {
+          status: 'cancelled' as const,
+          orderReference: latest.orderReference,
+          amount: latest.amount,
+          currency: latest.currency,
+          reason: 'retry_funding_already_cancelled',
+        };
+      }
+      if (latest.status !== 'approved' && latest.status !== 'pending') {
+        return { status: 'not_pending' as const, reason: 'retry_funding_state_changed' };
+      }
+      if (input.staleBefore) {
+        // The checkout may have been re-created while this release was queued. Only release
+        // funding that has been open since before the caller's cutoff.
+        const pendingSince = latest.checkoutRequestedAt ?? latest.approvedAt;
+        const pendingSinceMs = pendingSince ? Date.parse(pendingSince) : Number.NaN;
+        if (!Number.isFinite(pendingSinceMs) || pendingSinceMs >= input.staleBefore.getTime()) {
+          return { status: 'not_pending' as const, reason: 'retry_funding_not_stale' };
+        }
+      }
+      const { checkoutUrl: _staleCheckoutUrl, ...rest } = latest;
+      locked.metadata = {
+        ...locked.metadata,
+        retryFunding: {
+          ...rest,
+          status: 'cancelled',
+          cancelledAt,
+          cancelledById: input.performedById ?? null,
+          cancelReason: input.reason,
+          cancelledOrderReferences: [
+            ...(latest.cancelledOrderReferences ?? []),
+            latest.orderReference,
+          ].slice(-5),
+        } satisfies RetryFundingMeta,
+      };
+      await manager.save(locked);
+      return {
+        status: 'cancelled' as const,
+        orderReference: latest.orderReference,
+        amount: latest.amount,
+        currency: latest.currency,
+      };
+    });
+
+    if (outcome.status === 'cancelled') {
+      await this.fundingLedger.recordRetryShortfallCancellation({
+        tenantId: input.tenantId,
+        payrollRunId: input.payrollRunId,
+        orderReference: input.orderReference,
+        amount: outcome.amount ?? 0,
+        currency: outcome.currency ?? 'NGN',
+        provider: PaymentProvider.BACHS,
+        performedById: input.performedById ?? null,
+        reason: input.reason,
+        cancelledAt,
+      });
+    }
+    return outcome;
+  }
+
+  /**
+   * Ask the provider whether a retry funding checkout was actually paid.
+   *
+   * `not_paid` is only returned when the provider answered and did not report a successful
+   * payment, so it is safe to release the checkout on that answer. `unknown` means the provider
+   * could not be reached or answered with something that cannot be read, and the checkout must
+   * not be released because the money may already be gone.
+   */
+  private async resolveRetryFundingPaymentState(
+    orderReference: string,
+  ): Promise<{ state: 'not_paid' } | { state: 'paid' } | { state: 'unknown'; reason: string }> {
+    const provider = PaymentProvider.BACHS as PayrollFloatOrderRefProvider;
+    const adapter = this.paymentFactory.resolveCheckoutAdapter(provider);
+    if (!adapter?.isConfigured()) {
+      return { state: 'unknown', reason: 'checkout_adapter_unavailable' };
+    }
+    let verified: Awaited<ReturnType<typeof adapter.verifyCheckout>>;
+    try {
+      verified = await adapter.verifyCheckout({ orderReference });
+    } catch (error) {
+      this.logger.warn(
+        `Retry funding payment state check failed for ${orderReference}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { state: 'unknown', reason: 'provider_unreachable' };
+    }
+    if (!verified) return { state: 'not_paid' };
+    if (SUCCESSFUL_CHECKOUT_STATUSES.has(verified.status.toLowerCase())) {
+      return { state: 'paid' };
+    }
+    return { state: 'not_paid' };
+  }
+
+  /**
+   * Cancel retry funding that stayed open longer than the pending window.
+   *
+   * Each candidate is verified with the provider first: a checkout that was paid is credited to
+   * the run instead of being cancelled, and a checkout the provider cannot answer is left alone
+   * so the next sweep can retry it. Only abandoned, unpaid funding is released.
+   */
+  async expireStaleRetryFunding(now: Date = new Date()): Promise<{
+    expired: number;
+    verified: number;
+    skipped: number;
+  }> {
+    const cutoff = new Date(now.getTime() - RETRY_FUNDING_PENDING_TTL_MS);
+    const runs = await this.payrollRunRepository.findRunsWithOpenRetryFundingBefore(cutoff);
+    let expired = 0;
+    let verified = 0;
+    let skipped = 0;
+    for (const run of runs) {
+      const meta = this.readRetryFundingMeta(run);
+      if (!meta.orderReference) continue;
+      try {
+        const result = await this.cancelRetryFunding(run.id, run.tenantId, null, {
+          reason: 'expired_after_pending_timeout',
+          staleBefore: cutoff,
+        });
+        if (result.status === 'cancelled') {
+          expired += 1;
+        } else if (result.status === 'funded') {
+          verified += 1;
+        } else {
+          skipped += 1;
+        }
+      } catch (error) {
+        // A provider outage or a state change is not a reason to release funding that may have
+        // been paid. Leave it pending and try again on the next sweep.
+        skipped += 1;
+        this.logger.warn(
+          `Could not expire stale retry funding for payroll run ${run.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    return { expired, verified, skipped };
   }
 
   private async createFloatTopupCheckout(
@@ -2180,7 +2573,7 @@ export class PayrollFloatTopupService {
       .createQueryBuilder('run')
       .where('run.tenantId = :tenantId', { tenantId: input.tenantId })
       .andWhere(
-        `((run.metadata::jsonb -> 'floatTopup' ->> 'orderReference') = :ref OR (run.metadata::jsonb -> 'retryFunding' ->> 'orderReference') = :ref)`,
+        `((run.metadata::jsonb -> 'floatTopup' ->> 'orderReference') = :ref OR (run.metadata::jsonb -> 'retryFunding' ->> 'orderReference') = :ref OR (run.metadata::jsonb -> 'retryFunding' -> 'cancelledOrderReferences') @> to_jsonb(:ref::text))`,
         { ref: input.orderReference },
       )
       .getOne();

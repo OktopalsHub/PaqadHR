@@ -128,6 +128,54 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     return rows.map((row) => row.tenantId).filter((tenantId): tenantId is string => !!tenantId);
   }
 
+  /**
+   * Runs with a retry funding approval or checkout that has been open since before `cutoff`.
+   *
+   * The retry funding state lives in the run metadata JSON, so it is read with a JSONB cast
+   * instead of loading every run. Only the columns the expiry sweep needs are selected.
+   */
+  async findRunsWithOpenRetryFundingBefore(cutoff: Date, limit = 50): Promise<PayrollRun[]> {
+    return this.createQueryBuilder('run')
+      .select(['run.id', 'run.tenantId', 'run.status', 'run.metadata', 'run.updatedAt'])
+      .where(`run.metadata::jsonb -> 'retryFunding' ->> 'status' IN (:...statuses)`, {
+        statuses: ['approved', 'pending'],
+      })
+      .andWhere(
+        `COALESCE(
+           run.metadata::jsonb -> 'retryFunding' ->> 'checkoutRequestedAt',
+           run.metadata::jsonb -> 'retryFunding' ->> 'approvedAt'
+         )::timestamptz < :cutoff`,
+        { cutoff },
+      )
+      .orderBy('run.updatedAt', 'ASC')
+      .limit(limit)
+      .getMany();
+  }
+
+  /**
+   * Runs across tenants that still hold an open retry funding approval or checkout.
+   *
+   * Backs the support view: an operator needs to find the run a tenant is stuck on without
+   * loading every payroll run in the instance.
+   */
+  async findRunsWithOpenRetryFunding(limit = 50): Promise<PayrollRun[]> {
+    return this.createQueryBuilder('run')
+      .select([
+        'run.id',
+        'run.tenantId',
+        'run.title',
+        'run.status',
+        'run.metadata',
+        'run.updatedAt',
+      ])
+      .where(`run.metadata::jsonb -> 'retryFunding' ->> 'status' IN (:...statuses)`, {
+        statuses: ['approved', 'pending'],
+      })
+      .orderBy('run.updatedAt', 'DESC')
+      .limit(limit)
+      .getMany();
+  }
+
   async findAllPaginated(
     page: number,
     limit: number,
