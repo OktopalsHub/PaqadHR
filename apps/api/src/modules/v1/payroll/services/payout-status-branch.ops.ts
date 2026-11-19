@@ -2,7 +2,7 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
-import { isPayoutDebitEvidenceStatus } from 'src/common/utils/payout-status.util';
+import { isPayoutSuccessStatus } from 'src/common/utils/payout-status.util';
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
 import { Repository } from 'typeorm';
 
@@ -213,7 +213,7 @@ export class PayoutBranchOps {
           payout &&
           referenceMatches &&
           verifiedStatus &&
-          isPayoutDebitEvidenceStatus(verifiedStatus) &&
+          isPayoutSuccessStatus(verifiedStatus) &&
           verifiedAmount != null &&
           Number.isFinite(verifiedAmount) &&
           verifiedAmount > 0 &&

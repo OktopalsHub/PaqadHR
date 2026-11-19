@@ -1,6 +1,5 @@
 import { TransactionStatus } from '../enums/payment-provider.enum';
 import {
-  isPayoutDebitEvidenceStatus,
   isPayoutFailedStatus,
   isPayoutPendingStatus,
   isPayoutSuccessStatus,
@@ -18,12 +17,10 @@ describe('payout status vocabulary', () => {
     expect(normalizePayoutStatus('unknown')).toBeNull();
   });
 
-  it('never moves a payout to paid on ACCEPTED, but accepts it as debit evidence', () => {
-    expect(normalizePayoutStatus('ACCEPTED')).toBeNull();
+  it('keeps ACCEPTED in flight and never treats it as success or debit evidence', () => {
+    expect(normalizePayoutStatus('ACCEPTED')).toBe(TransactionStatus.PROCESSING);
+    expect(isPayoutPendingStatus('ACCEPTED')).toBe(true);
     expect(isPayoutSuccessStatus('ACCEPTED')).toBe(false);
-    expect(isPayoutDebitEvidenceStatus('ACCEPTED')).toBe(true);
-    expect(isPayoutDebitEvidenceStatus('COMPLETED')).toBe(true);
-    expect(isPayoutDebitEvidenceStatus('FAILED')).toBe(false);
   });
 
   it('keeps the success, pending and failed sets disjoint', () => {
