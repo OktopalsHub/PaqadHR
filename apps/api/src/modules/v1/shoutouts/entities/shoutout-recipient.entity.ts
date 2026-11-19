@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Shoutout } from './shoutout.entity';
@@ -11,10 +12,7 @@ export class ShoutoutRecipient extends BaseEntity {
   @Column({ name: 'shoutout_id', type: 'uuid' })
   shoutoutId: string;
 
-  @ManyToOne(
-    () => Shoutout,
-    (shoutout) => shoutout.recipients,
-  )
+  @ManyToOne(() => Shoutout, (shoutout) => shoutout.recipients)
   @JoinColumn({ name: 'shoutout_id' })
   shoutout: Shoutout;
 

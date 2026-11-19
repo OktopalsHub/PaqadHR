@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+
 import * as env from '../config/env.util';
 import type { SecretConfig } from '../interfaces/secret-config.interface';
 

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { ShoutoutPointsModule } from '../shoutouts/shoutout-points.module';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';

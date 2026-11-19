@@ -2,6 +2,7 @@ import { type ExecutionContext, HttpException, HttpStatus } from '@nestjs/common
 import { Reflector } from '@nestjs/core';
 import { RATE_LIMIT_KEY, RateLimit } from 'src/common/decorators';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
+
 import { RateLimitGuard } from './rate-limit.guard';
 
 class RateLimitedController {

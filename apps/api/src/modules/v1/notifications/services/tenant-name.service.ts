@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { Repository } from 'typeorm';
+
 import { Tenant } from '../../tenants/entities/tenant.entity';
 
 const TENANT_NAME_CACHE_TTL_MS = 5 * 60 * 1000;

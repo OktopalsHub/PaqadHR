@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+
 import { SubscriptionsController } from './subscriptions.controller';
 
 /** Minimal Express request behind a private proxy hop (as in prod behind Cloudflare). */

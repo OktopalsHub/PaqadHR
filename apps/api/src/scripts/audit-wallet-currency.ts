@@ -5,6 +5,7 @@
  * Usage: pnpm --filter api audit:wallet-currency
  */
 import { Logger } from '@nestjs/common';
+
 import dataSource from '../common/database/config/data-source';
 import {
   isWalletCurrencyLocked,

@@ -1,4 +1,5 @@
 import * as crypto from 'node:crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENVIRONMENT } from 'src/common/config/env.config';
@@ -14,6 +15,7 @@ import { PlatformIntegrationRepository } from 'src/common/integrations/repositor
 import { PlatformUserRepository } from 'src/common/integrations/repositories/platform-user.repository';
 import { UserSyncService } from 'src/common/integrations/services/user-sync.service';
 import { IsNull, Not } from 'typeorm';
+
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { ShoutoutsService } from './shoutouts.service';
@@ -288,7 +290,7 @@ export class SlackWebhookService {
         platformUserId: slackUserId,
         tenantMemberId: Not(IsNull()),
       },
-      relations: ['tenantMember'],
+      relations: { tenantMember: true },
     });
     return platformUser?.tenantMember ?? null;
   }

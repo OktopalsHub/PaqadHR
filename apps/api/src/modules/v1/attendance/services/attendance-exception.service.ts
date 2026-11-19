@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AttendanceExceptionStatus } from 'src/common/enums';
 import { type FindOptionsWhere, In } from 'typeorm';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import type { ApproveAttendanceExceptionDto } from '../dto/approve-attendance-exception.dto';
@@ -36,7 +37,7 @@ export class AttendanceExceptionService {
     if (filters?.status) where.status = filters.status;
     return this.exceptionRepo.find({
       where,
-      relations: ['tenantMember', 'approvedBy'],
+      relations: { tenantMember: true, approvedBy: true },
       order: { date: 'DESC' },
     });
   }
@@ -44,7 +45,7 @@ export class AttendanceExceptionService {
   async findOne(tenantId: string, exceptionId: string) {
     const exception = await this.exceptionRepo.findOne({
       where: { id: exceptionId, tenantId },
-      relations: ['tenantMember', 'approvedBy'],
+      relations: { tenantMember: true, approvedBy: true },
     });
     if (!exception) throw new NotFoundException('Attendance exception not found');
     return exception;

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import { type EntityManager, Repository } from 'typeorm';
+
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../entities/shoutout-point-transaction.entity';
 
@@ -34,7 +35,7 @@ export class MemberPointsRepository extends Repository<ShoutoutMemberPoints> {
   async listByTenant(tenantId: string): Promise<ShoutoutMemberPoints[]> {
     return this.find({
       where: { tenantId },
-      relations: ['member'],
+      relations: { member: true },
       order: { currentBalance: 'DESC' },
     });
   }

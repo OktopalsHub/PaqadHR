@@ -12,6 +12,7 @@ import { TenantMemberRole } from 'src/common/enums/tenant-member.enum';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { EncryptionService } from 'src/common/services/encryption.service';
 import { Repository } from 'typeorm';
+
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
@@ -59,7 +60,7 @@ export class PaymentMethodVerificationService {
     this.authService.assertOtpProof(dto.otpProof, userId, 'payment_method');
     const pm = await this.repo.findOne({
       where: { id: paymentMethodId, tenantId, memberId },
-      relations: ['member'],
+      relations: { member: true },
     });
     if (!pm) throw new NotFoundException('Payment method not found');
     if (pm.status !== PaymentMethodStatus.DRAFT && pm.status !== PaymentMethodStatus.REJECTED)
@@ -173,7 +174,7 @@ export class PaymentMethodVerificationService {
   async listPendingVerificationForTenant(tenantId: string, excludeMemberId?: string) {
     const methods = await this.repo.find({
       where: { tenantId, status: PaymentMethodStatus.PENDING_VERIFICATION },
-      relations: ['member'],
+      relations: { member: true },
       order: { submittedAt: 'ASC', createdAt: 'ASC' },
     });
     return methods
@@ -216,7 +217,7 @@ export class PaymentMethodVerificationService {
         { tenantId, role: TenantMemberRole.ADMIN, isActive: true },
         { tenantId, role: TenantMemberRole.OWNER, isActive: true },
       ],
-      select: ['id', 'role', 'isActive'],
+      select: { id: true, role: true, isActive: true },
     });
     // The role and active filters are applied again here so the guarantee does not depend on
     // the query alone: only active owners and admins may receive payment details to review,

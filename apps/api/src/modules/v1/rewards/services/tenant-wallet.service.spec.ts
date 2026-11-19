@@ -3,8 +3,8 @@ import { BachsApiService } from 'src/common/services/bachs-api.service';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
+
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
-import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import {
   WALLET_CHARGE_FAILED_ADMIN,
   WALLET_CREDIT_FAILED,
@@ -12,9 +12,10 @@ import {
   WALLET_SAVED_CARD_UNSUPPORTED,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
+import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import { SavedCardChargeService } from './saved-card-charge.service';
-import { TenantWalletService } from './tenant-wallet.service';
 import { TenantWalletTopupService } from './tenant-wallet-topup.service';
+import { TenantWalletService } from './tenant-wallet.service';
 
 describe('TenantWalletService', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';

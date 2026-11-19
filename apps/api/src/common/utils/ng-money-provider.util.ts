@@ -5,6 +5,7 @@ import { isNombaConfigured } from '../config/nomba.config';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 
 export type NgMoneyProvider = 'nomba' | 'monnify' | 'fincra' | 'bachs';
+type LegacyPaymentProvider = Exclude<PaymentProvider, PaymentProvider.BRIDGE>;
 
 function readEnvFirst(...keys: string[]): string | undefined {
   for (const key of keys) {
@@ -31,7 +32,7 @@ export function getNgPayrollProviderPreference(): NgMoneyProvider {
 /** @deprecated Prefer getNgPayrollProviderPreference */
 export const getNgPaymentsProviderPreference = getNgPayrollProviderPreference;
 
-function resolveNgMoneyProvider(preferred: NgMoneyProvider): PaymentProvider {
+function resolveNgMoneyProvider(preferred: NgMoneyProvider): LegacyPaymentProvider {
   if (preferred === 'bachs') {
     if (isBachsConfigured()) return PaymentProvider.BACHS;
     // Bachs not configured — fall through to the NG peer chain.
@@ -62,7 +63,7 @@ function resolveNgMoneyProvider(preferred: NgMoneyProvider): PaymentProvider {
 }
 
 /** NGN payroll / bank payouts — Nomba, Monnify, Fincra, or Bachs. */
-export function resolveNgPaymentProvider(): PaymentProvider {
+export function resolveNgPaymentProvider(): LegacyPaymentProvider {
   return resolveNgMoneyProvider(getNgPayrollProviderPreference());
 }
 
@@ -85,7 +86,7 @@ export function getNgRewardsDepositProviderPreference(): NgMoneyProvider | 'bach
 /** @deprecated Prefer getNgRewardsDepositProviderPreference */
 export const getNgWalletPaymentsProviderPreference = getNgRewardsDepositProviderPreference;
 
-export function resolveNgWalletPaymentProvider(): PaymentProvider {
+export function resolveNgWalletPaymentProvider(): LegacyPaymentProvider {
   const preferred = getNgRewardsDepositProviderPreference();
 
   if (preferred === 'bachs') {
@@ -108,7 +109,7 @@ export function getNgRewardsAirtimeProviderPreference(): 'nomba' | 'monnify' {
   return 'nomba';
 }
 
-export function resolveNgRewardsAirtimeProvider(): PaymentProvider {
+export function resolveNgRewardsAirtimeProvider(): LegacyPaymentProvider {
   const preferred = getNgRewardsAirtimeProviderPreference();
   if (preferred === 'monnify') {
     if (isMonnifyConfigured()) return PaymentProvider.MONNIFY;

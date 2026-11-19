@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 

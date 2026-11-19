@@ -1,4 +1,5 @@
 import { Column, Entity, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { DocumentAccessLevel } from '../../../../common/enums/document-access-level.enum';
 import { DocumentCategory } from '../../../../common/enums/document-category.enum';
@@ -279,20 +280,12 @@ export class Document extends BaseEntity {
   tenantMemberId: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.documents,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => TenantMember, (member) => member.documents, {
+    onDelete: 'CASCADE',
+  })
   tenantMember: TenantMember;
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.documents,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.documents, {
+    onDelete: 'CASCADE',
+  })
   tenant: Tenant;
 }

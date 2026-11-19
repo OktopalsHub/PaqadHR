@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+
+import { isNombaAcceptedCode, resolveNombaTokenExpiresAtMs } from '../config/nomba-api.util';
 import {
   getNombaAccountId,
   getNombaBaseUrl,
@@ -6,7 +8,6 @@ import {
   getNombaClientSecret,
   isNombaConfigured,
 } from '../config/nomba.config';
-import { isNombaAcceptedCode, resolveNombaTokenExpiresAtMs } from '../config/nomba-api.util';
 
 interface NombaTokenResponse {
   code?: string;

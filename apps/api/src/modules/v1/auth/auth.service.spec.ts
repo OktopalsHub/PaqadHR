@@ -9,6 +9,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { PasswordService, sha256Hex } from 'src/common/utils';
+
 import { UserRole } from '../../../common/enums';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';

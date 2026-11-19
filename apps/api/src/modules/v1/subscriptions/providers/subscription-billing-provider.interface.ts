@@ -1,4 +1,5 @@
 import type { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import type {
   SubscriptionBillingMetadata,

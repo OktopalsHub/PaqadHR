@@ -2,8 +2,9 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { EmploymentStatus } from 'src/common/enums';
 import { IsNull, Repository } from 'typeorm';
-import { Department } from '../../departments/entities/department.entity';
+
 import { DepartmentMember } from '../../departments/entities/department-member.entity';
+import { Department } from '../../departments/entities/department.entity';
 import { Employment } from '../../employment/entities/employment.entity';
 import { TenantMemberRepository } from '../repositories/tenant-members.repository';
 import { MemberReadService } from './member-read.service';
@@ -28,7 +29,7 @@ export class MemberOrgAssignmentService {
   ): Promise<void> {
     const activeMemberships = await this.departmentMemberRepository.find({
       where: { memberId, isActive: true },
-      relations: ['department'],
+      relations: { department: true },
     });
     const tenantMemberships = activeMemberships.filter(
       (membership) => membership.department?.tenantId === tenantId,

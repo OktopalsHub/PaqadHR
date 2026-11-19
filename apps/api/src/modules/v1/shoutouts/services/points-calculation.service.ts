@@ -4,6 +4,7 @@ import type { AllowancePeriod } from 'src/common/utils/date-time.helper';
 import { DateTimeHelper } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import type { EntityManager } from 'typeorm';
+
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../entities/shoutout-point-transaction.entity';

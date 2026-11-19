@@ -1,5 +1,6 @@
 import type { FileUrlService } from 'src/common/services/file-url.service';
 import { formatMemberDisplayName } from 'src/common/utils/member-display.util';
+
 import type { TenantActivity } from '../entities/tenant-activity.entity';
 
 export interface TenantActivityListItemDto {

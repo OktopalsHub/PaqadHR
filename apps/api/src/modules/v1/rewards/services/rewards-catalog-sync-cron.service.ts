@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { isTremendousConfigured } from 'src/common/config/tremendous.config';
 import { runCronJob } from 'src/common/utils/cron-logging.util';
 import { Repository } from 'typeorm';
+
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { RewardsService } from './rewards.service';
 

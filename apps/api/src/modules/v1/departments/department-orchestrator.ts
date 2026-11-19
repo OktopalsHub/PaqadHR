@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { DepartmentCrudService } from './department-crud.service';
 import { DepartmentMembersService } from './department-members.service';
 

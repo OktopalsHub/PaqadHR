@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import { EMAIL_TEMPLATE_REGISTRY } from '../templates/registry';
 
 export type { RenderedEmailTemplate } from '../templates/types';

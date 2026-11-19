@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+
 import { EmailTemplateService } from '../../notifications/services/email-template.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';

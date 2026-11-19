@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+
 import { IntegrationAnalyticsListener } from './integration-analytics.listener';
 import { ProductAnalyticsService } from './product-analytics.service';
 

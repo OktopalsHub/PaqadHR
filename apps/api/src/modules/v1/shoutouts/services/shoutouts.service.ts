@@ -5,6 +5,7 @@ import { PlatformIntegrationService } from 'src/common/integrations/services/pla
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource } from 'typeorm';
+
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
@@ -12,8 +13,8 @@ import {
   SHOUTOUT_CREATED_EVENT,
   type ShoutoutCreatedEventPayload,
 } from '../events/shoutout.events';
-import type { CreateShoutoutInput } from '../interfaces/shoutout.interface';
 import type { ShoutoutFilters } from '../interfaces/shoutout-filters.interface';
+import type { CreateShoutoutInput } from '../interfaces/shoutout.interface';
 import { ShoutoutsRepository } from '../repositories/shoutouts.repository';
 import { MemberPointsService } from './member-points.service';
 import { ShoutoutCategoriesService } from './shoutout-categories.service';

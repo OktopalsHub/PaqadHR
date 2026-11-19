@@ -9,6 +9,7 @@
  * Add --dry-run to report what would change without calling Cloudflare.
  */
 import { Logger } from '@nestjs/common';
+
 import { resolveWorkerDomainConfig } from '../common/config/worker-domain.config';
 import dataSource from '../common/database/config/data-source';
 import { WorkerDomainService } from '../common/services/worker-domain.service';
@@ -45,7 +46,7 @@ async function provision(): Promise<void> {
 
   const alreadyAttached = new Set(attached);
   const tenants = await dataSource.getRepository(Tenant).find({
-    select: ['id', 'slug'],
+    select: { id: true, slug: true },
     order: { createdAt: 'ASC' },
   });
 

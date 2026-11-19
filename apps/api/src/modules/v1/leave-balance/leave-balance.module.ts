@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { ActivitiesModule } from '../activities/activities.module';
 import { LeavePolicyModule } from '../leave-policy/leave-policy.module';
 import { LeaveTypeModule } from '../leave-type/leave-type.module';
@@ -8,12 +9,12 @@ import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { LeaveBalance } from './entities/leave-balance.entity';
 import { LeaveAssignmentController } from './leave-assignment.controller';
-import { LeaveBalanceController } from './leave-balance.controller';
-import { LeaveBalanceRepository } from './leave-balance.repository';
-import { LeaveBalanceService } from './leave-balance.service';
 import { LeaveBalanceAccrualService } from './leave-balance-accrual.service';
 import { LeaveBalanceCalcService } from './leave-balance-calc.service';
 import { LeaveBalanceInitializationService } from './leave-balance-initialization.service';
+import { LeaveBalanceController } from './leave-balance.controller';
+import { LeaveBalanceRepository } from './leave-balance.repository';
+import { LeaveBalanceService } from './leave-balance.service';
 import { LeaveTypeAssignmentService } from './leave-type-assignment.service';
 
 @Module({

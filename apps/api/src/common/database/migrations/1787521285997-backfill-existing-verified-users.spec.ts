@@ -1,4 +1,5 @@
 import type { QueryRunner } from 'typeorm';
+
 import { BackfillExistingVerifiedUsers1787521285997 } from './1787521285997-backfill-existing-verified-users';
 
 describe('BackfillExistingVerifiedUsers1787521285997', () => {

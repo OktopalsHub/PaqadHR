@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+
 import { FileUploadLocation } from '../enums/file-upload-location.enum';
 
 export const ALLOWED_UPLOAD_CONTENT_TYPES = [

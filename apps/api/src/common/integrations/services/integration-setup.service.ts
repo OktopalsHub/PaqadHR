@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IntegrationType } from 'src/common/enums';
+
 import type { PlatformUser } from '../entities/platform-user.entity';
 import type { IntegrationConfig, IntegrationSyncStatus } from '../integration.types';
 import { PlatformIntegrationService } from './platform-integration.service';

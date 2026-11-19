@@ -1,4 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
+
 import { OAuthIntegrationController } from './integration-oauth.controller';
 
 describe('OAuthIntegrationController channels', () => {

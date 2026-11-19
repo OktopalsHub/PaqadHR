@@ -5,6 +5,7 @@ import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
+
 import { ActivitiesModule } from '../activities/activities.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
@@ -21,28 +22,28 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { RewardsController } from './controllers/rewards.controller';
 import { CustomReward } from './entities/custom-reward.entity';
 import { RewardRedemption } from './entities/reward-redemption.entity';
-import { Task } from './entities/task.entity';
 import { TaskSubmission } from './entities/task-submission.entity';
-import { TenantWallet } from './entities/tenant-wallet.entity';
+import { Task } from './entities/task.entity';
 import { TenantWalletTransaction } from './entities/tenant-wallet-transaction.entity';
+import { TenantWallet } from './entities/tenant-wallet.entity';
 import { RewardsListener } from './listeners/rewards.listener';
 import { ClaimBillingService } from './services/claim-billing.service';
 import { ClaimFulfillmentService } from './services/claim-fulfillment.service';
 import { ClaimVerificationService } from './services/claim-verification.service';
 import { CustomRewardsService } from './services/custom-rewards.service';
-import { RewardsService } from './services/rewards.service';
-import { RewardsCatalogService } from './services/rewards-catalog.service';
 import { RewardsCatalogQueryService } from './services/rewards-catalog-query.service';
-import { RewardsCatalogSyncService } from './services/rewards-catalog-sync.service';
 import { RewardsCatalogSyncCronService } from './services/rewards-catalog-sync-cron.service';
-import { RewardsClaimService } from './services/rewards-claim.service';
+import { RewardsCatalogSyncService } from './services/rewards-catalog-sync.service';
+import { RewardsCatalogService } from './services/rewards-catalog.service';
 import { RewardsClaimCronService } from './services/rewards-claim-cron.service';
-import { RewardsTaskService } from './services/rewards-task.service';
+import { RewardsClaimService } from './services/rewards-claim.service';
 import { RewardsTaskCompletionService } from './services/rewards-task-completion.service';
 import { RewardsTaskTemplatesService } from './services/rewards-task-templates.service';
+import { RewardsTaskService } from './services/rewards-task.service';
+import { RewardsService } from './services/rewards.service';
 import { SavedCardChargeService } from './services/saved-card-charge.service';
-import { TenantWalletService } from './services/tenant-wallet.service';
 import { TenantWalletTopupService } from './services/tenant-wallet-topup.service';
+import { TenantWalletService } from './services/tenant-wallet.service';
 
 @Module({
   imports: [

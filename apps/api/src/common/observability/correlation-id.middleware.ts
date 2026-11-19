@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
+
 import * as Sentry from '@sentry/nestjs';
 import type { NextFunction, Request, Response } from 'express';
+
 import { CORRELATION_ID_HEADER } from './correlation-id.constants';
 import { correlationIdStorage } from './correlation-id.storage';
 

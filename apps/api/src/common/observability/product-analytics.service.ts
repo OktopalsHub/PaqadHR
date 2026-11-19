@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { PostHog } from 'posthog-node';
+
 import { pseudonymizeAnalyticsIdentifier } from './pseudonymize-analytics-identifier';
 import { sanitizeAnalyticsProperties } from './sanitize-analytics-properties';
 

@@ -3,9 +3,10 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { DataSource, Repository } from 'typeorm';
+
 import { PlansService } from '../../plans/services/plans.service';
-import { BillingChargeType, CARD_UPDATE_VERIFY_AMOUNT } from '../constants/billing.constants';
 import { BillingProvider } from '../constants/billing-provider.enum';
+import { BillingChargeType, CARD_UPDATE_VERIFY_AMOUNT } from '../constants/billing.constants';
 import { BillingEvent } from '../entities/billing-event.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import type { SubscriptionWebhookPayment } from '../interfaces/subscription-billing.interface';
@@ -227,7 +228,7 @@ export class PaymentSuccessHandlers {
       return;
     const sub = await this.subscriptionRepo.findOne({
       where: { tenantId: payment.tenantId },
-      relations: ['planPrice'],
+      relations: { planPrice: true },
     });
     if (!sub) return;
     const planPrice = sub.planPrice ?? (await this.plansService.getPlanPriceById(sub.planPriceId));

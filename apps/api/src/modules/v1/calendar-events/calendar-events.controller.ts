@@ -15,6 +15,7 @@ import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CalendarEventsService } from './calendar-events.service';
 import { CreateCalendarEventDto, UpdateCalendarEventDto } from './dto/calendar-event.dto';

@@ -1,6 +1,8 @@
 import { createHash, generateKeyPairSync } from 'node:crypto';
+
 import { BadRequestException } from '@nestjs/common';
 import jwt from 'jsonwebtoken';
+
 import { createNoahApiSignature, noahJwtPath } from './noah-request-sign.util';
 
 describe('noah-request-sign.util', () => {

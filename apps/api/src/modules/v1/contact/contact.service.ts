@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { getOptional } from 'src/common/config/env.util';
+
 import type { SubmitContactDto } from './dto/submit-contact.dto';
 
 type Web3FormsResponse = {

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+
 import type { ITenantMemberResponseDto } from '../../../../common/interfaces/itenant-member-response-dto.interface';
 import { TenantMemberMapper } from '../../tenant-members/dto/tenant-member-response.dto';
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';

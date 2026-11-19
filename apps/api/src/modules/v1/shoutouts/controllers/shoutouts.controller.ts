@@ -14,6 +14,7 @@ import { RequireFeatures } from 'src/common/decorators/feature-access.decorator'
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreateShoutoutDto } from '../dto/create-shoutout.dto';
 import { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';

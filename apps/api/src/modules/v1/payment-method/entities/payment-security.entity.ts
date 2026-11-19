@@ -1,16 +1,13 @@
 import { Column, Entity, JoinColumn, OneToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
 @Entity({ name: 'payment_security' })
 export class PaymentSecurity extends BaseEntity {
-  @OneToOne(
-    () => TenantMember,
-    (member) => member.paymentSecurity,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @OneToOne(() => TenantMember, (member) => member.paymentSecurity, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'member_id' })
   member: TenantMember;
   @Column({

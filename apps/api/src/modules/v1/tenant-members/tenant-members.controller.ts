@@ -15,14 +15,15 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { IAuthenticatedUserRequest, MemberContext } from 'src/common/interfaces';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
+
 import { Public } from '../../../common/decorators';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
 import type { ITenantMemberResponseDto } from '../../../common/interfaces/itenant-member-response-dto.interface';
 import { TenantMemberMapper, TenantMemberResponseDto } from './dto/tenant-member-response.dto';
 import { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
-import { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
 import { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
+import { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
 import { TenantMembersService } from './tenant-members.service';
 

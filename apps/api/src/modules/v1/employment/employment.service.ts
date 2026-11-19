@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { resolveTenantDefaultCurrency } from 'src/common/utils/tenant-currency.util';
 import { In, IsNull, Repository } from 'typeorm';
+
 import { ActivitiesService } from '../activities/services/activities.service';
 import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
@@ -294,7 +295,7 @@ export class EmploymentService {
           tenantId,
           endDate: IsNull(),
         },
-        relations: ['position'],
+        relations: { position: true },
       }),
       this.tenantRepository.findOne({ where: { id: tenantId } }),
     ]);

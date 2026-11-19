@@ -1,4 +1,5 @@
 import type { Repository } from 'typeorm';
+
 import { TenantMember } from '../entities/tenant-member.entity';
 import { TenantMemberRepository } from './tenant-members.repository';
 

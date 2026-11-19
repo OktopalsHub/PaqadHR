@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDate, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+
 import { DocumentType } from '../../../../common/enums/document-type.enum';
 
 export class CreateDocumentDto {

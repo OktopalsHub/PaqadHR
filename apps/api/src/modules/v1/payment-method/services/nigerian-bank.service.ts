@@ -9,6 +9,7 @@ import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum
 import { BachsApiError, BachsApiService } from 'src/common/services/bachs-api.service';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
+
 import {
   type BankListItem,
   mergeBankLogos,

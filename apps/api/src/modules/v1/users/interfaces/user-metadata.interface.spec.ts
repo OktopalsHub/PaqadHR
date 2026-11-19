@@ -1,4 +1,5 @@
 import { DEFAULT_PRIVACY_POLICY_VERSION } from 'src/common/config/privacy.config';
+
 import {
   buildUserConsentMetadata,
   getCurrentPrivacyPolicyVersion,

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
+
 import type { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
 import { PointsCalculationService } from './points-calculation.service';
 import { PointsShoutoutService } from './points-shoutout.service';

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ChannelType, IntegrationType } from 'src/common/enums';
+
 import { PlatformIntegration } from '../entities/platform-integration.entity';
 import type { IntegrationConfig } from '../integration.types';
 import { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
@@ -47,7 +48,7 @@ export class IntegrationRegistryService {
   async getIntegrations(tenantId: string): Promise<PlatformIntegration[]> {
     return this.integrationRepo.find({
       where: { tenantId, isActive: true },
-      relations: ['platformUsers'],
+      relations: { platformUsers: true },
     });
   }
 
@@ -173,7 +174,7 @@ export class IntegrationRegistryService {
   async getIntegrationStatus(integrationId: string) {
     const integration = await this.integrationRepo.findOne({
       where: { id: integrationId },
-      relations: ['channels', 'platformUsers'],
+      relations: { channels: true, platformUsers: true },
     });
     if (!integration) {
       throw new BadRequestException('Integration not found');

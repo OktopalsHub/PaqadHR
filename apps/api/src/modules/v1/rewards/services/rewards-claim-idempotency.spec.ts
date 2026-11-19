@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+
 import { RewardRedemption } from '../entities/reward-redemption.entity';
 import { RewardsService } from './rewards.service';
 

@@ -1,4 +1,5 @@
 import { Test, type TestingModule } from '@nestjs/testing';
+
 import { TenantConfigService } from './tenant-config.service';
 import { TenantSettingRepository } from './tenant-setting.repository';
 

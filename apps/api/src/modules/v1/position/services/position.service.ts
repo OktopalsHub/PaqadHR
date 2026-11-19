@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreatePositionDto } from '../dto/create-position.dto';
 import type { UpdatePositionDto } from '../dto/update-position.dto';

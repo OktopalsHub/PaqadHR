@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EncryptionService } from 'src/common/services/encryption.service';
+
 import { SettingsReaderService } from './settings-reader.service';
 import { SettingsWriterService } from './settings-writer.service';
 import { TenantSettingRepository } from './tenant-setting.repository';

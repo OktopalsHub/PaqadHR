@@ -1,6 +1,7 @@
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import type { EntityManager } from 'typeorm';
 import { In } from 'typeorm';
+
 import { Address } from '../../address/entities/address.entity';
 import { Attendance } from '../../attendance/entities/attendance.entity';
 import { Document } from '../../document/entities/document.entity';
@@ -19,7 +20,7 @@ export async function scrubMemberPersonalData(
   const memberRepo = manager.getRepository(TenantMember);
   const members = await memberRepo.find({
     where: { userId },
-    select: ['id', 'avatarKey'],
+    select: { id: true, avatarKey: true },
   });
   const memberIds = members.map((member) => member.id);
   const fileKeys: string[] = [];
@@ -37,7 +38,7 @@ export async function scrubMemberPersonalData(
   const documentRepo = manager.getRepository(Document);
   const memberDocuments = await documentRepo.find({
     where: { tenantMemberId: In(memberIds) },
-    select: ['id', 'fileKey'],
+    select: { id: true, fileKey: true },
   });
   for (const document of memberDocuments) {
     if (document.fileKey) {

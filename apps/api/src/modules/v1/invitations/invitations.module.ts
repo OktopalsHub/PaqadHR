@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { ActivitiesModule } from '../activities/activities.module';
 import { DepartmentsModule } from '../departments/departments.module';
 import { NotificationsModule } from '../notifications/notifications.module';

@@ -6,6 +6,7 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { FileUrlService } from 'src/common/services/file-url.service';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CandidateMapper } from '../dto/candidate-response.dto';
 import { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';

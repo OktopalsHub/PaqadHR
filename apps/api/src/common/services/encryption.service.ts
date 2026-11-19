@@ -1,5 +1,7 @@
 import * as crypto from 'node:crypto';
+
 import { BadRequestException, Injectable } from '@nestjs/common';
+
 import { ENVIRONMENT } from '../config/env.config';
 
 @Injectable()

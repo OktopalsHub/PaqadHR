@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+
 import { ACTIVITY_QUEUE_EVENT } from '../activity.events';
 import type { CreateActivityPayload } from '../interfaces/create-activity-payload.interface';
 import { ActivitiesService } from '../services/activities.service';

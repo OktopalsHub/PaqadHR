@@ -2,7 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InterviewStatus } from 'src/common/enums';
 import type { InterviewFilters } from 'src/common/interfaces';
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import { Between, Repository } from 'typeorm';
+
 import { Interview } from '../entities/interview.entity';
 
 @Injectable()
@@ -42,7 +44,7 @@ export class InterviewRepository extends Repository<Interview> {
         tenantId,
       },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
     });
     if (!interview) {
       throw new NotFoundException('Interview not found for this member');
@@ -116,7 +118,7 @@ export class InterviewRepository extends Repository<Interview> {
         tenantId,
       },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
       order: { date: 'ASC' },
     });
   }
@@ -134,7 +136,7 @@ export class InterviewRepository extends Repository<Interview> {
         tenantId,
       },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
       order: { date: 'ASC' },
     });
   }
@@ -152,7 +154,7 @@ export class InterviewRepository extends Repository<Interview> {
         status: InterviewStatus.SCHEDULED,
         date: Between(now, futureDate),
       },
-      relations: ['candidate', 'jobOpening'],
+      relations: { candidate: true, jobOpening: true },
       order: { date: 'ASC' },
     });
   }
@@ -167,7 +169,7 @@ export class InterviewRepository extends Repository<Interview> {
         tenantId,
         date: Between(startOfDay, endOfDay),
       },
-      relations: ['candidate', 'jobOpening'],
+      relations: { candidate: true, jobOpening: true },
       order: { date: 'ASC' },
     });
   }

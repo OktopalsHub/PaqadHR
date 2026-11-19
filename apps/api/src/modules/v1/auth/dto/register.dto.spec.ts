@@ -1,5 +1,6 @@
 import { validateSync } from 'class-validator';
 import { STRONG_PASSWORD_MESSAGE } from 'src/common/constants/password-policy.constant';
+
 import { RegisterDto } from './register.dto';
 
 function registerDto(password: string, termsAccepted = true): RegisterDto {

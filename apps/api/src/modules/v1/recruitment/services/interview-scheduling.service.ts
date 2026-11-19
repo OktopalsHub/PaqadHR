@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateStatus, InterviewStatus } from 'src/common/enums';
 import { Repository } from 'typeorm';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateInterviewDto, UpdateInterviewDto } from '../dto/interview.dto';
 import { Candidate } from '../entities/candidate.entity';

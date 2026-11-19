@@ -8,9 +8,11 @@ import {
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
 import { tenantContext } from 'src/common/context/tenant.context';
+import { IS_MEMBER_OPTIONAL_KEY } from 'src/common/decorators/skip-member.decorator';
 import type { TenantMemberRole } from 'src/common/enums';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { Repository } from 'typeorm';
+
 import { firstRouteParam } from '../../../../common/utils/route-param.util';
 import { resolveTenantIdFromRequest } from '../../../../common/utils/tenant-request.util';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -27,6 +29,11 @@ export class TenantMemberGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<IAuthenticatedMemberRequest>();
+    const isMemberOptional = this._reflector.getAllAndOverride<boolean>(IS_MEMBER_OPTIONAL_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isMemberOptional) return true;
 
     const tenantId =
       firstRouteParam(request.params.tenantId) ?? resolveTenantIdFromRequest(request);

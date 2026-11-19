@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 export class LeaveMemberPositionDto {
   @ApiProperty({ description: 'Position ID' })

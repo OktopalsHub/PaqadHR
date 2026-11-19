@@ -15,6 +15,7 @@ import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CancelSubscriptionDto } from '../dto/cancel-subscription.dto';
 import { CreateSubscriptionCheckoutDto } from '../dto/create-subscription-checkout.dto';

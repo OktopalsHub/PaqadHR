@@ -21,7 +21,10 @@ import type {
   SlackUrlVerificationPayload,
 } from 'src/common/integrations/integration.types';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
+
+import { BridgePayrollPayoutService } from '../../payroll/services/bridge-payroll-payout.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
+import { BridgeWalletWebhookService } from '../../wallets/services/bridge-wallet-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
 import { FincraWebhookService } from '../services/fincra-webhook.service';
 import { MonnifyWebhookService } from '../services/monnify-webhook.service';
@@ -51,6 +54,8 @@ export class WebhooksController {
     private readonly slackWebhookService: SlackWebhookService,
     private readonly tremendousWebhookService: TremendousWebhookService,
     private readonly productAnalytics: ProductAnalyticsService,
+    private readonly bridgeWalletWebhookService: BridgeWalletWebhookService,
+    private readonly bridgePayrollPayoutService: BridgePayrollPayoutService,
   ) {}
 
   private trackWebhook<T>(provider: string, result: Promise<T>): Promise<T> {
@@ -158,6 +163,32 @@ export class WebhooksController {
         headers['x-bachs-timestamp'] ?? headers['X-Bachs-Timestamp'] ?? '',
       ),
     );
+  }
+
+  @Post('bridge')
+  @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bridge wallet and payroll events' })
+  handleBridgeWebhook(
+    @Req() req: RawBodyRequestType,
+    @Headers('x-webhook-signature') signature: string | undefined,
+  ) {
+    if (!req.rawBody) {
+      throw new UnauthorizedException('Missing raw webhook body');
+    }
+    let category = '';
+    try {
+      const payload = JSON.parse(req.rawBody.toString('utf8')) as { event_category?: unknown };
+      category = typeof payload.event_category === 'string' ? payload.event_category : '';
+    } catch {
+      // Delegate malformed payload handling to the signed webhook processor.
+    }
+    const dispatch =
+      category === 'transfer'
+        ? this.bridgePayrollPayoutService.dispatchTransferWebhook(req.rawBody, signature)
+        : this.bridgeWalletWebhookService.dispatch(req.rawBody, signature);
+    return this.trackWebhook('bridge', dispatch);
   }
 
   @Post('slack/events')

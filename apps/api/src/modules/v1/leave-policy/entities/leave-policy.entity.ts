@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, OneToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 

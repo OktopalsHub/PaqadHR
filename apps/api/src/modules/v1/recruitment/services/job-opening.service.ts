@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { JobStatus } from 'src/common/enums';
 import { Repository } from 'typeorm';
+
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
@@ -258,7 +259,7 @@ export class JobOpeningService {
   async getDepartmentsByTenant(tenantId: string): Promise<{ id: string; name: string }[]> {
     const departments = await this.departmentRepository.find({
       where: { tenantId },
-      select: ['id', 'name'],
+      select: { id: true, name: true },
       order: { name: 'ASC' },
     });
     return departments.map((dept) => ({ id: dept.id, name: dept.name }));

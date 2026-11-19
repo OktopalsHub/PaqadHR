@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { CurrentTenantMember } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards';
 import type { MemberContext } from 'src/common/interfaces';
+
 import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { UpdatePreferenceDto } from '../dto/update-preference.dto';

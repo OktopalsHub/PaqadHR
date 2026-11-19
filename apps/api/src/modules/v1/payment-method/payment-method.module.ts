@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
+
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -10,14 +11,14 @@ import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { PaymentMethodController } from './controllers/payment-method.controller';
 import { PaymentSecurityController } from './controllers/payment-security.controller';
-import { PaymentMethod } from './entities/payment-method.entity';
 import { PaymentMethodPasscodeHistory } from './entities/payment-method-passcode-history.entity';
+import { PaymentMethod } from './entities/payment-method.entity';
 import { PaymentSecurity } from './entities/payment-security.entity';
 import { PaymentMethodRepository } from './repositories/payment-method.repository';
 import { PaymentSecurityRepository } from './repositories/payment-security.repository';
 import { NigerianBankService } from './services/nigerian-bank.service';
-import { PaymentMethodService } from './services/payment-method.service';
 import { PaymentMethodVerificationService } from './services/payment-method-verification.service';
+import { PaymentMethodService } from './services/payment-method.service';
 import { PaymentSecurityService } from './services/payment-security.service';
 import { PayrollReadinessService } from './services/payroll-readiness.service';
 import { PmCreationService } from './services/pm-creation.service';

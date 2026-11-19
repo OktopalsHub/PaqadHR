@@ -1,8 +1,6 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class PaymentMethodSubmittedAtAndSecurityBackfill1787870704946
-  implements MigrationInterface
-{
+export class PaymentMethodSubmittedAtAndSecurityBackfill1787870704946 implements MigrationInterface {
   name = 'PaymentMethodSubmittedAtAndSecurityBackfill1787870704946';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

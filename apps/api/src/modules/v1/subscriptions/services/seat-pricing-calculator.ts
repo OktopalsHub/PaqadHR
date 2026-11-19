@@ -2,12 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { Repository } from 'typeorm';
+
 import { PlansService } from '../../plans/services/plans.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { isBillingGatewayEnabled } from '../config/billing.config';
-import { BillingChargeType } from '../constants/billing.constants';
 import { BillingProvider } from '../constants/billing-provider.enum';
+import { BillingChargeType } from '../constants/billing.constants';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import { calculateProratedSeatCharge, resolveSeatCount } from '../utils/per-seat-pricing.util';
 import { BillingProviderFactoryService } from './billing-provider-factory.service';
@@ -38,7 +39,7 @@ export class SeatPricingCalculator {
 
     const subscription = await this.subscriptionRepository.findOne({
       where: { tenantId },
-      relations: ['planPrice', 'tenant', 'tenant.createdBy'],
+      relations: { planPrice: true, tenant: { createdBy: true } },
     });
     if (
       !subscription ||

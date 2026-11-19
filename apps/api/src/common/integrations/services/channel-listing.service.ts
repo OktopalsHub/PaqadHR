@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { type ConversationsListResponse, ErrorCode } from '@slack/web-api';
 import type { ChannelInfo } from 'src/common/interfaces';
+
 import { SlackClient } from '../clients/slack.client';
 import { IntegrationChannel } from '../entities/integration-channel.entity';
 import { IntegrationChannelRepository } from '../repositories/integration-channel.repository';

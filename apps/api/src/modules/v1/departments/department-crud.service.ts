@@ -4,6 +4,7 @@ import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import type { FindOptionsWhere } from 'typeorm';
+
 import { ActivitiesService } from '../activities/services/activities.service';
 import type { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
@@ -36,23 +37,11 @@ export class DepartmentCrudService {
     const total = await this.departmentsRepository.count({ where });
     const departments = await this.departmentsRepository.find({
       where,
-      relations: [
-        'manager',
-        'manager.user',
-        'manager.positionHistory',
-        'manager.positionHistory.position',
-        'departmentMembers',
-        'departmentMembers.member',
-        'departmentMembers.member.user',
-        'departmentMembers.member.positionHistory',
-        'departmentMembers.member.positionHistory.position',
-        'teams',
-        'teams.lead',
-        'teams.lead.user',
-        'teams.members',
-        'teams.members.member',
-        'teams.members.member.user',
-      ],
+      relations: {
+        manager: { user: true, positionHistory: { position: true } },
+        departmentMembers: { member: { user: true, positionHistory: { position: true } } },
+        teams: { lead: { user: true }, members: { member: { user: true } } },
+      },
       select: {
         id: true,
         name: true,

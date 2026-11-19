@@ -2,13 +2,15 @@
  * Payroll payout fee reserves are separate from PaqadHR's percentage-based platform fee.
  *
  * Provider-specific values can be configured with PAYROLL_PAYOUT_FEE_<PROVIDER>_<CURRENCY>.
- * Currency defaults can be set with PAYROLL_PAYOUT_FEE_<CURRENCY>. NGN defaults to ₦100
- * per payout to cover rails that currently charge around ₦50 per transfer.
+ * Currency defaults can be set with PAYROLL_PAYOUT_FEE_<CURRENCY>. Legacy NGN routes default
+ * to ₦100. Nomba uses a separate indicative max reserve of ₦53.75 (up to ₦50 plus 7.5% VAT).
+ * Production Nomba payouts still require an account-confirmed PAYROLL_PAYOUT_FEE_NOMBA_NGN.
  *
  * Provider is intentionally a string rather than PaymentProvider so future payout adapters
  * (for example Paystack) can use this configuration without changing the fee utility.
  */
 export const DEFAULT_NGN_PAYOUT_FEE_RESERVE = 100;
+export const DEFAULT_NOMBA_NGN_PAYOUT_FEE_RESERVE = 53.75;
 
 /**
  * Bachs charges its withdrawal fee in the currency the balance is debited in, on top of the
@@ -103,7 +105,10 @@ export function resolvePayrollPayoutFeePerTransfer(params: {
   const configured = getConfiguredPayrollPayoutFeePerTransfer(currency, params.provider, env);
   if (configured != null) return configured;
 
-  return currency === 'NGN' ? DEFAULT_NGN_PAYOUT_FEE_RESERVE : 0;
+  if (currency !== 'NGN') return 0;
+  return providerLabel.includes('nomba')
+    ? DEFAULT_NOMBA_NGN_PAYOUT_FEE_RESERVE
+    : DEFAULT_NGN_PAYOUT_FEE_RESERVE;
 }
 
 /** Provider+currency override only (PAYROLL_PAYOUT_FEE_<PROVIDER>_<CURRENCY>). */
@@ -140,7 +145,10 @@ export function getPayrollPayoutFeePerTransfer(
   const configured = getConfiguredPayrollPayoutFeePerTransfer(currencyCode, provider, env);
   if (configured != null) return configured;
 
-  return currencyCode === 'NGN' ? DEFAULT_NGN_PAYOUT_FEE_RESERVE : 0;
+  if (currencyCode !== 'NGN') return 0;
+  return provider?.trim().toLowerCase().includes('nomba')
+    ? DEFAULT_NOMBA_NGN_PAYOUT_FEE_RESERVE
+    : DEFAULT_NGN_PAYOUT_FEE_RESERVE;
 }
 
 /** True when a currency or provider-specific payout fee was explicitly configured. */

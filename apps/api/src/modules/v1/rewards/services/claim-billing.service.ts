@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import { DataSource } from 'typeorm';
+
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
 import { CustomReward } from '../entities/custom-reward.entity';
 import { RedemptionStatus, RewardRedemption } from '../entities/reward-redemption.entity';
-import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import { TenantWallet } from '../entities/tenant-wallet.entity';
 import type { ClaimInput } from './claim-verification.service';
 import { TenantWalletService } from './tenant-wallet.service';
 

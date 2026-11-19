@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, Repository } from 'typeorm';
-import { Shoutout } from '../entities/shoutout.entity';
+
 import { ShoutoutCategoryAssignment } from '../entities/shoutout-category-assignment.entity';
 import { ShoutoutRecipient } from '../entities/shoutout-recipient.entity';
+import { Shoutout } from '../entities/shoutout.entity';
 import type { ShoutoutFilters } from '../interfaces/shoutout-filters.interface';
 
 @Injectable()
@@ -55,13 +56,11 @@ export class ShoutoutsRepository extends Repository<Shoutout> {
   async getById(tenantId: string, id: string): Promise<Shoutout | null> {
     return this.findOne({
       where: { id, tenantId },
-      relations: [
-        'creator',
-        'recipients',
-        'recipients.recipient',
-        'categoryAssignments',
-        'categoryAssignments.category',
-      ],
+      relations: {
+        creator: true,
+        recipients: { recipient: true },
+        categoryAssignments: { category: true },
+      },
     });
   }
 

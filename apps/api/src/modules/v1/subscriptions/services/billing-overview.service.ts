@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
+
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { PlansService } from '../../plans/services/plans.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
@@ -29,7 +30,7 @@ export class BillingOverviewService {
 
   async getBillingOverview(tenantId: string, canManageBilling: boolean, userId?: string | null) {
     const [tenant, billingStatus, seatCount, rawSubscription, tenantSettings] = await Promise.all([
-      this.tenantRepo.findOne({ where: { id: tenantId }, relations: ['createdBy'] }),
+      this.tenantRepo.findOne({ where: { id: tenantId }, relations: { createdBy: true } }),
       this.subscriptionsService.getBillingStatus(tenantId),
       this.seatPricing.getTenantSeatCount(tenantId),
       this.subscriptionsService.getTenantSubscription(tenantId),
@@ -76,8 +77,8 @@ export class BillingOverviewService {
       nextBillingDate: alignedSubscription?.nextBillingDate?.toISOString() ?? null,
       hasPaymentMethodOnFile: Boolean(
         alignedSubscription?.nombaSubscriptionId ||
-          alignedSubscription?.externalSubscriptionId ||
-          alignedSubscription?.paymentMethodId,
+        alignedSubscription?.externalSubscriptionId ||
+        alignedSubscription?.paymentMethodId,
       ),
       paymentMethodBrand: alignedSubscription?.paymentMethodBrand ?? null,
       paymentMethodLastFour: alignedSubscription?.paymentMethodLastFour ?? null,

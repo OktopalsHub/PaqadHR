@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
+
 import { CandidateService } from './candidate.service';
 
 describe('CandidateService.applyForJob consent', () => {

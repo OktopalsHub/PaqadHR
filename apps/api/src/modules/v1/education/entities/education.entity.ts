@@ -1,5 +1,6 @@
 import { DegreeType } from 'src/common/enums';
 import { Column, Entity, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -26,14 +27,8 @@ export class Education extends BaseEntity {
   tenantMemberId: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.educations,
-  )
+  @ManyToOne(() => TenantMember, (member) => member.educations)
   tenantMember: TenantMember;
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.educations,
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.educations)
   tenant: Tenant;
 }

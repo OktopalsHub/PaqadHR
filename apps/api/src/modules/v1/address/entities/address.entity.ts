@@ -1,4 +1,5 @@
 import { Column, DeleteDateColumn, Entity, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
@@ -21,10 +22,7 @@ export class Address extends BaseEntity {
   postalCode: string;
   @Column({ name: 'tenant_member_id' })
   tenantMemberId: string;
-  @ManyToOne(
-    () => TenantMember,
-    (tenantMember) => tenantMember.address,
-  )
+  @ManyToOne(() => TenantMember, (tenantMember) => tenantMember.address)
   tenantMember: TenantMember;
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

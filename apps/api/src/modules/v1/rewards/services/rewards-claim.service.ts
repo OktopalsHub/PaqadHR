@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
 import { DataSource } from 'typeorm';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { RewardRedemption } from '../entities/reward-redemption.entity';

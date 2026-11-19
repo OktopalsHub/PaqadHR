@@ -3,6 +3,7 @@ import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Public } from 'src/common/decorators';
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+
 import type { OnboardingData } from '../../../../common/interfaces/onboarding-data.interface';
 import { CompleteOnboardingDto } from '../dto/complete-onboarding.dto';
 import { TenantOnboardingService } from '../services/tenant-onboarding.service';

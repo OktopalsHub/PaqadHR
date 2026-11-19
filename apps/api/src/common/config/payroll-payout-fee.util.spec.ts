@@ -9,13 +9,22 @@ import {
 } from './payroll-payout-fee.util';
 
 describe('payroll payout fee reserve', () => {
-  it('defaults NGN transfers to a ₦100 reserve per transfer', () => {
+  it('uses provider-specific NGN defaults and an indicative Nomba reserve', () => {
     expect(getPayrollPayoutFeePerTransfer('NGN', undefined, {})).toBe(
       DEFAULT_NGN_PAYOUT_FEE_RESERVE,
     );
+    expect(getPayrollPayoutFeePerTransfer('NGN', 'nomba', {})).toBe(53.75);
     expect(
       calculatePayrollPayoutFeeReserve({ currency: 'NGN', transferCount: 3, env: {} }),
     ).toEqual({ feePerTransfer: 100, transferCount: 3, total: 300 });
+    expect(
+      calculatePayrollPayoutFeeReserve({
+        currency: 'NGN',
+        provider: 'nomba',
+        transferCount: 3,
+        env: {},
+      }),
+    ).toEqual({ feePerTransfer: 53.75, transferCount: 3, total: 161.25 });
   });
 
   it('rounds each transfer reserve before combining them, matching previews', () => {
@@ -62,10 +71,10 @@ describe('payroll payout fee reserve', () => {
 
   it('ignores invalid configuration and uses the safe default', () => {
     expect(
-      getPayrollPayoutFeePerTransfer('NGN', 'bachs', {
-        PAYROLL_PAYOUT_FEE_BACHS_NGN: '-10',
+      getPayrollPayoutFeePerTransfer('NGN', 'nomba', {
+        PAYROLL_PAYOUT_FEE_NOMBA_NGN: '-10',
       }),
-    ).toBe(100);
+    ).toBe(53.75);
   });
 
   describe('Bachs withdrawal schedule', () => {

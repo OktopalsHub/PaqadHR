@@ -1,10 +1,12 @@
 import { randomUUID } from 'node:crypto';
+
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { parseDurationToMs } from 'src/common/config/parse-duration.util';
 import { MoreThan, Repository } from 'typeorm';
+
 import type { User } from '../../users/entities/user.entity';
 import { UserRepository } from '../../users/repositories/users.repository';
 import { Session } from '../entities/session.entity';

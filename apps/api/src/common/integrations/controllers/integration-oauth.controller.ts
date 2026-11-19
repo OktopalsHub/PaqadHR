@@ -22,6 +22,7 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
+
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
 import { TenantsService } from '../../../modules/v1/tenants/tenants.service';
 import type { OAuthStateData } from '../integration.types';

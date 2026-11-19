@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateStatus } from 'src/common/enums';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import { In, MoreThanOrEqual, Not, Repository } from 'typeorm';
+
 import { Candidate } from '../entities/candidate.entity';
 
 @Injectable()
@@ -17,7 +19,7 @@ export class CandidateRepository extends Repository<Candidate> {
     return this.find({
       withDeleted: includeDeleted,
       where: { tenantId },
-      relations: ['jobOpening'],
+      relations: { jobOpening: true },
     });
   }
   async findByTenantAndId(
@@ -28,7 +30,7 @@ export class CandidateRepository extends Repository<Candidate> {
     return this.findOne({
       where: { id: candidateId, tenantId },
       withDeleted: includeDeleted,
-      relations: ['jobOpening'],
+      relations: { jobOpening: true },
     });
   }
   async findByJobOpening(
@@ -39,7 +41,7 @@ export class CandidateRepository extends Repository<Candidate> {
     return this.find({
       withDeleted: includeDeleted,
       where: { jobOpeningId, tenantId },
-      relations: ['jobOpening'],
+      relations: { jobOpening: true },
     });
   }
   async findByEmailAndJob(email: string, jobOpeningId: string): Promise<Candidate | null> {
@@ -84,7 +86,7 @@ export class CandidateRepository extends Repository<Candidate> {
     return this.find({
       withDeleted: false,
       where: { tenantId },
-      relations: ['jobOpening'],
+      relations: { jobOpening: true },
     });
   }
   async listPaginated(
@@ -98,7 +100,7 @@ export class CandidateRepository extends Repository<Candidate> {
     const [records, totalItems] = await this.findAndCount({
       withDeleted: includeDeleted,
       where,
-      relations,
+      relations: relationsFromPaths(relations),
       skip: (page - 1) * limit,
       take: limit,
     });
@@ -126,14 +128,14 @@ export class CandidateRepository extends Repository<Candidate> {
         tenantId,
         appliedAt: MoreThanOrEqual(since),
       },
-      relations: ['jobOpening'],
+      relations: { jobOpening: true },
       order: { appliedAt: 'DESC' },
     });
   }
   async findApplicationsByEmail(email: string): Promise<Candidate[]> {
     return this.find({
       where: { email },
-      relations: ['jobOpening'],
+      relations: { jobOpening: true },
       order: { appliedAt: 'DESC' },
     });
   }
@@ -151,7 +153,7 @@ export class CandidateRepository extends Repository<Candidate> {
   async findApplicationsByEmailAndTenant(email: string, tenantId: string): Promise<Candidate[]> {
     return this.find({
       where: { email, tenantId },
-      relations: ['jobOpening'],
+      relations: { jobOpening: true },
       order: { appliedAt: 'DESC' },
     });
   }

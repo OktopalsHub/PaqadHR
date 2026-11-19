@@ -18,6 +18,7 @@ import { ProductAnalyticsService } from 'src/common/observability/product-analyt
 import { GeoLocationHelper, PasswordService, StringUtility } from 'src/common/utils';
 import type { GeoRequestContext } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
+
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../../invitations/invitations.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
@@ -114,8 +115,19 @@ export class AuthCredentialService {
       }
       throw new UnauthorizedException('User account is inactive');
     }
-    if (!user.emailVerified)
-      throw new UnauthorizedException('Verify your email address before signing in');
+    if (!user.emailVerified) {
+      // Re-issue a verification code so a user who let the previous OTP
+      // expire (or never entered it) is not permanently locked out of
+      // signing in. Failures here must not mask the verification error.
+      try {
+        await this.emailVerificationService.sendEmailVerificationOtp(user);
+      } catch {
+        // ignore; the verification requirement still applies
+      }
+      throw new UnauthorizedException(
+        'Verify your email address before signing in. A new verification code has been sent.',
+      );
+    }
     return user;
   }
 
@@ -126,8 +138,16 @@ export class AuthCredentialService {
     rememberMe = true,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     if (!user.isActive) throw new UnauthorizedException('User account is inactive');
-    if (!user.emailVerified)
-      throw new UnauthorizedException('Verify your email address before signing in');
+    if (!user.emailVerified) {
+      try {
+        await this.emailVerificationService.sendEmailVerificationOtp(user);
+      } catch {
+        // ignore
+      }
+      throw new UnauthorizedException(
+        'Verify your email address before signing in. A new verification code has been sent.',
+      );
+    }
     // Submitting the sign-in form is acceptance of the linked current Terms and Privacy Policy.
     await this.stampConsentMetadata(user);
     const ip = GeoLocationHelper.resolveClientIp(geo.headers ?? {}, undefined, geo.ip);
@@ -280,7 +300,7 @@ export class AuthCredentialService {
         const user = await this.resolveExistingUserOnRegister(emailExist, password);
         await this.stampConsentMetadata(user, attribution);
         const invitation = await this.processInviteToken(user, inviteToken, password);
-        await this.emailVerificationService.sendEmailVerificationOtp(user);
+        await this.emailVerificationService.sendEmailVerificationOtp(user, { isSignup: true });
         this.trackSignup(user.id, attribution);
         return { user, invitation };
       }
@@ -307,7 +327,7 @@ export class AuthCredentialService {
         }),
       );
       const invitation = await this.processInviteToken(user, inviteToken, password);
-      await this.emailVerificationService.sendEmailVerificationOtp(user);
+      await this.emailVerificationService.sendEmailVerificationOtp(user, { isSignup: true });
       this.trackSignup(user.id, attribution);
       return { user, invitation };
     } catch (error) {

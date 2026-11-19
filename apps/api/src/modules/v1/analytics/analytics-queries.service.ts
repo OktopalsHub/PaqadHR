@@ -3,8 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateStatus, JobStatus, LeaveStatus } from 'src/common/enums';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import { MoreThanOrEqual, type Repository } from 'typeorm';
-import { Department } from '../departments/entities/department.entity';
+
 import { DepartmentMember } from '../departments/entities/department-member.entity';
+import { Department } from '../departments/entities/department.entity';
 import { Leave } from '../leave/entities/leave.entity';
 import { PayrollRun } from '../payroll/entities/payroll-run.entity';
 import { Candidate } from '../recruitment/entities/candidate.entity';
@@ -58,7 +59,7 @@ export class AnalyticsWorkforceQueriesService {
   async getLeaveSummary(tenantId: string) {
     const leaves = await this.leaveRepository.find({
       where: { tenantId },
-      select: ['id', 'status', 'startDate', 'endDate'],
+      select: { id: true, status: true, startDate: true, endDate: true },
     });
 
     const today = this.startOfDay(new Date());
@@ -108,11 +109,11 @@ export class AnalyticsWorkforceQueriesService {
     const [jobs, candidates] = await Promise.all([
       this.jobRepository.find({
         where: { tenantId },
-        select: ['id', 'status'],
+        select: { id: true, status: true },
       }),
       this.candidateRepository.find({
         where: { tenantId },
-        select: ['id', 'status', 'appliedAt'],
+        select: { id: true, status: true, appliedAt: true },
       }),
     ]);
 
@@ -150,15 +151,15 @@ export class AnalyticsWorkforceQueriesService {
     const runs = await this.payrollRunRepository.find({
       where: { tenantId },
       order: { createdAt: 'DESC' },
-      select: [
-        'id',
-        'title',
-        'status',
-        'totalNetAmount',
-        'baseCurrency',
-        'processedAt',
-        'createdAt',
-      ],
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        totalNetAmount: true,
+        baseCurrency: true,
+        processedAt: true,
+        createdAt: true,
+      },
     });
 
     const completedRuns = runs.filter(
@@ -185,7 +186,7 @@ export class AnalyticsWorkforceQueriesService {
   async getDepartmentBreakdown(tenantId: string) {
     const departments = await this.departmentRepository.find({
       where: { tenantId },
-      select: ['id', 'name'],
+      select: { id: true, name: true },
       order: { name: 'ASC' },
     });
 

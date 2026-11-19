@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import { LeavePolicy } from './entities/leave-policy.entity';
 
 @Injectable()
@@ -23,7 +24,7 @@ export class LeavePolicyRepository extends Repository<LeavePolicy> {
   async getTenantsWithCarryoverPolicy(): Promise<string[]> {
     const policies = await this.leavePolicyRepository.find({
       where: { allowCarryover: true },
-      select: ['tenantId'],
+      select: { tenantId: true },
     });
     return policies.map((policy) => policy.tenantId);
   }

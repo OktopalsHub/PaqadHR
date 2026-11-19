@@ -3,6 +3,7 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
+
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import { MonnifyWebhookService } from './monnify-webhook.service';
@@ -15,8 +16,8 @@ jest.mock('src/common/config/monnify.config', () => ({
   isMonnifyLive: jest.fn(),
 }));
 
-import { isMonnifyLive } from 'src/common/config/monnify.config';
 import { verifyMonnifyWebhookSignature } from 'src/common/config/monnify-webhook.util';
+import { isMonnifyLive } from 'src/common/config/monnify.config';
 
 describe('MonnifyWebhookService', () => {
   let service: MonnifyWebhookService;
@@ -24,8 +25,6 @@ describe('MonnifyWebhookService', () => {
   let subscriptionBillingService: jest.Mocked<
     Pick<SubscriptionBillingService, 'processMonnifyPayload'>
   >;
-  let payrollPayoutService: { processMonnifyPayload: jest.Mock };
-  let payrollFloatTopupService: { completeFloatTopup: jest.Mock };
 
   beforeEach(() => {
     walletTopupService = {
@@ -34,18 +33,10 @@ describe('MonnifyWebhookService', () => {
     subscriptionBillingService = {
       processMonnifyPayload: jest.fn().mockResolvedValue({ received: true }),
     };
-    payrollPayoutService = {
-      processMonnifyPayload: jest.fn().mockResolvedValue({ received: true, matched: true }),
-    };
-    payrollFloatTopupService = {
-      completeFloatTopup: jest.fn().mockResolvedValue({ received: true }),
-    };
 
     service = new MonnifyWebhookService(
       walletTopupService as unknown as TenantWalletTopupService,
       subscriptionBillingService as unknown as SubscriptionBillingService,
-      payrollFloatTopupService as never,
-      payrollPayoutService as never,
     );
     (verifyMonnifyWebhookSignature as jest.Mock).mockReturnValue(true);
     (isMonnifyLive as jest.Mock).mockReturnValue(false);
@@ -110,7 +101,6 @@ describe('MonnifyWebhookService', () => {
       'monnify',
     );
     expect(subscriptionBillingService.processMonnifyPayload).not.toHaveBeenCalled();
-    expect(payrollPayoutService.processMonnifyPayload).not.toHaveBeenCalled();
   });
 
   it('returns 503 when wallet verify is still pending', async () => {
@@ -150,29 +140,6 @@ describe('MonnifyWebhookService', () => {
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
   });
 
-  it('routes payroll disbursement references to payroll payout service', async () => {
-    const runId = '11111111-1111-4111-8111-111111111111';
-    const itemId = '22222222-2222-4222-8222-222222222222';
-    const body = JSON.stringify({
-      eventType: 'SUCCESSFUL_DISBURSEMENT',
-      eventData: {
-        reference: `payroll_${runId}_${itemId}`,
-        amount: 5000,
-        status: 'SUCCESS',
-      },
-    });
-
-    await service.dispatch(body, 'sig');
-
-    expect(payrollPayoutService.processMonnifyPayload).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantRef: `payroll_${runId}_${itemId}`,
-        status: 'SUCCESS',
-      }),
-    );
-    expect(subscriptionBillingService.processMonnifyPayload).not.toHaveBeenCalled();
-  });
-
   it('ignores unrelated events', async () => {
     const result = await service.dispatch(
       JSON.stringify({ eventType: 'FAILED_TRANSACTION' }),
@@ -182,6 +149,5 @@ describe('MonnifyWebhookService', () => {
     expect(result).toEqual({ received: true });
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
     expect(subscriptionBillingService.processMonnifyPayload).not.toHaveBeenCalled();
-    expect(payrollPayoutService.processMonnifyPayload).not.toHaveBeenCalled();
   });
 });

@@ -2,9 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PasscodeChangeReason } from 'src/common/enums/passcode-change-reason.enum';
 import { Repository } from 'typeorm';
+
 import type { PasscodeChangeDto } from '../dto/payment-method.dto';
-import { PaymentMethod } from '../entities/payment-method.entity';
 import { PaymentMethodPasscodeHistory } from '../entities/payment-method-passcode-history.entity';
+import { PaymentMethod } from '../entities/payment-method.entity';
 import { PaymentSecurityService } from './payment-security.service';
 
 @Injectable()

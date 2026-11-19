@@ -1,6 +1,7 @@
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
-import { BillingChargeType } from '../constants/billing.constants';
+
 import { BillingProvider } from '../constants/billing-provider.enum';
+import { BillingChargeType } from '../constants/billing.constants';
 import {
   buildPlanPrice,
   buildProviderDoubles,

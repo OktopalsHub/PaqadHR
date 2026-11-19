@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Department } from './department.entity';
@@ -7,18 +8,12 @@ import { Department } from './department.entity';
 export class DepartmentMember extends BaseEntity {
   @Column({ type: 'uuid', name: 'department_id' })
   departmentId: string;
-  @ManyToOne(
-    () => Department,
-    (department) => department.departmentMembers,
-  )
+  @ManyToOne(() => Department, (department) => department.departmentMembers)
   @JoinColumn({ name: 'department_id' })
   department: Department;
   @Column({ type: 'uuid', name: 'member_id' })
   memberId: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.departmentMemberships,
-  )
+  @ManyToOne(() => TenantMember, (member) => member.departmentMemberships)
   @JoinColumn({ name: 'member_id' })
   member: TenantMember;
   @Column({ type: 'varchar', length: 50, nullable: true })

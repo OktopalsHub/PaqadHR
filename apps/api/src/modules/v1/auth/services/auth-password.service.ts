@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
+
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,6 +10,7 @@ import {
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { PasswordService, StringUtility, sha256Hex } from 'src/common/utils';
 import { Repository } from 'typeorm';
+
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { UserRepository } from '../../users/repositories/users.repository';
 import type { OtpPurpose } from '../dto/otp.dto';

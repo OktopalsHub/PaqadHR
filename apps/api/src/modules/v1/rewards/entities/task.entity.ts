@@ -1,4 +1,5 @@
 import { Column, Entity } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 
 @Entity('rewards_tasks')

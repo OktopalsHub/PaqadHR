@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import { ActivitiesService } from '../activities/services/activities.service';
 import type { CreateEducationDto } from './dto/create-education.dto';
 import type { UpdateEducationDto } from './dto/update-education.dto';

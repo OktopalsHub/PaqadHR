@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import { ActivitiesService } from '../activities/services/activities.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { DepartmentMembersRepository } from './repositories/department-members.repository';
@@ -93,7 +94,7 @@ export class DepartmentMembersService {
     if (!department) throw new NotFoundException('Department not found');
     const memberships = await this.departmentMembersRepository.find({
       where: { departmentId, isActive: true },
-      relations: ['member'],
+      relations: { member: true },
     });
     return memberships.map((membership) => membership.member);
   }

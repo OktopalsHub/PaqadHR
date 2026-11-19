@@ -1,4 +1,5 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
@@ -54,7 +55,7 @@ describe('NombaWebhookService', () => {
   let subscriptionBilling: jest.Mocked<Pick<SubscriptionBillingService, 'processNombaPayload'>>;
   let payrollPayout: jest.Mocked<Pick<PayrollPayoutService, 'processNombaPayload'>>;
   let walletTopupService: jest.Mocked<Pick<TenantWalletTopupService, 'completeCheckoutTopup'>>;
-  let payrollFloatTopup: { completeFloatTopup: jest.Mock };
+  let payrollFunding: { completeFloatTopup: jest.Mock };
 
   beforeEach(() => {
     subscriptionBilling = { processNombaPayload: jest.fn().mockResolvedValue({ received: true }) };
@@ -62,14 +63,14 @@ describe('NombaWebhookService', () => {
     walletTopupService = {
       completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
     };
-    payrollFloatTopup = {
+    payrollFunding = {
       completeFloatTopup: jest.fn().mockResolvedValue({ received: true, paid: true }),
     };
 
     service = new NombaWebhookService(
       subscriptionBilling as unknown as SubscriptionBillingService,
       payrollPayout as unknown as PayrollPayoutService,
-      payrollFloatTopup as never,
+      payrollFunding as never,
       walletTopupService as unknown as TenantWalletTopupService,
     );
 
@@ -81,7 +82,7 @@ describe('NombaWebhookService', () => {
     expect(subscriptionBilling.processNombaPayload).not.toHaveBeenCalled();
     expect(payrollPayout.processNombaPayload).not.toHaveBeenCalled();
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
-    expect(payrollFloatTopup.completeFloatTopup).not.toHaveBeenCalled();
+    expect(payrollFunding.completeFloatTopup).not.toHaveBeenCalled();
   });
 
   it('rejects invalid signature', async () => {

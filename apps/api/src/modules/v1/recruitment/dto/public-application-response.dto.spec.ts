@@ -1,4 +1,5 @@
 import { CandidateStatus } from 'src/common/enums';
+
 import type { Candidate } from '../entities/candidate.entity';
 import { PublicApplicationMapper } from './public-application-response.dto';
 

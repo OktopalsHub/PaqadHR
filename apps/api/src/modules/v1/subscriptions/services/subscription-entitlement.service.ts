@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { In, Repository } from 'typeorm';
+
+import { isBridgePayrollEnabled } from '../../../../common/config/bridge-payroll-capabilities.config';
 import { hasPlanFeaturesAccess } from '../../../../common/constants/feature-access-resolver';
 import {
   AuditAction,
@@ -9,7 +11,6 @@ import {
   AuditStatus,
 } from '../../../../common/enums/audit-action.enum';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
-import { isPayrollGatewayEnabled } from '../../payroll/config/payroll-disbursement.config';
 import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../config/billing.config';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import { isWithinRenewalGrace } from '../utils/dunning.util';
@@ -38,7 +39,7 @@ export class SubscriptionEntitlementService {
   async getTenantSubscription(tenantId: string): Promise<TenantSubscription | null> {
     return this.subscriptionRepository.findOne({
       where: { tenantId },
-      relations: ['tenant', 'plan', 'planPrice', 'planPrice.plan'],
+      relations: { tenant: true, plan: true, planPrice: { plan: true } },
     });
   }
 
@@ -79,7 +80,7 @@ export class SubscriptionEntitlementService {
 
     const subscriptions = await this.subscriptionRepository.find({
       where: { tenantId: In(tenantIds) },
-      relations: ['plan'],
+      relations: { plan: true },
       select: {
         id: true,
         tenantId: true,
@@ -187,7 +188,7 @@ export class SubscriptionEntitlementService {
     if (!subscription) {
       return {
         paymentsEnabled: isBillingGatewayEnabled(),
-        payrollGatewayEnabled: isPayrollGatewayEnabled(),
+        payrollGatewayEnabled: isBridgePayrollEnabled(),
         featureGatingEnabled: isFeatureGatingEnabled(),
         entitled: false,
         needsPayment: true,
@@ -213,7 +214,7 @@ export class SubscriptionEntitlementService {
 
     return {
       paymentsEnabled: isBillingGatewayEnabled(),
-      payrollGatewayEnabled: isPayrollGatewayEnabled(),
+      payrollGatewayEnabled: isBridgePayrollEnabled(),
       featureGatingEnabled: isFeatureGatingEnabled(),
       entitled: this.isSubscriptionEntitled(subscription),
       needsPayment: this.computeNeedsPayment(subscriptionSummary),

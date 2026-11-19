@@ -1,4 +1,5 @@
 import { IntegrationType } from 'src/common/enums';
+
 import { OAuthIntegrationService } from './oauth-integration.service';
 
 describe('OAuthIntegrationService.generateOAuthUrl', () => {

@@ -1,4 +1,5 @@
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+
 import { BillingProvider } from '../constants/billing-provider.enum';
 import { buildProviderDoubles, buildRepositoryDoubles } from './billing-test-doubles';
 import { SeatPricingCalculator } from './seat-pricing-calculator';

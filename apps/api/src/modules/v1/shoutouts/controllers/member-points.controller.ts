@@ -6,6 +6,7 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import {
   MemberPointsBalanceDto,

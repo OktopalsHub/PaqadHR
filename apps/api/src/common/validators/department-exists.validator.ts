@@ -6,6 +6,7 @@ import {
   type ValidatorConstraintInterface,
 } from 'class-validator';
 import { DataSource } from 'typeorm';
+
 import { Department } from '../../modules/v1/departments/entities/department.entity';
 
 @ValidatorConstraint({ name: 'DepartmentExists', async: true })

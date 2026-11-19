@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { signaturesMatch } from 'src/common/config/webhook-signature.util';
 import type { IntegrationType } from 'src/common/enums';

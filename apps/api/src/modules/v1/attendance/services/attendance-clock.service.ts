@@ -6,11 +6,12 @@ import {
 } from '@nestjs/common';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { LessThan, QueryFailedError } from 'typeorm';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { ClockInDto } from '../dto/clock-in.dto';
 import type { ClockOutDto } from '../dto/clock-out.dto';
-import { AttendanceRepository } from '../repositories/attendance.repository';
 import { AttendancePolicyRepository } from '../repositories/attendance-policy.repository';
+import { AttendanceRepository } from '../repositories/attendance.repository';
 import { AttendanceEligibilityService } from './attendance-eligibility.service';
 
 @Injectable()

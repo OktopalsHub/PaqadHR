@@ -1,4 +1,5 @@
 import { generateKeyPairSync } from 'node:crypto';
+
 import {
   getNoahSigningPrivateKey,
   getNoahSigningPrivateKeyValidationWarning,

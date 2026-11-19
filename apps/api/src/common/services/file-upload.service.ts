@@ -1,5 +1,7 @@
 import * as path from 'node:path';
+
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+
 import { FileUploadLocation } from '../enums/file-upload-location.enum';
 import type { GenerateUploadUrlRequest } from '../interfaces/generate-upload-url-request.interface';
 import type { GenerateUploadUrlResponse } from '../interfaces/generate-upload-url-response.interface';

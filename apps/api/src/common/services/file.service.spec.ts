@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
+
 import {
   assertCandidateDocumentContentType,
   assertImageUploadContentType,

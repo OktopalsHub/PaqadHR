@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CandidateStatus } from 'src/common/enums';
+
 import type { Candidate } from '../entities/candidate.entity';
 
 /** Minimal applicant-facing fields — no contact info, tenant IDs, or file URLs. */

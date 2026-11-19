@@ -10,6 +10,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+
 import { PaymentMethodMetadataDto } from './shared-types';
 
 export class UpdatePaymentMethodDto {

@@ -5,6 +5,7 @@ import { IntegrationType, TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
 import type { IntegrationConfig } from '../integration.types';
 import { PlatformIntegrationService } from '../services/platform-integration.service';

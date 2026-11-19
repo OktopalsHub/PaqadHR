@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
+
 import { HttpStatus, Injectable } from '@nestjs/common';
+
 import type { ErrorContext } from '../interfaces/error-context.interface';
 import type { StandardErrorResponse } from '../interfaces/standard-error-response.interface';
 import {

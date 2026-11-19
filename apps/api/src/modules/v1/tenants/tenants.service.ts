@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { SessionWorkspaceDto } from '../auth/dto/session-bootstrap-response.dto';
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';

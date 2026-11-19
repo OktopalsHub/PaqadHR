@@ -1,4 +1,5 @@
 import { Column, Entity, Index } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
 

@@ -13,7 +13,7 @@ import { resolveNgWalletPaymentProvider } from 'src/common/utils/ng-money-provid
 export function resolveRewardsWalletPaymentProvider(
   tenantCountryCode?: string | null,
   walletCurrencyCode?: string | null,
-): PaymentProvider {
+): Exclude<PaymentProvider, PaymentProvider.BRIDGE> {
   const country = GeoLocationHelper.toStoredCountryCode(tenantCountryCode ?? '') ?? '';
   const currency = walletCurrencyCode?.trim().toUpperCase() ?? '';
   if (country === 'NG' || currency === 'NGN') {

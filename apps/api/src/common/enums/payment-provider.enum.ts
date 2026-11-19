@@ -13,6 +13,7 @@ export enum TransactionType {
   REFUND = 'refund',
 }
 export enum PaymentProvider {
+  BRIDGE = 'bridge',
   NOMBA = 'nomba',
   MONNIFY = 'monnify',
   NOAH = 'noah',

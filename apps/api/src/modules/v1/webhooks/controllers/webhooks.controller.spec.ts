@@ -1,5 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { RATE_LIMIT_KEY, RateLimitPresets } from 'src/common/decorators';
+
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
 import { FincraWebhookService } from '../services/fincra-webhook.service';
@@ -41,6 +42,8 @@ describe('WebhooksController', () => {
       mockSlackWebhookService as unknown as SlackWebhookService,
       mockTremendousWebhookService as unknown as TremendousWebhookService,
       { capture: jest.fn() } as never,
+      {} as never,
+      {} as never,
     );
   });
 

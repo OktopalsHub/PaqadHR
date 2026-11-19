@@ -1,16 +1,17 @@
 import { BadRequestException } from '@nestjs/common';
-import { isBachsUsdtPayoutRailEnabled } from 'src/common/config/bachs.config';
 import {
   BACHS_CRYPTO_NETWORKS_BY_ASSET,
   isBachsCryptoAsset,
   mapBachsCryptoDestinationCurrency,
   normalizeBachsUsdtNetwork,
 } from 'src/common/config/bachs-payout.util';
+import { isBachsUsdtPayoutRailEnabled } from 'src/common/config/bachs.config';
 import {
   isCryptoCurrency,
   normalizeCryptoNetwork,
 } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
+
 import type { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import type { CreatePaymentMethodDto } from '../dto/payment-method.dto';
 import {

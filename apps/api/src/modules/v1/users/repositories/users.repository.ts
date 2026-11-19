@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { StringUtility } from 'src/common/utils';
 import { DataSource, Repository } from 'typeorm';
+
 import { User } from '../entities/user.entity';
 
 @Injectable()

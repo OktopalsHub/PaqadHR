@@ -1,5 +1,6 @@
 import { ChannelType } from 'src/common/enums';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../database/entities/base.entity';
 import { PlatformIntegration } from './platform-integration.entity';
 
@@ -7,10 +8,7 @@ import { PlatformIntegration } from './platform-integration.entity';
 export class IntegrationChannel extends BaseEntity {
   @Column({ name: 'integration_id' })
   integrationId: string;
-  @ManyToOne(
-    () => PlatformIntegration,
-    (integration) => integration.channels,
-  )
+  @ManyToOne(() => PlatformIntegration, (integration) => integration.channels)
   @JoinColumn({ name: 'integration_id' })
   integration: PlatformIntegration;
   @Column({ name: 'platform_channel_id' })

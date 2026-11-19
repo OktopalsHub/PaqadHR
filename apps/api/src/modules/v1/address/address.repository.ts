@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import { Repository } from 'typeorm';
+
 import { Address } from './entities/address.entity';
 
 @Injectable()
@@ -19,7 +20,7 @@ export class AddressRepository extends Repository<Address> {
     const address = await this.findOne({
       where: { id: addressId, tenantMemberId },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
     });
     if (!address) {
       throw new NotFoundException('Address not found for this member');

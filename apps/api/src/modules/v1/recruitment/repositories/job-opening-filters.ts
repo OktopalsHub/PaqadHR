@@ -1,4 +1,5 @@
 import type { SelectQueryBuilder } from 'typeorm';
+
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { JobOpening } from '../entities/job-opening.entity';
 

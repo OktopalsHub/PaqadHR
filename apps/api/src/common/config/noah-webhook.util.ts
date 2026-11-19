@@ -1,4 +1,5 @@
 import { createVerify } from 'node:crypto';
+
 import { getNoahWebhookPublicKey } from './noah.config';
 
 export function verifyNoahWebhookSignature(rawBody: string, signature: string): boolean {

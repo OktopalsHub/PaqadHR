@@ -6,6 +6,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 import type { PartialTenantSettingsData } from 'src/common/interfaces/partial-tenant-settings-data.interface';
 import type { TenantSettingsData } from 'src/common/interfaces/tenant-settings-data.interface';
+
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import {
@@ -14,8 +15,8 @@ import {
   HolidaySettingsDto,
   UpdateTenantSettingsDto,
 } from '../dto/tenant-settings.dto';
-import { TenantSettingsService } from '../services/tenant-settings.service';
 import { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
+import { TenantSettingsService } from '../services/tenant-settings.service';
 import { serializeTenantSettings } from './tenant-settings-serializer';
 
 @ApiTags('Tenant Settings')

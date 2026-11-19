@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { LeaveBalanceService } from '../../leave-balance/leave-balance.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
@@ -177,7 +179,7 @@ export class LeaveApprovalService {
   private async findLeaveEntity(tenantId: string, leaveId: string): Promise<Leave | null> {
     return this.leaveRepository.findOne({
       where: { id: leaveId, tenantId },
-      relations: [...this.leaveRelations],
+      relations: relationsFromPaths(this.leaveRelations),
     });
   }
 

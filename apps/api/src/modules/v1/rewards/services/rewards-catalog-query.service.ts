@@ -8,6 +8,7 @@ import {
   resolveInitialWalletCurrency,
 } from 'src/common/utils/rewards-defaults.util';
 import { DataSource } from 'typeorm';
+
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';

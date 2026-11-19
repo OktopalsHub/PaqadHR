@@ -1,4 +1,5 @@
 import type { HttpStatus } from '@nestjs/common';
+
 import type { ErrorContext } from '../interfaces/error-context.interface';
 
 const GENERIC_MESSAGES: Partial<Record<HttpStatus, string>> = {

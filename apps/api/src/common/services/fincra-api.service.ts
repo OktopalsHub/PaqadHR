@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
+
 import { FincraAuthService } from './fincra-auth.service';
 import { FincraPayoutService } from './fincra-payout.service';
 import { FincraRequestsService } from './fincra-requests.service';
 
-export type {
-  FincraInitiatePayoutInput,
-  FincraQuoteResult,
-} from './fincra-payout.service';
+export type { FincraInitiatePayoutInput, FincraQuoteResult } from './fincra-payout.service';
 export type { FincraCreatePayinCheckoutInput } from './fincra-requests.service';
 
 @Injectable()

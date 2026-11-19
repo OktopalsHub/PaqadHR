@@ -18,9 +18,10 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest, MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
+
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { AttendanceService } from './attendance.service';
 import { AttendanceControllerHelpers, getDeviceType } from './attendance-controller-helpers';
+import { AttendanceService } from './attendance.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';

@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import timezonePlugin from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+
 import type { TenantCalendarEvent } from '../entities/tenant-calendar-event.entity';
 
 dayjs.extend(utc);

@@ -7,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 

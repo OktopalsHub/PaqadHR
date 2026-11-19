@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JobStatus } from 'src/common/enums';
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import { type FindOptionsWhere, Repository } from 'typeorm';
+
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { JobOpening } from '../entities/job-opening.entity';
 import { applyJobOpeningFilters } from './job-opening-filters';
@@ -75,7 +77,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
     return this.findOne({
       where: { id, ...additionalWhere },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
     });
   }
 
@@ -96,7 +98,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
   async findJobsWithApplications(tenantId: string): Promise<JobOpening[]> {
     return this.find({
       where: { tenantId },
-      relations: ['interviews'],
+      relations: { interviews: true },
     });
   }
   async getJobStatsByTenant(tenantId: string): Promise<{

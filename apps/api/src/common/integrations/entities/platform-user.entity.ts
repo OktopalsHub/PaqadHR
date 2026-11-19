@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { TenantMember } from '../../../modules/v1/tenant-members/entities/tenant-member.entity';
 import { BaseEntity } from '../../database/entities/base.entity';
 import { PlatformIntegration } from './platform-integration.entity';
@@ -7,10 +8,7 @@ import { PlatformIntegration } from './platform-integration.entity';
 export class PlatformUser extends BaseEntity {
   @Column({ name: 'integration_id' })
   integrationId: string;
-  @ManyToOne(
-    () => PlatformIntegration,
-    (integration) => integration.platformUsers,
-  )
+  @ManyToOne(() => PlatformIntegration, (integration) => integration.platformUsers)
   @JoinColumn({ name: 'integration_id' })
   integration: PlatformIntegration;
   @Column({ name: 'tenant_member_id', nullable: true })

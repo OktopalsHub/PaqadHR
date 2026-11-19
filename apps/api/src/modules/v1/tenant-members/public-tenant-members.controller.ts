@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { TenantMemberRole } from 'src/common/enums';
+
 import { Public } from '../../../common/decorators';
 @ApiTags('Public Tenant Members')
 @Controller('tenant-members')

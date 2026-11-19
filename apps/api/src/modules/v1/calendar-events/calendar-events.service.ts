@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import { ActivitiesService } from '../activities/services/activities.service';
 import type { CreateCalendarEventDto, UpdateCalendarEventDto } from './dto/calendar-event.dto';
 import { TenantCalendarEvent } from './entities/tenant-calendar-event.entity';

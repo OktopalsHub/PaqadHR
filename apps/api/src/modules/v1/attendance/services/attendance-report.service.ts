@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Between, In } from 'typeorm';
+
 import { LeaveService } from '../../leave/leave.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
@@ -81,7 +82,7 @@ export class AttendanceReportService {
       const end = await this.toTenantDayBoundary(tenantId, date, true);
       const attendances = await this.attendanceRepo.find({
         where: { tenantId, date: Between(start, end) },
-        relations: ['tenantMember', 'tenantMember.user'],
+        relations: { tenantMember: { user: true } },
       });
       const memberIds = [
         ...new Set(attendances.map((a) => a.tenantMember?.id).filter((id): id is string => !!id)),
@@ -145,7 +146,7 @@ export class AttendanceReportService {
     );
     const attendances = await this.attendanceRepo.find({
       where: { tenantId, date: Between(start, end) },
-      relations: ['tenantMember'],
+      relations: { tenantMember: true },
     });
     const totalEmployees = await this.tenantMembersService.getTenantMembersCount(tenantId);
     const workingDays = await this.getWorkingDaysInMonth(tenantId, year, month);
@@ -169,7 +170,7 @@ export class AttendanceReportService {
   async getEmployeeReport(tenantId: string, memberId: string, startDate: Date, endDate: Date) {
     const attendances = await this.attendanceRepo.find({
       where: { tenantId, tenantMemberId: memberId, date: Between(startDate, endDate) },
-      relations: ['tenantMember'],
+      relations: { tenantMember: true },
     });
     const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     const presentCount = attendances.filter((a) => a.status === 'PRESENT').length;
@@ -190,7 +191,7 @@ export class AttendanceReportService {
   async getStats(tenantId: string, startDate: Date, endDate: Date) {
     const attendances = await this.attendanceRepo.find({
       where: { tenantId, date: Between(startDate, endDate) },
-      relations: ['tenantMember'],
+      relations: { tenantMember: true },
     });
     return {
       totalPresent: attendances.filter((a) => a.status === 'PRESENT').length,

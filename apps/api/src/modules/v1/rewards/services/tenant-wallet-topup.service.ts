@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
@@ -7,6 +8,7 @@ import { PaymentProviderFactoryService } from 'src/common/services/payment-provi
 import { DEFAULT_WALLET_CURRENCY_FALLBACK } from 'src/common/utils/rewards-defaults.util';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { escapeHtml } from '../../notifications/templates/brand';
 import { BILLING_AMOUNT_TOLERANCE } from '../../subscriptions/constants/billing.constants';
@@ -16,7 +18,6 @@ import { normalizeWebhookAmount } from '../../subscriptions/utils/per-seat-prici
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { resolveRewardsWalletPaymentProvider } from '../config/rewards-wallet-provider.config';
-import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import {
   WALLET_CHARGE_FAILED_ADMIN,
   WALLET_CHECKOUT_UNAVAILABLE,
@@ -24,8 +25,9 @@ import {
   WALLET_NO_BILLING_CARD,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
-import { TenantWallet } from '../entities/tenant-wallet.entity';
+import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { resolveCheckoutCustomerFullName } from '../utils/checkout-customer-name.util';
 import {
   buildWalletTopupOrderRef,
@@ -170,7 +172,7 @@ export class TenantWalletTopupService {
   ): Promise<{ received: boolean; credited: boolean; retryable?: boolean }> {
     const existing = await this.dataSource.getRepository(TenantWalletTransaction).findOne({
       where: { reference: input.orderReference },
-      select: ['id', 'type'],
+      select: { id: true, type: true },
     });
     if (existing) {
       if (existing.type === 'DEPOSIT') {
@@ -250,7 +252,7 @@ export class TenantWalletTopupService {
 
       const dup = await manager.getRepository(TenantWalletTransaction).findOne({
         where: { reference: input.orderReference },
-        select: ['id'],
+        select: { id: true },
       });
       if (dup) {
         await this.clearBachsPendingCharge(input.tenantId, input.orderReference, manager);
@@ -459,7 +461,7 @@ export class TenantWalletTopupService {
     if (pendingBachsRef) {
       const alreadyPaid = await this.dataSource.getRepository(TenantWalletTransaction).findOne({
         where: { reference: pendingBachsRef },
-        select: ['id', 'type'],
+        select: { id: true, type: true },
       });
       if (alreadyPaid?.type === 'DEPOSIT') {
         await this.clearBachsPendingCharge(tenantId, pendingBachsRef);
@@ -536,7 +538,7 @@ export class TenantWalletTopupService {
     return this.dataSource.transaction(async (manager) => {
       const credited = await manager.getRepository(TenantWalletTransaction).findOne({
         where: { reference },
-        select: ['id', 'type'],
+        select: { id: true, type: true },
       });
       if (credited?.type === 'DEPOSIT') {
         await this.clearBachsPendingCharge(tenantId, reference, manager);
@@ -554,7 +556,7 @@ export class TenantWalletTopupService {
       // Re-check after lock — webhook may have credited between the first read and the lock.
       const creditedAfterLock = await manager.getRepository(TenantWalletTransaction).findOne({
         where: { reference },
-        select: ['id'],
+        select: { id: true },
       });
       if (creditedAfterLock) {
         if (sub.usageMetrics?.bachsPendingWalletChargeRef === reference) {
@@ -617,7 +619,7 @@ export class TenantWalletTopupService {
     }
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
-      relations: ['createdBy'],
+      relations: { createdBy: true },
       select: {
         id: true,
         createdBy: {
@@ -715,7 +717,7 @@ export class TenantWalletTopupService {
     if (!email) return;
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
-      select: ['id', 'name', 'slug'],
+      select: { id: true, name: true, slug: true },
     });
     const settingsUrl = tenant?.slug
       ? tenantFrontendUrl(tenant.slug, '/settings?tab=rewards')

@@ -1,4 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';

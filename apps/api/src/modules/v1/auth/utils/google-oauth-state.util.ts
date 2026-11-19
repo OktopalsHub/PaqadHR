@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 

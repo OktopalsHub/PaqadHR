@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Department } from '../../departments/entities/department.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
@@ -13,13 +14,9 @@ export class Team extends BaseEntity {
   description?: string;
   @Column({ type: 'uuid', nullable: true, name: 'department_id' })
   departmentId?: string;
-  @ManyToOne(
-    () => Department,
-    (department) => department.teams,
-    {
-      nullable: true,
-    },
-  )
+  @ManyToOne(() => Department, (department) => department.teams, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'department_id' })
   department?: Department;
   @Column({ type: 'uuid', nullable: true, name: 'lead_id' })
@@ -29,17 +26,11 @@ export class Team extends BaseEntity {
   lead?: TenantMember;
   @Column({ type: 'uuid', name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.teams,
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.teams)
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
   @Column({ type: 'uuid', name: 'created_by' })
   createdBy: string;
-  @OneToMany(
-    () => TeamMember,
-    (member) => member.team,
-  )
+  @OneToMany(() => TeamMember, (member) => member.team)
   members?: TeamMember[];
 }

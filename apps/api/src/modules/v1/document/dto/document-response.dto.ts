@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+
 import { DocumentType } from '../../../../common/enums/document-type.enum';
 import { FileUrlMapper } from '../../../../common/mappers/file-url.mapper';
 import { FileUrlService } from '../../../../common/services/file-url.service';

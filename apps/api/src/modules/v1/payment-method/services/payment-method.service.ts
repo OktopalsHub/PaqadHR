@@ -1,10 +1,11 @@
-import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import { TenantMemberRole } from 'src/common/enums/tenant-member.enum';
 import type { PaymentMethodSummary } from 'src/common/interfaces/payment-method-summary.interface';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { Repository } from 'typeorm';
+
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import type {
   CreatePaymentMethodDto,
@@ -230,7 +231,7 @@ export class PaymentMethodService {
       return this.withDecrypted(
         await this.repo.findOne({
           where: { id, tenantId },
-          relations: ['member', 'member.address'],
+          relations: { member: { address: true } },
         }),
       );
     } catch (e) {
@@ -302,6 +303,39 @@ export class PaymentMethodService {
   }
   async findPrimaryPayoutMethod(tenantId: string, memberId: string) {
     return this.payrollReadinessService.findPrimaryPayoutMethod(tenantId, memberId);
+  }
+
+  async findVerifiedPayoutMethodForBridge(
+    tenantId: string,
+    memberId: string,
+    paymentMethodId: string,
+  ): Promise<PaymentMethod> {
+    const method = await this.repo.findOne({
+      where: {
+        id: paymentMethodId,
+        tenantId,
+        memberId,
+        status: PaymentMethodStatus.VERIFIED,
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        memberId: true,
+        type: true,
+        currency: true,
+        bankName: true,
+        bankCode: true,
+        accountName: true,
+        accountNumber: true,
+        country: true,
+        status: true,
+      },
+    });
+    if (!method) throw new NotFoundException('Verified payroll bank account was not found.');
+    if (method.currency !== 'USD' && method.currency !== 'EUR' && method.currency !== 'GBP') {
+      throw new NotFoundException('Bridge bank payouts are not available for this currency.');
+    }
+    return this.withDecrypted(method)!;
   }
   async resolvePayrollPaymentMethod(tenantId: string, memberId: string, currency?: string) {
     return this.payrollReadinessService.resolvePayrollPaymentMethod(tenantId, memberId, currency);

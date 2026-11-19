@@ -11,6 +11,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { EncryptionService } from 'src/common/services/encryption.service';
 import type { QueryDeepPartialEntity } from 'typeorm';
 import { Repository } from 'typeorm';
+
 import { ProfileUpdatedEvent, TenantMemberChangedEvent } from '../../leave/events/leave.events';
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import type { UpdateMemberProfileDto } from '../dto/update-member-profile.dto';

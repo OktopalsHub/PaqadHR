@@ -4,18 +4,16 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
+
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { FincraWebhookService } from './fincra-webhook.service';
 
 jest.mock('src/common/config/fincra-webhook.util', () => ({
   verifyFincraWebhookSignature: jest.fn(),
   extractFincraWalletTopupCheckout: jest.fn(),
-  extractFincraPayrollFloatTopupCheckout: jest.fn(),
 }));
 
 import {
-  extractFincraPayrollFloatTopupCheckout,
   extractFincraWalletTopupCheckout,
   verifyFincraWebhookSignature,
 } from 'src/common/config/fincra-webhook.util';
@@ -23,28 +21,15 @@ import {
 describe('FincraWebhookService', () => {
   let service: FincraWebhookService;
   let walletTopupService: jest.Mocked<Pick<TenantWalletTopupService, 'completeCheckoutTopup'>>;
-  let payrollPayoutService: jest.Mocked<Pick<PayrollPayoutService, 'processFincraPayload'>>;
-  let payrollFloatTopupService: { completeFloatTopup: jest.Mock };
 
   beforeEach(() => {
     walletTopupService = {
       completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
     };
-    payrollPayoutService = {
-      processFincraPayload: jest.fn().mockResolvedValue({ received: true, matched: true }),
-    };
-    payrollFloatTopupService = {
-      completeFloatTopup: jest.fn().mockResolvedValue({ received: true }),
-    };
 
-    service = new FincraWebhookService(
-      walletTopupService as unknown as TenantWalletTopupService,
-      payrollFloatTopupService as never,
-      payrollPayoutService as unknown as PayrollPayoutService,
-    );
+    service = new FincraWebhookService(walletTopupService as unknown as TenantWalletTopupService);
     (verifyFincraWebhookSignature as jest.Mock).mockReturnValue(true);
     (extractFincraWalletTopupCheckout as jest.Mock).mockReturnValue(null);
-    (extractFincraPayrollFloatTopupCheckout as jest.Mock).mockReturnValue(null);
   });
 
   it('rejects missing signature', async () => {
@@ -77,7 +62,6 @@ describe('FincraWebhookService', () => {
       },
       PaymentProvider.FINCRA,
     );
-    expect(payrollPayoutService.processFincraPayload).not.toHaveBeenCalled();
   });
 
   it('returns 503 when wallet verify is still pending', async () => {
@@ -92,17 +76,5 @@ describe('FincraWebhookService', () => {
     });
 
     await expect(service.dispatch('{}', 'sig')).rejects.toThrow(ServiceUnavailableException);
-  });
-
-  it('routes non-wallet events to payroll payout handler', async () => {
-    const payload = {
-      event: 'payout.successful',
-      data: { customerReference: 'payroll_run_item' },
-    };
-
-    await service.dispatch(JSON.stringify(payload), 'sig');
-
-    expect(payrollPayoutService.processFincraPayload).toHaveBeenCalledWith(payload);
-    expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
   });
 });

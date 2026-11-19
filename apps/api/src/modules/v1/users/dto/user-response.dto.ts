@@ -1,4 +1,5 @@
 import type { UserRole } from 'src/common/enums';
+
 import type { User } from '../entities/user.entity';
 
 export class UserResponseDto {

@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
-import { Team } from './entities/team.entity';
 import { TeamMember } from './entities/team-member.entity';
+import { Team } from './entities/team.entity';
 import { TeamMembersRepository } from './repositories/team-members.repository';
 import { TeamsRepository } from './repositories/teams.repository';
 import { TeamsController } from './teams.controller';

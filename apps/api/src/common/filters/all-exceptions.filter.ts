@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import type { Request, Response } from 'express';
+
 import { ErrorResponseService } from '../services/error-response.service';
 
 @Catch()

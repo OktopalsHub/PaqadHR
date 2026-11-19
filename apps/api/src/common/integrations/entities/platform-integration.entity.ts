@@ -1,5 +1,6 @@
 import { IntegrationType } from 'src/common/enums';
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+
 import { Tenant } from '../../../modules/v1/tenants/entities/tenant.entity';
 import { BaseEntity } from '../../database/entities/base.entity';
 import { IntegrationChannel } from './integration-channel.entity';
@@ -30,14 +31,8 @@ export class PlatformIntegration extends BaseEntity {
   isActive: boolean;
   @Column({ name: 'expires_at', nullable: true })
   expiresAt: Date;
-  @OneToMany(
-    () => PlatformUser,
-    (user) => user.integration,
-  )
+  @OneToMany(() => PlatformUser, (user) => user.integration)
   platformUsers: PlatformUser[];
-  @OneToMany(
-    () => IntegrationChannel,
-    (channel) => channel.integration,
-  )
+  @OneToMany(() => IntegrationChannel, (channel) => channel.integration)
   channels: IntegrationChannel[];
 }

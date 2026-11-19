@@ -1,4 +1,5 @@
 import { Column, DeleteDateColumn, Entity, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Assessment } from './assessment.entity';
 
@@ -20,10 +21,7 @@ export class CandidateAssessment extends BaseEntity {
   tenantMemberId: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => Assessment,
-    (assessment) => assessment.candidateAssessments,
-  )
+  @ManyToOne(() => Assessment, (assessment) => assessment.candidateAssessments)
   assessment: Assessment;
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

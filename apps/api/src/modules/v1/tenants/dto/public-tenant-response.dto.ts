@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
 import { FileUrlService } from 'src/common/services/file-url.service';
+
 import type { Tenant } from '../entities/tenant.entity';
 
 /** Public careers/branding fields only — no invite codes or internal config. */

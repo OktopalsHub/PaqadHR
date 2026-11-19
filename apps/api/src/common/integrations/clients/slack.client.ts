@@ -1,6 +1,7 @@
 import { WebClient } from '@slack/web-api';
 import type { IPlatformUser } from 'src/common/interfaces';
 import { IPlatformClient } from 'src/common/interfaces';
+
 import type { ShoutoutMessage } from '../integration.types';
 
 export class SlackClient implements IPlatformClient {

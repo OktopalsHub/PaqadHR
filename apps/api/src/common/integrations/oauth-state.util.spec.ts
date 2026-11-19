@@ -1,4 +1,5 @@
 import { IntegrationType } from 'src/common/enums';
+
 import { signOAuthState, verifyOAuthState } from './oauth-state.util';
 
 describe('oauth-state.util', () => {

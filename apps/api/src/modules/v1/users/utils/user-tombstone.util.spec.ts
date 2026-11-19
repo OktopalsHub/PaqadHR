@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+
 import { buildDeletedUserEmail } from './user-tombstone.util';
 
 describe('buildDeletedUserEmail', () => {

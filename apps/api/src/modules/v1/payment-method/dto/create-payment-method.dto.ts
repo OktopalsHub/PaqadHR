@@ -14,6 +14,7 @@ import {
 } from 'class-validator';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentMethodType } from 'src/common/enums';
+
 import { PaymentMethodMetadataDto } from './shared-types';
 
 export class CreatePaymentMethodDto {

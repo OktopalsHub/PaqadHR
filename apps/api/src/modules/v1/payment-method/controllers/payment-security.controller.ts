@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { assertSelfOrAdmin } from 'src/common/utils/member-access.util';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import {
   ChangePaymentPasscodeDto,

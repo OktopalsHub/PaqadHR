@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { runCronJob } from 'src/common/utils/cron-logging.util';
 import { LessThan, Repository } from 'typeorm';
+
 import { AuditLog } from '../entities/audit-log.entity';
 
 const RETENTION_DAYS = 90;
@@ -27,7 +28,7 @@ export class AuditLogRetentionCronService {
       for (;;) {
         const staleLogs = await this.auditLogRepository.find({
           where: { createdAt: LessThan(cutoff) },
-          select: ['id'],
+          select: { id: true },
           take: BATCH_SIZE,
         });
 

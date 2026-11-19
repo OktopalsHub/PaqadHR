@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+
 import { Employment } from './entities/employment.entity';
 
 @Injectable()
@@ -24,7 +25,7 @@ export class EmploymentRepository extends Repository<Employment> {
   async listEmployments(tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.find({
       where: { tenantId },
-      relations: ['position', 'reportsTo', 'tenantMember'],
+      relations: { position: true, reportsTo: true, tenantMember: true },
       order: { startDate: 'DESC' },
       withDeleted: false,
     });
@@ -32,14 +33,14 @@ export class EmploymentRepository extends Repository<Employment> {
   async getEmployment(id: string, tenantId: string): Promise<Employment | null> {
     return this.employmentRepository.findOne({
       where: { id, tenantId },
-      relations: ['position', 'reportsTo', 'tenantMember'],
+      relations: { position: true, reportsTo: true, tenantMember: true },
       withDeleted: false,
     });
   }
   async findEmploymentsByMemberId(tenantMemberId: string, tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.find({
       where: { tenantMemberId, tenantId },
-      relations: ['position', 'reportsTo'],
+      relations: { position: true, reportsTo: true },
       order: { startDate: 'DESC' },
       withDeleted: false,
     });
@@ -51,7 +52,7 @@ export class EmploymentRepository extends Repository<Employment> {
         tenantId,
         endDate: IsNull(),
       },
-      relations: ['position', 'reportsTo'],
+      relations: { position: true, reportsTo: true },
       withDeleted: false,
     });
   }

@@ -1,20 +1,13 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import csurf from 'csurf';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import passport from 'passport';
+
 import { correlationIdMiddleware } from '../observability/correlation-id.middleware';
-import {
-  ACCESS_TOKEN_COOKIE,
-  CSRF_COOKIE,
-  cookieName,
-  resolveCookieDomain,
-  usesCrossSiteCookies,
-  usesSecureCookies,
-} from './cookie-deployment';
+import { csrfOriginMiddleware } from './csrf-origin.middleware';
 import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
 type RequestWithRawBody = Request & { rawBody?: Buffer };
@@ -46,58 +39,7 @@ export const configureMiddleware = (app: NestExpressApplication) => {
       extended: true,
     }),
   );
-  const crossSiteCookies = usesCrossSiteCookies();
-  const secureCookies = usesSecureCookies();
-  const cookieDomain = resolveCookieDomain();
-  const csrfProtection = csurf({
-    cookie: {
-      key: cookieName(CSRF_COOKIE),
-      httpOnly: true,
-      sameSite: crossSiteCookies ? 'none' : 'lax',
-      secure: secureCookies,
-      maxAge: 3600000,
-      ...(cookieDomain ? { domain: cookieDomain } : {}),
-    },
-    ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
-  });
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const excludedPaths = [
-      '/api/v1/auth/register',
-      '/api/v1/auth/login',
-      '/api/v1/auth/logout',
-      '/api/v1/auth/refresh',
-      '/api/v1/auth/forgot-password',
-      '/api/v1/auth/reset-password',
-      '/api/v1/auth/google/callback',
-      '/api/v1/integrations/oauth/callback',
-      '/api/v1/invitations/details',
-      '/api/v1/invitations/accept',
-      '/api/v1/invitations/decline',
-      '/api/v1/webhooks',
-      '/api/v1/subscriptions/webhooks',
-      '/api/v1/payroll/webhooks',
-      '/health',
-      '/metrics',
-    ];
-    const isExcludedPath = excludedPaths.some((path) => req.path.startsWith(path));
-    const hasBearerAuth = req.headers.authorization?.startsWith('Bearer ') ?? false;
-    const hasAuthCookie = req.cookies?.[cookieName(ACCESS_TOKEN_COOKIE)] !== undefined;
-    if (isExcludedPath || (hasBearerAuth && !hasAuthCookie)) {
-      return next();
-    }
-    csrfProtection(req, res, next);
-  });
-  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
-    if (err && typeof err === 'object' && 'code' in err && err.code === 'EBADCSRFTOKEN') {
-      return res.status(403).json({
-        message: 'Invalid CSRF token',
-        error: 'Forbidden',
-        statusCode: 403,
-        details: 'CSRF token validation failed. Please refresh the page and try again.',
-      });
-    }
-    next(err);
-  });
+  app.use(csrfOriginMiddleware);
   const trustProxy = Number.parseInt(process.env.TRUST_PROXY ?? '0', 10);
   app.set('trust proxy', Number.isFinite(trustProxy) && trustProxy > 0 ? trustProxy : false);
   app.use(passport.initialize());

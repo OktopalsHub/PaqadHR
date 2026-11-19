@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EmploymentStatus } from 'src/common/enums';
 import { formatMemberDisplayName } from 'src/common/utils/member-display.util';
+
 import { ACTIVITY_QUEUE_EVENT } from '../../activities/activity.events';
 import type { CreateActivityPayload } from '../../activities/interfaces/create-activity-payload.interface';
 import { TenantMember } from '../entities/tenant-member.entity';
@@ -34,7 +35,7 @@ export class MemberActivityService {
     if (!memberId) return 'None';
     const manager = await this.tenantMemberRepository.findOne({
       where: { id: memberId, tenantId },
-      select: ['id', 'firstName', 'lastName', 'middleName', 'preferredName'],
+      select: { id: true, firstName: true, lastName: true, middleName: true, preferredName: true },
     });
     return this.memberDisplayName(manager);
   }

@@ -1,5 +1,6 @@
 import { IntegrationType } from 'src/common/enums';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { TenantMember } from '../../../modules/v1/tenant-members/entities/tenant-member.entity';
 import { BaseEntity } from '../../database/entities/base.entity';
 import { PlatformIntegration } from './platform-integration.entity';

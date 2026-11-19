@@ -4,6 +4,7 @@ import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { DataSource } from 'typeorm';
+
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 

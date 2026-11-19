@@ -2,15 +2,9 @@ import { BadRequestException, Injectable, Logger, UnauthorizedException } from '
 import { normalizeNoahWebhookPayload } from 'src/common/config/noah-api.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { NoahApiService } from 'src/common/services/noah-api.service';
-import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
-import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
+
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
-import {
-  extractNoahPayrollExternalId,
-  extractPayrollFloatTopupCheckout,
-  extractWalletTopupCheckout,
-  isSubscriptionPaymentEvent,
-} from '../webhook-request.util';
+import { extractWalletTopupCheckout, isSubscriptionPaymentEvent } from '../webhook-request.util';
 
 @Injectable()
 export class NoahWebhookService {
@@ -18,8 +12,6 @@ export class NoahWebhookService {
 
   constructor(
     private readonly noahApi: NoahApiService,
-    private readonly payrollPayoutService: PayrollPayoutService,
-    private readonly payrollFloatTopupService: PayrollFloatTopupService,
     private readonly walletTopupService: TenantWalletTopupService,
   ) {}
 
@@ -40,19 +32,7 @@ export class NoahWebhookService {
 
     const eventType = this.extractNoahEventType(payload);
 
-    if (extractNoahPayrollExternalId(payload) || this.isNoahTransactionEvent(eventType)) {
-      const payrollResult = await this.payrollPayoutService.processNoahPayload(payload);
-      if (payrollResult.matched) {
-        return { received: true };
-      }
-    }
-
     if (isSubscriptionPaymentEvent(eventType) || this.isNoahCheckoutSuccess(eventType)) {
-      const payrollFloatTopup = extractPayrollFloatTopupCheckout(payload);
-      if (payrollFloatTopup) {
-        const result = await this.payrollFloatTopupService.completeFloatTopup(payrollFloatTopup);
-        return { received: result.received };
-      }
       const walletTopup = extractWalletTopupCheckout(payload);
       if (walletTopup) {
         return this.walletTopupService.completeCheckoutTopup(walletTopup, PaymentProvider.NOAH);
@@ -82,9 +62,5 @@ export class NoahWebhookService {
       eventType.includes('checkout') ||
       eventType.includes('transaction')
     );
-  }
-
-  private isNoahTransactionEvent(eventType: string): boolean {
-    return eventType.includes('transaction') || eventType.includes('payout');
   }
 }

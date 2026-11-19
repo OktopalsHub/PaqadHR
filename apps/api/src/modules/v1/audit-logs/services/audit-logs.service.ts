@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import type { CreateAuditLogPayload } from '../../../../common/interfaces/create-audit-log-payload.interface';
 import { AuditLog } from '../entities/audit-log.entity';
 
