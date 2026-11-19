@@ -1,5 +1,6 @@
 import { PaymentMethodType } from 'src/common/enums';
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
@@ -9,22 +10,14 @@ import { Tenant } from '../../tenants/entities/tenant.entity';
 @Index(['tenantId', 'memberId', 'isPrimary'])
 @Index(['tenantId', 'currency', 'isPrimary'])
 export class PaymentMethod extends BaseEntity {
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.tenantMembers,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.tenantMembers, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.id,
-    { onDelete: 'CASCADE' },
-  )
+  @ManyToOne(() => TenantMember, (member) => member.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'member_id' })
   member: TenantMember;
   @Column({ name: 'member_id' })

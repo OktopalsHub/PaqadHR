@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InvitationStatus } from 'src/common/enums';
 import { Repository } from 'typeorm';
+
 import { Invitation } from '../entities/invitation.entity';
 
 @Injectable()
@@ -22,20 +23,24 @@ export class InvitationsRepository extends Repository<Invitation> {
     if (status) {
       where.status = status as InvitationStatus;
     }
-    return this.find({ withDeleted: false, where: where, relations: ['department', 'position'] });
+    return this.find({
+      withDeleted: false,
+      where: where,
+      relations: { department: true, position: true },
+    });
   }
 
   async findInvitation(id: string): Promise<Invitation | null> {
     return this.findOne({
       where: { id },
-      relations: ['department', 'position'],
+      relations: { department: true, position: true },
     });
   }
 
   async findInvitationByTenant(id: string, tenantId: string): Promise<Invitation | null> {
     return this.findOne({
       where: { id, tenantId },
-      relations: ['department', 'position'],
+      relations: { department: true, position: true },
     });
   }
 
@@ -43,14 +48,14 @@ export class InvitationsRepository extends Repository<Invitation> {
     return this.find({
       withDeleted: false,
       where: { email },
-      relations: ['department', 'position'],
+      relations: { department: true, position: true },
     });
   }
 
   async findInvitationByToken(token: string): Promise<Invitation | null> {
     return this.findOne({
       where: { token },
-      relations: ['department', 'position'],
+      relations: { department: true, position: true },
     });
   }
 
@@ -62,7 +67,7 @@ export class InvitationsRepository extends Repository<Invitation> {
     return this.find({
       withDeleted: false,
       where,
-      relations: ['department', 'position'],
+      relations: { department: true, position: true },
     });
   }
 

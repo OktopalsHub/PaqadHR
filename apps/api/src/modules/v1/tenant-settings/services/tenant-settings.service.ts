@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
 import type { TenantSettings } from '../entities/tenant-settings.entity';
 import { SettingsReaderService } from './settings-reader.service';

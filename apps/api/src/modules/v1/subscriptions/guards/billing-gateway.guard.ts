@@ -1,4 +1,5 @@
 import { type CanActivate, ForbiddenException, Injectable } from '@nestjs/common';
+
 import { isBillingGatewayEnabled } from '../config/billing.config';
 
 @Injectable()

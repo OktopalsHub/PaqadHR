@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { EmploymentType, JobStatus, LocationType } from 'src/common/enums';
+
 import type { ITenantMemberResponseDto } from '../../../../common/interfaces/itenant-member-response-dto.interface';
 import { TenantMemberMapper } from '../../tenant-members/dto/tenant-member-response.dto';
 import type { JobOpening } from '../entities/job-opening.entity';

@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+
 import { InvitationStatus } from '../../../common/enums';
 import { InvitationsService } from './invitations.service';
 import { InvitationAcceptanceService } from './services/invitation-acceptance.service';

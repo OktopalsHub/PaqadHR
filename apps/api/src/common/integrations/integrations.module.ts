@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { InvitationsModule } from '../../modules/v1/invitations/invitations.module';
 import { TenantMembersModule } from '../../modules/v1/tenant-members/tenant-members.module';
 import { TenantsModule } from '../../modules/v1/tenants/tenants.module';
-import { IntegrationController } from './controllers/integration.controller';
 import { IntegrationManagementController } from './controllers/integration-management.controller';
 import { OAuthIntegrationController } from './controllers/integration-oauth.controller';
+import { IntegrationController } from './controllers/integration.controller';
 import { IntegrationChannel } from './entities/integration-channel.entity';
 import { PlatformIntegration } from './entities/platform-integration.entity';
 import { PlatformUser } from './entities/platform-user.entity';

@@ -4,6 +4,7 @@ import { TenantMemberRole } from 'src/common/enums';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
+
 import { PlansService } from '../../plans/services/plans.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -264,7 +265,7 @@ export class SubscriptionRegionService {
       const saved = await this.subscriptionRepository.save(subscription);
       const loaded = await this.subscriptionRepository.findOne({
         where: { id: saved.id },
-        relations: ['plan', 'planPrice', 'planPrice.plan'],
+        relations: { plan: true, planPrice: { plan: true } },
       });
       return { subscription: loaded ?? saved, pricingMismatch: null };
     }

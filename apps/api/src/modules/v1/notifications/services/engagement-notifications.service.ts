@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
+
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
 import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
-import { NotificationService } from './notification.service';
 import { NotificationPreferenceService } from './notification-preference.service';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class EngagementNotificationsService {

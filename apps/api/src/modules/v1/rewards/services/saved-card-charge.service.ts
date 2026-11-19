@@ -3,9 +3,13 @@ import { isBachsConfigured } from 'src/common/config/bachs.config';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { isNombaConfigured } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import { BachsApiService } from 'src/common/services/bachs-api.service';
+import {
+  BachsApiService,
+  BachsPaymentLookupIncompleteError,
+} from 'src/common/services/bachs-api.service';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
+
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
 import {
   isAmountWithinTolerance,
@@ -164,7 +168,15 @@ export class SavedCardChargeService {
     // Off-session charges start as processing — poll briefly; otherwise leave to webhook.
     for (let attempt = 0; attempt < 8; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 500));
-      const verified = await this.bachsApi.findPaymentByReference(reference);
+      let verified: Awaited<ReturnType<typeof this.bachsApi.findPaymentByReference>>;
+      try {
+        verified = await this.bachsApi.findPaymentByReference(reference);
+      } catch (error) {
+        if (error instanceof BachsPaymentLookupIncompleteError) {
+          throw new SavedCardChargePendingError(reference);
+        }
+        throw error;
+      }
       if (!verified) continue;
       const status = verified.status.toLowerCase();
       if (status === 'failed') throw new Error('Bachs saved-card charge failed');

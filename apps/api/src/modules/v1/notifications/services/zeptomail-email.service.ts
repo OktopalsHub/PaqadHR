@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SendMailClient } from 'zeptomail';
+
 import { EmailTemplateService } from './email-template.service';
 
 interface EmailData {

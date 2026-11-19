@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, type Repository } from 'typeorm';
+
 import { AttendanceService } from '../attendance/attendance.service';
 import { Shoutout } from '../shoutouts/entities/shoutout.entity';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
@@ -61,7 +62,7 @@ export class AnalyticsActivityQueriesService {
         tenantId,
         createdAt: MoreThanOrEqual(startOfMonth),
       },
-      select: ['id', 'totalPoints'],
+      select: { id: true, totalPoints: true },
     });
 
     return {
@@ -73,7 +74,7 @@ export class AnalyticsActivityQueriesService {
   async getHeadcountTrend(tenantId: string) {
     const members = await this.memberRepository.find({
       where: { tenantId },
-      select: ['joinDate', 'leaveDate', 'isActive'],
+      select: { joinDate: true, leaveDate: true, isActive: true },
     });
 
     const points: { label: string; value: number }[] = [];

@@ -1,8 +1,9 @@
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import type { PlanRegionalConfig } from 'src/common/interfaces/plan-regional-config.interface';
-import { Plan } from '../entities/plan.entity';
+
 import { PlanPrice } from '../entities/plan-price.entity';
+import { Plan } from '../entities/plan.entity';
 import { PlansService } from './plans.service';
 
 describe('PlansService', () => {
@@ -61,7 +62,7 @@ describe('PlansService', () => {
 
       expect(planRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'growth', isActive: true },
-        relations: ['prices'],
+        relations: { prices: true },
       });
     });
   });
@@ -174,7 +175,7 @@ describe('PlansService', () => {
 
       expect(planRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'growth' },
-        relations: ['prices'],
+        relations: { prices: true },
       });
       expect(createPlanSpy).not.toHaveBeenCalled();
       expect(planRepository.save).toHaveBeenCalledWith(

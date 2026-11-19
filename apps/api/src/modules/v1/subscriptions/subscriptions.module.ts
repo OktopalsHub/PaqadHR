@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
+
 import { FeatureAccessGuard } from '../../../common/guards/feature-access.guard';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -13,8 +14,8 @@ import { Tenant } from '../tenants/entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
 import { SubscriptionBillingController } from './controllers/subscription-billing.controller';
 import { SubscriptionWebhooksController } from './controllers/subscription-webhooks.controller';
-import { SubscriptionsController } from './controllers/subscriptions.controller';
 import { SubscriptionsAdminController } from './controllers/subscriptions-admin.controller';
+import { SubscriptionsController } from './controllers/subscriptions.controller';
 import { BillingEvent } from './entities/billing-event.entity';
 import { TenantSubscription } from './entities/tenant-subscription.entity';
 import { BillingGatewayGuard } from './guards/billing-gateway.guard';

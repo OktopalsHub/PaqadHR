@@ -12,23 +12,24 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
+
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { RewardsService } from '../services/rewards.service';
-import { TenantWalletService } from '../services/tenant-wallet.service';
 import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
+import { TenantWalletService } from '../services/tenant-wallet.service';
+import { RewardsCatalogHandler } from './rewards-catalog.controller';
+import { RewardsClaimsHandler } from './rewards-claims.controller';
+import { RewardsTasksHandler } from './rewards-tasks.controller';
+import { RewardsWalletHandler } from './rewards-wallet.controller';
 import {
   RewardsAdminRoles,
   RewardsAllRoles,
   RewardsIntegrationsAdminRoles,
   RewardsIntegrationsAllRoles,
 } from './rewards.decorators';
-import { RewardsCatalogHandler } from './rewards-catalog.controller';
-import { RewardsClaimsHandler } from './rewards-claims.controller';
-import { RewardsTasksHandler } from './rewards-tasks.controller';
-import { RewardsWalletHandler } from './rewards-wallet.controller';
 
 @ApiTags('Rewards')
 @Controller('tenants/:tenantId/rewards')

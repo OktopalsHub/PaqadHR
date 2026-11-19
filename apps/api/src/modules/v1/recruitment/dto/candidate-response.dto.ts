@@ -3,6 +3,7 @@ import { CandidateSource, CandidateStatus, type InterviewType } from 'src/common
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
 import { FileUrlService } from 'src/common/services/file-url.service';
+
 import type { Candidate } from '../entities/candidate.entity';
 
 export class CandidateResumeDto {

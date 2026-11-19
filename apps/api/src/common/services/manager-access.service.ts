@@ -4,6 +4,7 @@ import { EmploymentStatus } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { Employment } from 'src/modules/v1/employment/entities/employment.entity';
 import { Repository } from 'typeorm';
+
 import { isTenantAdmin } from '../utils/member-access.util';
 
 @Injectable()
@@ -20,7 +21,7 @@ export class ManagerAccessService {
         reportsToId: managerMemberId,
         status: EmploymentStatus.ACTIVE,
       },
-      select: ['tenantMemberId'],
+      select: { tenantMemberId: true },
     });
     return rows.map((row) => row.tenantMemberId);
   }

@@ -5,6 +5,7 @@ import { TenantId } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { TenantsService } from '../../tenants/tenants.service';

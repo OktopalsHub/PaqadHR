@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
-import { Position } from '../entities/position.entity';
 import { PositionMember } from '../entities/position-member.entity';
+import { Position } from '../entities/position.entity';
 import { PositionMemberRepository } from '../repositories/position-member.repository';
 
 @Injectable()
@@ -37,7 +38,7 @@ export class PositionMemberService {
     }
     const currentAssignment = await this.positionMemberEntityRepository.findOne({
       where: { tenantMemberId, isCurrent: true },
-      relations: ['position'],
+      relations: { position: true },
     });
 
     if (currentAssignment?.positionId === positionId) {

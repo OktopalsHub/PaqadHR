@@ -17,6 +17,7 @@ import { RequireFeatures } from 'src/common/decorators/feature-access.decorator'
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
 import { ShoutoutCategoryResponseDto } from '../dto/shoutout-category-response.dto';

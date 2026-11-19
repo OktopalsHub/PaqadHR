@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { SubmitForVerificationDto, VerifyPaymentMethodDto } from '../dto/payment-method.dto';
 import { PaymentMethodVerificationService } from './payment-method-verification.service';
 

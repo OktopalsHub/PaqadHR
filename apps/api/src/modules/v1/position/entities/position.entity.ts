@@ -1,4 +1,5 @@
 import { Column, DeleteDateColumn, Entity, ManyToOne, OneToMany } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import type { Employment } from '../../employment/entities/employment.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -20,15 +21,9 @@ export class Position extends BaseEntity {
   tenantId: string;
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt?: Date | null;
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.positions,
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.positions)
   tenant: Tenant;
-  @OneToMany(
-    () => PositionMember,
-    (memberPosition) => memberPosition.position,
-  )
+  @OneToMany(() => PositionMember, (memberPosition) => memberPosition.position)
   memberPositions: PositionMember[];
   @OneToMany('Employment', 'position')
   members: Employment[];

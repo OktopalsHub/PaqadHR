@@ -1,10 +1,11 @@
 import { BadGatewayException, BadRequestException, Injectable } from '@nestjs/common';
-import { isFincraCheckoutConfigured, isFincraConfigured } from '../config/fincra.config';
+
 import {
   parseFincraPayinWebhook,
   parseFincraPayoutWebhook,
   verifyFincraWebhookSignature,
 } from '../config/fincra-webhook.util';
+import { isFincraCheckoutConfigured, isFincraConfigured } from '../config/fincra.config';
 import { FincraAuthService } from './fincra-auth.service';
 import { FincraPayoutService } from './fincra-payout.service';
 

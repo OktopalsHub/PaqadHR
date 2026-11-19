@@ -1,4 +1,5 @@
 import { Column, DeleteDateColumn, Entity, OneToMany } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { CandidateAssessment } from './candidate-assessment.entity';
 
@@ -27,10 +28,7 @@ export class Assessment extends BaseEntity {
   tenantMemberId: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @OneToMany(
-    () => CandidateAssessment,
-    (candidateAssessment) => candidateAssessment.assessment,
-  )
+  @OneToMany(() => CandidateAssessment, (candidateAssessment) => candidateAssessment.assessment)
   candidateAssessments: CandidateAssessment[];
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

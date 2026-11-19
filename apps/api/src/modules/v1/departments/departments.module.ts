@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { FileModule } from '../../../common/modules/file.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { Team } from '../teams/entities/team.entity';
@@ -10,8 +11,8 @@ import { DepartmentCrudService } from './department-crud.service';
 import { DepartmentMembersService } from './department-members.service';
 import { DepartmentsService } from './department-orchestrator';
 import { DepartmentsController } from './departments.controller';
-import { Department } from './entities/department.entity';
 import { DepartmentMember } from './entities/department-member.entity';
+import { Department } from './entities/department.entity';
 import { DepartmentMembersRepository } from './repositories/department-members.repository';
 import { DepartmentsRepository } from './repositories/departments.repository';
 

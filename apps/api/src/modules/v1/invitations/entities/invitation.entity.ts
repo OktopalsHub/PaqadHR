@@ -1,5 +1,6 @@
 import { InvitationStatus } from 'src/common/enums';
 import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Department } from '../../departments/entities/department.entity';
 import { Position } from '../../position/entities/position.entity';

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from 'src/common/modules/file.module';
 import { TurnstileService } from 'src/common/services/turnstile.service';
 import { DepartmentExistsConstraint } from 'src/common/validators/department-exists.validator';
+
 import { ActivitiesModule } from '../activities/activities.module';
 import { Department } from '../departments/entities/department.entity';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -21,9 +22,9 @@ import { CandidateRepository } from './repositories/index';
 import { InterviewRepository } from './repositories/interview.repository';
 import { JobOpeningRepository } from './repositories/job-opening.repository';
 import { CandidateService } from './services/candidate.service';
-import { InterviewService } from './services/interview.service';
 import { InterviewFeedbackService } from './services/interview-feedback.service';
 import { InterviewSchedulingService } from './services/interview-scheduling.service';
+import { InterviewService } from './services/interview.service';
 import { JobOpeningService } from './services/job-opening.service';
 
 @Module({

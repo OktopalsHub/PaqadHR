@@ -6,9 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { LessThan, QueryFailedError } from 'typeorm';
+
 import { TenantMemberRepository } from '../../tenant-members/repositories/tenant-members.repository';
-import { AttendanceRepository } from '../repositories/attendance.repository';
 import { AttendancePolicyRepository } from '../repositories/attendance-policy.repository';
+import { AttendanceRepository } from '../repositories/attendance.repository';
 import { AttendanceEligibilityService } from './attendance-eligibility.service';
 
 @Injectable()

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { LeavePolicyService } from '../leave-policy/leave-policy.service';
 import type { LeaveBalance } from './entities/leave-balance.entity';
 import { LeaveBalanceRepository } from './leave-balance.repository';
@@ -51,7 +52,7 @@ export class LeaveBalanceCalcService {
     const currentYear = year || new Date().getFullYear();
     const balances = await this.leaveBalanceRepository.find({
       where: { tenantId, memberId, year: currentYear },
-      relations: ['leaveType'],
+      relations: { leaveType: true },
     });
     return balances.map((balance) => ({
       leaveTypeId: balance.leaveTypeId,

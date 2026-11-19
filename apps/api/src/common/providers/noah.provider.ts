@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { isNoahConfigured } from '../config/noah.config';
+
 import { isNoahOperationSuccessful, isNoahTerminalFailure } from '../config/noah-api.util';
+import { isNoahConfigured } from '../config/noah.config';
 import {
   isCryptoCurrency,
   isNoahNativeCryptoCurrency,

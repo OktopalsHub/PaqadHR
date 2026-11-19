@@ -16,6 +16,7 @@ import {
   STRONG_PASSWORD_REGEX,
 } from 'src/common/constants/password-policy.constant';
 import { NormalizeEmail } from 'src/common/decorators';
+
 import { SignupAttributionDto } from './signup-attribution.dto';
 
 export class RegisterDto {

@@ -3,6 +3,7 @@ import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-tr
 import { DateTimeHelper } from 'src/common/utils/date-time.helper';
 import type { EntityManager } from 'typeorm';
 import { In } from 'typeorm';
+
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
 import { MemberPointsRepository } from '../repositories/member-points.repository';

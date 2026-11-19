@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+
 import { RateLimitService } from '../services/rate-limit.service';
 
 @Global()

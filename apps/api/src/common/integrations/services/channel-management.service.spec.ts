@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { ErrorCode } from '@slack/web-api';
 import { ChannelType } from 'src/common/enums';
+
 import { ChannelListingService } from './channel-listing.service';
 import { ChannelManagementService } from './channel-management.service';
 import { ShoutoutChannelService } from './shoutout-channel.service';

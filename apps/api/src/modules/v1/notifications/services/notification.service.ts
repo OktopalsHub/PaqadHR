@@ -12,8 +12,8 @@ import type {
   CreateBulkNotificationDto,
   CreateNotificationDto,
 } from '../dto/create-notification.dto';
-import { Notification } from '../entities/notification.entity';
 import { NotificationPreference } from '../entities/notification-preference.entity';
+import { Notification } from '../entities/notification.entity';
 import { NotificationDeliveryService } from './notification-delivery.service';
 
 @Injectable()

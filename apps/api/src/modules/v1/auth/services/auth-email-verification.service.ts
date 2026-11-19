@@ -1,10 +1,12 @@
 import { randomInt } from 'node:crypto';
+
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { PasswordService, StringUtility } from 'src/common/utils';
 import { Repository } from 'typeorm';
+
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import type { User } from '../../users/entities/user.entity';
 import { UserRepository } from '../../users/repositories/users.repository';
@@ -29,7 +31,7 @@ export class AuthEmailVerificationService {
     return `email-verification:${userId}`;
   }
 
-  async sendEmailVerificationOtp(user: User): Promise<void> {
+  async sendEmailVerificationOtp(user: User, options?: { isSignup?: boolean }): Promise<void> {
     const rate = await this.rateLimitService.checkRateLimit(`email-verification:send:${user.id}`, {
       rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }],
     });
@@ -38,6 +40,11 @@ export class AuthEmailVerificationService {
         `Too many verification code requests. Try again in ${rate.retryAfter ?? 60}s`,
       );
     const code = String(randomInt(100000, 999999));
+    if (process.env.NODE_ENV === 'development' && options?.isSignup) {
+      // Dev-only: surface the signup OTP in the console so local testing
+      // doesn't depend on the email provider.
+      console.log(`[DEV] Signup email verification OTP for ${user.email}: ${code}`);
+    }
     const identifier = this.emailVerificationIdentifier(user.id);
     const hashedCode = await PasswordService.hashPassword(code);
     await this.verificationRepository.delete({ identifier });

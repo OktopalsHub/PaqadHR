@@ -2,11 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { In, LessThanOrEqual, Repository } from 'typeorm';
+
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { RENEWAL_GRACE_PERIOD_DAYS } from '../constants/billing.constants';
 import { BillingProvider, isManagedSubscriptionProvider } from '../constants/billing-provider.enum';
+import { RENEWAL_GRACE_PERIOD_DAYS } from '../constants/billing.constants';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import { computeDunningNextRetryAt } from '../utils/dunning.util';
 import { mapNombaBillingFailure } from '../utils/nomba-billing-failure.util';
@@ -31,7 +32,7 @@ export class RenewalLifecycleService {
         status: SubscriptionStatus.PAST_DUE,
         nextBillingDate: LessThanOrEqual(graceCutoff),
       },
-      relations: ['tenant', 'tenant.createdBy'],
+      relations: { tenant: { createdBy: true } },
     });
     const update = await this.subscriptionRepo
       .createQueryBuilder()
@@ -100,7 +101,7 @@ export class RenewalLifecycleService {
     );
     const tenant = await this.tenantRepo.findOne({
       where: { id: subscription.tenantId },
-      relations: ['createdBy'],
+      relations: { createdBy: true },
     });
     if (tenant) subscription.tenant = tenant;
     await this.notifyRenewalIssue(subscription, 'PAST_DUE', mapped.message);
@@ -115,7 +116,7 @@ export class RenewalLifecycleService {
     if (!ownerId || !this.notificationHelper) return;
     const member = await this.tenantMemberRepo.findOne({
       where: { userId: ownerId, tenantId: subscription.tenantId },
-      select: ['id'],
+      select: { id: true },
     });
     if (!member) return;
     await this.notificationHelper.sendBillingRenewalFailedNotification(

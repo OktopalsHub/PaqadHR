@@ -8,6 +8,7 @@ import {
   tenantFrontendUrl,
 } from 'src/common/utils/tenant-frontend-url.util';
 import { Repository } from 'typeorm';
+
 import { PlansService } from '../../plans/services/plans.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -139,7 +140,7 @@ export class SubscriptionCheckoutService {
 
   async createPaymentMethodUpdateCheckout(tenantId: string, userId: string, successUrl?: string) {
     const [tenant, user, subscription] = await Promise.all([
-      this.tenantRepo.findOne({ where: { id: tenantId }, relations: ['createdBy'] }),
+      this.tenantRepo.findOne({ where: { id: tenantId }, relations: { createdBy: true } }),
       this.userRepo.findOne({ where: { id: userId } }),
       this.subscriptionsService.getTenantSubscription(tenantId),
     ]);

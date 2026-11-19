@@ -5,6 +5,7 @@ import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service'
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
 import { resolveNgRewardsAirtimeProvider } from 'src/common/utils/ng-money-provider.util';
 import { DataSource } from 'typeorm';
+
 import { RewardRedemption } from '../entities/reward-redemption.entity';
 import { RewardsCatalogService } from './rewards-catalog.service';
 import { type ClaimInput, RewardsClaimService } from './rewards-claim.service';
@@ -52,7 +53,7 @@ export class RewardsService {
   async getAllClaims(tenantId: string) {
     return this.dataSource.getRepository(RewardRedemption).find({
       where: { tenantId },
-      relations: ['member'],
+      relations: { member: true },
       order: { createdAt: 'DESC' },
       take: 100,
       select: {

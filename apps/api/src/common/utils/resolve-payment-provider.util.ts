@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
-import { isBachsConfigured } from '../config/bachs.config';
+
 import { mapBachsCryptoDestinationCurrency } from '../config/bachs-payout.util';
+import { isBachsConfigured } from '../config/bachs.config';
 import {
   isCryptoCurrency,
   isNoahNativeCryptoCurrency,

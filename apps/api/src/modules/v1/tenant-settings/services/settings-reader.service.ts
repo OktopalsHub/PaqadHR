@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EncryptionService } from 'src/common/services/encryption.service';
 import { DataSource, Repository } from 'typeorm';
+
 import type { BillingSettings } from '../../../../common/interfaces/billing-settings.interface';
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';

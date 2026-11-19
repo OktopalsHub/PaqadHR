@@ -9,6 +9,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+
 import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 
 /** US bank address required for Bachs USD ACH/Wire/RTP destinations. */

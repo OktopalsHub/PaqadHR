@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { IntegrationType, TenantMemberRole } from 'src/common/enums';
 import { IPlatformClient } from 'src/common/interfaces';
 import { In } from 'typeorm';
+
 import { InvitationsService } from '../../../modules/v1/invitations/invitations.service';
 import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';

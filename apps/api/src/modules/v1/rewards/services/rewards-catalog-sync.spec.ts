@@ -1,10 +1,11 @@
 import { DataSource } from 'typeorm';
+
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
-import { RewardsCatalogService } from './rewards-catalog.service';
 import { RewardsCatalogQueryService } from './rewards-catalog-query.service';
 import { RewardsCatalogSyncService } from './rewards-catalog-sync.service';
+import { RewardsCatalogService } from './rewards-catalog.service';
 
 describe('RewardsCatalogService catalog sync', () => {
   let service: RewardsCatalogService;

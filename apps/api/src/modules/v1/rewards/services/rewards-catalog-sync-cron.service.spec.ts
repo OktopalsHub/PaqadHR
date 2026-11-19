@@ -1,5 +1,5 @@
-import { RewardsService } from './rewards.service';
 import { RewardsCatalogSyncCronService } from './rewards-catalog-sync-cron.service';
+import { RewardsService } from './rewards.service';
 
 jest.mock('src/common/config/tremendous.config', () => ({
   isTremendousConfigured: jest.fn().mockReturnValue(true),

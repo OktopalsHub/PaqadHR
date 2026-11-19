@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+
 import { SubscriptionBillingService } from '../services/subscription-billing.service';
 
 @Injectable()

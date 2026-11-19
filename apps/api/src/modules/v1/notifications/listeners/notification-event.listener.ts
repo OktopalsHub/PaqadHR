@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+
 import { ProfileUpdatedEvent } from '../../leave/events/leave.events';
 import { NotificationHelperService } from '../services/notification-helper.service';
 

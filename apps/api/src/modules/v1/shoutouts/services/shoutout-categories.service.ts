@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
 import type { UpdateShoutoutCategoryDto } from '../dto/update-shoutout-category.dto';

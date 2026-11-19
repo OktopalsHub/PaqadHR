@@ -1,6 +1,7 @@
 import { Exclude } from 'class-transformer';
 import { BaseEntity } from 'src/common/database/entities/base.entity';
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+
 import { User } from '../../users/entities/user.entity';
 
 @Entity('account')
@@ -41,11 +42,7 @@ export class Account extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   password?: string | null;
 
-  @ManyToOne(
-    () => User,
-    (user) => user.accounts,
-    { onDelete: 'CASCADE' },
-  )
+  @ManyToOne(() => User, (user) => user.accounts, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 }

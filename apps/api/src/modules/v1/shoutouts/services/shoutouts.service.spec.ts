@@ -1,6 +1,7 @@
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PlatformIntegrationService } from 'src/common/integrations/services/platform-integration.service';
 import { DataSource } from 'typeorm';
+
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';

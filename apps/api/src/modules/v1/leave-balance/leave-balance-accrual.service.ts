@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
-import type { Leave } from '../leave/entities/leave.entity';
+
 import { LeavePolicyService } from '../leave-policy/leave-policy.service';
+import type { Leave } from '../leave/entities/leave.entity';
 import type { LeaveBalance } from './entities/leave-balance.entity';
-import { LeaveBalanceRepository } from './leave-balance.repository';
 import { LeaveBalanceCalcService } from './leave-balance-calc.service';
 import { leaveBalanceUsedDaysChange } from './leave-balance-impact.util';
+import { LeaveBalanceRepository } from './leave-balance.repository';
 
 @Injectable()
 export class LeaveBalanceAccrualService {
@@ -148,7 +149,7 @@ export class LeaveBalanceAccrualService {
   ) {
     const previousYearBalances = await this.leaveBalanceRepository.find({
       where: { tenantId, year: fromYear },
-      relations: ['leaveType'],
+      relations: { leaveType: true },
     });
     const newBalances: LeaveBalance[] = [];
     for (const oldBalance of previousYearBalances) {

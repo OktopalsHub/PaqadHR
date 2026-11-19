@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+
 import { FiatExchangeService } from './fiat-exchange.service';
 
 describe('FiatExchangeService', () => {

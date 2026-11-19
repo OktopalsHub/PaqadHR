@@ -12,6 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { EmploymentType, JobStatus } from 'src/common/enums';
+
 import { CustomQuestionDto } from './index';
 import { JobLocationDto } from './job-location.dto';
 

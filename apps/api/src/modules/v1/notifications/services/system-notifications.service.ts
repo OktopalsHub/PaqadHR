@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';

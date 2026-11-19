@@ -3,6 +3,7 @@ import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.int
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
 import { DataSource } from 'typeorm';
+
 import { RewardsCatalogQueryService } from './rewards-catalog-query.service';
 import { RewardsCatalogSyncService } from './rewards-catalog-sync.service';
 

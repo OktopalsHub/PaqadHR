@@ -1,4 +1,5 @@
 import { BadGatewayException, ServiceUnavailableException } from '@nestjs/common';
+
 import { ContactService } from './contact.service';
 
 describe('ContactService', () => {

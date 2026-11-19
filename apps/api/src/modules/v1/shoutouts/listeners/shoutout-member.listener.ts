@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+
 import type { TenantMemberCreatedEvent } from '../../leave/events/leave.events';
 import { MemberPointsService } from '../services/member-points.service';
 

@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import { CandidateSource, CandidateStatus } from 'src/common/enums';
+
 import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateCandidateDto } from '../dto/create-candidate.dto';
 import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
-import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import type { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
+import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import type { Candidate } from '../entities/candidate.entity';
 import { CandidateRepository } from '../repositories/index';
 import { JobOpeningService } from './job-opening.service';

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Like, Repository } from 'typeorm';
+
 import { ITenantRepository } from '../../../../common/interfaces/itenant-repository.interface';
 import { Tenant } from '../entities/tenant.entity';
 
@@ -23,7 +24,7 @@ export class TenantRepository extends Repository<Tenant> implements ITenantRepos
   async findSlugsStartingWith(baseSlug: string): Promise<string[]> {
     const tenants = await this.tenantRepository.find({
       where: { slug: Like(`${baseSlug}%`) },
-      select: ['slug'],
+      select: { slug: true },
     });
     return tenants.map((tenant) => tenant.slug);
   }

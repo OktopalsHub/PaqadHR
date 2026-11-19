@@ -14,9 +14,10 @@ import {
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CurrentTenantMember, CurrentUser } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
-import { TenantGuard } from 'src/common/guards/tenant.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
+import { TenantGuard } from 'src/common/guards/tenant.guard';
 import type { MemberContext } from 'src/common/interfaces';
+
 import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import {
   CreatePaymentMethodDto,

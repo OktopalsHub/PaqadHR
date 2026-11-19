@@ -1,4 +1,5 @@
 import { FindOperator } from 'typeorm';
+
 import { AuditLogRetentionCronService } from './audit-log-retention-cron.service';
 
 describe('AuditLogRetentionCronService', () => {
@@ -21,7 +22,7 @@ describe('AuditLogRetentionCronService', () => {
     expect(find).toHaveBeenCalledTimes(3);
     expect(find).toHaveBeenCalledWith(
       expect.objectContaining({
-        select: ['id'],
+        select: { id: true },
         take: 500,
       }),
     );

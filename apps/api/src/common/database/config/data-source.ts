@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv';
 import { DataSource, type DataSourceOptions } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
+
 import * as Entities from '../entities';
 import * as Migrations from '../migrations';
 
@@ -110,6 +111,15 @@ const AppDataSource = {
     Migrations.PayrollWebhookEventProcessing1789930060361,
     Migrations.DropPlanPricePolarProductId1791581394524,
     Migrations.PayrollRunFundingLedger1792000000000,
+    Migrations.WidenPayrollRunFundingLedgerConstraints1792600000000,
+    Migrations.CustodyWalletLedger1793000000000,
+    Migrations.ProviderVirtualAccounts1793100000000,
+    Migrations.WalletProviderWebhookEvents1793200000000,
+    Migrations.WalletFundings1793300000000,
+    Migrations.BridgePayrollFxPrecision1793400000000,
+    Migrations.BridgeExternalAccounts1793500000000,
+    Migrations.PayrollAttemptHistory1794346000000,
+    Migrations.PayrollLedgerPayoutReversed1794400000000,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

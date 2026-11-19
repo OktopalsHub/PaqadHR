@@ -8,6 +8,7 @@ import {
   TREMENDOUS_SUPPORT_MESSAGE,
 } from 'src/common/utils/tremendous-error.util';
 import { DataSource } from 'typeorm';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { EmailTemplateService } from '../../notifications/services/email-template.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';

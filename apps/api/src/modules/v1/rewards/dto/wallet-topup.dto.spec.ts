@@ -1,4 +1,5 @@
 import { validateSync } from 'class-validator';
+
 import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import { WalletAutoTopupDto } from './wallet-auto-topup.dto';
 import { WalletTopupDto } from './wallet-topup.dto';

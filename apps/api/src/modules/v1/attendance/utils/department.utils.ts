@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+
 import type { DepartmentInfo } from '../../../../common/interfaces/department-info.interface';
 import { DepartmentMember } from '../../departments/entities/department-member.entity';
 
@@ -20,7 +21,7 @@ export class DepartmentUtils {
             tenantId,
           },
         },
-        relations: ['department'],
+        relations: { department: true },
         select: {
           department: {
             id: true,
@@ -49,7 +50,7 @@ export class DepartmentUtils {
     try {
       const memberships = await this.departmentMemberRepository.find({
         where: { memberId: In(memberIds), isActive: true, department: { tenantId } },
-        relations: ['department'],
+        relations: { department: true },
         select: { memberId: true, department: { id: true, name: true } },
       });
       for (const m of memberships) {

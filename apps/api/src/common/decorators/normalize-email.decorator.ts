@@ -1,4 +1,5 @@
 import { Transform } from 'class-transformer';
+
 import { StringUtility } from '../utils';
 
 export function NormalizeEmail(): PropertyDecorator {

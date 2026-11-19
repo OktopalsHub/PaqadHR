@@ -6,6 +6,7 @@ import { TenantMemberRole } from 'src/common/enums';
 import { WorkerDomainService } from 'src/common/services/worker-domain.service';
 import { StringUtility } from 'src/common/utils';
 import { DataSource } from 'typeorm';
+
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
 import { TenantCounter } from '../../tenant-members/entities/tenant-counter.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';

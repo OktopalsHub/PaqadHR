@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+
 import { signaturesMatch } from './webhook-signature.util';
 
 export function getTremendousWebhookSecret(): string {

@@ -1,6 +1,5 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
-import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
+
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import { BachsWebhookService } from './bachs-webhook.service';
@@ -19,8 +18,6 @@ describe('BachsWebhookService', () => {
   let subscriptionBillingService: jest.Mocked<
     Pick<SubscriptionBillingService, 'processBachsPayload'>
   >;
-  let payrollFloatTopupService: jest.Mocked<Pick<PayrollFloatTopupService, 'completeFloatTopup'>>;
-  let payrollPayoutService: jest.Mocked<Pick<PayrollPayoutService, 'processBachsPayload'>>;
 
   beforeEach(() => {
     walletTopupService = {
@@ -32,18 +29,10 @@ describe('BachsWebhookService', () => {
     subscriptionBillingService = {
       processBachsPayload: jest.fn().mockResolvedValue({ received: true }),
     };
-    payrollFloatTopupService = {
-      completeFloatTopup: jest.fn().mockResolvedValue({ received: true }),
-    };
-    payrollPayoutService = {
-      processBachsPayload: jest.fn().mockResolvedValue({ received: true, matched: true }),
-    };
 
     service = new BachsWebhookService(
       subscriptionBillingService as unknown as SubscriptionBillingService,
       walletTopupService as unknown as TenantWalletTopupService,
-      payrollFloatTopupService as unknown as PayrollFloatTopupService,
-      payrollPayoutService as unknown as PayrollPayoutService,
     );
     (verifyBachsWebhookSignature as jest.Mock).mockReturnValue(true);
   });
@@ -115,94 +104,6 @@ describe('BachsWebhookService', () => {
     expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
   });
 
-  it('routes payroll_float_topup collection.succeeded to payroll funding', async () => {
-    const body = JSON.stringify({
-      type: 'collection.succeeded',
-      data: {
-        reference: 'pf_tenant_ref',
-        amount: '5000.00',
-        metadata: {
-          tenantId: 't1',
-          payrollRunId: 'run-1',
-          billingType: 'payroll_float_topup',
-          expectedAmount: '5000',
-        },
-      },
-    });
-
-    await service.dispatch(body, 'sig', '123');
-
-    expect(payrollFloatTopupService.completeFloatTopup).toHaveBeenCalledWith({
-      tenantId: 't1',
-      orderReference: 'pf_tenant_ref',
-      payrollRunId: 'run-1',
-      amount: 5000,
-      initiatedByMemberId: undefined,
-    });
-    expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
-  });
-
-  it('routes payroll_retry_funding collection.succeeded to payroll funding', async () => {
-    const body = JSON.stringify({
-      type: 'collection.succeeded',
-      data: {
-        reference: 'pf_tenant_retry_ref',
-        amount: '1250.00',
-        metadata: {
-          tenantId: 't1',
-          payrollRunId: 'run-1',
-          billingType: 'payroll_retry_funding',
-          expectedAmount: '1250',
-          initiatedByMemberId: 'member-1',
-        },
-      },
-    });
-
-    await service.dispatch(body, 'sig', '123');
-
-    // Without this routing the run's retryFunding metadata stays `pending` forever and every
-    // retry is rejected by the run-scoped funding guard.
-    expect(payrollFloatTopupService.completeFloatTopup).toHaveBeenCalledWith({
-      tenantId: 't1',
-      orderReference: 'pf_tenant_retry_ref',
-      payrollRunId: 'run-1',
-      amount: 1250,
-      initiatedByMemberId: 'member-1',
-    });
-    expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
-  });
-
-  it('routes payout.paid events to the payroll payout handler', async () => {
-    const body = JSON.stringify({
-      type: 'payout.paid',
-      data: {
-        withdrawal_id: 'pay_abc123',
-        reference: 'pi_abc',
-        status: 'completed',
-        amount: '825000.00',
-        to_amount: '825000.00',
-      },
-    });
-
-    await service.dispatch(body, 'sig', '123');
-
-    expect(payrollPayoutService.processBachsPayload).toHaveBeenCalledWith(JSON.parse(body));
-    expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
-    expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
-  });
-
-  it('routes payout.failed events to the payroll payout handler', async () => {
-    const body = JSON.stringify({
-      type: 'payout.failed',
-      data: { withdrawal_id: 'pay_abc123', reference: 'pi_abc', status: 'failed' },
-    });
-
-    await service.dispatch(body, 'sig', '123');
-
-    expect(payrollPayoutService.processBachsPayload).toHaveBeenCalled();
-    expect(subscriptionBillingService.processBachsPayload).not.toHaveBeenCalled();
-  });
-
   it('falls through to subscription billing for non-wallet events', async () => {
     const body = JSON.stringify({
       type: 'invoice.paid',
@@ -212,7 +113,6 @@ describe('BachsWebhookService', () => {
     await service.dispatch(body, 'sig', '123');
 
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
-    expect(payrollPayoutService.processBachsPayload).not.toHaveBeenCalled();
     expect(subscriptionBillingService.processBachsPayload).toHaveBeenCalled();
   });
 });

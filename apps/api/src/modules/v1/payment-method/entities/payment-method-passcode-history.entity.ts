@@ -1,4 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { PasscodeChangeReason } from '../../../../common/enums/passcode-change-reason.enum';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';

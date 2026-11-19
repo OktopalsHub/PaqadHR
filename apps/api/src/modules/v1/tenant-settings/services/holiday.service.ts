@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import Holidays from 'date-holidays';
-import type { Holiday } from '../../../../common/interfaces/holiday.interface';
+
 import type { HolidaySettings } from '../../../../common/interfaces/holiday-settings.interface';
+import type { Holiday } from '../../../../common/interfaces/holiday.interface';
 import { GoogleCalendarHolidayProvider } from './google-calendar-holiday.provider';
 
 function normalizeHolidayDate(raw: string, year?: number): string {

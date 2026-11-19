@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { RelationshipType } from 'src/common/enums';
+
 import { ActivitiesService } from '../activities/services/activities.service';
 import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
 import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';

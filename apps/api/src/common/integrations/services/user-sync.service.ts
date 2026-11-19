@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { IntegrationType } from 'src/common/enums';
 import type { IPlatformUser } from 'src/common/interfaces';
 import { IsNull } from 'typeorm';
+
 import { InvitationsService } from '../../../modules/v1/invitations/invitations.service';
 import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';

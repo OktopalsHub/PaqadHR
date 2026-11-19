@@ -1,4 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
 import { Plan } from './plan.entity';
@@ -9,11 +10,7 @@ import { Plan } from './plan.entity';
   where: 'deleted_at IS NULL',
 })
 export class PlanPrice extends BaseEntity {
-  @ManyToOne(
-    () => Plan,
-    (plan) => plan.prices,
-    { onDelete: 'CASCADE' },
-  )
+  @ManyToOne(() => Plan, (plan) => plan.prices, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'plan_id' })
   plan: Plan;
   @Column({ name: 'plan_id' })

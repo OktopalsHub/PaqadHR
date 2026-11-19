@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ChannelType } from 'src/common/enums';
 import type { ChannelInfo } from 'src/common/interfaces';
+
 import { IntegrationChannel } from '../entities/integration-channel.entity';
 import type { ShoutoutBroadcast } from '../integration.types';
 import { ChannelListingService } from './channel-listing.service';

@@ -1,4 +1,5 @@
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
+
 import { DEFAULT_PLANS } from './default-plans.data';
 
 describe('DEFAULT_PLANS', () => {

@@ -1,12 +1,9 @@
-import { Controller, Get, HttpStatus, Req, Res, VERSION_NEUTRAL } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
+
 import { AppService } from './app.service';
 import { Public } from './common/decorators';
-
-type CsrfRequest = {
-  csrfToken?: () => string;
-};
 
 @ApiTags('App')
 @Public()
@@ -34,8 +31,7 @@ export class AppController {
   }
 
   @Get('csrf/token')
-  getCsrfToken(@Req() req: CsrfRequest) {
-    const token = typeof req.csrfToken === 'function' ? req.csrfToken() : undefined;
-    return { csrfToken: token ?? '' };
+  getCsrfToken() {
+    return { csrfToken: '' };
   }
 }

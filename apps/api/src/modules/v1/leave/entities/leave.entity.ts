@@ -1,5 +1,6 @@
 import { LeaveStatus } from 'src/common/enums';
 import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { LeaveType } from '../../leave-type/entities/leave-type.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
@@ -15,10 +16,7 @@ export class Leave extends BaseEntity {
   duration: number;
   @Column({ name: 'leave_type_id' })
   leaveTypeId: string;
-  @ManyToOne(
-    () => LeaveType,
-    (leaveType) => leaveType.leaves,
-  )
+  @ManyToOne(() => LeaveType, (leaveType) => leaveType.leaves)
   @JoinColumn({ name: 'leave_type_id' })
   leaveTypes: LeaveType;
   @Column({ name: 'start_date', type: 'date' })
@@ -35,29 +33,19 @@ export class Leave extends BaseEntity {
   reason: string;
   @Column({ name: 'approved_by', nullable: true })
   approvedBy?: string;
-  @ManyToOne(
-    () => TenantMember,
-    (tenantMember) => tenantMember.approvedLeaves,
-    {
-      nullable: true,
-    },
-  )
+  @ManyToOne(() => TenantMember, (tenantMember) => tenantMember.approvedLeaves, {
+    nullable: true,
+  })
   @JoinColumn({ name: 'approved_by' })
   approver?: TenantMember;
   @Column({ name: 'requested_by' })
   requestedBy: string;
-  @ManyToOne(
-    () => TenantMember,
-    (tenantMember) => tenantMember.requestedLeaves,
-  )
+  @ManyToOne(() => TenantMember, (tenantMember) => tenantMember.requestedLeaves)
   @JoinColumn({ name: 'requested_by' })
   requester: TenantMember;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.leaves,
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.leaves)
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
   @DeleteDateColumn({

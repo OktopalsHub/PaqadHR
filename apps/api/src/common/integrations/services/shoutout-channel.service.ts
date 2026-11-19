@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ChannelType } from 'src/common/enums';
 import { In, Not } from 'typeorm';
+
 import { SlackClient } from '../clients/slack.client';
 import { IntegrationChannel } from '../entities/integration-channel.entity';
 import type { ShoutoutBroadcast } from '../integration.types';

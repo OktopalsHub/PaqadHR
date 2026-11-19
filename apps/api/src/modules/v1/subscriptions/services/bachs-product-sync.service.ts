@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getBachsBaseUrl, getBachsSecretKey } from 'src/common/config/bachs.config';
 import { Repository } from 'typeorm';
+
 import { PlanPrice } from '../../plans/entities/plan-price.entity';
 
 function formatAmount(value: number): string {
@@ -43,7 +44,7 @@ export class BachsProductSyncService {
 
     const planPrices = await this.priceRepo.find({
       where: [{ currency: 'NGN' }, { currency: 'USD' }],
-      relations: ['plan'],
+      relations: { plan: true },
       order: { plan: { sortOrder: 'ASC' } },
     });
 

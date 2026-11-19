@@ -1,4 +1,5 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
+
 import { tenantContext } from '../context/tenant.context';
 
 export const CurrentTenantMember = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {

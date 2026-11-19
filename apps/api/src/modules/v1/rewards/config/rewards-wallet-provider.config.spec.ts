@@ -1,4 +1,5 @@
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+
 import { resolveRewardsWalletPaymentProvider } from './rewards-wallet-provider.config';
 
 describe('resolveRewardsWalletPaymentProvider', () => {

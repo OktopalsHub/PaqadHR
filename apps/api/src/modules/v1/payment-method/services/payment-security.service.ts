@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PasswordService } from 'src/common/utils';
+
 import type { PaymentSecurity } from '../entities/payment-security.entity';
 import { PaymentSecurityRepository } from '../repositories/payment-security.repository';
 
@@ -10,7 +11,7 @@ export class PaymentSecurityService {
   async hasPasscode(memberId: string, tenantId: string): Promise<boolean> {
     const security = await this.paymentSecurityRepo.findOne({
       where: { member: { id: memberId, tenantId } },
-      select: ['id'],
+      select: { id: true },
     });
     return Boolean(security);
   }
@@ -18,7 +19,7 @@ export class PaymentSecurityService {
   async isLocked(memberId: string, tenantId: string): Promise<boolean> {
     const security = await this.paymentSecurityRepo.findOne({
       where: { member: { id: memberId, tenantId } },
-      select: ['id', 'passcodeLockedUntil'],
+      select: { id: true, passcodeLockedUntil: true },
     });
     if (!security?.passcodeLockedUntil) return false;
     return security.passcodeLockedUntil > new Date();
@@ -112,7 +113,12 @@ export class PaymentSecurityService {
   ): Promise<boolean> {
     const security = await this.paymentSecurityRepo.findOne({
       where: { member: { id: memberId, tenantId } },
-      select: ['id', 'paymentPasscode', 'passcodeAttempts', 'passcodeLockedUntil'],
+      select: {
+        id: true,
+        paymentPasscode: true,
+        passcodeAttempts: true,
+        passcodeLockedUntil: true,
+      },
     });
     if (!security) throw new ForbiddenException('No payment security set up');
     if (security.passcodeLockedUntil && security.passcodeLockedUntil > new Date()) {

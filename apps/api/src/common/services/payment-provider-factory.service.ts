@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { PaymentProvider } from '../enums/payment-provider.enum';
 import { PaymentMethodType } from '../enums/payment-type.enum';
 import type { CheckoutProvider } from '../interfaces/checkout-provider.interface';

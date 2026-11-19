@@ -5,6 +5,7 @@ import { UserRole } from 'src/common/enums';
 import { GeoLocationHelper, StringUtility } from 'src/common/utils';
 import type { GeoRequestContext } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
+
 import type { User } from '../../users/entities/user.entity';
 import { buildUserConsentMetadata } from '../../users/interfaces/user-metadata.interface';
 import { UserRepository } from '../../users/repositories/users.repository';
@@ -28,7 +29,7 @@ export class AuthOAuthService {
     const normalizedEmail = StringUtility.trimAndLowerCase(email);
     const existingAccount = await this.accountRepository.findOne({
       where: { providerId: 'google', accountId: googleId },
-      relations: ['user'],
+      relations: { user: true },
     });
     if (existingAccount?.user) return existingAccount.user;
     const existingUser = await this.userRepository.findUserByEmail(normalizedEmail);

@@ -1,4 +1,5 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
+
 import { CreateInvitationDto } from './index';
 
 export class UpdateInvitationDto extends PartialType(CreateInvitationDto) {

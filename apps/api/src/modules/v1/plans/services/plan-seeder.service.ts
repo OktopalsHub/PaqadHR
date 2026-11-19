@@ -1,4 +1,5 @@
 import { Injectable, type OnApplicationBootstrap } from '@nestjs/common';
+
 import { DEFAULT_PLANS } from '../data/default-plans.data';
 import type { PlanPrice } from '../entities/plan-price.entity';
 import { PlansService } from './plans.service';

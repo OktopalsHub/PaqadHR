@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { CandidateSource } from 'src/common/enums';
+
 import { CandidateExperienceDto, CandidateLocationDto } from './create-candidate.dto';
 
 export class CreatePipelineCandidateDto {

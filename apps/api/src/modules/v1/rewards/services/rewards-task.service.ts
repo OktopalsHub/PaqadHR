@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { Employment } from '../../employment/entities/employment.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
+import { Task } from '../entities/task.entity';
 import { RewardsTaskCompletionService } from './rewards-task-completion.service';
 import { RewardsTaskTemplatesService } from './rewards-task-templates.service';
 
@@ -80,7 +81,7 @@ export class RewardsTaskService {
     if (!isAdminOrOwner) {
       const subs = await this.dataSource
         .getRepository(Employment)
-        .find({ where: { reportsToId: actorId, tenantId }, select: ['tenantMemberId'] });
+        .find({ where: { reportsToId: actorId, tenantId }, select: { tenantMemberId: true } });
       manageableIds = new Set(subs.map((e) => e.tenantMemberId));
     }
     const visible = submissions.filter((s) => {
@@ -89,7 +90,7 @@ export class RewardsTaskService {
       return manageableIds!.has(s.memberId);
     });
     const submitterIds = [...new Set(visible.map((s) => s.memberId))];
-    const members = submitterIds.length ? await memberRepo.findByIds(submitterIds) : [];
+    const members = submitterIds.length ? await memberRepo.findBy({ id: In(submitterIds) }) : [];
     const memberMap = new Map(members.map((m) => [m.id, m]));
     return visible.map((sub) => {
       const task = tasks.find((t) => t.id === sub.taskId);

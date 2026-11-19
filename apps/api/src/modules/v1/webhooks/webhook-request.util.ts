@@ -1,4 +1,5 @@
 import type { Request } from 'express';
+
 import { isPayrollMerchantRef } from '../payroll/utils/payroll-merchant-ref.util';
 
 type RawBodyRequest = Request & { rawBody?: Buffer };
@@ -47,12 +48,6 @@ export function extractPayrollMerchantRef(payload: unknown): string | null {
     body.data?.transaction?.merchantTxRef ??
     body.data?.order?.orderMetaData?.merchantTxRef ??
     '';
-  return isPayrollMerchantRef(ref) ? ref : null;
-}
-
-export function extractNoahPayrollExternalId(payload: unknown): string | null {
-  const body = payload as { data?: { externalID?: string; externalId?: string } };
-  const ref = body.data?.externalID ?? body.data?.externalId ?? '';
   return isPayrollMerchantRef(ref) ? ref : null;
 }
 
@@ -223,81 +218,6 @@ export function extractBachsWalletTopupCheckout(payload: unknown): {
   };
 }
 
-export function extractBachsPayrollFloatTopupCheckout(payload: unknown): {
-  tenantId: string;
-  orderReference: string;
-  amount?: number;
-  initiatedByMemberId?: string;
-  payrollRunId?: string;
-} | null {
-  const body = payload as {
-    type?: string;
-    data?: {
-      reference?: string;
-      amount_paid?: string | number;
-      amount?: string | number;
-      metadata?: Record<string, string>;
-    };
-  };
-  if (String(body.type ?? '').toLowerCase() !== 'collection.succeeded') return null;
-  const data = body.data ?? {};
-  const meta = data.metadata ?? {};
-  // Retry-shortfall checkouts (`payroll_retry_funding`) fund a specific run's failed payouts.
-  // They are resolved by the same orderReference routing as whole-run float top-ups, so both
-  // billing types must reach completeFloatTopup or the run can never be marked funded.
-  if (meta.billingType !== 'payroll_float_topup' && meta.billingType !== 'payroll_retry_funding') {
-    return null;
-  }
-  const tenantId = String(meta.tenantId ?? '').trim();
-  const orderReference = String(data.reference ?? '').trim();
-  if (!tenantId || !orderReference) return null;
-  const amount = Number(meta.expectedAmount ?? data.amount ?? data.amount_paid ?? 0);
-  const initiatedByMemberId = String(meta.initiatedByMemberId ?? '').trim();
-  const payrollRunId = String(meta.payrollRunId ?? '').trim();
-  return {
-    tenantId,
-    orderReference,
-    amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
-    initiatedByMemberId: initiatedByMemberId || undefined,
-    payrollRunId: payrollRunId || undefined,
-  };
-}
-
-export function extractMonnifyPayrollFloatTopupCheckout(payload: unknown): {
-  tenantId: string;
-  orderReference: string;
-  amount?: number;
-  initiatedByMemberId?: string;
-  payrollRunId?: string;
-} | null {
-  const body = payload as {
-    eventType?: string;
-    eventData?: {
-      paymentReference?: string;
-      amountPaid?: number | string;
-      metaData?: unknown;
-    };
-  };
-  const eventType = String(body.eventType ?? '').toUpperCase();
-  if (eventType !== 'SUCCESSFUL_TRANSACTION' && eventType !== 'OVERPAID_TRANSACTION') {
-    return null;
-  }
-  const data = body.eventData ?? {};
-  const meta = parseMonnifyMeta(data.metaData);
-  if (meta.billingType !== 'payroll_float_topup') return null;
-  const tenantId = String(meta.tenantId ?? '').trim();
-  const orderReference = String(data.paymentReference ?? '').trim();
-  if (!tenantId || !orderReference) return null;
-  const amount = Number(data.amountPaid ?? meta.expectedAmount ?? 0);
-  return {
-    tenantId,
-    orderReference,
-    amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
-    initiatedByMemberId: meta.initiatedByMemberId || undefined,
-    payrollRunId: meta.payrollRunId || undefined,
-  };
-}
-
 export function extractMonnifyWalletTopupCheckout(payload: unknown): {
   tenantId: string;
   orderReference: string;
@@ -357,56 +277,3 @@ export function extractMonnifySubscriptionPayment(payload: unknown): boolean {
 }
 
 /** Payroll NGN disbursements use stable payroll_{runId}_{itemId} references. */
-export function extractMonnifyPayrollTransfer(payload: unknown): {
-  merchantRef: string;
-  transactionId: string;
-  status: string;
-  amount?: number;
-} | null {
-  const body = payload as {
-    eventType?: string;
-    eventData?: {
-      paymentReference?: string;
-      transactionReference?: string;
-      reference?: string;
-      amountPaid?: number | string;
-      amount?: number | string;
-      paymentStatus?: string;
-      status?: string;
-      metaData?: unknown;
-    };
-  };
-  const eventType = String(body.eventType ?? '').toUpperCase();
-  const data = body.eventData ?? {};
-  const meta = parseMonnifyMeta(data.metaData);
-  const candidates = [
-    meta.merchantTxRef,
-    meta.reference,
-    data.paymentReference,
-    data.reference,
-    data.transactionReference,
-  ]
-    .filter(Boolean)
-    .map(String);
-  const merchantRef = candidates.find((ref) => isPayrollMerchantRef(ref));
-  if (!merchantRef) {
-    return null;
-  }
-
-  let status = String(data.status ?? data.paymentStatus ?? 'PENDING').toUpperCase();
-  if (eventType.includes('SUCCESS')) {
-    status = 'SUCCESS';
-  } else if (eventType.includes('FAIL') || eventType.includes('REVERS')) {
-    status = 'FAILED';
-  }
-
-  const amountRaw = Number(data.amount ?? data.amountPaid ?? meta.amount ?? NaN);
-  return {
-    merchantRef,
-    transactionId: String(
-      data.transactionReference ?? data.reference ?? data.paymentReference ?? merchantRef,
-    ),
-    status,
-    amount: Number.isFinite(amountRaw) ? amountRaw : undefined,
-  };
-}

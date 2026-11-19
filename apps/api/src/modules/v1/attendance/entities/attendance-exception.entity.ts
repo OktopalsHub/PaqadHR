@@ -1,5 +1,6 @@
 import { AttendanceExceptionStatus, EAttendanceExceptionType } from 'src/common/enums';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -22,26 +23,17 @@ export class AttendanceException extends BaseEntity {
   approvedAt?: Date;
   @Column({ name: 'tenant_member_id' })
   tenantMemberId: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.attendanceExceptions,
-  )
+  @ManyToOne(() => TenantMember, (member) => member.attendanceExceptions)
   @JoinColumn({ name: 'tenant_member_id' })
   tenantMember: TenantMember;
   @Column({ name: 'approved_by_id', nullable: true })
   approvedById?: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.approvedAttendanceExceptions,
-  )
+  @ManyToOne(() => TenantMember, (member) => member.approvedAttendanceExceptions)
   @JoinColumn({ name: 'approved_by_id' })
   approvedBy?: TenantMember;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.attendanceExceptions,
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.attendanceExceptions)
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 }

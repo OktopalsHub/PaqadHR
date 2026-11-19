@@ -6,6 +6,7 @@ import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
 import { EncryptionService } from 'src/common/services/encryption.service';
 import { Not, Repository } from 'typeorm';
+
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { AuthService } from '../../auth/auth.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
@@ -311,7 +312,7 @@ export class PmCreationService {
     const primaries = await this.repo.find({
       where: { tenantId, memberId, isPrimary: true },
       order: { updatedAt: 'DESC', createdAt: 'DESC' },
-      select: ['id'],
+      select: { id: true },
     });
     if (primaries.length <= 1) return;
     await this.repo.update(

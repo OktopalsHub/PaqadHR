@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
 import type { QueryDeepPartialEntity } from 'typeorm';
 import { Repository } from 'typeorm';
+
 import {
   TenantMemberChangedEvent,
   TenantMemberCreatedEvent,

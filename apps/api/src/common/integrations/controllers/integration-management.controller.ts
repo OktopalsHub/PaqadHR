@@ -4,6 +4,7 @@ import { CurrentTenantMember, RequireFeatures, TenantId } from 'src/common/decor
 import { FeatureAccess, TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
 import { IntegrationSetupService } from '../services/integration-setup.service';
 import { UserSyncService } from '../services/user-sync.service';

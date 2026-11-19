@@ -8,6 +8,7 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+
 import {
   isRewardsWalletCheckoutLive,
   resolveRewardsWalletPaymentProvider,
@@ -15,8 +16,8 @@ import {
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
 import { WalletTopupCompleteDto, WalletTopupDto } from '../dto/wallet-topup.dto';
 import { RewardsService } from '../services/rewards.service';
-import { TenantWalletService } from '../services/tenant-wallet.service';
 import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
+import { TenantWalletService } from '../services/tenant-wallet.service';
 import { resolveWalletTopupProviderFromOrderRef } from '../utils/wallet-order-ref.util';
 
 const _ALL_ROLES = [

@@ -17,6 +17,7 @@ import type { Request, Response } from 'express';
 import { AuthOnly, CurrentUser, Public } from 'src/common/decorators';
 import type { IAuthenticatedUserRequest, JwtPayload } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+
 import {
   ACCESS_TOKEN_COOKIE,
   cookieName,

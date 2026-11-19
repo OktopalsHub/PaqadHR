@@ -2,8 +2,10 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { LeaveStatus } from 'src/common/enums';
 import { DateTimeHelper } from 'src/common/helpers';
 import type { IPaginationOption } from 'src/common/interfaces/pagination.interface';
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
 import type { FindOptionsWhere } from 'typeorm';
+
 import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
 import type { CreateLeaveDto } from './dto/create-leave.dto';
 import { LeaveMemberMapper } from './dto/leave-member-response.dto';
@@ -84,7 +86,7 @@ export class LeaveService {
   private async findLeaveEntity(tenantId: string, leaveId: string): Promise<Leave | null> {
     return this.leaveRepository.findOne({
       where: { id: leaveId, tenantId },
-      relations: [...this.leaveRelations],
+      relations: relationsFromPaths(this.leaveRelations),
     });
   }
 
@@ -99,7 +101,7 @@ export class LeaveService {
     const where: FindOptionsWhere<Leave> = { tenantId, ...additionalWhere };
     const [records, total] = await this.leaveRepository.findAndCount({
       where,
-      relations: [...this.leaveRelations],
+      relations: relationsFromPaths(this.leaveRelations),
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

@@ -1,4 +1,5 @@
 import * as dotenv from 'dotenv';
+
 import * as env from './env.util';
 import { resolveRefreshAndSessionExpiresIn } from './parse-duration.util';
 import { resolveTrustedOrigins } from './trusted-origins';

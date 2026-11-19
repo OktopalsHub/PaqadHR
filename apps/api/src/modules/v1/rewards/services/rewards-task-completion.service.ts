@@ -1,14 +1,15 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import { DataSource } from 'typeorm';
+
 import { Employment } from '../../employment/entities/employment.entity';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
-import { Shoutout } from '../../shoutouts/entities/shoutout.entity';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
+import { Shoutout } from '../../shoutouts/entities/shoutout.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
+import { Task } from '../entities/task.entity';
 
 @Injectable()
 export class RewardsTaskCompletionService {

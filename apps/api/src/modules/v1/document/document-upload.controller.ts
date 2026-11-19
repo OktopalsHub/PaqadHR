@@ -24,6 +24,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { assertAdmin, isTenantAdmin } from 'src/common/utils/member-access.util';
+
 import type { DocumentAccessLevel } from '../../../common/enums/document-access-level.enum';
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';

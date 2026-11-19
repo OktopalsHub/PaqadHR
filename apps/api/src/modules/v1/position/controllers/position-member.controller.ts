@@ -15,6 +15,7 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { AssignPositionDto } from '../dto/assign-position.dto';
 import { PositionMemberService } from '../services/position-member.service';

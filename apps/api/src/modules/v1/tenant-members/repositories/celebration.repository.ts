@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CelebrationType } from 'src/common/enums/celebration-type.enum';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { Repository } from 'typeorm';
+
 import type { CelebrationResponseDto } from '../dto/celebrations-response.dto';
 import { TenantMember } from '../entities/tenant-member.entity';
 
@@ -148,7 +149,7 @@ export class CelebrationRepository {
   ): Promise<Array<{ member: TenantMember; employmentStartDate: Date }>> {
     const members = await this.repo.find({
       where: { tenantId, isActive: true },
-      relations: ['employments'],
+      relations: { employments: true },
     });
     const now = new Date();
 

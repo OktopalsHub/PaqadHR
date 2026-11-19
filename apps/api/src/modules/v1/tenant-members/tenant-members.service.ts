@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MemberContext } from 'src/common/interfaces';
+
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
 import type { CreateTenantMemberDto } from './dto/create-tenant-member.dto';

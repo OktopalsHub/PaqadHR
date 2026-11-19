@@ -26,6 +26,7 @@ import type { IPaginatedData } from 'src/common/interfaces/pagination.interface'
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
 import { resolveTenantDefaultCurrency } from 'src/common/utils/tenant-currency.util';
+
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { PublicTenantResponseDto } from './dto/public-tenant-response.dto';

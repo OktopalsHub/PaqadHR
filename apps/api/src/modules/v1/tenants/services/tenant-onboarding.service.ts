@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -8,13 +9,14 @@ import { WorkerDomainService } from 'src/common/services/worker-domain.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { StringUtility } from 'src/common/utils/string.util';
 import { Repository } from 'typeorm';
+
 import { isReservedTenantSlug } from '../../../../common/constants/reserved-tenant-slugs';
 import type { OnboardingData } from '../../../../common/interfaces/onboarding-data.interface';
 import type { OnboardingResult } from '../../../../common/interfaces/onboarding-result.interface';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
 import { PlansService } from '../../plans/services/plans.service';
-import { PositionService } from '../../position/services/position.service';
 import { PositionMemberService } from '../../position/services/position-member.service';
+import { PositionService } from '../../position/services/position.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';

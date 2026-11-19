@@ -6,6 +6,7 @@ import type {
   FindOneOptions,
   UpdateResult,
 } from 'typeorm';
+
 import type { PayrollRun } from '../../modules/v1/payroll/entities/payroll-run.entity';
 
 export interface IPayrollRunRepository {

@@ -1,5 +1,7 @@
 import { createHmac } from 'node:crypto';
+
 import { getBachsWebhookSecret } from 'src/common/config/bachs.config';
+
 import { signaturesMatch } from './webhook-signature.util';
 
 const TIMESTAMP_SKEW_SECONDS = 300;

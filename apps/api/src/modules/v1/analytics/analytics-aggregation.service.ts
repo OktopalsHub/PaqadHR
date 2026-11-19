@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { AnalyticsActivityQueriesService } from './analytics-activity-queries.service';
 import { AnalyticsWorkforceQueriesService } from './analytics-queries.service';
 import type { AnalyticsOverviewDto } from './dto/analytics-overview.dto';

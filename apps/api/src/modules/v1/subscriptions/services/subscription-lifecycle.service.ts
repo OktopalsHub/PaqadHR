@@ -4,6 +4,7 @@ import { TenantMemberRole } from 'src/common/enums';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
+
 import {
   AuditAction,
   AuditSeverity,
@@ -36,7 +37,7 @@ export class SubscriptionLifecycleService {
     const saved = await this.subscriptionRepository.save(subscription);
     const loaded = await this.subscriptionRepository.findOne({
       where: { id: saved.id },
-      relations: ['plan', 'planPrice', 'planPrice.plan'],
+      relations: { plan: true, planPrice: { plan: true } },
     });
     return loaded ?? saved;
   }

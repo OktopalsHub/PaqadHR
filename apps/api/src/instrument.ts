@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nestjs';
+
 import { sanitizeSentryEvent } from './common/observability/sanitize-sentry-event';
 
 const dsn = process.env.SENTRY_DSN?.trim();
@@ -9,7 +10,16 @@ if (dsn) {
     dsn,
     environment: process.env.NODE_ENV ?? 'development',
     tracesSampleRate: isProduction ? 0.15 : 0,
-    sendDefaultPii: false,
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: false,
+      httpBodies: [],
+      urlQueryParams: false,
+      databaseQueryData: false,
+      queues: false,
+      stackFrameVariables: false,
+    },
     beforeSend(event) {
       return sanitizeSentryEvent(event);
     },

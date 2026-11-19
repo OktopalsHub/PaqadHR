@@ -4,6 +4,7 @@ import {
   type ExceptionFilter,
   ForbiddenException,
 } from '@nestjs/common';
+
 import { AuditLogsService } from '../../modules/v1/audit-logs/services/audit-logs.service';
 import { AuditAction, AuditSeverity, AuditStatus } from '../enums/audit-action.enum';
 import type { IAuthenticatedMemberRequest } from '../interfaces';

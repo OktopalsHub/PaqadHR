@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+
 import {
   SHOUTOUT_CREATED_EVENT,
   type ShoutoutCreatedEventPayload,

@@ -6,8 +6,9 @@ import { NotificationPriority } from 'src/common/enums/notification-priority.enu
 import { NotificationType } from 'src/common/enums/notification-type.enum';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { IsNull, MoreThanOrEqual, Not, Repository } from 'typeorm';
-import { NotificationService } from '../../notifications/services/notification.service';
+
 import { NotificationPreferenceService } from '../../notifications/services/notification-preference.service';
+import { NotificationService } from '../../notifications/services/notification.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { TenantsService } from '../../tenants/tenants.service';
@@ -45,7 +46,7 @@ export class CalendarEventReminderService {
         reminderSentAt: IsNull(),
         startDate: MoreThanOrEqual(lookback.toISOString().slice(0, 10)),
       },
-      relations: ['tenant', 'creator'],
+      relations: { tenant: true, creator: true },
       order: { startDate: 'ASC' },
     });
 

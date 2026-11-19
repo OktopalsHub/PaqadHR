@@ -6,6 +6,7 @@ import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { RewardsService } from '../services/rewards.service';
 

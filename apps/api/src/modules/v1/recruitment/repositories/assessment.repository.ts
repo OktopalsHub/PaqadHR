@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import { Repository } from 'typeorm';
+
 import { Assessment } from '../entities/assessment.entity';
 
 @Injectable()
@@ -29,7 +31,7 @@ export class AssessmentRepository extends Repository<Assessment> {
         tenantId,
       },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
     });
     if (!assessment) {
       throw new NotFoundException('Assessment not found for this member');
@@ -48,7 +50,7 @@ export class AssessmentRepository extends Repository<Assessment> {
         tenantId,
       },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
     });
   }
   async findActiveByTenantMember(
@@ -64,7 +66,7 @@ export class AssessmentRepository extends Repository<Assessment> {
         isActive: true,
       },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
     });
   }
 }

@@ -19,6 +19,7 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { assertSelfOnly, isTenantAdmin } from 'src/common/utils/member-access.util';
+
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateEducationDto } from './dto/create-education.dto';
 import { UpdateEducationDto } from './dto/update-education.dto';

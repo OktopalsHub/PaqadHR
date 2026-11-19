@@ -1,9 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
-import { Plan } from '../entities/plan.entity';
 import { PlanPrice } from '../entities/plan-price.entity';
+import { Plan } from '../entities/plan.entity';
 
 @Injectable()
 export class PlansService {
@@ -18,7 +19,7 @@ export class PlansService {
     return this.planRepository.find({
       where: { isActive: true },
       order: { sortOrder: 'ASC' },
-      relations: ['prices'],
+      relations: { prices: true },
     });
   }
   async findPlanBySlug(
@@ -27,14 +28,14 @@ export class PlansService {
   ): Promise<Plan | null> {
     return this.planRepository.findOne({
       where: options?.includeInactive ? { slug } : { slug, isActive: true },
-      relations: ['prices'],
+      relations: { prices: true },
     });
   }
   async getPricesForCountry(countryCode: string): Promise<PlanPrice[]> {
     const normalized = (countryCode || 'GLOBAL').toUpperCase();
     const prices = await this.planPriceRepository.find({
       where: { countryCode: normalized, isActive: true },
-      relations: ['plan'],
+      relations: { plan: true },
       order: { plan: { sortOrder: 'ASC' } },
     });
     if (prices.length > 0) {
@@ -47,14 +48,14 @@ export class PlansService {
     }
     return this.planPriceRepository.find({
       where: { countryCode: 'GLOBAL', isActive: true },
-      relations: ['plan'],
+      relations: { plan: true },
       order: { plan: { sortOrder: 'ASC' } },
     });
   }
   async getPlanPriceById(planPriceId: string): Promise<PlanPrice | null> {
     return this.planPriceRepository.findOne({
       where: { id: planPriceId, isActive: true },
-      relations: ['plan'],
+      relations: { plan: true },
     });
   }
 
@@ -94,7 +95,7 @@ export class PlansService {
           isActive: true,
           ...(currency ? { currency } : {}),
         },
-        relations: ['plan'],
+        relations: { plan: true },
       });
       if (!price) {
         this.logger.warn(
@@ -102,7 +103,7 @@ export class PlansService {
         );
         price = await this.planPriceRepository.findOne({
           where: { planId: plan.id, countryCode: 'GLOBAL', isActive: true },
-          relations: ['plan'],
+          relations: { plan: true },
         });
       }
       return price ?? null;
@@ -117,7 +118,7 @@ export class PlansService {
 
     let price = await this.planPriceRepository.findOne({
       where,
-      relations: ['plan'],
+      relations: { plan: true },
     });
 
     if (!price) {
@@ -126,7 +127,7 @@ export class PlansService {
       if (normalizedCountry !== 'NG') {
         price = await this.planPriceRepository.findOne({
           where: { planId: plan.id, countryCode: 'GLOBAL', isActive: true },
-          relations: ['plan'],
+          relations: { plan: true },
         });
       } else {
         this.logger.warn(
@@ -158,7 +159,7 @@ export class PlansService {
     );
     const price = await this.planPriceRepository.findOne({
       where: { id },
-      relations: ['plan'],
+      relations: { plan: true },
     });
     if (!price) {
       throw new NotFoundException('Plan price not found');

@@ -11,6 +11,7 @@ import { WorkerDomainService } from 'src/common/services/worker-domain.service';
 import { StringUtility } from 'src/common/utils';
 import { isWalletCurrencyLocked } from 'src/common/utils/rewards-defaults.util';
 import { IsNull, Repository } from 'typeorm';
+
 import {
   AuditAction,
   AuditSeverity,
@@ -19,8 +20,8 @@ import {
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import type { SessionWorkspaceDto } from '../../auth/dto/session-bootstrap-response.dto';
 import { Employment } from '../../employment/entities/employment.entity';
-import { TenantWallet } from '../../rewards/entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../../rewards/entities/tenant-wallet-transaction.entity';
+import { TenantWallet } from '../../rewards/entities/tenant-wallet.entity';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type { UpdateTenantDto } from '../dto/update-tenant.dto';
@@ -218,7 +219,7 @@ export class TenantManagementService {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
       withDeleted: true,
-      select: ['id', 'slug'],
+      select: { id: true, slug: true },
     });
 
     const result = await this.tenantRepository.delete(tenantId);

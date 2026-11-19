@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { AuthOnly, CurrentUser, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import { UserRole } from 'src/common/enums';
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
+
 import { RoleGuard, Roles } from '../../../common/guards';
 import { AcceptPrivacyConsentDto } from './dto/accept-privacy-consent.dto';
 import { UserResponseDto } from './dto/user-response.dto';

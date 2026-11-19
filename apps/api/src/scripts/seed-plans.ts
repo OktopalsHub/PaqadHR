@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+
 import { AppModule } from '../app.module';
 import dataSource from '../common/database/config/data-source';
 import { PlanSeederService } from '../modules/v1/plans/services/plan-seeder.service';

@@ -1,12 +1,13 @@
 import { Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
+
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
 import { DocumentType } from '../../../common/enums/document-type.enum';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { NotificationHelperService } from '../notifications/services/notification-helper.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
-import { DocumentRepository } from './document.repository';
 import { DocumentUploadService } from './document-upload.service';
+import { DocumentRepository } from './document.repository';
 import type { Document } from './entities/document.entity';
 import { getDocumentCategory } from './entities/document.entity';
 

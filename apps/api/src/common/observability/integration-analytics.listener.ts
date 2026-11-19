@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+
 import { ProductAnalyticsService } from './product-analytics.service';
 
 type IntegrationConnectedEvent = {

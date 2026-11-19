@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { InjectRepository } from '@nestjs/typeorm';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { Repository } from 'typeorm';
+
 import {
   type TenantActivityListItemDto,
   toTenantActivityListItem,

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+
 import { getNoahEnvironment, getNoahPayoutCryptoCurrency } from '../config/noah.config';
 import { normalizeCryptoNetwork } from '../constants/crypto-currencies.constant';
 import { NoahAuthService } from './noah-auth.service';

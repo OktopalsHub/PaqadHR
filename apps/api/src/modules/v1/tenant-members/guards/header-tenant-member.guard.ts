@@ -10,6 +10,7 @@ import { tenantContext } from 'src/common/context/tenant.context';
 import type { TenantMemberRole } from 'src/common/enums';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { Repository } from 'typeorm';
+
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantMembersService } from '../tenant-members.service';
 

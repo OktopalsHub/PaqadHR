@@ -1,18 +1,19 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
 import { EncryptionModule } from '../../../common/modules/encryption.module';
 import { FileModule } from '../../../common/modules/file.module';
 import { Address } from '../address/entities/address.entity';
 import { Attendance } from '../attendance/entities/attendance.entity';
-import { Department } from '../departments/entities/department.entity';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
+import { Department } from '../departments/entities/department.entity';
 import { Document } from '../document/entities/document.entity';
 import { Education } from '../education/entities/education.entity';
 import { EmergencyContact } from '../emergency-contact/entities/emergency-contact.entity';
 import { Employment } from '../employment/entities/employment.entity';
 import { Leave } from '../leave/entities/leave.entity';
-import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
+import { Notification } from '../notifications/entities/notification.entity';
 import { PaymentMethod } from '../payment-method/entities/payment-method.entity';
 import { PayrollItem } from '../payroll/entities/payroll-item.entity';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';

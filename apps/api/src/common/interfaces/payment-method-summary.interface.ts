@@ -1,4 +1,5 @@
 import type { PaymentMethodType } from 'src/common/enums';
+
 import type { PaymentMethodStatus } from '../enums/payment-method-status.enum';
 
 export interface PaymentMethodSummary {

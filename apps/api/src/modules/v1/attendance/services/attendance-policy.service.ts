@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateAttendancePolicyDto } from '../dto/create-attendance-policy.dto';
 import type { UpdateAttendancePolicyDto } from '../dto/update-attendance-policy.dto';

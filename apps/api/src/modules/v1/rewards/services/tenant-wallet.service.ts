@@ -6,6 +6,7 @@ import {
   resolveInitialWalletCurrency,
 } from 'src/common/utils/rewards-defaults.util';
 import { DataSource, EntityManager } from 'typeorm';
+
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantsService } from '../../tenants/tenants.service';
@@ -14,8 +15,8 @@ import {
   WALLET_SAVED_CARD_UNSUPPORTED,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
-import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import { TenantWallet } from '../entities/tenant-wallet.entity';
 
 export interface WalletCreditOptions {
   /** Tenant member who triggered the credit — required for every credit. */
@@ -268,7 +269,7 @@ export class TenantWalletService {
     }
     const member = await this.dataSource.getRepository(TenantMember).findOne({
       where: { id, tenantId },
-      select: ['id'],
+      select: { id: true },
     });
     if (!member) {
       throw new BadRequestException('A tenant member is required for this wallet operation');

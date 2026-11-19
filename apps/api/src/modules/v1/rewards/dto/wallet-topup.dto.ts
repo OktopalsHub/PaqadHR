@@ -1,4 +1,5 @@
 import { IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+
 import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 
 export class WalletTopupDto {

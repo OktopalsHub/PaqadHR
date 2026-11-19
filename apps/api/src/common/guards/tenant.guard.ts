@@ -5,6 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+
 import { TenantMemberRepository } from '../../modules/v1/tenant-members/repositories/tenant-members.repository';
 import { tenantContext } from '../context/tenant.context';
 import {
@@ -37,10 +38,11 @@ export class TenantGuard implements CanActivate {
       }
       return true;
     }
-    const _isMemberOptional = this.reflector.getAllAndOverride<boolean>(IS_MEMBER_OPTIONAL_KEY, [
+    const isMemberOptional = this.reflector.getAllAndOverride<boolean>(IS_MEMBER_OPTIONAL_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
+    if (isMemberOptional) return true;
     const explicitRequireTenant = this.reflector.getAllAndOverride<boolean>(REQUIRE_TENANT_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -75,7 +77,7 @@ export class TenantGuard implements CanActivate {
 
     const tenantMembership = await this.tenantMemberRepository.findOne({
       where: { id: membership.id, tenantId: requestedTenantId },
-      relations: ['tenant'],
+      relations: { tenant: true },
     });
     if (!tenantMembership?.tenant?.isActive) {
       throw new ForbiddenException('Tenant is not active');

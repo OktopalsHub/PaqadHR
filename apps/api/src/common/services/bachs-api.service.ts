@@ -1,11 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { scopeBachsCustomerEmail } from 'src/common/config/bachs-customer.util';
 import {
   type BachsWalletTopupCurrency,
   getBachsBaseUrl,
   getBachsSecretKey,
   getBachsWalletTopupProductId,
 } from 'src/common/config/bachs.config';
-import { scopeBachsCustomerEmail } from 'src/common/config/bachs-customer.util';
+import { Semaphore, SemaphoreRejectedError } from 'src/common/utils/semaphore.util';
+
+const BACHS_READ_TIMEOUT_MS = 15_000;
+const BACHS_WRITE_TIMEOUT_MS = 60_000;
+const BACHS_MAX_IN_FLIGHT = 8;
+const BACHS_MAX_QUEUED = 64;
+const BACHS_PAYMENT_SCAN_PAGES = 5;
 
 export interface BachsProductInput {
   name: string;
@@ -59,6 +66,20 @@ export class BachsApiError extends Error {
   ) {
     super(message);
     this.name = 'BachsApiError';
+  }
+}
+
+/**
+ * The bounded payment scan finished without seeing the reference. That is not the same answer as
+ * "this payment does not exist", so callers must fail closed instead of releasing or re-minting.
+ */
+export class BachsPaymentLookupIncompleteError extends Error {
+  constructor(
+    readonly reference: string,
+    scannedRecords: number,
+  ) {
+    super(`Bachs payment ${reference} was not found within the scanned ${scannedRecords} records`);
+    this.name = 'BachsPaymentLookupIncompleteError';
   }
 }
 
@@ -145,6 +166,7 @@ export interface BachsPayoutResult {
 @Injectable()
 export class BachsApiService {
   private readonly logger = new Logger(BachsApiService.name);
+  private readonly inFlight = new Semaphore(BACHS_MAX_IN_FLIGHT, BACHS_MAX_QUEUED, 'Bachs');
   private adaptivePricingEnabled: boolean | null = null;
 
   isConfigured(): boolean {
@@ -414,12 +436,17 @@ export class BachsApiService {
       if (match) {
         return this.mapPaymentSummary(match);
       }
-    } catch {
-      // Older API builds may not accept reference filter — continue with scan.
+    } catch (error) {
+      // Older API builds may not accept the reference filter — fall back to the bounded scan.
+      this.logger.warn(
+        `Bachs filtered payment lookup failed for ${reference}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
 
     let offset = 0;
-    for (;;) {
+    for (let page = 0; page < BACHS_PAYMENT_SCAN_PAGES; page++) {
       const payload = await this.request<{
         items?: Array<{
           reference?: string | null;
@@ -443,6 +470,8 @@ export class BachsApiService {
       }
       offset += items.length;
     }
+
+    throw new BachsPaymentLookupIncompleteError(reference, offset);
   }
 
   private mapPaymentSummary(match: {
@@ -750,12 +779,16 @@ export class BachsApiService {
 
   private async request<T>(
     path: string,
-    options?: { method?: string; body?: unknown; idempotencyKey?: string },
+    options?: { method?: string; body?: unknown; idempotencyKey?: string; timeoutMs?: number },
   ): Promise<T> {
     const secretKey = getBachsSecretKey();
     if (!secretKey) {
       throw new Error('bachs_not_configured');
     }
+
+    const method = options?.method ?? 'GET';
+    const timeoutMs =
+      options?.timeoutMs ?? (method === 'GET' ? BACHS_READ_TIMEOUT_MS : BACHS_WRITE_TIMEOUT_MS);
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${secretKey}`,
@@ -765,13 +798,29 @@ export class BachsApiService {
       headers['Idempotency-Key'] = options.idempotencyKey;
     }
 
-    const response = await fetch(`${getBachsBaseUrl()}${path}`, {
-      method: options?.method ?? 'GET',
-      headers,
-      body: options?.body ? JSON.stringify(options.body) : undefined,
+    const { response, responseText } = await this.inFlight.run(async () => {
+      try {
+        const res = await fetch(`${getBachsBaseUrl()}${path}`, {
+          method,
+          headers,
+          body: options?.body ? JSON.stringify(options.body) : undefined,
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        return { response: res, responseText: await res.text() };
+      } catch (error) {
+        if (error instanceof SemaphoreRejectedError) {
+          throw new BachsApiError(`${error.message}; retry shortly`, 'overloaded', 503);
+        }
+        if (
+          error instanceof Error &&
+          (error.name === 'TimeoutError' || error.name === 'AbortError')
+        ) {
+          this.logger.warn(`Bachs API ${method} ${path} timed out after ${timeoutMs}ms`);
+          throw new BachsApiError(`Bachs request timed out after ${timeoutMs}ms`, 'timeout', 504);
+        }
+        throw error;
+      }
     });
-
-    const responseText = await response.text();
     let payload:
       | (T & {
           detail?: string;

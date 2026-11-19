@@ -1,4 +1,5 @@
 import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
+
 import {
   getFincraApiKey,
   getFincraBaseUrl,

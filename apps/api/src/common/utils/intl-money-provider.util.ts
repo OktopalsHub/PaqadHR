@@ -4,6 +4,7 @@ import { isNoahConfigured } from '../config/noah.config';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 
 export type IntlMoneyProvider = 'noah' | 'fincra' | 'bachs';
+type LegacyPaymentProvider = Exclude<PaymentProvider, PaymentProvider.BRIDGE>;
 
 function readEnvFirst(...keys: string[]): string | undefined {
   for (const key of keys) {
@@ -28,7 +29,7 @@ export function getIntlRewardsDepositProviderPreference(): 'noah' | 'fincra' {
   return normalized === 'fincra' ? 'fincra' : 'noah';
 }
 
-function resolveNoahOrFincra(preferred: 'noah' | 'fincra'): PaymentProvider {
+function resolveNoahOrFincra(preferred: 'noah' | 'fincra'): LegacyPaymentProvider {
   if (preferred === 'fincra') {
     if (isFincraConfigured()) {
       return PaymentProvider.FINCRA;
@@ -48,7 +49,7 @@ function resolveNoahOrFincra(preferred: 'noah' | 'fincra'): PaymentProvider {
   return PaymentProvider.NOAH;
 }
 
-export function resolveIntlPaymentProvider(): PaymentProvider {
+export function resolveIntlPaymentProvider(): LegacyPaymentProvider {
   const preferred = getIntlPayrollProviderPreference();
   if (preferred === 'bachs') {
     if (isBachsConfigured()) return PaymentProvider.BACHS;
@@ -61,11 +62,11 @@ export function resolveIntlPaymentProvider(): PaymentProvider {
  * Crypto that Bachs cannot deliver (e.g. Ethereum USDT, USDC). Uses Noah/Fincra even when
  * INTL_PAYROLL_PROVIDER=bachs — that preference is the fiat bank + Bachs-USDT rail.
  */
-export function resolveIntlCryptoPaymentProvider(): PaymentProvider {
+export function resolveIntlCryptoPaymentProvider(): LegacyPaymentProvider {
   const preferred = getIntlPayrollProviderPreference();
   return resolveNoahOrFincra(preferred === 'fincra' ? 'fincra' : 'noah');
 }
 
-export function resolveIntlWalletPaymentProvider(): PaymentProvider {
+export function resolveIntlWalletPaymentProvider(): LegacyPaymentProvider {
   return resolveNoahOrFincra(getIntlRewardsDepositProviderPreference());
 }

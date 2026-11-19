@@ -1,4 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+
+import { formatNoahHttpError } from '../config/noah-api.util';
+import { createNoahApiSignature, noahJwtPath } from '../config/noah-request-sign.util';
 import {
   getNoahApiKey,
   getNoahBaseUrl,
@@ -7,8 +10,6 @@ import {
   isNoahConfigured,
   isNoahSigningRequired,
 } from '../config/noah.config';
-import { formatNoahHttpError } from '../config/noah-api.util';
-import { createNoahApiSignature, noahJwtPath } from '../config/noah-request-sign.util';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 

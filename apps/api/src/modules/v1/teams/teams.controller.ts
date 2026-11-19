@@ -17,11 +17,12 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AddTeamMemberDto } from './dto/add-team-member.dto';
 import { CreateTeamDto } from './dto/create-team.dto';
-import { UpdateTeamDto } from './dto/update-team.dto';
 import { UpdateTeamMemberDto } from './dto/update-team-member.dto';
+import { UpdateTeamDto } from './dto/update-team.dto';
 import { TeamsService } from './teams.service';
 
 @ApiTags('Teams')

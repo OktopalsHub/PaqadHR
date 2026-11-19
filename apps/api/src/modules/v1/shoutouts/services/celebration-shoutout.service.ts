@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
 import { CelebrationType } from 'src/common/enums/celebration-type.enum';
 import { Repository } from 'typeorm';
+
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -24,7 +25,7 @@ export class CelebrationShoutoutService {
   async processDailyCelebrations(): Promise<{ birthdays: number; anniversaries: number }> {
     const tenants = await this.tenantRepository.find({
       where: { isActive: true },
-      select: ['id', 'name'],
+      select: { id: true, name: true },
     });
 
     let birthdays = 0;

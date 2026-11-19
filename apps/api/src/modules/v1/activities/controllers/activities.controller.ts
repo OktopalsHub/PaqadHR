@@ -3,6 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators/tenant-member.decorator';
 import type { MemberContext } from 'src/common/interfaces';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { ActivitiesService } from '../services/activities.service';
 

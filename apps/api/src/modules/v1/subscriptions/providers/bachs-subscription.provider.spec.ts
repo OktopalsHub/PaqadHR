@@ -1,4 +1,5 @@
 import { BachsApiService } from 'src/common/services/bachs-api.service';
+
 import { BillingChargeType } from '../constants/billing.constants';
 import { BachsSubscriptionProvider } from './bachs-subscription.provider';
 
@@ -116,27 +117,27 @@ describe('BachsSubscriptionProvider.parseWebhook', () => {
     expect(event).toBeNull();
   });
 
-  it.each([
-    'payroll_float_topup',
-    'payroll_retry_funding',
-  ])('ignores %s collections instead of parsing them as subscription payments', (billingType) => {
-    const event = provider.parseWebhook({
-      id: 'evt_payroll',
-      type: 'collection.succeeded',
-      data: {
-        reference: 'pf_tenant_ref',
-        amount: '5000.00',
-        currency: 'NGN',
-        metadata: {
-          tenantId: '11111111-1111-1111-1111-111111111111',
-          billingType,
-          expectedAmount: '5000',
+  it.each(['payroll_float_topup', 'payroll_retry_funding'])(
+    'ignores %s collections instead of parsing them as subscription payments',
+    (billingType) => {
+      const event = provider.parseWebhook({
+        id: 'evt_payroll',
+        type: 'collection.succeeded',
+        data: {
+          reference: 'pf_tenant_ref',
+          amount: '5000.00',
+          currency: 'NGN',
+          metadata: {
+            tenantId: '11111111-1111-1111-1111-111111111111',
+            billingType,
+            expectedAmount: '5000',
+          },
         },
-      },
-    });
+      });
 
-    expect(event).toBeNull();
-  });
+      expect(event).toBeNull();
+    },
+  );
 
   it('parses subscription.created with plan metadata for Scale trial', () => {
     const event = provider.parseWebhook({

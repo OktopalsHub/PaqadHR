@@ -1,14 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AttendanceExceptionStatus, type AttendanceStatus } from 'src/common/enums';
 import { Between, type FindOptionsWhere } from 'typeorm';
+
 import type { ApproveAttendanceExceptionDto } from './dto/approve-attendance-exception.dto';
 import type { ClockInDto } from './dto/clock-in.dto';
 import type { ClockOutDto } from './dto/clock-out.dto';
 import type { CreateAttendanceExceptionDto } from './dto/create-attendance-exception.dto';
 import type { CreateAttendancePolicyDto } from './dto/create-attendance-policy.dto';
 import type { RejectAttendanceExceptionDto } from './dto/reject-attendance-exception.dto';
-import type { UpdateAttendanceDto } from './dto/update-attendance.dto';
 import type { UpdateAttendancePolicyDto } from './dto/update-attendance-policy.dto';
+import type { UpdateAttendanceDto } from './dto/update-attendance.dto';
 import { Attendance } from './entities/attendance.entity';
 import { AttendanceRepository } from './repositories/attendance.repository';
 import { AttendanceClockService } from './services/attendance-clock.service';
@@ -187,7 +188,7 @@ export class AttendanceService {
     }
     return this.attendanceRepo.find({
       where,
-      relations: ['tenantMember', 'tenantMember.user'],
+      relations: { tenantMember: { user: true } },
       order: { date: 'DESC', sessionNumber: 'ASC' },
     });
   }
@@ -195,7 +196,7 @@ export class AttendanceService {
   async getAttendance(tenantId: string, attendanceId: string) {
     const attendance = await this.attendanceRepo.findOne({
       where: { id: attendanceId, tenantId },
-      relations: ['tenantMember', 'tenantMember.user'],
+      relations: { tenantMember: { user: true } },
     });
     if (!attendance) throw new NotFoundException('Attendance record not found');
     const m = attendance.tenantMember;

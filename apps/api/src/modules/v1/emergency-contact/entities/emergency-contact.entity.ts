@@ -1,5 +1,6 @@
 import { RelationshipType } from 'src/common/enums';
 import { Column, Entity, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -27,14 +28,8 @@ export class EmergencyContact extends BaseEntity {
   tenantMemberId: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.emergencyContacts,
-  )
+  @ManyToOne(() => TenantMember, (member) => member.emergencyContacts)
   tenantMember: TenantMember;
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.emergencyContacts,
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.emergencyContacts)
   tenant: Tenant;
 }

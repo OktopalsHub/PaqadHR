@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm';
 import { isBachsConfigured } from 'src/common/config/bachs.config';
 import { IsNull, Repository } from 'typeorm';
+
 import { PlanPrice } from '../../plans/entities/plan-price.entity';
 import {
   getBillingGlobalProvider,

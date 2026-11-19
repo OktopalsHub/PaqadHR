@@ -1,16 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ManagerAccessModule } from 'src/common/modules/manager-access.module';
+
 import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
-import { PositionController } from './controllers/position.controller';
 import { PositionMemberController } from './controllers/position-member.controller';
-import { Position } from './entities/position.entity';
+import { PositionController } from './controllers/position.controller';
 import { PositionMember } from './entities/position-member.entity';
-import { PositionRepository } from './repositories/position.repository';
+import { Position } from './entities/position.entity';
 import { PositionMemberRepository } from './repositories/position-member.repository';
-import { PositionService } from './services/position.service';
+import { PositionRepository } from './repositories/position.repository';
 import { PositionMemberService } from './services/position-member.service';
+import { PositionService } from './services/position.service';
 
 @Module({
   imports: [

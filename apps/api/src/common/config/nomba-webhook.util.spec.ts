@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+
 import { verifyNombaWebhookSignature } from './nomba-webhook.util';
 
 describe('verifyNombaWebhookSignature', () => {

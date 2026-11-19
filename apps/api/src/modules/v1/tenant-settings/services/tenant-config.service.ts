@@ -12,6 +12,7 @@ import {
   resolveTenantDefaultCurrency,
   type TenantCurrencyInput,
 } from 'src/common/utils/tenant-currency.util';
+
 import { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import { Session } from '../entities/session.entity';
 
 const SESSION_CLEANUP_BATCH_SIZE = 1000;

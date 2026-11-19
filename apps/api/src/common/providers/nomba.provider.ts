@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+
+import { isNombaOperationSuccessful } from '../config/nomba-api.util';
 import {
   formatNombaSenderName,
   getNombaBaseUrl,
   isNombaConfigured,
   NOMBA_PRODUCTION_BASE_URL,
 } from '../config/nomba.config';
-import { isNombaOperationSuccessful } from '../config/nomba-api.util';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';

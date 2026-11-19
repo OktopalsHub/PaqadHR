@@ -6,6 +6,7 @@
  */
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+
 import { AppModule } from '../app.module';
 import { resolveBachsEnvironment } from '../common/config/bachs.config';
 import dataSource from '../common/database/config/data-source';

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+
 import { formatMemberDisplayName } from '../../../../common/utils/member-display.util';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';

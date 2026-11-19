@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import { type FindOneOptions, In, MoreThanOrEqual, Repository } from 'typeorm';
+
 import { TenantMember } from '../entities/tenant-member.entity';
 
 const MEMBER_LIST_SELECT = {
@@ -56,7 +58,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
   async findByUserId(userId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
       where: { userId, isActive: true },
-      relations: ['user', 'positionHistory', 'positionHistory.position'],
+      relations: { user: true, positionHistory: { position: true } },
     });
   }
 
@@ -65,14 +67,14 @@ export class TenantMemberRepository extends Repository<TenantMember> {
   ): Promise<Pick<TenantMember, 'id' | 'tenantId' | 'role' | 'isActive'>[]> {
     return this.tenantMemberRepository.find({
       where: { userId, isActive: true },
-      select: ['id', 'tenantId', 'role', 'isActive'],
+      select: { id: true, tenantId: true, role: true, isActive: true },
     });
   }
 
   async findAllMembersByTenantId(tenantId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
       where: { tenantId },
-      relations: [...MEMBER_LIST_RELATIONS],
+      relations: relationsFromPaths(MEMBER_LIST_RELATIONS),
       select: { ...MEMBER_LIST_SELECT },
     });
   }
@@ -114,7 +116,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
   async findTenantActiveMembers(tenantId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
       where: { tenantId, isActive: true },
-      relations: [...MEMBER_LIST_RELATIONS],
+      relations: relationsFromPaths(MEMBER_LIST_RELATIONS),
       select: { ...MEMBER_LIST_SELECT },
     });
   }
@@ -126,7 +128,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
   async findByUserAndTenantId(userId: string, tenantId: string): Promise<TenantMember> {
     const tenantMember = await this.tenantMemberRepository.findOne({
       where: { userId, tenantId },
-      relations: [...MEMBER_LIST_RELATIONS],
+      relations: relationsFromPaths(MEMBER_LIST_RELATIONS),
     });
     if (!tenantMember) throw new ForbiddenException('You are not a member in this Tenant');
     return tenantMember;
@@ -168,12 +170,10 @@ export class TenantMemberRepository extends Repository<TenantMember> {
     cutoffDate.setMonth(cutoffDate.getMonth() - months);
     return this.tenantMemberRepository.find({
       where: { tenantId, isActive: true, joinDate: MoreThanOrEqual(cutoffDate) },
-      relations: [
-        'positionHistory',
-        'positionHistory.position',
-        'departmentMemberships',
-        'departmentMemberships.department',
-      ],
+      relations: {
+        positionHistory: { position: true },
+        departmentMemberships: { department: true },
+      },
       select: {
         id: true,
         firstName: true,

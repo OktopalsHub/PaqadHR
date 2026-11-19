@@ -6,6 +6,7 @@ import { cookieName } from 'src/common/config/cookie-deployment';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import { StringUtility } from 'src/common/utils';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+
 import type { User } from '../../users/entities/user.entity';
 import { AuthService } from '../auth.service';
 import {

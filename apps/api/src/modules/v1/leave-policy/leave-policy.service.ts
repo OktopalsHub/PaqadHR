@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { QueryDeepPartialEntity } from 'typeorm';
+
 import { ActivitiesService } from '../activities/services/activities.service';
 import type { CreateLeavePolicyDto } from './dto/create-leave-policy.dto';
 import type { UpdateLeavePolicyDto } from './dto/update-leave-policy.dto';
@@ -97,7 +98,7 @@ export class LeavePolicyService {
   async getTenantIdsWithCarryoverPolicy(): Promise<string[]> {
     const policies = await this.leavePolicyRepository.find({
       where: { allowCarryover: true },
-      select: ['tenantId'],
+      select: { tenantId: true },
     });
     return policies.map((policy) => policy.tenantId);
   }

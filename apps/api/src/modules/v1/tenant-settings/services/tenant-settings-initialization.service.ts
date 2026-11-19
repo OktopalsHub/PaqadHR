@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 import type { PartialTenantSettingsData } from '../../../../common/interfaces/partial-tenant-settings-data.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
 import type { TenantSettings } from '../entities/tenant-settings.entity';

@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+
 import { FileUploadLocation } from '../enums/file-upload-location.enum';
 
 const PUBLIC_UPLOAD_LOCATIONS = new Set<FileUploadLocation>([

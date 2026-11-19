@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+
 import { CelebrationType } from '../../../../common/enums/celebration-type.enum';
 
 export class CelebrationResponseDto {

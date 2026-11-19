@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+
 import { LeaveBalanceModule } from '../../leave-balance/leave-balance.module';
 import { LeavePolicyModule } from '../../leave-policy/leave-policy.module';
 import { LeaveTypeModule } from '../../leave-type/leave-type.module';

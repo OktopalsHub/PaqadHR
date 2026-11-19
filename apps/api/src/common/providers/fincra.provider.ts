@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { isFincraConfigured } from '../config/fincra.config';
+
 import { defaultFincraBeneficiaryCountry } from '../config/fincra-api.util';
+import { isFincraConfigured } from '../config/fincra.config';
 import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';

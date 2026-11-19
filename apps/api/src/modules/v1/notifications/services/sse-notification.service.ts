@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { type Observable, Subject } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
+
 import type { SSENotificationData } from '../../../../common/interfaces/ssenotification-data.interface';
 
 interface SSEConnection {

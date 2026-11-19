@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+
+import { isNombaAcceptedCode } from '../config/nomba-api.util';
 import {
   getNombaAccountId,
   getNombaBaseUrl,
   getNombaPayoutAuthCode,
   getNombaSubAccountId,
 } from '../config/nomba.config';
-import { isNombaAcceptedCode } from '../config/nomba-api.util';
 import { NombaAuthService } from './nomba-auth.service';
 
 export interface NombaTransferResponse {

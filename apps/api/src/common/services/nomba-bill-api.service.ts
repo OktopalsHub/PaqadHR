@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+
+import { isNombaAcceptedCode, isNombaOperationSuccessful } from '../config/nomba-api.util';
 import {
   formatNombaSenderName,
   getNombaAccountId,
   getNombaBaseUrl,
   isNombaConfigured,
 } from '../config/nomba.config';
-import { isNombaAcceptedCode, isNombaOperationSuccessful } from '../config/nomba-api.util';
 import { NombaTransferApiService } from './nomba-transfer-api.service';
 
 export interface NombaAirtimeInput {

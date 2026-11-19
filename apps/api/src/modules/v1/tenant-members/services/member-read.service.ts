@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { In } from 'typeorm';
+
 import type { ICelebrationResponseDto } from '../../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../../common/interfaces/inew-hires-response-dto.interface';
 import { TenantMember } from '../entities/tenant-member.entity';
@@ -63,14 +64,12 @@ export class MemberReadService {
   async getTenantMember(id: string, tenantId: string): Promise<TenantMember> {
     const member: TenantMember | null = await this.tenantMemberRepository.findOne({
       where: { id },
-      relations: [
-        'user',
-        'positionHistory',
-        'positionHistory.position',
-        'departmentMemberships',
-        'departmentMemberships.department',
-        'employments',
-      ],
+      relations: {
+        user: true,
+        positionHistory: { position: true },
+        departmentMemberships: { department: true },
+        employments: true,
+      },
     });
     if (!member) {
       throw new NotFoundException('Tenant member not found');
@@ -88,7 +87,7 @@ export class MemberReadService {
           email,
         },
       },
-      relations: ['user'],
+      relations: { user: true },
     });
   }
 
@@ -98,7 +97,7 @@ export class MemberReadService {
     }
     const members = await this.tenantMemberRepository.find({
       where: { tenantId, userId: In([...new Set(userIds)]) },
-      select: ['userId'],
+      select: { userId: true },
     });
     return new Set(members.map((member) => member.userId));
   }
@@ -106,7 +105,7 @@ export class MemberReadService {
   async memberExistsInTenant(tenantId: string, memberId: string): Promise<boolean> {
     const member = await this.tenantMemberRepository.findOne({
       where: { id: memberId, tenantId },
-      select: ['id'],
+      select: { id: true },
     });
     return !!member;
   }
@@ -117,7 +116,7 @@ export class MemberReadService {
     }
     const members = await this.tenantMemberRepository.find({
       where: { tenantId, id: In([...new Set(memberIds)]) },
-      select: ['id'],
+      select: { id: true },
     });
     return new Set(members.map((member) => member.id));
   }
@@ -144,7 +143,7 @@ export class MemberReadService {
           isActive: true,
         },
       },
-      relations: ['user', 'departmentMemberships'],
+      relations: { user: true, departmentMemberships: true },
     });
   }
 
@@ -154,7 +153,7 @@ export class MemberReadService {
         tenantId,
         role: TenantMemberRole.OWNER,
       },
-      relations: ['user'],
+      relations: { user: true },
     });
   }
 
@@ -163,7 +162,7 @@ export class MemberReadService {
       where: {
         role: TenantMemberRole.OWNER,
       },
-      relations: ['user'],
+      relations: { user: true },
     });
   }
 

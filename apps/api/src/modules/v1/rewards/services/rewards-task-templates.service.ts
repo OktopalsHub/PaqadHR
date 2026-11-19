@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+
 import { Task } from '../entities/task.entity';
 
 const DEFAULT_TASKS = [

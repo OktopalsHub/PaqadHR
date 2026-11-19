@@ -1,13 +1,15 @@
 import './instrument';
-
 import { Logger, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+
 import { AppModule } from './app.module';
 import { ExpressSetup } from './common/config/express.config';
 import { setupSwagger } from './common/config/swagger.config';
 import { validateEnvAtBoot } from './common/config/validate-env-at-boot';
 import { waitForDatabase } from './common/database/config/data-source';
+
+const SHUTDOWN_GRACE_MS = 10_000;
 
 async function bootstrap() {
   validateEnvAtBoot();
@@ -20,6 +22,8 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: isProduction ? ['error', 'warn', 'log'] : ['log', 'error', 'warn', 'debug', 'verbose'],
   });
+
+  app.enableShutdownHooks();
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -48,6 +52,19 @@ async function bootstrap() {
 
   const port = process.env.PORT || 9001;
   await app.listen(port, '::');
+
+  let draining = false;
+  const drain = (signal: NodeJS.Signals) => {
+    if (draining) return;
+    draining = true;
+    logger.log(`${signal} received: draining connections`);
+    // app.close() waits for in-flight requests; without a cap a hung connection blocks the
+    // deploy until SIGKILL, which drops the buffered audit log before onModuleDestroy flushes it.
+    setTimeout(() => process.exit(1), SHUTDOWN_GRACE_MS).unref();
+    void app.close();
+  };
+  process.on('SIGTERM', drain);
+  process.on('SIGINT', drain);
 
   if (isDevelopment) {
     logger.log(`Application is running on: http://localhost:${port}`);

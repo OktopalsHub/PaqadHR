@@ -24,7 +24,9 @@ export * from '../../../modules/v1/notifications/entities/notification-preferenc
 export * from '../../../modules/v1/payment-method/entities/payment-method.entity';
 export * from '../../../modules/v1/payment-method/entities/payment-method-passcode-history.entity';
 export * from '../../../modules/v1/payment-method/entities/payment-security.entity';
+export * from '../../../modules/v1/payroll/entities/payroll-funding-attempt.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-item.entity';
+export * from '../../../modules/v1/payroll/entities/payroll-payout-attempt.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-run.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-run-funding-ledger-entry.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-webhook-event.entity';
@@ -58,6 +60,16 @@ export * from '../../../modules/v1/tenant-members/entities/tenant-member.entity'
 export * from '../../../modules/v1/tenant-settings/entities/tenant-settings.entity';
 export * from '../../../modules/v1/tenants/entities/tenant.entity';
 export * from '../../../modules/v1/users/entities/user.entity';
+export * from '../../../modules/v1/wallets/entities/custody-wallet.entity';
+export * from '../../../modules/v1/wallets/entities/provider-customer.entity';
+export * from '../../../modules/v1/wallets/entities/provider-external-account.entity';
+export * from '../../../modules/v1/wallets/entities/provider-virtual-account.entity';
+export * from '../../../modules/v1/wallets/entities/provider-webhook-event.entity';
+export * from '../../../modules/v1/wallets/entities/wallet-funding.entity';
+export * from '../../../modules/v1/wallets/entities/wallet-ledger-account.entity';
+export * from '../../../modules/v1/wallets/entities/wallet-ledger-entry.entity';
+export * from '../../../modules/v1/wallets/entities/wallet-ledger-transaction.entity';
+export * from '../../../modules/v1/wallets/entities/wallet-operation.entity';
 export * from '../../integrations/entities/integration-channel.entity';
 export * from '../../integrations/entities/platform-integration.entity';
 export * from '../../integrations/entities/platform-user.entity';

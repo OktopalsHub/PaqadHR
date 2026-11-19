@@ -1,4 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -8,18 +9,12 @@ import { Tenant } from '../../tenants/entities/tenant.entity';
 export class Attendance extends BaseEntity {
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(
-    () => Tenant,
-    (tenant) => tenant.attendances,
-  )
+  @ManyToOne(() => Tenant, (tenant) => tenant.attendances)
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
   @Column({ name: 'tenant_member_id' })
   tenantMemberId: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.attendances,
-  )
+  @ManyToOne(() => TenantMember, (member) => member.attendances)
   @JoinColumn({ name: 'tenant_member_id' })
   tenantMember: TenantMember;
   @Column({ type: 'date' })
@@ -52,10 +47,7 @@ export class Attendance extends BaseEntity {
   isManualEntry: boolean;
   @Column({ name: 'approved_by_id', nullable: true })
   approvedById: string;
-  @ManyToOne(
-    () => TenantMember,
-    (member) => member.approvedAttendances,
-  )
+  @ManyToOne(() => TenantMember, (member) => member.approvedAttendances)
   @JoinColumn({ name: 'approved_by_id' })
   approvedBy: TenantMember;
   @Column({ type: 'timestamp', nullable: true })

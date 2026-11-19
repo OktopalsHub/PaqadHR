@@ -1,14 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
-import { Notification } from '../entities/notification.entity';
 import { NotificationPreference } from '../entities/notification-preference.entity';
-import { NotificationService } from './notification.service';
+import { Notification } from '../entities/notification.entity';
 import { NotificationDeliveryService } from './notification-delivery.service';
+import { NotificationService } from './notification.service';
 import { SSENotificationService } from './sse-notification.service';
 import { ZeptomailEmailService } from './zeptomail-email.service';
 
