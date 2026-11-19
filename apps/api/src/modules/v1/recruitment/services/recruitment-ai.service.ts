@@ -1,4 +1,3 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
 import { Agent } from '@mastra/core/agent';
 import {
   BadGatewayException,
@@ -13,6 +12,7 @@ import type { z } from 'zod';
 
 import { Candidate } from '../entities/candidate.entity';
 import { JobOpening } from '../entities/job-opening.entity';
+import { createAiModel, resolveAiModelConfig } from './recruitment-ai-model';
 import {
   type EmailDraft,
   emailDraftSchema,
@@ -109,15 +109,14 @@ export class RecruitmentAiService {
     prompt: string,
     schema: T,
   ): Promise<z.infer<T>> {
-    const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
-    if (!apiKey) throw new ServiceUnavailableException('AI features are not configured');
-    const model = process.env.RECRUITMENT_AI_MODEL?.trim() || 'claude-sonnet-5-5';
+    const config = resolveAiModelConfig();
+    if (!config) throw new ServiceUnavailableException('AI features are not configured');
     try {
       const agent = new Agent({
         id: 'recruitment-assistant',
         name: 'recruitment-assistant',
         instructions,
-        model: createAnthropic({ apiKey })(model),
+        model: createAiModel(config),
       });
       const response = await agent.generate(prompt, { structuredOutput: { schema } });
       return schema.parse(response.object) as z.infer<T>;

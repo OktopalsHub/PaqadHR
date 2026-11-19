@@ -46,12 +46,14 @@ describe('RecruitmentAiService', () => {
   });
 
   it('reports AI as unavailable without an API key', async () => {
-    const saved = process.env.ANTHROPIC_API_KEY;
+    const saved = { a: process.env.ANTHROPIC_API_KEY, d: process.env.DEEPSEEK_API_KEY };
     delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.DEEPSEEK_API_KEY;
     const real = new (class extends RecruitmentAiService {})({} as never, {} as never);
     await expect(real.draftJob({ title: 'Eng' })).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
-    if (saved) process.env.ANTHROPIC_API_KEY = saved;
+    if (saved.a) process.env.ANTHROPIC_API_KEY = saved.a;
+    if (saved.d) process.env.DEEPSEEK_API_KEY = saved.d;
   });
 });

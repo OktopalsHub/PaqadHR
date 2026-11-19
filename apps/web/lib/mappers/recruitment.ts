@@ -9,6 +9,7 @@ type ApiCandidate = {
   email: string;
   phone?: string | null;
   status: string;
+  stageId?: string | null;
   source?: string;
   skills?: string;
   resume?: {
@@ -29,6 +30,7 @@ export function mapApiCandidate(candidate: ApiCandidate): Candidate {
     email: candidate.email,
     phone: candidate.phone ?? undefined,
     status: candidate.status as CandidateStatus,
+    stageId: candidate.stageId ?? null,
     source: candidate.source as CandidateSource | undefined,
     skills: candidate.skills,
     resume: candidate.resume,

@@ -152,6 +152,24 @@ export class RecruitmentPipelineService {
     return this.candidateService.getCandidate(candidate.id, input.tenantId);
   }
 
+  /** Places a new applicant in the first pipeline stage and sends that stage's automatic email. */
+  async onApplicationReceived(candidate: Pick<Candidate, 'id' | 'tenantId' | 'jobOpeningId'>) {
+    const [first] = await this.getStages(candidate.tenantId, candidate.jobOpeningId);
+    if (!first) return;
+    await this.candidates.update(
+      { id: candidate.id, tenantId: candidate.tenantId },
+      { stageId: first.id },
+    );
+    if (!first.autoEmailTemplateId) return;
+    await this.mailer.send({
+      tenantId: candidate.tenantId,
+      candidateId: candidate.id,
+      templateId: first.autoEmailTemplateId,
+      stageName: first.name,
+      trigger: 'stage',
+    });
+  }
+
   stageHistory(tenantId: string, candidateId: string) {
     return this.history.find({
       where: { tenantId, candidateId },

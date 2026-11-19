@@ -79,6 +79,7 @@ export const candidateSchema = z.object({
   email: z.string(),
   phone: z.string().optional(),
   status: candidateStatusSchema,
+  stageId: z.string().nullish(),
   source: candidateSourceSchema.optional(),
   skills: z.string().optional(),
   resume: z

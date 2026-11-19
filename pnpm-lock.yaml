@@ -67,6 +67,9 @@ importers:
       '@ai-sdk/anthropic':
         specifier: ^4.0.106
         version: 4.0.106(zod@4.6.7)
+      '@ai-sdk/deepseek':
+        specifier: ^3.0.88
+        version: 3.0.88(zod@4.6.7)
       '@aws-sdk/client-s3':
         specifier: ^3.1171.0
         version: 3.1171.0
@@ -554,6 +557,12 @@ packages:
 
   '@ai-sdk/anthropic@4.0.106':
     resolution: {integrity: sha512-CKqIoPG91+uqmZxxxQEaS2anQlDxA+4UPeYB0TgcHAit1HZgx0m2y9JJ7QwJVYmgBuZHO1OXowMovV0kwvrTcQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/deepseek@3.0.88':
+    resolution: {integrity: sha512-7yzQcfCjgB5rFCTj9yAORPtdPyFpDCwGUq/70j8aDGIfD1FFkJjfQ+yjT+uu74zSovZ6ITFpXC9uG0IRBgtCfA==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -9427,6 +9436,12 @@ snapshots:
       express: 5.3.0
 
   '@ai-sdk/anthropic@4.0.106(zod@4.6.7)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.39
+      '@ai-sdk/provider-utils': 5.0.82(zod@4.6.7)
+      zod: 4.6.7
+
+  '@ai-sdk/deepseek@3.0.88(zod@4.6.7)':
     dependencies:
       '@ai-sdk/provider': 4.0.39
       '@ai-sdk/provider-utils': 5.0.82(zod@4.6.7)

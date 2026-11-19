@@ -39,6 +39,7 @@ import { JobOpeningService } from './services/job-opening.service';
 import { RecruitmentAiService } from './services/recruitment-ai.service';
 import { RecruitmentCandidateMailer } from './services/recruitment-candidate-mailer.service';
 import { RecruitmentEmailTemplateService } from './services/recruitment-email-template.service';
+import { RecruitmentInterviewNotifier } from './services/recruitment-interview-notifier.service';
 import { RecruitmentOfferService } from './services/recruitment-offer.service';
 import { RecruitmentPipelineService } from './services/recruitment-pipeline.service';
 import { RecruitmentScorecardService } from './services/recruitment-scorecard.service';
@@ -86,6 +87,7 @@ import { RecruitmentTalentPoolService } from './services/recruitment-talent-pool
     InterviewFeedbackService,
     InterviewService,
     RecruitmentAiService,
+    RecruitmentInterviewNotifier,
     RecruitmentScorecardService,
     RecruitmentOfferService,
     RecruitmentTalentPoolService,
