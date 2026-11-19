@@ -90,7 +90,7 @@ export function tenantPath(tenantId: string, path = ''): string {
 }
 
 export async function ensureCsrfToken(force = false): Promise<string> {
-  if (!force && csrfToken) return csrfToken;
+  if (!force && csrfToken !== null) return csrfToken;
   if (!force && csrfTokenPromise) return csrfTokenPromise;
 
   csrfTokenPromise = (async () => {
@@ -99,10 +99,7 @@ export async function ensureCsrfToken(force = false): Promise<string> {
         timeout: API_REQUEST_TIMEOUT_MS,
         withCredentials: true,
       });
-      if (!data.csrfToken) {
-        throw new ApiError('CSRF token missing in response', 200);
-      }
-      csrfToken = data.csrfToken;
+      csrfToken = data.csrfToken ?? '';
       return csrfToken;
     } catch (error) {
       if (error instanceof ApiError) throw error;
@@ -205,7 +202,8 @@ http.interceptors.request.use(async (config) => {
   const needsCsrf = !requestConfig.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   if (needsCsrf) {
-    headers.set(CSRF_HEADER, await ensureCsrfToken());
+    const token = await ensureCsrfToken();
+    if (token) headers.set(CSRF_HEADER, token);
   }
 
   const path = requestConfig.url ?? '';
