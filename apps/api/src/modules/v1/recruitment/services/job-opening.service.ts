@@ -56,7 +56,7 @@ export class JobOpeningService {
       hiringManagerId: memberId,
       status: JobStatus.DRAFT,
     };
-    const job = await this.jobOpeningRepository.create(jobData);
+    const job = await this.jobOpeningRepository.save(this.jobOpeningRepository.create(jobData));
 
     void this.activitiesService
       .queueActivity({

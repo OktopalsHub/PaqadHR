@@ -37,6 +37,10 @@ export class Candidate extends BaseEntity {
     default: CandidateStatus.APPLIED,
   })
   status: CandidateStatus;
+  @Column({ name: 'ai_screening', type: 'jsonb', nullable: true })
+  aiScreening?: Record<string, unknown> | null;
+  @Column({ name: 'stage_id', type: 'uuid', nullable: true })
+  stageId: string | null;
   @Column({ type: 'json' })
   currentStage: {
     name: string;

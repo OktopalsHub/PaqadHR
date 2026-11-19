@@ -40,6 +40,10 @@ export * from '../../../modules/v1/recruitment/entities/candidate-assessment.ent
 export * from '../../../modules/v1/recruitment/entities/candidate-note.entity';
 export * from '../../../modules/v1/recruitment/entities/interview.entity';
 export * from '../../../modules/v1/recruitment/entities/job-opening.entity';
+export * from '../../../modules/v1/recruitment/entities/candidate-stage-history.entity';
+export * from '../../../modules/v1/recruitment/entities/pipeline-stage.entity';
+export * from '../../../modules/v1/recruitment/entities/recruitment-email-log.entity';
+export * from '../../../modules/v1/recruitment/entities/recruitment-email-template.entity';
 export * from '../../../modules/v1/rewards/entities/custom-reward.entity';
 export * from '../../../modules/v1/rewards/entities/reward-redemption.entity';
 export * from '../../../modules/v1/rewards/entities/task.entity';
