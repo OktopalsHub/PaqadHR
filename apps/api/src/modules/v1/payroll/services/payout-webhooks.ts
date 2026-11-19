@@ -1,34 +1,27 @@
 import { createHash } from 'node:crypto';
+
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { parseBachsPayoutWebhook } from 'src/common/config/bachs-payout.util';
+import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import { FincraApiService } from 'src/common/services/fincra-api.service';
-import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
-import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import type { Repository } from 'typeorm';
+
 import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import {
-  buildPayrollMerchantRef,
-  isPayrollMerchantRef,
-  parsePayrollMerchantRef,
-} from '../utils/payroll-merchant-ref.util';
-import { PayoutReconciliation } from './payout-reconciliation';
+import { parsePayrollMerchantRef } from '../utils/payroll-merchant-ref.util';
+import { PayoutApplyOps } from './payout-apply.ops';
+import { PayoutLookupOps } from './payout-lookup.ops';
 
 @Injectable()
 export class PayoutWebhooks {
   private readonly logger = new Logger(PayoutWebhooks.name);
   constructor(
     private readonly nombaTransferApi: NombaTransferApiService,
-    private readonly noahApi: NoahApiService,
-    private readonly fincraApi: FincraApiService,
     private readonly payrollItemRepository: PayrollItemRepository,
-    readonly _payrollRunRepository: PayrollRunRepository,
-    private readonly reconciliation: PayoutReconciliation,
+    private readonly apply: PayoutApplyOps,
+    private readonly lookup: PayoutLookupOps,
+    @InjectRepository(PayrollWebhookEvent)
     private readonly webhookEventRepository: Repository<PayrollWebhookEvent>,
-    private readonly providerFactory: PaymentProviderFactoryService,
   ) {}
 
   private async claimWebhookEvent(provider: PaymentProvider, payload: unknown): Promise<boolean> {
@@ -97,16 +90,16 @@ export class PayoutWebhooks {
     const parsed = parsePayrollMerchantRef(merchantRef);
     if (!parsed) return null;
     if (parsed.payrollRunId) {
-      const tenantId = await this.reconciliation.resolveTenantId(parsed.payrollRunId);
+      const tenantId = await this.lookup.resolveTenantId(parsed.payrollRunId);
       return tenantId ? { tenantId, payrollRunId: parsed.payrollRunId } : null;
     }
     const item = await this.payrollItemRepository.findOne({
       where: { id: parsed.payrollItemId },
-      relations: ['payrollRun'],
+      relations: { payrollRun: true },
     });
     if (!item) return null;
     const tenantId =
-      item.payrollRun?.tenantId ?? (await this.reconciliation.resolveTenantId(item.payrollRunId));
+      item.payrollRun?.tenantId ?? (await this.lookup.resolveTenantId(item.payrollRunId));
     return tenantId ? { tenantId, payrollRunId: item.payrollRunId } : null;
   }
 
@@ -124,20 +117,6 @@ export class PayoutWebhooks {
     return this.processNombaPayload(payload);
   }
 
-  async handleNoahWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
-    if (!signature?.trim() || !this.noahApi.verifyWebhookSignature(rawBody, signature)) {
-      this.logger.warn('Rejected Noah payroll webhook: invalid signature');
-      throw new UnauthorizedException('Invalid webhook signature');
-    }
-    let payload: unknown;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      throw new BadRequestException('Invalid webhook JSON');
-    }
-    return this.processNoahPayload(payload);
-  }
-
   async processNombaPayload(payload: unknown): Promise<{ received: boolean }> {
     const event = this.nombaTransferApi.parseTransferWebhook(payload);
     if (!event) return { received: true };
@@ -149,7 +128,7 @@ export class PayoutWebhooks {
     const context = await this.resolvePayrollContext(merchantRef);
     if (!context) return { received: true };
 
-    const changed = await this.reconciliation.applyTransferStatus(
+    const changed = await this.apply.applyTransferStatus(
       merchantRef,
       event.status,
       event.reference,
@@ -157,175 +136,9 @@ export class PayoutWebhooks {
       context.tenantId,
     );
     if (changed) {
-      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
+      await this.lookup.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
     await this.completeWebhookEvent(PaymentProvider.NOMBA, payload);
     return { received: true };
-  }
-
-  async processNoahPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
-    const event = this.noahApi.parseTransferWebhook(payload);
-    if (!event) return { received: true, matched: false };
-    if (!(await this.claimWebhookEvent(PaymentProvider.NOAH, payload))) {
-      return { received: true, matched: false };
-    }
-
-    let merchantRef = event.merchantTxRef ?? event.reference;
-    if (!merchantRef || !isPayrollMerchantRef(merchantRef)) {
-      if (!event.reference) return { received: true, matched: false };
-      const item = await this.payrollItemRepository.findOne({
-        where: { transactionId: event.reference },
-        relations: ['payrollRun'],
-      });
-      if (!item) return { received: true, matched: false };
-      merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id);
-    }
-
-    const context = await this.resolvePayrollContext(merchantRef);
-    if (!context) return { received: true, matched: true };
-
-    const changed = await this.reconciliation.applyTransferStatus(
-      merchantRef,
-      event.status,
-      event.reference,
-      PaymentProvider.NOAH,
-      context.tenantId,
-    );
-    if (changed) {
-      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
-    }
-    await this.completeWebhookEvent(PaymentProvider.NOAH, payload);
-    return { received: true, matched: true };
-  }
-
-  async processFincraPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
-    const event = this.fincraApi.parsePayoutWebhook(payload);
-    if (!event) return { received: true, matched: false };
-    if (!(await this.claimWebhookEvent(PaymentProvider.FINCRA, payload))) {
-      return { received: true, matched: false };
-    }
-
-    const context = await this.resolvePayrollContext(event.merchantRef);
-    if (!context) return { received: true, matched: false };
-
-    let reference = event.reference;
-    let amount = event.amount;
-    let status: string;
-
-    try {
-      const verified = await this.fincraApi.getPayoutStatus(event.merchantRef);
-      if (!verified) {
-        this.logger.warn(`Fincra payout webhook ignored: no payout found for ${event.merchantRef}`);
-        return { received: true, matched: false };
-      }
-      status = verified.status;
-      reference = verified.reference ?? reference;
-      amount = verified.amount ?? amount;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `Fincra payout webhook verification failed for ${event.merchantRef}: ${message}`,
-      );
-      return { received: true, matched: false };
-    }
-
-    const changed = await this.reconciliation.applyTransferStatus(
-      event.merchantRef,
-      status,
-      reference,
-      PaymentProvider.FINCRA,
-      context.tenantId,
-      amount,
-    );
-    if (changed) {
-      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
-    }
-    await this.completeWebhookEvent(PaymentProvider.FINCRA, payload);
-    return { received: true, matched: changed };
-  }
-
-  async processMonnifyPayload(payload: {
-    merchantRef: string;
-    transactionId: string;
-    status: string;
-    amount?: number;
-  }): Promise<{ received: boolean; matched: boolean }> {
-    if (!(await this.claimWebhookEvent(PaymentProvider.MONNIFY, payload))) {
-      return { received: true, matched: false };
-    }
-    const context = await this.resolvePayrollContext(payload.merchantRef);
-    if (!context) return { received: true, matched: false };
-
-    const changed = await this.reconciliation.applyTransferStatus(
-      payload.merchantRef,
-      payload.status,
-      payload.transactionId,
-      PaymentProvider.MONNIFY,
-      context.tenantId,
-      payload.amount,
-    );
-    if (changed) {
-      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
-    }
-    await this.completeWebhookEvent(PaymentProvider.MONNIFY, payload);
-    return { received: true, matched: changed };
-  }
-
-  async processBachsPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
-    const event = parseBachsPayoutWebhook(payload);
-    if (!event) return { received: true, matched: false };
-    if (!(await this.claimWebhookEvent(PaymentProvider.BACHS, payload))) {
-      return { received: true, matched: false };
-    }
-
-    // data.reference is the reference Paqad set at payout creation (the payroll merchant ref).
-    let merchantRef = event.reference;
-    if (!merchantRef || !isPayrollMerchantRef(merchantRef)) {
-      if (!event.withdrawalId) return { received: true, matched: false };
-      const item = await this.payrollItemRepository.findOne({
-        where: { transactionId: event.withdrawalId },
-        relations: ['payrollRun'],
-      });
-      if (!item) return { received: true, matched: false };
-      merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id);
-    }
-
-    const context = await this.resolvePayrollContext(merchantRef);
-    if (!context) return { received: true, matched: false };
-
-    // Treat the webhook as a notification only. Fetch the payout from Bachs before
-    // changing payroll state: an unverified webhook status must never mark an item paid
-    // or failed, and its amount must not be trusted as payout evidence.
-    if (!event.withdrawalId) {
-      this.logger.warn(`Bachs payroll webhook ignored: missing withdrawal id for ${merchantRef}`);
-      return { received: true, matched: false };
-    }
-    const verified = await this.providerFactory
-      .resolvePayoutQuerier(PaymentProvider.BACHS)
-      ?.queryStatus(event.withdrawalId, merchantRef);
-    if (!verified) {
-      this.logger.warn(`Bachs payout webhook verification unavailable for ${event.withdrawalId}`);
-      return { received: true, matched: false };
-    }
-    if (verified.reference && verified.reference !== merchantRef) {
-      this.logger.warn(
-        `Bachs payout webhook reference mismatch for ${event.withdrawalId}; ignoring event`,
-      );
-      return { received: true, matched: false };
-    }
-
-    const changed = await this.reconciliation.applyTransferStatus(
-      merchantRef,
-      verified.status,
-      event.withdrawalId,
-      PaymentProvider.BACHS,
-      context.tenantId,
-      verified.amount,
-    );
-    if (changed) {
-      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
-    }
-    await this.completeWebhookEvent(PaymentProvider.BACHS, payload);
-    return { received: true, matched: changed };
   }
 }

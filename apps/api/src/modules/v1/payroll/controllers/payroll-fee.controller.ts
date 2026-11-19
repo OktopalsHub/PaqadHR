@@ -9,9 +9,7 @@ import {
   IsInt,
   IsNumber,
   IsOptional,
-  IsString,
   Max,
-  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -19,21 +17,17 @@ import { RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
+
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { PayrollFeeService } from '../services/payroll-fee.service';
 
 class PayrollFeeItemDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(32)
-  provider?: string;
-
   @IsNumber()
   @Min(0.01)
   @Max(10_000_000)
   amount: number;
 
-  @IsIn(['NGN', 'USD', 'GBP', 'EUR'])
+  @IsIn(['NGN', 'USD', 'GBP', 'EUR', 'USDT', 'USDC'])
   currency: string;
 }
 
@@ -48,11 +42,6 @@ export class PayrollFeePreviewDto {
 
 class SingleFeeCalculationDto {
   @IsOptional()
-  @IsString()
-  @MaxLength(32)
-  provider?: string;
-
-  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(500)
@@ -63,7 +52,7 @@ class SingleFeeCalculationDto {
   @Max(10_000_000)
   amount: number;
 
-  @IsIn(['NGN', 'USD', 'GBP', 'EUR'])
+  @IsIn(['NGN', 'USD', 'GBP', 'EUR', 'USDT', 'USDC'])
   currency: string;
 }
 
@@ -91,7 +80,7 @@ export class PayrollFeeController {
       totalPayrollAmount: body.amount,
       currency: body.currency,
       tenantId,
-      provider: body.provider,
+      provider: body.currency === 'NGN' ? 'Nomba' : 'Bridge',
       transferCount: body.transferCount,
     });
   }

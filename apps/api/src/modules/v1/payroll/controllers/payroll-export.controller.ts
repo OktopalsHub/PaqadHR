@@ -11,20 +11,25 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RequireFeatures } from 'src/common/decorators';
+
 import { TenantMemberRole } from '../../../../common/enums';
 import { FeatureAccess } from '../../../../common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from '../../../../common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { PublishPayslipsDto } from '../dto/publish-payslips.dto';
-import { PayrollService } from '../services/payroll.service';
+import { PayrollPaymentOps } from '../services/payroll-payment.ops';
+import { PayrollPayslipOps } from '../services/payroll-payslip.ops';
 
 @ApiTags('Payroll')
 @Controller('tenants/:tenantId/payroll')
 @UseGuards(TenantMemberGuard, TenantRoleGuard)
 @RequireFeatures(FeatureAccess.PAYROLL)
 export class PayrollExportController {
-  constructor(private payrollService: PayrollService) {}
+  constructor(
+    private readonly payments: PayrollPaymentOps,
+    private readonly payslips: PayrollPayslipOps,
+  ) {}
 
   @Get('runs/:id/export/bank-file')
   @UseGuards(TenantRoleGuard)
@@ -43,7 +48,7 @@ export class PayrollExportController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const csv = await this.payrollService.exportBankFile(id, tenantId, auditContext);
+    const csv = await this.payments.exportBankFile(id, tenantId, auditContext);
     return csv;
   }
 
@@ -55,19 +60,14 @@ export class PayrollExportController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    return this.payrollService.getMemberPublishedPayslips(
-      memberId,
-      tenantId,
-      member.id,
-      member.role,
-    );
+    return this.payslips.getMemberPublishedPayslips(memberId, tenantId, member.id, member.role);
   }
 
   @Get('runs/:id/payslips')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getRunPayslips(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.payrollService.getRunPayslips(id, tenantId);
+    return this.payslips.getRunPayslips(id, tenantId);
   }
 
   @Post('runs/:id/payslips/publish')
@@ -86,7 +86,7 @@ export class PayrollExportController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const result = await this.payrollService.publishPayslips(
+    const result = await this.payslips.publishPayslips(
       id,
       tenantId,
       auditContext,

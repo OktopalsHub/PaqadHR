@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { TenantMemberRole } from 'src/common/enums/tenant-member.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
+
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { escapeHtml } from '../../notifications/templates/brand';

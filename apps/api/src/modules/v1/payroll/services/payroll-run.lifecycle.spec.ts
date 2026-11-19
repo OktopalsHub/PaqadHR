@@ -1,13 +1,14 @@
 import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
+
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import type { AuditService } from './audit.service';
-import { RunLifecycle } from './run-lifecycle';
+import { PayrollRunService } from './payroll-run.service';
 
-describe('RunLifecycle', () => {
+describe('PayrollRunService run lifecycle', () => {
   // createPayrollRun reads the tenant through payrollRunRepository.manager to resolve
   // "today" in the tenant's timezone.
   const tenantRepository = {
@@ -31,7 +32,7 @@ describe('RunLifecycle', () => {
     } as unknown as AuditService;
 
     return {
-      service: new RunLifecycle(
+      service: new PayrollRunService(
         payrollRunRepository,
         payrollItemRepository,
         auditService,
@@ -110,7 +111,7 @@ describe('RunLifecycle', () => {
     const auditService = {
       logPayrollCreated: jest.fn().mockResolvedValue(undefined),
     } as unknown as AuditService;
-    const service = new RunLifecycle(
+    const service = new PayrollRunService(
       payrollRunRepository,
       payrollItemRepository,
       auditService,
@@ -174,7 +175,7 @@ describe('RunLifecycle', () => {
         .mockResolvedValue([{ payrollRunId: 'run-1', status: PayrollItemStatus.PAID, count: 4 }]),
     } as unknown as PayrollItemRepository;
 
-    const service = new RunLifecycle(
+    const service = new PayrollRunService(
       payrollRunRepository,
       payrollItemRepository,
       { logPayrollCreated: jest.fn() } as unknown as AuditService,
@@ -205,7 +206,7 @@ describe('RunLifecycle', () => {
       countByRunIds: jest.fn().mockResolvedValue([]),
     } as unknown as PayrollItemRepository;
 
-    const service = new RunLifecycle(
+    const service = new PayrollRunService(
       payrollRunRepository,
       payrollItemRepository,
       { logPayrollCreated: jest.fn() } as unknown as AuditService,
@@ -238,7 +239,7 @@ describe('RunLifecycle', () => {
     const managerAccessService = {
       getDirectReportIds: jest.fn().mockResolvedValue(['member-9']),
     };
-    const service = new RunLifecycle(
+    const service = new PayrollRunService(
       payrollRunRepository,
       payrollItemRepository,
       { logPayrollCreated: jest.fn() } as unknown as AuditService,
@@ -275,7 +276,7 @@ describe('RunLifecycle', () => {
         .fn()
         .mockResolvedValue([{ payrollRunId: 'run-1', status: PayrollItemStatus.PAID, count: 3 }]),
     } as unknown as PayrollItemRepository;
-    const service = new RunLifecycle(
+    const service = new PayrollRunService(
       payrollRunRepository,
       payrollItemRepository,
       { logPayrollCreated: jest.fn() } as unknown as AuditService,

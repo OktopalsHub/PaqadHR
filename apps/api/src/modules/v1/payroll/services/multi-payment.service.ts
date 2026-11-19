@@ -1,139 +1,85 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
-import {
-  type BachsFundingItem,
-  sourceAmountWithPayoutFeeForBachsFundingItem,
-} from 'src/common/config/bachs-funding-quote.util';
-import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
-import { BachsApiService } from 'src/common/services/bachs-api.service';
-import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+
+import { isBridgeConfigured } from '../../../../common/config/bridge.config';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
+import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { BatchPaymentResult } from '../../../../common/interfaces/batch-payment-result.interface';
-import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
-import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
+import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
 import type { PayrollItem } from '../entities/payroll-item.entity';
-import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import { resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
 import { PAYROLL_PROCESSING_LOCK_MS } from '../utils/payroll-processing-lock.util';
-import { PaymentBatching } from './payment-batching';
+import { BridgePayrollPayoutService } from './bridge-payroll-payout.service';
+import { NombaPayrollPayoutService } from './nomba-payroll-payout.service';
 import { PaymentValidation } from './payment-validation';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
 import { PayrollPayoutService } from './payroll-payout.service';
-import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
-/** Bachs float top-up funding currency only — never stamp Nomba/Monnify NGN onto Bachs items. */
-function bachsFundingCurrencyFromFloatTopup(floatTopup: unknown): string | undefined {
-  if (!floatTopup || typeof floatTopup !== 'object') return undefined;
-  const meta = floatTopup as { provider?: unknown; fundingCurrency?: unknown };
-  if (meta.provider !== PaymentProvider.BACHS) return undefined;
-  return typeof meta.fundingCurrency === 'string' ? meta.fundingCurrency : undefined;
-}
-
-function isBachsBackedRun(
-  run: { metadata?: Record<string, unknown> | null },
-  items: PayrollItem[],
-): boolean {
-  const floatTopup = run.metadata?.floatTopup;
-  const retryFunding = run.metadata?.retryFunding;
-  if (
-    (floatTopup &&
-      typeof floatTopup === 'object' &&
-      'provider' in floatTopup &&
-      floatTopup.provider === PaymentProvider.BACHS) ||
-    (retryFunding &&
-      typeof retryFunding === 'object' &&
-      'provider' in retryFunding &&
-      retryFunding.provider === PaymentProvider.BACHS)
-  ) {
-    return true;
-  }
-  return items.some((item) => (item.paymentProvider ?? '').toLowerCase().includes('bachs'));
-}
-
-/**
- * Why a payout found nothing to send. A run whose items are already paid, in flight, or
- * cancelled is not a payment-method or funding problem, so it must not be reported as one.
- */
 export function noPayableEmployeesMessage(items: PayrollItem[], suffix: string): string {
   const active = items.filter((item) => item.status !== PayrollItemStatus.CANCELLED);
   const settled = active.filter(
     (item) =>
       item.status === PayrollItemStatus.PAID || item.status === PayrollItemStatus.PROCESSING,
   );
-
   if (active.length === 0) {
     return 'Every employee on this run was cancelled, so there is nothing to pay.';
   }
   if (settled.length === active.length) {
-    const allPaid = active.every((item) => item.status === PayrollItemStatus.PAID);
-    return allPaid
+    return active.every((item) => item.status === PayrollItemStatus.PAID)
       ? 'Every employee on this run has already been paid.'
       : 'Payment for this run is already in progress. It updates when each payout completes — no need to pay again.';
   }
-
-  return `No employees could be paid. Check each employee payment method and that your payout provider account is funded, ${suffix}`;
+  return `No employees could be paid. Confirm each employee has an eligible Bridge wallet and the organization wallet is funded, ${suffix}`;
 }
 
 @Injectable()
 export class MultiPaymentService {
-  private readonly batching: PaymentBatching;
   private readonly validation: PaymentValidation;
-  private readonly lifecycleNotify?: PayrollLifecycleNotifyService;
+
   constructor(
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
-    readonly paymentMethodService: PaymentMethodService,
-    readonly paymentProviderFactory: PaymentProviderFactoryService,
     private readonly payrollPayoutService: PayrollPayoutService,
-    @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
-    @Optional() private readonly fundingLedger?: PayrollRunFundingLedgerService,
-    @Optional() private readonly bachsApi?: BachsApiService,
+    private readonly bridgePayrollPayout: BridgePayrollPayoutService,
+    private readonly nombaPayrollPayout: NombaPayrollPayoutService,
+    private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {
-    this.lifecycleNotify = lifecycleNotify;
     this.validation = new PaymentValidation(payrollItemRepository);
-    this.batching = new PaymentBatching(
-      payrollItemRepository,
-      paymentMethodService,
-      paymentProviderFactory,
-      payrollPayoutService,
-      lifecycleNotify,
-    );
   }
+
   async processMultiPaymentPayroll(
     payrollRunId: string,
     tenantId: string,
     auditContext: AuditContext,
   ): Promise<BatchPaymentResult> {
-    if (!isPayrollGatewayEnabled()) {
-      throw new BadRequestException(
-        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
-      );
-    }
-    const payrollRun = await this.payrollRunRepository.findOne({
+    const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
-      relations: ['items', 'items.employee', 'tenant'],
+      relations: { items: true, tenant: true },
     });
-    if (!payrollRun) {
-      throw new NotFoundException('Payroll run not found');
-    }
-    if (
-      payrollRun.status !== PayrollStatus.APPROVED &&
-      payrollRun.status !== PayrollStatus.PROCESSING
-    ) {
+    if (!run) throw new NotFoundException('Payroll run not found');
+    if (run.status !== PayrollStatus.APPROVED && run.status !== PayrollStatus.PROCESSING) {
       throw new BadRequestException(
-        `Payroll run must be approved before payout. Current: ${payrollRun.status}`,
+        `Payroll run must be approved before payout. Current: ${run.status}`,
       );
     }
+    const hasNgnPayrollItems = (run.items ?? []).some(
+      (item) =>
+        item.status !== PayrollItemStatus.CANCELLED &&
+        item.paymentCurrency?.toUpperCase() === 'NGN',
+    );
+    const floatTopup = run.metadata?.floatTopup as
+      | { status?: unknown; provider?: unknown }
+      | undefined;
     if (
-      payrollRun.items.some((item) => item.status === PayrollItemStatus.FAILED) &&
-      isBachsBackedRun(payrollRun, payrollRun.items)
+      hasNgnPayrollItems &&
+      (!floatTopup ||
+        typeof floatTopup !== 'object' ||
+        floatTopup.status !== 'completed' ||
+        floatTopup.provider !== 'nomba')
     ) {
       throw new BadRequestException(
-        'Bachs failed payouts must use the guarded retry flow. Reprocessing the whole run is blocked until retry funding and reservations are reconciled.',
+        'NGN payroll must be funded through its Nomba checkout before employee payouts can start.',
       );
     }
 
@@ -141,57 +87,33 @@ export class MultiPaymentService {
     if (!(await this.claimPayrollRun(payrollRunId, tenantId, auditContext, lockAt))) {
       throw new BadRequestException('Payroll run is already being processed');
     }
-
     try {
-      if (payrollRun.payoutMode === 'scheduled' && this.lifecycleNotify) {
+      if (run.payoutMode === 'scheduled' && this.lifecycleNotify) {
         await this.lifecycleNotify.onScheduledPayoutDue({
           tenantId,
           run: {
-            id: payrollRun.id,
-            title: payrollRun.title,
+            id: run.id,
+            title: run.title,
             tenantId,
-            periodStart: payrollRun.periodStart,
-            periodEnd: payrollRun.periodEnd,
-            paymentDate: payrollRun.paymentDate,
+            periodStart: run.periodStart,
+            periodEnd: run.periodEnd,
+            paymentDate: run.paymentDate,
           },
         });
       }
-      if (payrollRun.payoutMode === 'scheduled') {
-        payrollRun.payoutMode = 'immediate';
-        await this.payrollRunRepository.save(payrollRun);
+      if (run.payoutMode === 'scheduled') {
+        run.payoutMode = 'immediate';
+        await this.payrollRunRepository.save(run);
       }
-      const paymentBatch = await this.batching.categorizePayments(payrollRun.items, tenantId);
-      const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
-      if (payable.length === 0) {
+      const pending = run.items.filter((item) => item.status === PayrollItemStatus.PENDING);
+      if (pending.length === 0) {
         await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
         throw new BadRequestException(
-          noPayableEmployeesMessage(payrollRun.items, 'then use Retry payment.'),
+          noPayableEmployeesMessage(run.items, 'then use Retry payment.'),
         );
       }
-      const payoutResults = await this.batching.processPayouts(
-        payable,
-        auditContext,
-        tenantId,
-        payrollRun.tenant?.name,
-        payrollRun.title,
-        {
-          periodStart: payrollRun.periodStart,
-          periodEnd: payrollRun.periodEnd,
-          baseCurrency: payrollRun.baseCurrency,
-          bachsSourceCurrency: bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
-        },
-      );
-      const summary = this.validation.calculatePaymentSummary(payoutResults);
-      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
-      return {
-        totalItems: payrollRun.items.length,
-        successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
-        failedPayments: summary.bankFailed + summary.cryptoFailed,
-        processingPayments: summary.bankProcessing + summary.cryptoProcessing,
-        fiatResults: payoutResults,
-        payoutResults,
-        summary,
-      };
+      const payoutResults = await this.processByProvider(run, pending, tenantId);
+      return this.toBatchResult(run.items.length, payoutResults);
     } finally {
       await this.releasePayrollRun(payrollRunId, tenantId, lockAt);
     }
@@ -203,437 +125,99 @@ export class MultiPaymentService {
     auditContext: AuditContext,
     specificItemIds?: string[],
   ): Promise<BatchPaymentResult> {
-    if (!isPayrollGatewayEnabled()) {
+    const run = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: { items: true, tenant: true },
+    });
+    if (!run) throw new NotFoundException('Payroll run not found');
+    let failed = run.items.filter((item) => item.status === PayrollItemStatus.FAILED);
+    if (specificItemIds?.length) {
+      const selected = new Set(specificItemIds);
+      if (selected.size !== specificItemIds.length) {
+        throw new BadRequestException('Retry item selection is invalid. Refresh the payroll run.');
+      }
+      const selectedFromRun = run.items.filter((item) => selected.has(item.id));
+      if (selectedFromRun.length !== selected.size) {
+        throw new BadRequestException('One or more retry items do not belong to this payroll run.');
+      }
+      if (selectedFromRun.some((item) => item.status !== PayrollItemStatus.FAILED)) {
+        throw new BadRequestException('Only failed payroll items can be retried. Refresh the run.');
+      }
+      failed = failed.filter((item) => selected.has(item.id));
+    }
+    if (failed.length === 0) throw new BadRequestException('No failed payments found to retry');
+
+    const legacyItems = failed.filter((item) => {
+      const provider = item.paymentProvider?.toLowerCase();
+      const expectedProvider = item.paymentCurrency?.toUpperCase() === 'NGN' ? 'nomba' : 'bridge';
+      return provider && provider !== expectedProvider;
+    });
+    if (legacyItems.length > 0) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
+        'A legacy-provider payout cannot be retried through Bridge until its original provider confirms the payout is terminal.',
       );
     }
-    const payrollRun = await this.payrollRunRepository.findOne({
-      where: { id: payrollRunId, tenantId },
-      relations: ['items', 'items.employee', 'tenant'],
-    });
-    if (!payrollRun) {
-      throw new NotFoundException('Payroll run not found');
-    }
-    let failedItems = payrollRun.items.filter((item) => item.status === PayrollItemStatus.FAILED);
-    if (specificItemIds && specificItemIds.length > 0) {
-      failedItems = failedItems.filter((item) => specificItemIds.includes(item.id));
-    }
-    if (failedItems.length === 0) {
-      throw new BadRequestException('No failed payments found to retry');
-    }
-    const isBachsRetry = isBachsBackedRun(payrollRun, failedItems);
-    if (isBachsRetry) {
-      await this.assertBachsRetryFundingAuthorized(payrollRun, failedItems, tenantId);
+
+    // Nomba failures must still be terminal at the provider before a fresh merchant reference
+    // is minted. A lost or stale webhook cannot authorize a second bank transfer.
+    const nombaItems = failed.filter((item) => item.paymentCurrency?.toUpperCase() === 'NGN');
+    for (const item of nombaItems) {
+      const retryable = await this.payrollPayoutService.reconcileFailedItemBeforeRetry(
+        item,
+        tenantId,
+      );
+      if (!retryable) {
+        throw new BadRequestException(
+          `Payroll item ${item.id} is no longer confirmed failed by Nomba. Refresh the run before retrying.`,
+        );
+      }
     }
 
     const lockAt = new Date();
     if (!(await this.claimPayrollRun(payrollRunId, tenantId, auditContext, lockAt))) {
       throw new BadRequestException('Payroll run is already being processed');
     }
-
     try {
-      let retriableItems: PayrollItem[] = [];
-      for (const item of failedItems) {
-        const canRetry = await this.payrollPayoutService.reconcileFailedItemBeforeRetry(
-          item,
-          tenantId,
-        );
-        if (canRetry) {
-          retriableItems.push(item);
-        }
-      }
-      if (retriableItems.length === 0) {
-        throw new BadRequestException('No failed payments found to retry');
-      }
-      if (isBachsRetry) {
-        const meta = payrollRun.metadata?.retryFunding as {
-          orderReference: string;
-          currency: string;
-          approvedById: string;
-          itemFundingAmounts: Record<string, number>;
-        };
-        if (!this.fundingLedger) {
-          throw new BadRequestException(
-            'Run-scoped funding ledger is unavailable; retry remains blocked',
-          );
-        }
-        await this.assertRetryQuotesCovered(payrollRun, retriableItems, meta);
-        const reservations = retriableItems.map((item) => {
-          const amount = Number(meta.itemFundingAmounts[item.id]);
-          if (!Number.isFinite(amount) || amount <= 0) {
-            throw new BadRequestException(
-              `Missing approved funding allocation for failed payroll item ${item.id}`,
-            );
-          }
-          return {
-            payrollItemId: item.id,
-            amount,
-            currency: meta.currency,
-            reservationKey: `${meta.orderReference}:${item.id}`,
-          };
-        });
-        await this.fundingLedger.reserveFailedPayoutsForRetry({
-          tenantId,
-          payrollRunId,
-          provider: PaymentProvider.BACHS,
-          performedById: auditContext.performedById ?? meta.approvedById,
-          evidence: {
-            fundingReference: meta.orderReference,
-            approvedById: meta.approvedById,
-            retryFundingPurpose: 'company_funded_retry_shortfall',
-          },
-          reservations,
-        });
-        const claimedItems: PayrollItem[] = [];
-        for (const item of retriableItems) {
-          const priorRetry =
-            typeof item.metadata?.payoutRetryCount === 'number'
-              ? item.metadata.payoutRetryCount
-              : 0;
-          const metadata = {
-            ...(item.metadata ?? {}),
-            payoutRetryCount: priorRetry + 1,
-            retryFundingMaxSourceAmount: Number(meta.itemFundingAmounts[item.id]),
-            retryFundingSourceCurrency: meta.currency,
-            payoutNeverSubmitted: false,
-            payoutSubmissionPending: false,
-          };
-          // The provider can report terminal failure just before a success webhook arrives.
-          // Claim only rows still FAILED so a late success cannot be reset and paid twice.
-          const claimed = await updatePayrollItemScopedIfStatus(
-            this.payrollItemRepository,
-            item.id,
-            tenantId,
-            PayrollItemStatus.FAILED,
-            {
-              status: PayrollItemStatus.PENDING,
-              failureReason: null,
-              transactionId: null,
-              paymentProvider: null,
-              paidAt: null,
-              metadata,
-            },
-          );
-          if (!claimed) {
-            await this.fundingLedger.releaseUnsubmittedPayoutReservation({
-              tenantId,
-              payrollRunId,
-              payrollItemId: item.id,
-              reservationKey: `${meta.orderReference}:${item.id}`,
-              evidence: {
-                validationStage: 'retry_claim',
-                submissionAttempted: false,
-                reason: 'item_status_changed_before_retry_claim',
-              },
-            });
-            continue;
-          }
-          item.status = PayrollItemStatus.PENDING;
-          item.failureReason = null;
-          item.transactionId = null;
-          item.paymentProvider = null;
-          item.paidAt = null;
-          item.metadata = metadata;
-          claimedItems.push(item);
-        }
-        retriableItems = claimedItems;
-      } else {
-        retriableItems = await this.validation.resetItemsForRetry(retriableItems, tenantId);
-      }
-      if (retriableItems.length === 0) {
-        throw new BadRequestException(
-          'No failed payments remain eligible for retry; their status changed during reconciliation.',
-        );
-      }
-      const paymentBatch = await this.batching.categorizePayments(retriableItems, tenantId);
-      const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
-      if (isBachsRetry && this.fundingLedger) {
-        const payableIds = new Set(payable.map((item) => item.id));
-        const meta = payrollRun.metadata?.retryFunding as {
-          orderReference: string;
-        };
-        for (const item of retriableItems) {
-          if (payableIds.has(item.id)) continue;
-          await this.fundingLedger.releaseUnsubmittedPayoutReservation({
-            tenantId,
-            payrollRunId,
-            payrollItemId: item.id,
-            reservationKey: `${meta.orderReference}:${item.id}`,
-            evidence: {
-              validationStage: 'payment_readiness',
-              submissionAttempted: false,
-              reason: 'item_not_in_payable_batch',
-            },
-          });
-        }
-      }
-      if (payable.length === 0) {
-        await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
-        throw new BadRequestException(
-          noPayableEmployeesMessage(retriableItems, 'then retry again.'),
-        );
-      }
-      const payoutResults = await this.batching.processPayouts(
-        payable,
-        auditContext,
-        tenantId,
-        payrollRun.tenant?.name,
-        payrollRun.title,
-        {
-          periodStart: payrollRun.periodStart,
-          periodEnd: payrollRun.periodEnd,
-          baseCurrency: payrollRun.baseCurrency,
-          bachsSourceCurrency: isBachsRetry
-            ? ((payrollRun.metadata?.retryFunding as { currency?: string } | undefined)?.currency ??
-              bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup))
-            : bachsFundingCurrencyFromFloatTopup(payrollRun.metadata?.floatTopup),
-        },
-      );
-      if (isBachsRetry && this.fundingLedger) {
-        const fundingMeta = payrollRun.metadata?.retryFunding as { orderReference: string };
-        for (const item of payable) {
-          if (
-            item.status !== PayrollItemStatus.FAILED ||
-            item.metadata?.payoutNeverSubmitted !== true
-          ) {
-            continue;
-          }
-          await this.fundingLedger.releaseUnsubmittedPayoutReservation({
-            tenantId,
-            payrollRunId,
-            payrollItemId: item.id,
-            reservationKey: `${fundingMeta.orderReference}:${item.id}`,
-            evidence: {
-              validationStage: 'provider_quote_guard',
-              submissionAttempted: false,
-              reason: item.failureReason ?? 'bachs_provider_rejected_before_submission',
-            },
-          });
-        }
-      }
-      const summary = this.validation.calculatePaymentSummary(payoutResults);
-      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
-      return {
-        totalItems: retriableItems.length,
-        successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
-        failedPayments: summary.bankFailed + summary.cryptoFailed,
-        processingPayments: summary.bankProcessing + summary.cryptoProcessing,
-        fiatResults: payoutResults,
-        payoutResults,
-        summary,
-      };
+      const payoutResults = await this.processByProvider(run, failed, tenantId);
+      return this.toBatchResult(failed.length, payoutResults);
     } finally {
       await this.releasePayrollRun(payrollRunId, tenantId, lockAt);
     }
   }
 
-  private async assertRetryQuotesCovered(
-    payrollRun: { baseCurrency: string; metadata: Record<string, unknown> | null },
+  private async processByProvider(
+    run: import('../entities/payroll-run.entity').PayrollRun,
     items: PayrollItem[],
-    meta: {
-      currency: string;
-      itemFundingAmounts: Record<string, number>;
-    },
-  ): Promise<void> {
-    const bachsApi = this.bachsApi;
-    if (!bachsApi) {
+    tenantId: string,
+  ): Promise<PaymentResult[]> {
+    const ngnItems = items.filter((item) => item.paymentCurrency?.toUpperCase() === 'NGN');
+    const bridgeItems = items.filter((item) => item.paymentCurrency?.toUpperCase() !== 'NGN');
+    if (bridgeItems.length && !isBridgeConfigured()) {
       throw new BadRequestException(
-        'Bachs quote service is unavailable. Retry remains blocked until funding can be revalidated.',
+        'Bridge payroll is not configured. Add Bridge credentials and enable the exact payroll payout routes.',
       );
     }
-    if (meta.currency !== 'USD' && meta.currency !== 'NGN') {
-      throw new BadRequestException(
-        'Retry funding currency is invalid; Bachs retry remains blocked.',
-      );
+    const results: PaymentResult[] = [];
+    if (ngnItems.length) {
+      results.push(...(await this.nombaPayrollPayout.processRun(run, ngnItems, tenantId)));
     }
-    const originalSourceCurrency = bachsFundingCurrencyFromFloatTopup(
-      payrollRun.metadata?.floatTopup,
-    );
-    if (
-      originalSourceCurrency &&
-      originalSourceCurrency.toUpperCase() !== meta.currency.toUpperCase()
-    ) {
-      throw new BadRequestException(
-        'Retry funding currency does not match the original Bachs payout source currency.',
-      );
+    if (bridgeItems.length) {
+      results.push(...(await this.bridgePayrollPayout.processRun(run, bridgeItems, tenantId)));
     }
-    for (const item of items) {
-      const paymentCurrency = (item.paymentCurrency || payrollRun.baseCurrency).toUpperCase();
-      const fxAtPayout = item.metadata?.fxAtPayout === true;
-      const fundingItem: BachsFundingItem = {
-        amount: resolvePayrollPayoutAmount(item),
-        amountCurrency: fxAtPayout
-          ? (item.baseSalaryCurrency || payrollRun.baseCurrency).toUpperCase()
-          : paymentCurrency,
-        paymentCurrency,
-        cryptoNetwork:
-          typeof item.metadata?.cryptoNetwork === 'string' ? item.metadata.cryptoNetwork : null,
-        fxAtPayout,
-      };
-      if (!Number.isFinite(fundingItem.amount) || fundingItem.amount <= 0) {
-        throw new BadRequestException(
-          `Invalid payout amount for payroll item ${item.id}; retry remains blocked.`,
-        );
-      }
-      const allocation = await sourceAmountWithPayoutFeeForBachsFundingItem({
-        item: fundingItem,
-        fundingCurrency: meta.currency as 'USD' | 'NGN',
-        createQuote: (input) => bachsApi.createPayoutQuote(input),
-      });
-      const requiredAmount = allocation.sourceAmount + allocation.payoutFeeReserve;
-
-      const allocated = Number(meta.itemFundingAmounts[item.id]);
-      if (!Number.isFinite(allocated) || requiredAmount > allocated + 0.01) {
-        throw new BadRequestException(
-          `Bachs source quote for payroll item ${item.id} now exceeds its approved funding allocation. Approve and fund the updated shortfall before retrying.`,
-        );
-      }
-    }
+    return results;
   }
 
-  private async assertBachsRetryFundingAuthorized(
-    payrollRun: { id: string; tenantId: string; metadata: Record<string, unknown> | null },
-    failedItems: PayrollItem[],
-    tenantId: string,
-  ): Promise<void> {
-    if (!this.fundingLedger) {
-      throw new BadRequestException(
-        'Run-scoped funding ledger is unavailable; Bachs retry remains blocked',
-      );
-    }
-    const raw = payrollRun.metadata?.retryFunding;
-    if (!raw || typeof raw !== 'object') {
-      throw new BadRequestException(
-        'Approve and fund the selected Bachs retry shortfall before retrying failed payouts.',
-      );
-    }
-    const meta = raw as {
-      orderReference?: string;
-      status?: string;
-      selectedItemIds?: string[];
-      amount?: number;
-      checkoutAmount?: number;
-      balanceApplied?: number;
-      currency?: string;
-      approvedById?: string;
-      itemFundingAmounts?: Record<string, number>;
+  private toBatchResult(totalItems: number, payoutResults: PaymentResult[]): BatchPaymentResult {
+    const summary = this.validation.calculatePaymentSummary(payoutResults);
+    return {
+      totalItems,
+      successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
+      failedPayments: summary.bankFailed + summary.cryptoFailed,
+      processingPayments: summary.bankProcessing + summary.cryptoProcessing,
+      fiatResults: payoutResults,
+      payoutResults,
+      summary,
     };
-    const fundedIds = [...(meta.selectedItemIds ?? [])].sort();
-    const fundedIdSet = new Set(fundedIds);
-    const requestedIds = [...new Set(failedItems.map((item) => item.id))].sort();
-    if (requestedIds.length === 0) {
-      throw new BadRequestException('No failed payments found to retry');
-    }
-    if (
-      meta.status !== 'funded' ||
-      !meta.orderReference ||
-      !meta.approvedById ||
-      !meta.currency ||
-      !Number.isFinite(Number(meta.amount)) ||
-      Number(meta.amount) <= 0
-    ) {
-      throw new BadRequestException(
-        'Bachs retry requires completed checkout funding approved for this run. Approve and fund the retry shortfall before retrying failed payouts.',
-      );
-    }
-    // Retrying a subset of the funded selection is always covered by that funding; only a
-    // payout outside it needs a new approval. This is what lets a user retry just the payout
-    // that failed again after the rest of a funded batch succeeded.
-    const uncoveredIds = requestedIds.filter((id) => !fundedIdSet.has(id));
-    if (uncoveredIds.length > 0) {
-      throw new BadRequestException(
-        `Bachs retry funding does not cover ${uncoveredIds.length} of the selected failed payout(s). Approve the retry shortfall for them before retrying.`,
-      );
-    }
-
-    const allocations = meta.itemFundingAmounts ?? {};
-    const allocationIds = Object.keys(allocations).sort();
-    const requestedAllocationsValid = requestedIds.every((id) => {
-      const amount = Number(allocations[id]);
-      return Number.isFinite(amount) && amount > 0;
-    });
-    if (
-      allocationIds.length !== fundedIds.length ||
-      allocationIds.some((id, index) => id !== fundedIds[index]) ||
-      Math.abs(
-        Object.values(allocations).reduce((sum, amount) => sum + Number(amount), 0) -
-          Number(meta.amount),
-      ) > 0.01 ||
-      Object.values(allocations).some(
-        (amount) => !Number.isFinite(Number(amount)) || Number(amount) <= 0,
-      ) ||
-      !requestedAllocationsValid
-    ) {
-      throw new BadRequestException(
-        'Approved Bachs retry funding allocations are incomplete or inconsistent',
-      );
-    }
-
-    const ledger = await this.fundingLedger.getRunLedger(tenantId, payrollRun.id);
-    const approval = ledger.entries.find(
-      (entry) =>
-        entry.eventType === PayrollFundingLedgerEventType.SHORTFALL_APPROVED &&
-        entry.providerReference === meta.orderReference,
-    );
-    const funding = ledger.entries.find(
-      (entry) =>
-        entry.eventType === PayrollFundingLedgerEventType.FUNDING_RECEIVED &&
-        entry.providerReference === meta.orderReference,
-    );
-    const expectedSelectedIds = fundedIds.join(',');
-    if (
-      !approval ||
-      approval.provider !== PaymentProvider.BACHS ||
-      approval.approvedById !== meta.approvedById ||
-      Number(approval.amount) !== Number(meta.amount) ||
-      approval.currency !== meta.currency.toUpperCase() ||
-      approval.evidence?.selectedItemIds !== expectedSelectedIds ||
-      !funding ||
-      funding.provider !== PaymentProvider.BACHS ||
-      Number(funding.amount) < Number(meta.amount) ||
-      funding.currency !== meta.currency.toUpperCase() ||
-      funding.evidence?.fundingPurpose !== 'approved_retry_shortfall' ||
-      funding.evidence?.selectedItemIds !== expectedSelectedIds
-    ) {
-      throw new BadRequestException(
-        'Bachs retry funding approval and provider-verified checkout credit do not match. Retry remains blocked.',
-      );
-    }
-
-    // A retry may be funded partly by the company's provider float. The approval and the
-    // verified credit must split the same way, or a retry could spend the float twice.
-    const checkoutAmount = Number(meta.checkoutAmount ?? meta.amount);
-    const balanceApplied = Number(meta.balanceApplied ?? 0);
-    if (
-      !Number.isFinite(checkoutAmount) ||
-      checkoutAmount < 0 ||
-      !Number.isFinite(balanceApplied) ||
-      balanceApplied < 0 ||
-      Math.abs(checkoutAmount + balanceApplied - Number(meta.amount)) > 0.01 ||
-      (meta.checkoutAmount != null &&
-        Math.abs(Number(approval.evidence?.checkoutAmount ?? checkoutAmount) - checkoutAmount) >
-          0.01) ||
-      (meta.balanceApplied != null &&
-        Math.abs(Number(funding.evidence?.balanceApplied ?? balanceApplied) - balanceApplied) >
-          0.01)
-    ) {
-      throw new BadRequestException(
-        'Bachs retry funding does not reconcile the checkout payment with the provider balance it used. Retry remains blocked.',
-      );
-    }
-
-    if (
-      ledger.entries.some(
-        (entry) =>
-          entry.eventType === PayrollFundingLedgerEventType.PAYOUT_CONFIRMED &&
-          requestedIds.includes(entry.payrollItemId ?? ''),
-      )
-    ) {
-      throw new BadRequestException(
-        'A selected payout already has a confirmed provider debit. Reconcile the payout before retrying.',
-      );
-    }
   }
 
   private async claimPayrollRun(
@@ -650,14 +234,12 @@ export class MultiPaymentService {
         processingLockedAt: lockAt,
         processingLockedById: auditContext.performedById ?? null,
       })
-      .where('id = :payrollRunId', { payrollRunId })
-      .andWhere('tenant_id = :tenantId', { tenantId })
+      .where('id = :payrollRunId AND tenant_id = :tenantId', { payrollRunId, tenantId })
       .andWhere('status IN (:...statuses)', {
         statuses: [PayrollStatus.APPROVED, PayrollStatus.PROCESSING],
       })
       .andWhere('(processing_locked_at IS NULL OR processing_locked_at < :cutoff)', { cutoff })
       .execute();
-
     return (result.affected ?? 0) === 1;
   }
 
@@ -669,29 +251,23 @@ export class MultiPaymentService {
     await this.payrollRunRepository
       .createQueryBuilder()
       .update()
-      .set({
-        processingLockedAt: null,
-        processingLockedById: null,
-      })
-      .where('id = :payrollRunId', { payrollRunId })
-      .andWhere('tenant_id = :tenantId', { tenantId })
+      .set({ processingLockedAt: null, processingLockedById: null })
+      .where('id = :payrollRunId AND tenant_id = :tenantId', { payrollRunId, tenantId })
       .andWhere('processing_locked_at = :lockAt', { lockAt })
       .execute();
   }
 
   async getPaymentStatusSummary(payrollRunId: string, tenantId: string) {
-    const payrollRun = await this.payrollRunRepository.findOne({
+    const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
-      select: ['id'],
+      select: { id: true },
     });
-    if (!payrollRun) {
-      throw new NotFoundException('Payroll run not found');
-    }
+    if (!run) throw new NotFoundException('Payroll run not found');
     const items = await this.payrollItemRepository.findByPayrollRunId(payrollRunId, tenantId);
     const statusCounts = items.reduce(
-      (acc, item) => {
-        acc[item.status] = (acc[item.status] || 0) + 1;
-        return acc;
+      (counts, item) => {
+        counts[item.status] = (counts[item.status] || 0) + 1;
+        return counts;
       },
       {} as Record<PayrollItemStatus, number>,
     );

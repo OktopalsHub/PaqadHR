@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RateLimit, RateLimitPresets, RequireFeatures } from 'src/common/decorators';
+
 import { TenantMemberRole } from '../../../../common/enums';
 import { FeatureAccess } from '../../../../common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-role.guard';
@@ -24,7 +25,9 @@ import { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
 import { UpdatePayrollRunDto } from '../dto/payroll-adjustment.dto';
 import { AuditService } from '../services/audit.service';
-import { PayrollService } from '../services/payroll.service';
+import { PayrollPaymentOps } from '../services/payroll-payment.ops';
+import { PayrollPayslipOps } from '../services/payroll-payslip.ops';
+import { PayrollRunOps } from '../services/payroll-run.ops';
 
 @ApiTags('Payroll')
 @Controller('tenants/:tenantId/payroll')
@@ -33,7 +36,9 @@ import { PayrollService } from '../services/payroll.service';
 export class PayrollRunsController {
   private readonly logger = new Logger(PayrollRunsController.name);
   constructor(
-    private payrollService: PayrollService,
+    private readonly payments: PayrollPaymentOps,
+    private readonly payslips: PayrollPayslipOps,
+    private readonly runs: PayrollRunOps,
     private auditService: AuditService,
   ) {}
 
@@ -48,12 +53,7 @@ export class PayrollRunsController {
     const member = req.member;
     try {
       const idempotencyKey = req.headers['idempotency-key'] as string;
-      const result = await this.payrollService.createPayrollRun(
-        dto,
-        tenantId,
-        member.id,
-        idempotencyKey,
-      );
+      const result = await this.runs.createPayrollRun(dto, tenantId, member.id, idempotencyKey);
       return result;
     } catch (error) {
       this.logger.error(`Failed to create payroll run for tenant: ${tenantId}`, error);
@@ -71,7 +71,7 @@ export class PayrollRunsController {
   ) {
     const member = req.member;
     try {
-      const result = await this.payrollService.getPayrollRunsForRequester(
+      const result = await this.runs.getPayrollRunsForRequester(
         tenantId,
         Number(limit),
         Number(offset),
@@ -94,7 +94,7 @@ export class PayrollRunsController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    return this.payrollService.getPayrollRunForRequester(id, tenantId, member.id, member.role);
+    return this.runs.getPayrollRunForRequester(id, tenantId, member.id, member.role);
   }
 
   @Post('runs/:id/calculate')
@@ -114,7 +114,7 @@ export class PayrollRunsController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const result = await this.payrollService.calculatePayroll(id, tenantId, auditContext);
+    const result = await this.payments.calculatePayroll(id, tenantId, auditContext);
     return {
       message: 'Payroll calculation completed',
       warnings: result.warnings,
@@ -140,7 +140,7 @@ export class PayrollRunsController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const result = await this.payrollService.calculatePayroll(
+    const result = await this.payments.calculatePayroll(
       id,
       tenantId,
       auditContext,
@@ -156,7 +156,7 @@ export class PayrollRunsController {
   @Get('setup-summary')
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getSetupSummary(@Param('tenantId') tenantId: string) {
-    return this.payrollService.getWorkspaceSetupSummary(tenantId);
+    return this.payments.getWorkspaceSetupSummary(tenantId);
   }
 
   @Post('notify-payment-setup')
@@ -167,7 +167,7 @@ export class PayrollRunsController {
     @Body('memberId', ParseUUIDPipe) memberId: string,
     @Req() req: IAuthenticatedMemberRequest,
   ) {
-    const result = await this.payrollService.notifyMemberPaymentSetup(
+    const result = await this.payslips.notifyMemberPaymentSetup(
       tenantId,
       memberId,
       req.member.role,
@@ -183,7 +183,7 @@ export class PayrollRunsController {
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getPayrollReadiness(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.payrollService.getPayrollReadiness(id, tenantId);
+    return this.payments.getPayrollReadiness(id, tenantId);
   }
 
   @Delete('runs/:id')
@@ -203,7 +203,7 @@ export class PayrollRunsController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    await this.payrollService.deletePayrollRun(id, tenantId, auditContext);
+    await this.runs.deletePayrollRun(id, tenantId, auditContext);
     return {
       message: 'Payroll run deleted',
       payrollRunId: id,
@@ -228,7 +228,7 @@ export class PayrollRunsController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const run = await this.payrollService.updatePayrollRun(id, tenantId, dto, auditContext);
+    const run = await this.runs.updatePayrollRun(id, tenantId, dto, auditContext);
     return {
       message: 'Payroll run updated',
       payrollRun: run,
@@ -252,7 +252,7 @@ export class PayrollRunsController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const run = await this.payrollService.reopenPayrollRun(id, tenantId, auditContext);
+    const run = await this.runs.reopenPayrollRun(id, tenantId, auditContext);
     return {
       message: 'Payroll run reopened to draft',
       payrollRun: run,
@@ -276,7 +276,7 @@ export class PayrollRunsController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const run = await this.payrollService.approvePayroll(id, tenantId, auditContext);
+    const run = await this.payments.approvePayroll(id, tenantId, auditContext);
     return {
       message: 'Payroll run approved',
       payrollRunId: id,
@@ -307,7 +307,7 @@ export class PayrollRunsController {
           userAgent: req.get('User-Agent'),
         },
       };
-      await this.payrollService.processPayroll(dto);
+      await this.payments.processPayroll(dto);
       return {
         message: 'Payroll processing completed',
         payrollRunId: id,

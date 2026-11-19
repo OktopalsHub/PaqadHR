@@ -1,9 +1,10 @@
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
+
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
 import type { PayrollItem } from '../entities/payroll-item.entity';
-import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { updatePayrollItemScopedIfStatus } from '../repositories/payroll-item-write.util';
+import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 
 interface PaymentSummary {
   bankSuccess: number;

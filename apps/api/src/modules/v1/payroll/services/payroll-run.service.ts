@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, Optional } from '@nestjs/common';
+
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
@@ -11,12 +12,16 @@ import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { AuditService } from './audit.service';
 import { PayrollLifecycleNotifyService } from './payroll-lifecycle-notify.service';
-import { RunLifecycle } from './run-lifecycle';
+import { RunItemOps } from './run-item.ops';
 import { RunPayslips } from './run-payslips';
+import { RunQueryOps } from './run-query.ops';
+import { RunWriteOps } from './run-write.ops';
 
 @Injectable()
 export class PayrollRunService {
-  private readonly lifecycle: RunLifecycle;
+  private readonly query: RunQueryOps;
+  private readonly write: RunWriteOps;
+  private readonly item: RunItemOps;
   private readonly payslips: RunPayslips;
 
   constructor(
@@ -28,11 +33,18 @@ export class PayrollRunService {
     @Optional() tenantsService?: TenantsService,
     @Optional() lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {
-    this.lifecycle = new RunLifecycle(
+    this.query = new RunQueryOps(payrollRunRepository, payrollItemRepository, managerAccessService);
+    this.write = new RunWriteOps(
       payrollRunRepository,
       payrollItemRepository,
       auditService,
-      managerAccessService,
+      this.query,
+    );
+    this.item = new RunItemOps(
+      payrollRunRepository,
+      payrollItemRepository,
+      auditService,
+      this.query,
     );
     this.payslips = new RunPayslips(
       payrollRunRepository,
@@ -46,7 +58,7 @@ export class PayrollRunService {
   }
 
   isPayrollAdmin(role: string): boolean {
-    return this.lifecycle.isPayrollAdmin(role);
+    return this.query.isPayrollAdmin(role);
   }
 
   async assertPayrollMemberAccess(
@@ -73,15 +85,15 @@ export class PayrollRunService {
     createdById: string,
     idempotencyKey?: string,
   ): Promise<PayrollRun & { alreadyExists?: boolean }> {
-    return this.lifecycle.createPayrollRun(dto, tenantId, createdById, idempotencyKey);
+    return this.write.createPayrollRun(dto, tenantId, createdById, idempotencyKey);
   }
 
   async getPayrollRun(id: string, tenantId: string): Promise<PayrollRun | null> {
-    return this.lifecycle.getPayrollRun(id, tenantId);
+    return this.query.getPayrollRun(id, tenantId);
   }
 
   async getPayrollRuns(tenantId: string, limit = 20, offset = 0) {
-    return this.lifecycle.getPayrollRuns(tenantId, limit, offset);
+    return this.query.getPayrollRuns(tenantId, limit, offset);
   }
 
   async getPayrollRunsForRequester(
@@ -91,7 +103,7 @@ export class PayrollRunService {
     requesterMemberId: string,
     requesterRole: string,
   ) {
-    return this.lifecycle.getPayrollRunsForRequester(
+    return this.query.getPayrollRunsForRequester(
       tenantId,
       limit,
       offset,
@@ -106,7 +118,7 @@ export class PayrollRunService {
     requesterMemberId: string,
     requesterRole: string,
   ): Promise<PayrollRun | null> {
-    return this.lifecycle.getPayrollRunForRequester(id, tenantId, requesterMemberId, requesterRole);
+    return this.query.getPayrollRunForRequester(id, tenantId, requesterMemberId, requesterRole);
   }
 
   async updatePayrollRun(
@@ -115,7 +127,7 @@ export class PayrollRunService {
     dto: PatchPayrollRunDto,
     auditContext: AuditContext,
   ): Promise<PayrollRun> {
-    return this.lifecycle.updatePayrollRun(payrollRunId, tenantId, dto, auditContext);
+    return this.write.updatePayrollRun(payrollRunId, tenantId, dto, auditContext);
   }
 
   async deletePayrollRun(
@@ -123,7 +135,7 @@ export class PayrollRunService {
     tenantId: string,
     auditContext: AuditContext,
   ): Promise<void> {
-    return this.lifecycle.deletePayrollRun(payrollRunId, tenantId, auditContext);
+    return this.item.deletePayrollRun(payrollRunId, tenantId, auditContext);
   }
 
   async reopenPayrollRun(
@@ -131,7 +143,7 @@ export class PayrollRunService {
     tenantId: string,
     auditContext: AuditContext,
   ): Promise<PayrollRun> {
-    return this.lifecycle.reopenPayrollRun(payrollRunId, tenantId, auditContext);
+    return this.item.reopenPayrollRun(payrollRunId, tenantId, auditContext);
   }
 
   async removePayrollItem(
@@ -140,7 +152,7 @@ export class PayrollRunService {
     tenantId: string,
     auditContext: AuditContext,
   ): Promise<PayrollRun> {
-    return this.lifecycle.removePayrollItem(payrollRunId, itemId, tenantId, auditContext);
+    return this.item.removePayrollItem(payrollRunId, itemId, tenantId, auditContext);
   }
 
   async updatePayrollItem(
@@ -150,7 +162,7 @@ export class PayrollRunService {
     dto: UpdatePayrollItemDto,
     auditContext: AuditContext,
   ): Promise<PayrollRun> {
-    return this.lifecycle.updatePayrollItem(payrollRunId, itemId, tenantId, dto, auditContext);
+    return this.item.updatePayrollItem(payrollRunId, itemId, tenantId, dto, auditContext);
   }
 
   async getRunPayslips(payrollRunId: string, tenantId: string) {

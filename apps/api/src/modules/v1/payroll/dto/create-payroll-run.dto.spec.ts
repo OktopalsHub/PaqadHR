@@ -1,5 +1,6 @@
 import { validateSync } from 'class-validator';
 import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
+
 import { CreatePayrollRunDto } from './create-payroll-run.dto';
 
 function payrollRunDto(payoutMode?: 'immediate' | 'scheduled' | 'unknown'): CreatePayrollRunDto {

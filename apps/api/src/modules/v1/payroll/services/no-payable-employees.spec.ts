@@ -1,4 +1,5 @@
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
+
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { noPayableEmployeesMessage } from './multi-payment.service';
 
@@ -31,7 +32,7 @@ describe('noPayableEmployeesMessage', () => {
       'then use Retry payment.',
     );
     expect(message).toMatch(/No employees could be paid/);
-    expect(message).toMatch(/payment method/);
+    expect(message).toMatch(/Bridge wallet/);
   });
 
   it('reports nothing to pay when every item was cancelled', () => {

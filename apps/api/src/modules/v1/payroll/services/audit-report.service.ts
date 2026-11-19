@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import type { TenantActivity } from '../../activities/entities/tenant-activity.entity';
 import { ActivitiesService } from '../../activities/services/activities.service';
 

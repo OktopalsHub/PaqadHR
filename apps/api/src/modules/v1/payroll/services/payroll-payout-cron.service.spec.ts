@@ -1,7 +1,9 @@
-import type { PayrollService } from './payroll.service';
-import type { PayrollFloatTopupService } from './payroll-float-topup.service';
-import type { PayrollPayoutService } from './payroll-payout.service';
+import type { CronClaimService } from 'src/common/services/cron-claim.service';
+
+import type { PayrollFundingService } from './payroll-funding.service';
+import type { PayrollPaymentOps } from './payroll-payment.ops';
 import { PayrollPayoutCronService } from './payroll-payout-cron.service';
+import type { PayrollPayoutService } from './payroll-payout.service';
 
 describe('PayrollPayoutCronService', () => {
   const originalEnv = {
@@ -29,18 +31,31 @@ describe('PayrollPayoutCronService', () => {
     } as unknown as PayrollPayoutService;
     const payrollService = {
       processDueScheduledPayouts: jest.fn(),
-    } as unknown as PayrollService;
-    const payrollFloatTopupService = {
-      expireStaleRetryFunding: jest.fn(),
-    } as unknown as PayrollFloatTopupService;
+    } as unknown as PayrollPaymentOps;
+    const payrollFunding = {} as unknown as PayrollFundingService;
+    const cronClaimService = {
+      runExclusive: jest.fn((_jobName: string, job: () => Promise<unknown>) => job()),
+    } as unknown as CronClaimService;
+
+    const bridgePayrollPayout = {
+      reconcilePendingTransfers: jest.fn().mockResolvedValue({ checked: 0, updated: 0 }),
+    };
 
     const cronService = new PayrollPayoutCronService(
       payrollPayoutService,
       payrollService,
-      payrollFloatTopupService,
+      payrollFunding,
+      cronClaimService,
+      bridgePayrollPayout as never,
     );
 
-    return { cronService, payrollPayoutService, payrollService, payrollFloatTopupService };
+    return {
+      cronService,
+      payrollPayoutService,
+      payrollService,
+      payrollFunding,
+      cronClaimService,
+    };
   };
 
   afterEach(() => {
@@ -74,31 +89,5 @@ describe('PayrollPayoutCronService', () => {
     await cronService.requeryStuckPayouts();
 
     expect(payrollPayoutService.requeryStuckPayouts).toHaveBeenCalledTimes(1);
-  });
-
-  it('skips the retry funding expiry sweep when payroll gateway is not configured', async () => {
-    clearGatewayEnv();
-    const { cronService, payrollFloatTopupService } = createService();
-
-    await cronService.expireStaleRetryFunding();
-
-    expect(payrollFloatTopupService.expireStaleRetryFunding).not.toHaveBeenCalled();
-  });
-
-  it('expires stale retry funding when Nomba is configured', async () => {
-    process.env.NOMBA_CLIENT_ID = 'client-id';
-    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
-
-    const { cronService, payrollFloatTopupService } = createService();
-    (payrollFloatTopupService.expireStaleRetryFunding as jest.Mock).mockResolvedValue({
-      expired: 1,
-      verified: 0,
-      skipped: 0,
-    });
-
-    await cronService.expireStaleRetryFunding();
-
-    expect(payrollFloatTopupService.expireStaleRetryFunding).toHaveBeenCalledTimes(1);
   });
 });

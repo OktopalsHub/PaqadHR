@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+
 import { AuditEventType } from '../../../../common/enums/audit-event-type.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { AuditLogEntry } from '../../../../common/interfaces/audit-log-entry.interface';

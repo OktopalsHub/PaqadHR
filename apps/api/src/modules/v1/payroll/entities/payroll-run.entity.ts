@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { PayrollFrequency } from '../../../../common/enums/payroll-frequency.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
@@ -126,12 +127,8 @@ export class PayrollRun extends BaseEntity {
   processingLockedBy: TenantMember | null;
   @Column({ name: 'processing_locked_by', nullable: true })
   processingLockedById: string | null;
-  @OneToMany(
-    () => PayrollItem,
-    (item) => item.payrollRun,
-    {
-      cascade: true,
-    },
-  )
+  @OneToMany(() => PayrollItem, (item) => item.payrollRun, {
+    cascade: true,
+  })
   items: PayrollItem[];
 }

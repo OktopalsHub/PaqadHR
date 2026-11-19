@@ -1,20 +1,25 @@
 import { Body, Controller, Delete, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RequireFeatures } from 'src/common/decorators';
+
 import { TenantMemberRole } from '../../../../common/enums';
 import { FeatureAccess } from '../../../../common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from '../../../../common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
-import { PayrollService } from '../services/payroll.service';
+import { PayrollPayslipOps } from '../services/payroll-payslip.ops';
+import { PayrollRunOps } from '../services/payroll-run.ops';
 
 @ApiTags('Payroll')
 @Controller('tenants/:tenantId/payroll')
 @UseGuards(TenantMemberGuard, TenantRoleGuard)
 @RequireFeatures(FeatureAccess.PAYROLL)
 export class PayrollItemsController {
-  constructor(private payrollService: PayrollService) {}
+  constructor(
+    private readonly payslips: PayrollPayslipOps,
+    private readonly runs: PayrollRunOps,
+  ) {}
 
   @Patch('runs/:id/items/:itemId')
   @UseGuards(TenantRoleGuard)
@@ -34,13 +39,7 @@ export class PayrollItemsController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const run = await this.payrollService.updatePayrollItem(
-      id,
-      itemId,
-      tenantId,
-      dto,
-      auditContext,
-    );
+    const run = await this.runs.updatePayrollItem(id, itemId, tenantId, dto, auditContext);
     return {
       message: 'Payroll item updated',
       payrollRun: run,
@@ -64,7 +63,7 @@ export class PayrollItemsController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const run = await this.payrollService.removePayrollItem(id, itemId, tenantId, auditContext);
+    const run = await this.runs.removePayrollItem(id, itemId, tenantId, auditContext);
     return {
       message: 'Employee removed from payroll run',
       payrollRunId: id,
@@ -81,7 +80,7 @@ export class PayrollItemsController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    const result = await this.payrollService.notifyEmployeePaymentSetup(
+    const result = await this.payslips.notifyEmployeePaymentSetup(
       id,
       itemId,
       tenantId,
