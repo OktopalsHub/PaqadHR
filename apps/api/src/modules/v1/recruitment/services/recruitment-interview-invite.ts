@@ -1,4 +1,5 @@
-import { escapeHtml } from './recruitment-template-renderer';
+import { renderEmailLayout } from '../../notifications/templates/layout';
+import { escapeHtml, htmlToText } from './recruitment-template-renderer';
 
 export type InterviewInviteKind = 'scheduled' | 'rescheduled' | 'cancelled';
 
@@ -59,5 +60,13 @@ export function buildInterviewEmail(input: InterviewInviteInput) {
     rescheduled: `Interview time changed: ${input.jobTitle}`,
     cancelled: `Interview cancelled: ${input.jobTitle}`,
   }[input.kind].slice(0, 255);
-  return { subject, html };
+  return {
+    subject,
+    text: htmlToText(html),
+    html: renderEmailLayout({
+      preheader: lead,
+      organizationName: input.companyName || undefined,
+      content: `<div style="font-size:15px;line-height:1.6;">${html}</div>`,
+    }),
+  };
 }

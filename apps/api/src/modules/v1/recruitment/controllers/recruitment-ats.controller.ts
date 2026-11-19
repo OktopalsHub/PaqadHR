@@ -28,6 +28,7 @@ import {
 import { DraftEmailDto, DraftJobDto } from '../dto/recruitment-ai.dto';
 import {
   CreateEmailTemplateDto,
+  PreviewEmailTemplateDto,
   SendCandidateEmailDto,
   UpdateEmailTemplateDto,
 } from '../dto/recruitment-email-template.dto';
@@ -57,6 +58,11 @@ export class RecruitmentAtsController {
   @Get('email-templates/variables')
   templateVariables() {
     return { variables: this.templates.variables() };
+  }
+
+  @Post('email-templates/preview')
+  previewTemplate(@Body() dto: PreviewEmailTemplateDto) {
+    return this.templates.preview(dto);
   }
 
   @Post('email-templates')

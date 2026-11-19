@@ -2,11 +2,13 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { renderEmailLayout } from '../../notifications/templates/layout';
 import {
   CreateEmailTemplateDto,
   UpdateEmailTemplateDto,
 } from '../dto/recruitment-email-template.dto';
 import { RecruitmentEmailTemplate } from '../entities/recruitment-email-template.entity';
+import { isSafeEmailHtml } from './recruitment-ai.schemas';
 import { DEFAULT_EMAIL_TEMPLATES } from './recruitment-default-templates';
 import {
   findUnknownVariables,
@@ -15,6 +17,28 @@ import {
   type RecruitmentTemplateContext,
   renderRecruitmentTemplate,
 } from './recruitment-template-renderer';
+
+const SAMPLE_CONTEXT: RecruitmentTemplateContext = {
+  'candidate.firstName': 'Ada',
+  'candidate.lastName': 'Obi',
+  'candidate.fullName': 'Ada Obi',
+  'job.title': 'Backend Engineer',
+  'company.name': 'Acme Ltd',
+  'stage.name': 'Interview',
+  'sender.name': 'The Acme hiring team',
+};
+
+export function wrapRecruitmentBody(
+  body: string,
+  organizationName: string | undefined,
+  text: string,
+) {
+  return renderEmailLayout({
+    preheader: text.replace(/\s+/g, ' ').slice(0, 110),
+    organizationName,
+    content: `<div style="font-size:15px;line-height:1.6;">${body}</div>`,
+  });
+}
 
 const TEMPLATE_COLUMNS = {
   id: true,
@@ -75,19 +99,29 @@ export class RecruitmentEmailTemplateService {
     await this.templates.delete({ id, tenantId });
   }
 
+  /** Renders subject and body, then wraps the body in the shared Paqad email layout. */
   render(
     template: Pick<RecruitmentEmailTemplate, 'subject' | 'bodyHtml'>,
     ctx: RecruitmentTemplateContext,
   ) {
-    const html = renderRecruitmentTemplate(template.bodyHtml, ctx, { html: true });
+    const body = renderRecruitmentTemplate(template.bodyHtml, ctx, { html: true });
+    const text = htmlToText(body);
     return {
       subject: renderRecruitmentTemplate(template.subject, ctx, { html: false }).slice(0, 255),
-      html,
-      text: htmlToText(html),
+      html: wrapRecruitmentBody(body, ctx['company.name'], text),
+      text,
     };
   }
 
+  preview(template: Pick<RecruitmentEmailTemplate, 'subject' | 'bodyHtml'>) {
+    this.assertKnownVariables(template.subject, template.bodyHtml);
+    return this.render(template, SAMPLE_CONTEXT);
+  }
+
   private assertKnownVariables(subject: string, bodyHtml: string) {
+    if (!isSafeEmailHtml(bodyHtml)) {
+      throw new BadRequestException('Template contains scripts or unsafe markup');
+    }
     const unknown = findUnknownVariables(`${subject}\n${bodyHtml}`);
     if (unknown.length > 0) {
       throw new BadRequestException(`Unknown template variables: ${unknown.join(', ')}`);

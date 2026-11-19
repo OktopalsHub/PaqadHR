@@ -49,3 +49,15 @@ export class SendCandidateEmailDto {
   @IsUUID()
   templateId: string;
 }
+
+export class PreviewEmailTemplateDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  subject: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20000)
+  bodyHtml: string;
+}

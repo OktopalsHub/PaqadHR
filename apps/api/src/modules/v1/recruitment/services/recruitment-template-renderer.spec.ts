@@ -31,3 +31,14 @@ describe('recruitment template renderer', () => {
     expect(htmlToText('<p>Hello &amp; welcome</p><p>Bye</p>')).toBe('Hello & welcome\n\nBye');
   });
 });
+
+import { wrapRecruitmentBody } from './recruitment-email-template.service';
+
+describe('shared email layout', () => {
+  it('wraps a template body in the Paqad layout with the workspace in the footer', () => {
+    const html = wrapRecruitmentBody('<p>Hello</p>', 'Acme <Ltd>', 'Hello');
+    expect(html).toContain('<!DOCTYPE html>');
+    expect(html).toContain('<p>Hello</p>');
+    expect(html).toContain('Sent by Acme &lt;Ltd&gt; via Paqad');
+  });
+});

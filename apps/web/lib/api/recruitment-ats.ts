@@ -63,6 +63,16 @@ export async function deleteEmailTemplate(id: string): Promise<void> {
   await apiClient(await atsPath(`email-templates/${id}`), { method: 'DELETE' });
 }
 
+export async function previewEmailTemplate(input: {
+  subject: string;
+  bodyHtml: string;
+}): Promise<{ subject: string; html: string }> {
+  return apiClient<{ subject: string; html: string }>(await atsPath('email-templates/preview'), {
+    method: 'POST',
+    body: input,
+  });
+}
+
 export async function draftEmailWithAi(input: {
   purpose: string;
   tone: EmailTone;

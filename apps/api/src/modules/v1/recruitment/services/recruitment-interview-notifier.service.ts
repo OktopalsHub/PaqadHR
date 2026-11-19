@@ -13,7 +13,6 @@ import {
   buildInterviewIcs,
   type InterviewInviteKind,
 } from './recruitment-interview-invite';
-import { htmlToText } from './recruitment-template-renderer';
 
 @Injectable()
 export class RecruitmentInterviewNotifier {
@@ -78,7 +77,7 @@ export class RecruitmentInterviewNotifier {
         to: candidate.email,
         subject: content.subject,
         html: content.html,
-        text: htmlToText(content.html),
+        text: content.text,
         attachments: [
           {
             filename: 'interview.ics',

@@ -15,7 +15,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import type { EmailTemplate, EmailTone } from '@/lib/api/recruitment-ats';
+import {
+  type EmailTemplate,
+  type EmailTone,
+  previewEmailTemplate,
+} from '@/lib/api/recruitment-ats';
 
 import {
   useDraftEmailWithAi,
@@ -41,6 +45,7 @@ export function EmailTemplateDialog({ open, template, onOpenChange }: Props) {
   const [bodyHtml, setBodyHtml] = useState('');
   const [purpose, setPurpose] = useState('');
   const [tone, setTone] = useState<EmailTone>('friendly');
+  const [previewHtml, setPreviewHtml] = useState('');
   const save = useSaveEmailTemplate();
   const draft = useDraftEmailWithAi();
   const { data: variables = [] } = useTemplateVariables();
@@ -52,6 +57,19 @@ export function EmailTemplateDialog({ open, template, onOpenChange }: Props) {
     setBodyHtml(template?.bodyHtml ?? '');
     setPurpose('');
   }, [open, template]);
+
+  useEffect(() => {
+    if (!open || !subject.trim() || !bodyHtml.trim()) {
+      setPreviewHtml('');
+      return;
+    }
+    const timer = setTimeout(() => {
+      previewEmailTemplate({ subject, bodyHtml })
+        .then((result) => setPreviewHtml(result.html))
+        .catch(() => setPreviewHtml(''));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [open, subject, bodyHtml]);
 
   const insertVariable = (variable: string) => setBodyHtml((value) => `${value}{{${variable}}}`);
 
@@ -157,6 +175,17 @@ export function EmailTemplateDialog({ open, template, onOpenChange }: Props) {
               ))}
             </div>
           </div>
+          {previewHtml ? (
+            <div className="space-y-1.5">
+              <Label>Preview (sample data, final design)</Label>
+              <iframe
+                title="Email preview"
+                sandbox=""
+                srcDoc={previewHtml}
+                className="h-80 w-full rounded-md border bg-white"
+              />
+            </div>
+          ) : null}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

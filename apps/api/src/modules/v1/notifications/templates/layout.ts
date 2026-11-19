@@ -3,9 +3,15 @@ import { EMAIL_BRAND, escapeHtml } from './brand';
 export interface EmailLayoutOptions {
   preheader: string;
   content: string;
+  /** Workspace the email is sent on behalf of; shown in the footer next to Paqad. */
+  organizationName?: string;
 }
 
-export function renderEmailLayout({ preheader, content }: EmailLayoutOptions): string {
+export function renderEmailLayout({
+  preheader,
+  content,
+  organizationName,
+}: EmailLayoutOptions): string {
   const { logoUrl, pageBg, cardBg, footerBg, fontFamily, text, muted } = EMAIL_BRAND;
 
   return `<!DOCTYPE html>
@@ -34,7 +40,7 @@ export function renderEmailLayout({ preheader, content }: EmailLayoutOptions): s
           </tr>
           <tr>
             <td align="center" style="padding:20px 32px 28px;background-color:${footerBg};border-top:1px solid #e4e4e7;font-size:12px;line-height:1.5;color:${muted};">
-              Sent by Paqad
+              ${organizationName ? `Sent by ${escapeHtml(organizationName)} via Paqad` : 'Sent by Paqad'}
             </td>
           </tr>
         </table>
