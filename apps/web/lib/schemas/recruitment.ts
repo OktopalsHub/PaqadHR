@@ -12,7 +12,10 @@ const jobLocationSchema = z.object({
 export const jobOpeningSchema = z.object({
   id: z.string(),
   title: z.string(),
-  departmentId: z.string().optional(),
+  departmentId: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
   departmentName: z.string().optional(),
   position: z.string().optional(),
   employmentType: z.string().optional(),
@@ -26,7 +29,10 @@ export const jobOpeningSchema = z.object({
   requirements: z.array(z.string()).optional(),
   responsibilities: z.array(z.string()).optional(),
   location: jobLocationSchema.optional(),
-  customQuestions: z.array(z.any()).optional(),
+  customQuestions: z
+    .array(z.any())
+    .nullish()
+    .transform((value) => value ?? undefined),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });

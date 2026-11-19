@@ -18,6 +18,7 @@ import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { RecruitmentCandidateList } from './board/recruitment-candidate-list';
 import { candidatesToBoardData, RecruitmentKanbanBoard } from './board/recruitment-kanban-board';
 import { type RecruitmentViewMode, RecruitmentViewToggle } from './board/recruitment-view-toggle';
+import { CandidateDetailSheet } from './candidate/candidate-detail-sheet';
 import { RecruitmentSectionTabs } from './recruitment-section-tabs';
 import { ViewCareersPageLink } from './view-careers-page-link';
 
@@ -25,6 +26,7 @@ export function RecruitmentPipelinePage() {
   const [search, setSearch] = useState('');
   const [view, setView] = useState<RecruitmentViewMode>('kanban');
   const [addOpen, setAddOpen] = useState(false);
+  const [openCandidateId, setOpenCandidateId] = useState<string | null>(null);
 
   const { data: candidates = [], isLoading, isError } = useAllCandidates();
   const updateStatus = useUpdateCandidateStatus(null);
@@ -41,6 +43,7 @@ export function RecruitmentPipelinePage() {
     });
   }, [candidates, search]);
 
+  const openCandidate = candidates.find((candidate) => candidate.id === openCandidateId) ?? null;
   const qualifiedCount = candidates.filter((candidate) => !isDisqualified(candidate.status)).length;
   const disqualifiedCount = candidates.filter((candidate) =>
     isDisqualified(candidate.status),
@@ -122,12 +125,20 @@ export function RecruitmentPipelinePage() {
           candidates={boardCandidates}
           interactive
           onMoveCandidate={handleMoveCandidate}
+          onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
         />
       ) : (
-        <RecruitmentCandidateList candidates={boardCandidates} />
+        <RecruitmentCandidateList
+          candidates={boardCandidates}
+          onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
+        />
       )}
 
       <AddCandidateDialog open={addOpen} onOpenChange={setAddOpen} />
+      <CandidateDetailSheet
+        candidate={openCandidate}
+        onOpenChange={(open) => !open && setOpenCandidateId(null)}
+      />
     </AppPage>
   );
 }
