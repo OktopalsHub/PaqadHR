@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -9,24 +9,11 @@
     "includes": ["apps/api/**", "apps/web/**"]
   },
   "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 100
+    "enabled": false
   },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "single",
-      "trailingCommas": "all",
-      "semicolons": "always"
-    }
-  },
+  "javascript": {},
   "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
-    }
+    "enabled": false
   },
   "css": {
     "parser": {
@@ -49,6 +36,9 @@
       "style": {
         "noNonNullAssertion": "off"
       },
+      "complexity": {
+        "useMathMinMax": "off"
+      },
       "a11y": {
         "noSvgWithoutTitle": "off",
         "useSemanticElements": "warn",
@@ -67,9 +57,6 @@
     {
       "includes": ["**/eslint.config.mjs"],
       "linter": {
-        "enabled": false
-      },
-      "formatter": {
         "enabled": false
       }
     },
@@ -120,7 +107,8 @@
           },
           "correctness": {
             "useExhaustiveDependencies": "off",
-            "noUnusedFunctionParameters": "off"
+            "noUnusedFunctionParameters": "off",
+            "noComponentHookFactories": "off"
           },
           "complexity": {
             "noUselessFragments": "off"
@@ -132,18 +120,22 @@
       "includes": ["apps/web/public/**"],
       "linter": {
         "enabled": false
-      },
-      "formatter": {
-        "enabled": false
       }
     },
     {
       "includes": ["apps/web/**/*.generated.ts"],
       "linter": {
         "enabled": false
-      },
-      "formatter": {
-        "enabled": false
+      }
+    },
+    {
+      "includes": ["apps/web/**/*.test.ts", "apps/web/**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noComponentHookFactories": "off"
+          }
+        }
       }
     },
     {

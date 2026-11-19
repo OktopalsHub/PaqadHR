@@ -1,19 +1,15 @@
 {
   "name": "paqad",
   "private": true,
-  "packageManager": "pnpm@10.33.0",
-  "engines": {
-    "node": ">=24"
-  },
   "scripts": {
     "build": "turbo build",
-    "check": "biome check .",
-    "check:fix": "biome check --write .",
-    "check:unsafe": "biome check --write --unsafe .",
+    "check": "oxfmt --check . && biome lint .",
+    "check:fix": "oxfmt . && biome lint --write .",
+    "check:unsafe": "biome lint --write --unsafe .",
     "check:patches": "node .github/scripts/check-braces-patch.mjs",
     "dev": "turbo dev",
-    "format": "biome check --write .",
-    "lint": "biome check .",
+    "format": "oxfmt .",
+    "lint": "biome lint .",
     "start": "turbo start",
     "test": "turbo test",
     "deploy": "pnpm --filter web deploy",
@@ -24,11 +20,16 @@
     "db:logs": "docker compose logs -f db",
     "db:down": "docker compose down"
   },
-  "devDependencies": {
-    "@biomejs/biome": "^2.5.0",
-    "turbo": "^2.9.16"
-  },
   "dependencies": {
     "zeptomail": "^8.0.1"
-  }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
+    "oxfmt": "^0.79.0",
+    "turbo": "^2.11.12"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.33.0"
 }

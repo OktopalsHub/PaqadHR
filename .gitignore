@@ -11,6 +11,10 @@ node_modules
 !apps/api/README.md
 !apps/web/README.md
 !apps/web/content/legal/*.md
+!/GLOSSARY.md
+!/docs/adr/0001-custodial-wallet-ownership-and-ledger.md
+!/docs/plans/payment-wallet-payroll-overhaul.md
+!/docs/plans/bridge-capability-research.md
 
 # turbo
 .turbo

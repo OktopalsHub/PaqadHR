@@ -21,6 +21,28 @@ services:
       retries: 12
       start_period: 10s
 
+  # Disposable Postgres 18 for migration and integration tests (no persistent volume).
+  # Usage: docker compose --profile test up -d db-test
+  #   DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5544/paqadhr_test
+  db-test:
+    image: postgres:18-alpine
+    container_name: paqadhr-postgres-test
+    profiles: ['test']
+    ports:
+      - '127.0.0.1:5544:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: paqadhr_test
+    # PG 18 images keep data under /var/lib/postgresql; tmpfs makes every run start clean.
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d paqadhr_test']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
 volumes:
   paqadhr-dev-data:
     # Named volume survives `docker compose down` (use `down -v` to wipe).
