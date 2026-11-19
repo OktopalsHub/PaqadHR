@@ -12,6 +12,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'biome.json'
+      - '.oxfmtrc.json'
       - '.github/workflows/web-ci.yml'
   pull_request:
     branches: [main, dev]
@@ -24,6 +25,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'biome.json'
+      - '.oxfmtrc.json'
       - '.github/workflows/web-ci.yml'
 
 jobs:

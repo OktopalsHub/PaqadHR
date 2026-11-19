@@ -105,4 +105,6 @@ for (const [pattern, expected] of [
 
 if (failed) process.exit(1);
 
-console.log(`check-braces-patch: CVE-2026-93687 guarded, ${micromatches.length} consumer link(s) OK`);
+console.log(
+  `check-braces-patch: CVE-2026-93687 guarded, ${micromatches.length} consumer link(s) OK`,
+);

@@ -13,16 +13,16 @@ const controllers = globSync('src/**/*.controller.ts', { cwd: apiRoot });
 let failed = false;
 
 function isDtoModulePath(importPath) {
-  return importPath.includes('/dto/') || importPath.endsWith('.dto') || importPath.endsWith('.dto.ts');
+  return (
+    importPath.includes('/dto/') || importPath.endsWith('.dto') || importPath.endsWith('.dto.ts')
+  );
 }
 
 for (const file of controllers) {
   const content = readFileSync(`${apiRoot}/${file}`, 'utf8');
   const typeImportedFromDto = new Set();
 
-  for (const match of content.matchAll(
-    /import\s+type\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g,
-  )) {
+  for (const match of content.matchAll(/import\s+type\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g)) {
     if (!isDtoModulePath(match[2])) continue;
     for (const part of match[1].split(',')) {
       const name = part.trim().split(/\s+as\s+/)[0];
@@ -35,7 +35,12 @@ for (const file of controllers) {
     for (const part of match[1].split(',')) {
       const trimmed = part.trim();
       if (trimmed.startsWith('type ')) {
-        typeImportedFromDto.add(trimmed.slice(5).trim().split(/\s+as\s+/)[0]);
+        typeImportedFromDto.add(
+          trimmed
+            .slice(5)
+            .trim()
+            .split(/\s+as\s+/)[0],
+        );
       }
     }
   }

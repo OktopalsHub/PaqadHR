@@ -174,7 +174,8 @@ sequenceDiagram
 | [TanStack Query](https://tanstack.com/query) | Data fetching |
 | [pnpm](https://pnpm.io/) | Package manager |
 | [Turbo](https://turbo.build/) | Monorepo orchestration |
-| [Biome](https://biomejs.dev/) | Linting and formatting |
+| [oxfmt](https://oxc.rs/docs/guide/usage/formatter) | Formatting |
+| [Biome](https://biomejs.dev/) | Linting |
 | [ZeptoMail](https://www.zoho.com/zeptomail/) | Email delivery |
 | [Nomba](https://nomba.com/) | NGN payments and billing |
 | [Reloadly](https://www.reloadly.com/) | International gift cards and top-ups |

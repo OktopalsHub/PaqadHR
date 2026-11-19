@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { globSync } from 'node:fs';
 /**
  * emitDecoratorMetadata bakes eager class references into @Body() DTO metadata.
  * A DTO that references a class declared later in the same file throws
@@ -6,7 +7,6 @@
  * Requiring each compiled DTO reproduces that runtime load, so CI fails before deploy.
  */
 import { createRequire } from 'node:module';
-import { globSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const distRoot = new URL('../../apps/api/dist', import.meta.url).pathname;
