@@ -37,6 +37,8 @@ export class Candidate extends BaseEntity {
     default: CandidateStatus.APPLIED,
   })
   status: CandidateStatus;
+  @Column({ name: 'talent_pool', type: 'boolean', default: false })
+  talentPool: boolean;
   @Column({ name: 'ai_screening', type: 'jsonb', nullable: true })
   aiScreening?: Record<string, unknown> | null;
   @Column({ name: 'stage_id', type: 'uuid', nullable: true })

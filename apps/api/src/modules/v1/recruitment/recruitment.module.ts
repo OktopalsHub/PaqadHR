@@ -17,6 +17,7 @@ import { InterviewController } from './controllers/interview.controller';
 import { JobOpeningController } from './controllers/job-opening.controller';
 import { PublicJobController } from './controllers/public-job.controller';
 import { RecruitmentAtsController } from './controllers/recruitment-ats.controller';
+import { RecruitmentExtrasController } from './controllers/recruitment-extras.controller';
 import { Assessment } from './entities/assessment.entity';
 import { CandidateStageHistory } from './entities/candidate-stage-history.entity';
 import { Candidate } from './entities/candidate.entity';
@@ -25,6 +26,8 @@ import { JobOpening } from './entities/job-opening.entity';
 import { PipelineStage } from './entities/pipeline-stage.entity';
 import { RecruitmentEmailLog } from './entities/recruitment-email-log.entity';
 import { RecruitmentEmailTemplate } from './entities/recruitment-email-template.entity';
+import { RecruitmentOffer } from './entities/recruitment-offer.entity';
+import { RecruitmentScorecard } from './entities/recruitment-scorecard.entity';
 import { CandidateRepository } from './repositories/index';
 import { InterviewRepository } from './repositories/interview.repository';
 import { JobOpeningRepository } from './repositories/job-opening.repository';
@@ -36,7 +39,10 @@ import { JobOpeningService } from './services/job-opening.service';
 import { RecruitmentAiService } from './services/recruitment-ai.service';
 import { RecruitmentCandidateMailer } from './services/recruitment-candidate-mailer.service';
 import { RecruitmentEmailTemplateService } from './services/recruitment-email-template.service';
+import { RecruitmentOfferService } from './services/recruitment-offer.service';
 import { RecruitmentPipelineService } from './services/recruitment-pipeline.service';
+import { RecruitmentScorecardService } from './services/recruitment-scorecard.service';
+import { RecruitmentTalentPoolService } from './services/recruitment-talent-pool.service';
 
 @Module({
   imports: [
@@ -51,6 +57,8 @@ import { RecruitmentPipelineService } from './services/recruitment-pipeline.serv
       CandidateStageHistory,
       RecruitmentEmailLog,
       RecruitmentEmailTemplate,
+      RecruitmentScorecard,
+      RecruitmentOffer,
     ]),
     FileModule,
     TenantsModule,
@@ -66,6 +74,7 @@ import { RecruitmentPipelineService } from './services/recruitment-pipeline.serv
     InterviewController,
     PublicJobController,
     RecruitmentAtsController,
+    RecruitmentExtrasController,
   ],
   providers: [
     JobOpeningService,
@@ -77,6 +86,9 @@ import { RecruitmentPipelineService } from './services/recruitment-pipeline.serv
     InterviewFeedbackService,
     InterviewService,
     RecruitmentAiService,
+    RecruitmentScorecardService,
+    RecruitmentOfferService,
+    RecruitmentTalentPoolService,
     RecruitmentEmailTemplateService,
     RecruitmentCandidateMailer,
     RecruitmentPipelineService,

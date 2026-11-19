@@ -6,13 +6,14 @@ import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { cn } from '@/lib/utils';
 
 type RecruitmentSectionTabsProps = {
-  active: 'pipeline' | 'roles' | 'analytics' | 'templates' | 'pipeline-settings';
+  active: 'pipeline' | 'roles' | 'analytics' | 'templates' | 'pipeline-settings' | 'talent-pool';
 };
 
 const TABS = [
   { id: 'roles', label: 'Roles', href: 'recruitment' },
   { id: 'pipeline', label: 'Candidate', href: 'recruitment/candidates' },
   { id: 'pipeline-settings', label: 'Pipeline', href: 'recruitment/pipeline' },
+  { id: 'talent-pool', label: 'Talent pool', href: 'recruitment/talent-pool' },
   { id: 'templates', label: 'Email templates', href: 'recruitment/templates' },
   { id: 'analytics', label: 'Analytics', href: 'recruitment/analytics' },
 ] as const;

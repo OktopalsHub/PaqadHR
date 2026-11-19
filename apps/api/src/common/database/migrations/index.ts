@@ -100,3 +100,4 @@ export * from './1794346000000-payroll-attempt-history';
 export * from './1794400000000-payroll-ledger-payout-reversed';
 export * from './1794500000000-recruitment-ats-foundation';
 export * from './1794600000000-candidate-ai-screening';
+export * from './1794700000000-recruitment-scorecards-offers-pool';

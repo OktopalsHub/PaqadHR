@@ -122,6 +122,7 @@ const AppDataSource = {
     Migrations.PayrollLedgerPayoutReversed1794400000000,
     Migrations.RecruitmentAtsFoundation1794500000000,
     Migrations.CandidateAiScreening1794600000000,
+    Migrations.RecruitmentScorecardsOffersPool1794700000000,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

@@ -44,6 +44,8 @@ export * from '../../../modules/v1/recruitment/entities/candidate-stage-history.
 export * from '../../../modules/v1/recruitment/entities/pipeline-stage.entity';
 export * from '../../../modules/v1/recruitment/entities/recruitment-email-log.entity';
 export * from '../../../modules/v1/recruitment/entities/recruitment-email-template.entity';
+export * from '../../../modules/v1/recruitment/entities/recruitment-offer.entity';
+export * from '../../../modules/v1/recruitment/entities/recruitment-scorecard.entity';
 export * from '../../../modules/v1/rewards/entities/custom-reward.entity';
 export * from '../../../modules/v1/rewards/entities/reward-redemption.entity';
 export * from '../../../modules/v1/rewards/entities/task.entity';
