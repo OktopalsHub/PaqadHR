@@ -4,6 +4,7 @@ import { Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
 import { ContentCard } from '@/components/content-card';
 import { LogoUpload } from '@/components/logo-upload';
 import { SearchSelect } from '@/components/search-select';

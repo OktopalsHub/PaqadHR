@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { isBachsCheckoutUrl, openCheckoutUrl } from './bachs-checkout.ts';
 
 test('isBachsCheckoutUrl accepts Bachs hosted checkout hosts', () => {

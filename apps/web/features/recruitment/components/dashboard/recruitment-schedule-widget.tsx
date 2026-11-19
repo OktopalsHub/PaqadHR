@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+
 import { ContentCard } from '@/components/content-card';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { cn } from '@/lib/utils';
+
 import type { ScheduleEvent } from '../../lib/recruitment-types';
 
 const TYPE_COLORS: Record<ScheduleEvent['type'], string> = {

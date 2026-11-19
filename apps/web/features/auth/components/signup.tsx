@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+
 import { PasswordRequirements } from '@/components/password-requirements';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { resendEmailVerification } from '@/lib/api/auth';
 import { type SignupInput, signupSchema } from '@/lib/schemas/auth';
+
 import { SocialAuthButtons } from './buttons/social-auth-buttons';
 import { PasswordInput } from './form-fields/password-input';
 

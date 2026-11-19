@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from 'date-fns';
 import { Activity } from 'lucide-react';
 import Link from 'next/link';
+
 import { ContentCard } from '@/components/content-card';
 import { getActivityPresentation } from '@/features/activity/lib/activity-format';
 import { useTenantActivities } from '@/hooks/queries/use-activities';

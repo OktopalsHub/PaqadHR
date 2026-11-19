@@ -58,14 +58,13 @@ Processing of Personal Data subject to the State Privacy Laws with respect to wh
 
 **Nigeria (NDPR / NDPA).** Where Provider Processes Personal Data subject to the NDPA or NDPR, Provider will Process such Personal Data in accordance with Customer's documented instructions and Applicable Data Protection Laws, implement appropriate security measures, assist Customer with data subject requests and supervisory authority engagement as reasonably required, notify Customer of personal data breaches without undue delay, and delete or return Personal Data at the end of the Services subject to legal retention (including payroll/tax retention). Customer remains responsible for providing required notices and obtaining any consents under Nigerian law for workforce and payroll data it submits.
 
-
 **Customer Instructions**
 
 Provider will Process Personal Data only in accordance with Customer's documented instructions to Provider, including as set out in this DPA, the Agreement, any applicable order form(s), and any other written instructions provided by Customer from time to time that are consistent with the Agreement and this DPA. To the extent Customer requests instructions that are outside the scope of the Services or that would require Provider to materially change the Services or undertake additional work not contemplated by the Agreement, the Parties will agree to such instructions in a mutually executed amendment to this DPA or other written agreement. By entering into this DPA, Customer instructs Provider to Process Personal Data to provide the Services and to perform its other obligations and exercise its rights under the Agreement. The parties agree that the details of Provider's Processing of Personal Data (including the respective roles of the Parties relating to such Processing) are as described in Annex 1 (Data Processing Details) to the DPA.
 
 **Security**
 
-Provider Security Measures. Provider will implement and maintain technical and organizational measures designed to protect Personal Data against accidental or unlawful destruction, loss, alteration, unauthorized disclosure of, or access to, Personal Data as described in Annex 4 (the "Security Measures"), taking into account the state of the art, the costs of implementation, and the nature, scope, context and purposes of Processing and the risks to Data Subjects.  Provider may update the Security Measures from time to time, including to maintain or improve security or address changes in Applicable Data Protection Laws, so long as the updated measures do not materially decrease the overall protection of Personal Data.
+Provider Security Measures. Provider will implement and maintain technical and organizational measures designed to protect Personal Data against accidental or unlawful destruction, loss, alteration, unauthorized disclosure of, or access to, Personal Data as described in Annex 4 (the "Security Measures"), taking into account the state of the art, the costs of implementation, and the nature, scope, context and purposes of Processing and the risks to Data Subjects. Provider may update the Security Measures from time to time, including to maintain or improve security or address changes in Applicable Data Protection Laws, so long as the updated measures do not materially decrease the overall protection of Personal Data.
 
 Security Compliance by Provider Staff. Provider will require that its personnel who are authorized to access Personal Data are subject to appropriate confidentiality obligations.
 
@@ -79,13 +78,13 @@ Customer's Security Assessment. Customer acknowledges that it has evaluated the 
 
 **Data Subject Rights**
 
-Data Subject Request Assistance. Provider will (taking into account the nature of the Processing of Personal Data) provide Customer with assistance reasonably necessary and technically feasible for Customer to perform its obligations under Applicable Data Protection Laws to fulfill requests by Data Subjects to exercise their rights under Applicable Data Protection Laws ("Data Subject Requests") with respect to Personal Data in Provider's possession or control.  Customer will compensate Provider for any such assistance, to the extent such assistance requires work beyond the Services, at Provider's then-current professional services rates, which shall be made available to Customer upon request, and Provider will, upon request, provide Customer with a good-faith estimate of applicable fees.
+Data Subject Request Assistance. Provider will (taking into account the nature of the Processing of Personal Data) provide Customer with assistance reasonably necessary and technically feasible for Customer to perform its obligations under Applicable Data Protection Laws to fulfill requests by Data Subjects to exercise their rights under Applicable Data Protection Laws ("Data Subject Requests") with respect to Personal Data in Provider's possession or control. Customer will compensate Provider for any such assistance, to the extent such assistance requires work beyond the Services, at Provider's then-current professional services rates, which shall be made available to Customer upon request, and Provider will, upon request, provide Customer with a good-faith estimate of applicable fees.
 
 Customer's Responsibility for Requests. If Provider receives a Data Subject Request, Provider will (i) promptly notify Customer (unless prohibited by applicable law); and (ii) advise the Data Subject to submit the request to Customer. Customer will be solely responsible for responding to any such request, unless otherwise required by applicable law.
 
 **Customer Responsibilities**
 
-(a)	Customer will ensure (and is solely responsible for ensuring) that it has provided all notices to, and obtained all consents and permissions from, third parties (including, without limitation, Data Subjects), and has reserved all necessary rights, in each case, as may be required under Applicable Data Protection Laws for Provider to Process Personal Data as contemplated by the Agreement.
+(a) Customer will ensure (and is solely responsible for ensuring) that it has provided all notices to, and obtained all consents and permissions from, third parties (including, without limitation, Data Subjects), and has reserved all necessary rights, in each case, as may be required under Applicable Data Protection Laws for Provider to Process Personal Data as contemplated by the Agreement.
 
 Customer represents and warrants to Provider that Customer Data does not and will not contain any social security numbers or other government-issued identification numbers, protected health information subject to the Health Insurance Portability and Accountability Act (HIPAA) or other information regarding an individual's medical history, mental or physical condition, or medical treatment or diagnosis by a health care professional; health insurance information; biometric information; passwords or other credentials for third-party online accounts (other than credentials created for and used solely to access the Services); credentials to any financial accounts; tax return data; any payment card information subject to the Payment Card Industry Data Security Standard; personal data of children under 16 years of age; or any other information that falls within any special categories of data (as defined in Applicable Data Protection Laws) ("**Restricted Data**").
 
@@ -105,7 +104,7 @@ Opportunity to Object to Subprocessor Changes. When Provider engages any new Sub
 
 **Audits**
 
-Reviews and Audits of Compliance. Customer may audit Provider's compliance with its obligations under this DPA up to once per year and on such other occasions as may be required by Applicable Data Protection Laws solely to the extent Customer is legally required to conduct such additional audit or a competent Supervisory Authority with jurisdiction over Customer requires it, in each case upon Customer's written request providing reasonable detail and, where available, supporting documentation of the applicable requirement. Provider will contribute to such audits by providing Customer with the information and assistance reasonably necessary to conduct the audit.  If a third party is to conduct the audit, Provider may object to the auditor if the auditor is, in Provider's reasonable opinion, not independent, a competitor of Provider, or otherwise manifestly unsuitable.  Such objection by Provider will require Customer to appoint another auditor or conduct the audit itself.  To request an audit, Customer must submit a proposed audit plan to Provider at least two weeks in advance of the proposed audit date and any third-party auditor must sign a customary non-disclosure agreement mutually acceptable to the Parties (such acceptance not to be unreasonably withheld) providing for the confidential treatment of all information exchanged in connection with the audit and any reports regarding the results or findings thereof. The proposed audit plan must describe the proposed scope, duration, and start date of the audit. Provider will review the proposed audit plan and provide Customer with any concerns or questions (for example, any request for information that could compromise Provider security, privacy, employment or other relevant policies). Provider will work cooperatively with Customer to agree on a final audit plan.  Nothing in this Section 8 shall require Provider to breach any duties of confidentiality.  If the controls or measures to be assessed in the requested audit are addressed in an SOC 2 Type 2, ISO, NIST or similar audit report performed by a qualified third-party auditor within 12 months of Customer's audit request and Provider has confirmed there have been no known material changes in the controls audited since the date of such report, Customer agrees to accept such report in lieu of requesting an audit of such controls or measures.  The audit must be conducted during regular business hours, subject to the agreed final audit plan and Provider's safety, security or other relevant policies, and may not unreasonably interfere with Provider business activities.  Customer will promptly notify Provider of any non-compliance discovered during the course of an audit and provide Provider any audit reports generated in connection with any audit under this Section 8, unless prohibited by Applicable Data Protection Laws. Customer may use the audit reports only for the purposes of meeting Customer's regulatory audit requirements and/or confirming compliance with the requirements of this DPA.  Any audits are at Customer's sole expense. Customer shall reimburse Provider for any reasonable, documented costs (including reasonable internal time expended by Provider and any third parties in connection with any audits or inspections under this Section 8 at Provider's then-current professional services rates, which shall be made available to Customer upon request). Customer will be responsible for any fees charged by any auditor appointed by Customer to execute any such audit.
+Reviews and Audits of Compliance. Customer may audit Provider's compliance with its obligations under this DPA up to once per year and on such other occasions as may be required by Applicable Data Protection Laws solely to the extent Customer is legally required to conduct such additional audit or a competent Supervisory Authority with jurisdiction over Customer requires it, in each case upon Customer's written request providing reasonable detail and, where available, supporting documentation of the applicable requirement. Provider will contribute to such audits by providing Customer with the information and assistance reasonably necessary to conduct the audit. If a third party is to conduct the audit, Provider may object to the auditor if the auditor is, in Provider's reasonable opinion, not independent, a competitor of Provider, or otherwise manifestly unsuitable. Such objection by Provider will require Customer to appoint another auditor or conduct the audit itself. To request an audit, Customer must submit a proposed audit plan to Provider at least two weeks in advance of the proposed audit date and any third-party auditor must sign a customary non-disclosure agreement mutually acceptable to the Parties (such acceptance not to be unreasonably withheld) providing for the confidential treatment of all information exchanged in connection with the audit and any reports regarding the results or findings thereof. The proposed audit plan must describe the proposed scope, duration, and start date of the audit. Provider will review the proposed audit plan and provide Customer with any concerns or questions (for example, any request for information that could compromise Provider security, privacy, employment or other relevant policies). Provider will work cooperatively with Customer to agree on a final audit plan. Nothing in this Section 8 shall require Provider to breach any duties of confidentiality. If the controls or measures to be assessed in the requested audit are addressed in an SOC 2 Type 2, ISO, NIST or similar audit report performed by a qualified third-party auditor within 12 months of Customer's audit request and Provider has confirmed there have been no known material changes in the controls audited since the date of such report, Customer agrees to accept such report in lieu of requesting an audit of such controls or measures. The audit must be conducted during regular business hours, subject to the agreed final audit plan and Provider's safety, security or other relevant policies, and may not unreasonably interfere with Provider business activities. Customer will promptly notify Provider of any non-compliance discovered during the course of an audit and provide Provider any audit reports generated in connection with any audit under this Section 8, unless prohibited by Applicable Data Protection Laws. Customer may use the audit reports only for the purposes of meeting Customer's regulatory audit requirements and/or confirming compliance with the requirements of this DPA. Any audits are at Customer's sole expense. Customer shall reimburse Provider for any reasonable, documented costs (including reasonable internal time expended by Provider and any third parties in connection with any audits or inspections under this Section 8 at Provider's then-current professional services rates, which shall be made available to Customer upon request). Customer will be responsible for any fees charged by any auditor appointed by Customer to execute any such audit.
 
 **Return and Deletion**
 
@@ -127,7 +126,7 @@ If the Services involve automated decision-making that produces legal or similar
 
 **Miscellaneous**
 
-Except as expressly modified by the DPA, the terms of the Agreement remain in full force and effect. Notwithstanding anything in the Agreement or any order form entered in connection therewith to the contrary, the Parties acknowledge and agree that Provider's access to Personal Data does not constitute part of the consideration exchanged by the Parties in respect of the Agreement.  Notwithstanding anything to the contrary in the Agreement, any notices required or permitted to be given by Provider to Customer under this DPA may be given (a) in accordance with any notice clause of the Agreement; (b) to Customer's contact details for data protection set out in Annex 1; (c) to Provider's primary points of contact with Customer; or (d) to any email address designated by Customer in writing for the purpose of receiving Services-related communications or alerts. Customer is solely responsible for ensuring that such email addresses are valid.
+Except as expressly modified by the DPA, the terms of the Agreement remain in full force and effect. Notwithstanding anything in the Agreement or any order form entered in connection therewith to the contrary, the Parties acknowledge and agree that Provider's access to Personal Data does not constitute part of the consideration exchanged by the Parties in respect of the Agreement. Notwithstanding anything to the contrary in the Agreement, any notices required or permitted to be given by Provider to Customer under this DPA may be given (a) in accordance with any notice clause of the Agreement; (b) to Customer's contact details for data protection set out in Annex 1; (c) to Provider's primary points of contact with Customer; or (d) to any email address designated by Customer in writing for the purpose of receiving Services-related communications or alerts. Customer is solely responsible for ensuring that such email addresses are valid.
 
 Provider agrees to cooperate in good faith with Customer to consider any amendments that may be reasonably necessary to address compliance with the Applicable Data Protection Laws.
 
@@ -140,10 +139,11 @@ In the event of any conflict or inconsistency between (i) this DPA and the Agree
 By signing below, the parties' duly authorized representatives agree to be legally bound by this Agreement.
 
 ---
+
 **Signature Block**
 
-- [Customer Name]	 By: Name:	 Title:	 Date:
-- Paqad By: Name:	 Title:	 Date:
+- [Customer Name] By: Name: Title: Date:
+- Paqad By: Name: Title: Date:
 
 ---
 
@@ -168,7 +168,7 @@ Data Processing Details**
 
 **Customer's address:** See customer agreement or info@paqadhr.com
 
-**Customer's Contact Details for Data Protection:** [Data Protection Contact] info@paqadhr.com] 
+**Customer's Contact Details for Data Protection:** [Data Protection Contact] info@paqadhr.com]
 
 **Customer Activities:** Customer's activities relevant to this DPA are the use and receipt of the Services under and in accordance with, and for the purposes anticipated and permitted in, the Agreement as part of its ongoing business operations.
 
@@ -219,7 +219,7 @@ Data Processing Details**
 
 **3.RESTRICTED TRANSFERS**
 
-*EU Restricted Transfers*
+_EU Restricted Transfers_
 
 3.1. To the extent that any Processing of Personal Data under this DPA involves an EU Restricted Transfer from Customer to Provider, the Parties shall comply with their respective obligations set out in the SCCs, which are hereby deemed to be:
 
@@ -227,7 +227,7 @@ Data Processing Details**
 
 ‍(b) entered into by the Parties and incorporated by reference into this DPA.
 
-*UK Restricted Transfers*
+_UK Restricted Transfers_
 
 3.2. To the extent that any Processing of Personal Data under this DPA involves a UK Restricted Transfer from Customer to Provider, the Parties shall comply with their respective obligations set out in the SCCs (as varied by the UK Transfer Addendum), which are hereby deemed to be:
 
@@ -235,7 +235,7 @@ Data Processing Details**
 
 ‍(b) entered into by the Parties and incorporated by reference into this DPA.
 
-*Swiss Restricted Transfers*
+_Swiss Restricted Transfers_
 
 3.3. To the extent that any Processing of Personal Data under the DPA involves a Swiss Restricted Transfer from Customer to Provider, the Parties shall comply with their respective obligations set out in the SCCs, which are hereby deemed to be:
 
@@ -245,7 +245,7 @@ Data Processing Details**
 
 (c) Nothing in any applicable SCCs (as deemed amended pursuant to this Paragraph 3.3) should be interpreted or construed in such a way as would limit or exclude the rights of Data Subjects under Clause 18(c) of those SCCs (as deemed amended pursuant to this Paragraph 3.3) to bring legal proceedings before the courts in Switzerland where Switzerland is that Data Subject's place of habitual residence.
 
-*‍Adoption of new transfer mechanism*
+_‍Adoption of new transfer mechanism_
 
 3.4. Provider may, on notice, vary this DPA and replace the relevant SCCs with:
 
@@ -253,11 +253,11 @@ Data Processing Details**
 
 (b) another valid transfer mechanism, other than the SCCs, that Provider reasonably determines is necessary to maintain compliance with Chapter V of the GDPR for the relevant transfer(s) and that does not materially diminish the data protection safeguards for Personal Data under this DPA.
 
-*‍Provision of full-form SCCs*
+_‍Provision of full-form SCCs_
 
 3.5. In respect of any given Restricted Transfer, if requested of Customer by a Supervisory Authority, Data Subject or further Controller (where applicable) - on specific written request (made to the contact details set out in Annex 1 (Data Processing Details); accompanied by suitable supporting evidence of the relevant request), and to the extent required to evidence Customer's compliance with Applicable Data Protection Laws, Provider shall provide Customer within a reasonable time with an executed version of the relevant set(s) of SCCs responsive to the request made of Customer (amended and populated in accordance with Attachment 1 to Annex 2 (European Annex) in respect of the relevant Restricted Transfer) for countersignature by Customer, onward provision to the relevant requestor and/or storage.
 
-*Operational clarifications*
+_Operational clarifications_
 
 3.6. When complying with its transparency obligations under Clause 8.3 of the SCCs, Customer agrees that it shall not provide or otherwise make available, and shall take all appropriate steps to protect, Provider's and its licensors' trade secrets, business secrets, confidential information and/or other commercially sensitive information.
 
@@ -294,9 +294,9 @@ Where the SCCs apply in accordance with Paragraph 3.1 of Annex 2 (European Annex
 
 The following modules of the SCCs apply in the manner set out below (having regard to the role(s) of Customer under the Agreement and as set out in Annex 1 (Data Processing Details) to the DPA):
 
-(a)  Module Two of the SCCs applies to any EU Restricted Transfer and/or Swiss Restricted Transfer involving Processing of Personal Data in respect of which Customer is a Controller in its own right; and/or
+(a) Module Two of the SCCs applies to any EU Restricted Transfer and/or Swiss Restricted Transfer involving Processing of Personal Data in respect of which Customer is a Controller in its own right; and/or
 
-(b)  Module Three of the SCCs applies to any EU Restricted Transfer, UK Restricted Transfer and/or Swiss Restricted Transfer involving Processing of Personal Data in respect of which Customer is itself acting as a Processor on behalf of any other person.
+(b) Module Three of the SCCs applies to any EU Restricted Transfer, UK Restricted Transfer and/or Swiss Restricted Transfer involving Processing of Personal Data in respect of which Customer is itself acting as a Processor on behalf of any other person.
 
 3. POPULATION OF THE BODY OF THE SCCs
 
@@ -326,11 +326,11 @@ ii. OPTION 2 is not used and that optional language is deleted.
 
 4. POPULATION OF ANNEXES TO THE APPENDIX TO THE SCCs
 
-4.1.  Annex I to the Appendix to the SCCs is populated with the corresponding information detailed in Annex 1 (Data Processing Details) to the DPA, with:
+4.1. Annex I to the Appendix to the SCCs is populated with the corresponding information detailed in Annex 1 (Data Processing Details) to the DPA, with:
 
 (a) Customer being 'data exporter'; and
 
-(b)  Provider being 'data importer'.
+(b) Provider being 'data importer'.
 
 4.2. Part C of Annex I to the Appendix to the SCCs is populated as below:
 
@@ -414,7 +414,7 @@ Data security controls which include, at a minimum, logical segregation of data,
 
 Logical access controls designed to manage electronic access to data and system functionality based on authority levels and job functions (e.g., granting access on a need-to-know and least-privilege basis, use of unique user IDs and appropriate authentication credentials for all users, and periodic review and revoking/changing access promptly when employment terminates or changes in job functions occur).
 
-Password controls designed to manage and control password strength, expiration and usage including prohibiting users from sharing passwords and requiring that the Provider maintain password controls for its employees that are consistent with generally accepted industry standards and appropriate to the risk, including:  (i) minimum password length and/or use of multi-factor authentication as appropriate; (ii) not being stored in readable format on the Provider's computer systems (e.g., stored using industry-standard hashing and salting); (iii) appropriate complexity or other compensating controls; (iv) having a history threshold to prevent reuse of recent passwords; and (v) newly issued or reset passwords being changed after first use.
+Password controls designed to manage and control password strength, expiration and usage including prohibiting users from sharing passwords and requiring that the Provider maintain password controls for its employees that are consistent with generally accepted industry standards and appropriate to the risk, including: (i) minimum password length and/or use of multi-factor authentication as appropriate; (ii) not being stored in readable format on the Provider's computer systems (e.g., stored using industry-standard hashing and salting); (iii) appropriate complexity or other compensating controls; (iv) having a history threshold to prevent reuse of recent passwords; and (v) newly issued or reset passwords being changed after first use.
 
 System audit or event logging and related monitoring procedures to proactively record user access and system activity.
 
@@ -437,22 +437,22 @@ List of Subprocessors**
 
 Oktopals Limited (Paqad) may use the following categories of subprocessors. The specific providers depend on region and enabled features:
 
-| Subprocessor / category | Purpose | Typical location |
-| --- | --- | --- |
-| Cloud hosting and object storage (including Cloudflare R2 where used) | Host application, files, and static assets | Global edge / configured regions |
-| Managed PostgreSQL hosting | Primary application database | Configured region |
-| Google (OAuth / Google sign-in; Google Calendar where enabled) | Authentication and calendar integrations | Global |
-| PostHog | Product analytics | EU or US (per PostHog project config) |
-| Sentry | Error monitoring | Per Sentry org config |
-| Bachs | Card checkout, wallet/float top-ups, and certain payouts | Per Bachs |
-| Nomba | Nigeria payments / payouts (when configured) | Nigeria |
-| Monnify | Nigeria payments / payouts (when configured) | Nigeria |
-| Fincra | Payments / payouts (when configured) | Per Fincra |
-| Noah | International / crypto payroll rails (when configured) | Per Noah |
-| Transactional email provider | Service and security emails | Per provider |
+| Subprocessor / category                                               | Purpose                                                  | Typical location                      |
+| --------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------- |
+| Cloud hosting and object storage (including Cloudflare R2 where used) | Host application, files, and static assets               | Global edge / configured regions      |
+| Managed PostgreSQL hosting                                            | Primary application database                             | Configured region                     |
+| Google (OAuth / Google sign-in; Google Calendar where enabled)        | Authentication and calendar integrations                 | Global                                |
+| PostHog                                                               | Product analytics                                        | EU or US (per PostHog project config) |
+| Sentry                                                                | Error monitoring                                         | Per Sentry org config                 |
+| Bachs                                                                 | Card checkout, wallet/float top-ups, and certain payouts | Per Bachs                             |
+| Nomba                                                                 | Nigeria payments / payouts (when configured)             | Nigeria                               |
+| Monnify                                                               | Nigeria payments / payouts (when configured)             | Nigeria                               |
+| Fincra                                                                | Payments / payouts (when configured)                     | Per Fincra                            |
+| Noah                                                                  | International / crypto payroll rails (when configured)   | Per Noah                              |
+| Transactional email provider                                          | Service and security emails                              | Per provider                          |
 
 Customers may request an updated subprocessor list at info@paqadhr.com. Oktopals Limited will notify customers of material subprocessor changes as required by this DPA.
 
 ---
 
-*Based on attorney-drafted templates from [General Legal](https://github.com/General-Legal/legal-templates) (CC0). Customize and have counsel review before relying on these terms—especially for Nigeria NDPR and payroll.*
+_Based on attorney-drafted templates from [General Legal](https://github.com/General-Legal/legal-templates) (CC0). Customize and have counsel review before relying on these terms—especially for Nigeria NDPR and payroll._

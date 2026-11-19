@@ -4,6 +4,7 @@ import { Search, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
@@ -17,6 +18,7 @@ import {
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import type { CandidateStatus } from '@/lib/schemas/recruitment';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
+
 import { isDisqualified } from './board/board-columns';
 import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { RecruitmentCandidateList } from './board/recruitment-candidate-list';

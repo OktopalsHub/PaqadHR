@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { getBreadcrumbs } from './breadcrumbs.ts';
 
 test('settings routes append the active tab label to the breadcrumb trail', () => {

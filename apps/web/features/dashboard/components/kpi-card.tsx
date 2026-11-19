@@ -1,4 +1,5 @@
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
+
 import { Card, CardContent } from '@/components/ui/card';
 
 interface KPICardProps {

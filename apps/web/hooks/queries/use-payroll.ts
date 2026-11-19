@@ -1,13 +1,11 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import {
   approvePayrollRun,
-  approveRetryFunding,
   calculatePayrollRun,
-  cancelRetryFunding,
   createPayrollRun,
-  createRetryFundingCheckout,
   deletePayrollRun,
   disbursePayrollRun,
   downloadPayrollBankFile,
@@ -23,10 +21,8 @@ import {
   notifyEmployeePaymentSetup,
   notifyMemberPaymentSetup,
   payNowPayroll,
-  previewRetryFunding,
   processPayrollRun,
   publishPayslips,
-  reconcileRetryFunding,
   removePayrollItem,
   reopenPayrollRun,
   retryFailedPayrollPayments,
@@ -44,7 +40,7 @@ import type {
 import { useTenant } from '@/providers/tenant-provider';
 
 /**
- * Poll while any run still has items in flight. Bachs payouts settle on `payout.paid`
+ * Poll while any run still has items in flight. Bridge payouts settle on signed transfer
  * webhooks, and focus-refresh is disabled here, so without polling a failure would not
  * surface until the user reloaded — leaving "Payment in progress" spinning forever.
  */
@@ -227,36 +223,6 @@ export function usePayrollActions() {
     retryFailed: useMutation({
       mutationFn: ({ id, itemIds }: { id: string; itemIds?: string[] }) =>
         retryFailedPayrollPayments(id, itemIds),
-      onSuccess: invalidate,
-    }),
-    previewRetryFunding: useMutation({
-      mutationFn: ({ id, itemIds }: { id: string; itemIds: string[] }) =>
-        previewRetryFunding(id, itemIds),
-    }),
-    approveRetryFunding: useMutation({
-      mutationFn: ({
-        id,
-        itemIds,
-        expectedAmount,
-        currency,
-      }: {
-        id: string;
-        itemIds: string[];
-        expectedAmount: number;
-        currency: string;
-      }) => approveRetryFunding(id, itemIds, expectedAmount, currency),
-      onSuccess: invalidate,
-    }),
-    createRetryFundingCheckout: useMutation({
-      mutationFn: (id: string) => createRetryFundingCheckout(id),
-      onSuccess: invalidate,
-    }),
-    reconcileRetryFunding: useMutation({
-      mutationFn: (id: string) => reconcileRetryFunding(id),
-      onSuccess: invalidate,
-    }),
-    cancelRetryFunding: useMutation({
-      mutationFn: (id: string) => cancelRetryFunding(id),
       onSuccess: invalidate,
     }),
     schedule: useMutation({

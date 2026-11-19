@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+
 import { ContentCard } from '@/components/content-card';
 import { PersonAvatar } from '@/components/person-avatar';
 import {
@@ -16,6 +17,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { formatDate } from '@/lib/format-date';
+
 import {
   type ApplicantRow,
   filterApplicantsByTab,

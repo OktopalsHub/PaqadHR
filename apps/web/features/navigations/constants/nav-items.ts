@@ -11,6 +11,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react';
+
 import { tenantPath, tenantRoot } from '@/lib/navigation/tenant-routes';
 
 export type NavItem = {

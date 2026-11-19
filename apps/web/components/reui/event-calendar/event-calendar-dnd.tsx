@@ -2,6 +2,7 @@
 
 import { addDays, addMinutes, differenceInCalendarDays } from 'date-fns';
 import { useCallback, useMemo } from 'react';
+
 import {
   type EventCalendarInstance,
   useEventCalendar,

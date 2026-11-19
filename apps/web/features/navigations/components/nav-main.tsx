@@ -2,12 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+
 import {
   SidebarGroup,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+
 import type { NavItem } from '../constants/nav-items';
 import { useSidebarNavigationPrefetch } from '../hooks/use-sidebar-navigation-prefetch';
 

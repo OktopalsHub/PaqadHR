@@ -1,4 +1,5 @@
 import Link from 'next/link';
+
 import { PaqadLogo } from '@/components/paqad-logo';
 import { COMPANY } from '@/lib/constants/company';
 

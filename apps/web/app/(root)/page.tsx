@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import { LandingJsonLd } from '@/features/home/components/landing-json-ld';
 import { LandingPage } from '@/features/home/components/landing-page';
 

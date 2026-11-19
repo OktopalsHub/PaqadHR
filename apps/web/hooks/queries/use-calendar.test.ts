@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { getCalendarEventsQueryEnabled } from './calendar-query-enabled.ts';
 
 test('calendar query respects an explicit disabled option', () => {

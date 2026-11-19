@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import {
   getTenantSlugFromHost,
@@ -12,6 +13,7 @@ import {
   rewriteLegacyAppPath,
   tenantUrl,
 } from '@/lib/navigation/tenant-routes';
+
 import { buildContentSecurityPolicy } from './lib/security/content-security-policy';
 import { CSP_NONCE_HEADER } from './lib/security/csp-nonce';
 

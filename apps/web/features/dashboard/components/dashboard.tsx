@@ -3,6 +3,7 @@
 import { Briefcase, Building2, CalendarClock, RefreshCw, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
+
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

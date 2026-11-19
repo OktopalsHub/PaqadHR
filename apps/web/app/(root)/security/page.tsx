@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+
 import { JsonLd } from '@/components/json-ld';
 import { MarketingShell } from '@/components/marketing-shell';
 import { AnswerBlock, CtaRow, FaqList, PageSection, UpdatedNote } from '@/components/marketing-ui';
@@ -78,7 +79,7 @@ const controls = [
   },
   {
     title: 'Payment and payout integrity',
-    body: 'Payout webhooks require a valid provider signature. Payouts carry idempotency keys so a retry cannot pay twice, and a retry is blocked unless run-scoped funding has been verified server-to-server with the provider.',
+    body: 'Payout webhooks require a valid provider signature, and each attempt has its own idempotency key and durable status. Bridge bank retries continue from the employee wallet when the organization-to-wallet transfer already settled. Nomba retries require provider confirmation that the previous transfer failed.',
   },
   {
     title: 'Audit logging',

@@ -2,6 +2,7 @@
 
 import { Building2, CreditCard, LogOut, User } from 'lucide-react';
 import Link from 'next/link';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ import { memberFullName, useMemberProfile } from '@/hooks/queries/use-member-pro
 import { useAuth } from '@/hooks/use-auth';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { ThemeMenuRow } from './theme-switcher';
 
 export const AccountSetting = ({ logout }: { logout: () => void }) => {

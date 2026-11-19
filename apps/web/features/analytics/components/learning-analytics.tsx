@@ -1,4 +1,5 @@
 import { Award, Clock, Target, Users } from 'lucide-react';
+
 import { ContentCard } from '@/components/content-card';
 import { StatCard } from '@/components/stat-card';
 import { Badge } from '@/components/ui/badge';

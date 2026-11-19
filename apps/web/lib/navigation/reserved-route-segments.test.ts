@@ -3,6 +3,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+
 import { RESERVED_ROUTE_SEGMENTS } from '../constants/reserved-tenant-slugs.ts';
 import { getTenantSlugFromPath } from './tenant-routes.ts';
 

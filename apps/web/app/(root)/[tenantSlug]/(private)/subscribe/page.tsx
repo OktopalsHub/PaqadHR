@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+
 import { subscribePagePath } from '@/lib/navigation/tenant-routes';
 
 type TenantSubscribeRedirectProps = {

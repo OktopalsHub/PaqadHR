@@ -4,6 +4,7 @@ import { Loader2, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { PersonAvatar } from '@/components/person-avatar';
@@ -44,6 +45,7 @@ import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { numberToWords } from '@/lib/number-to-words';
 import { resolvePrimaryPayrollCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
+
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
 

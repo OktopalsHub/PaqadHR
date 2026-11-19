@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { resolveWorkerConfig } from './cf-config.mjs';
 import { loadLocalEnv } from './load-local-env.mjs';
 

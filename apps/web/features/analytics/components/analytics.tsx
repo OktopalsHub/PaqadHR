@@ -1,6 +1,7 @@
 'use client';
 
 import { Briefcase, CalendarClock, Heart, Target, TrendingUp, Users, Wallet } from 'lucide-react';
+
 import { AppPage } from '@/components/app-page';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,6 +13,7 @@ import {
 import { useAnalyticsOverview } from '@/hooks/queries/use-analytics';
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatPaqPoints } from '@/lib/constants/paq-points';
+
 import { AnalyticsCharts } from './analytics-charts';
 
 function formatCurrency(amount: number | null, currency: string | null) {

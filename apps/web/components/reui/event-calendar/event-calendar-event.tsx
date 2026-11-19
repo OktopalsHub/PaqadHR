@@ -5,6 +5,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { addDays, format } from 'date-fns';
 import { RepeatIcon } from 'lucide-react';
 import { type CSSProperties, createContext, type ReactNode, useContext, useMemo } from 'react';
+
 import {
   useEventCalendar,
   useEventCalendarSelector,
@@ -100,8 +101,10 @@ function useEventCalendarEventChip<TData = unknown>(): EventCalendarChipContextV
   return ctx as EventCalendarChipContextValue<TData>;
 }
 
-interface EventCalendarEventProps<TData = unknown>
-  extends Omit<useRender.ComponentProps<'button'>, 'children'> {
+interface EventCalendarEventProps<TData = unknown> extends Omit<
+  useRender.ComponentProps<'button'>,
+  'children'
+> {
   segment: EventCalendarSegment<TData>;
   /** Replaces the default chip CONTENT; the wrapper stays calendar-owned. */
   children?: ReactNode;

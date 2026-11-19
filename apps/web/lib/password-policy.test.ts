@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { isStrongPassword } from './password-policy';
 
 test('accepts only passwords that meet every requirement', () => {

@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+
 import type { DemoNavId } from '../../constants/landing-demo-data';
 import { demoNavOrder } from '../../constants/landing-demo-data';
 import { DemoSidebar } from './demo-sidebar';

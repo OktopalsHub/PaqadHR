@@ -2,6 +2,7 @@
 
 import { MoreHorizontal, Settings, Target, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
+
 import { ContentCard } from '@/components/content-card';
 import { PersonAvatar } from '@/components/person-avatar';
 import { Badge } from '@/components/ui/badge';

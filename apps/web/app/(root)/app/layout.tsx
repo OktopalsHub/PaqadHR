@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { AppProviders } from '@/providers/app-providers';
 
 /** Legacy `/app/*` redirector, which needs session and tenant state. */

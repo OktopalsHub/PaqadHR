@@ -29,6 +29,7 @@ import {
 import Image from 'next/image';
 import { type ComponentType, useState } from 'react';
 import { toast } from 'sonner';
+
 import { SlackIcon } from '@/components/icons/slack-icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

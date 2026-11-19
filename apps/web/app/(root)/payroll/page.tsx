@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import { JsonLd } from '@/components/json-ld';
 import { MarketingShell } from '@/components/marketing-shell';
 import { AnswerBlock, CtaRow, FaqList, PageSection, UpdatedNote } from '@/components/marketing-ui';
@@ -54,7 +55,7 @@ const faqs = [
   {
     question: 'What happens if one employee’s payout fails?',
     answer:
-      'The run records which payouts succeeded and which failed. You can retry only the failed payouts, and a Bachs-funded retry requires run-scoped funding — verified server-to-server against the provider — before it can be submitted, so a failed payout cannot be paid twice.',
+      'The run records each payout separately, so you can retry only failed payments. Bridge retries use the organization wallet and continue a bank payout from the employee wallet if the first transfer already completed. Nomba retries wait for Nomba to confirm the earlier transfer failed before submitting another attempt.',
   },
 ];
 

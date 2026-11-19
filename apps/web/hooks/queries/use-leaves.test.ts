@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { queryKeys } from '@/lib/query/keys';
+
 import { invalidateLeaveMutationQueries } from './leave-mutation-invalidation.ts';
 
 test('leave mutations invalidate leave data, balances, and calendar events', async () => {

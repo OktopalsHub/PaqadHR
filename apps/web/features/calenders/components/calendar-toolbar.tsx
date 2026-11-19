@@ -1,4 +1,5 @@
 import { Filter, Plus } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -8,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { CalendarEventType } from '@/lib/schemas/calendar';
+
 import { EVENT_COLORS } from '../lib/calendar-utils';
 
 const FILTER_TYPES: { key: CalendarEventType; label: string }[] = [

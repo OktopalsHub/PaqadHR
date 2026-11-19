@@ -1,4 +1,5 @@
 import { Star } from 'lucide-react';
+
 import { testimonials } from '../../constants';
 
 export const LandingTestimonials = () => {

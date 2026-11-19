@@ -6,6 +6,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
+
 import type { CalendarEvent, CalendarEventType } from '@/lib/schemas/calendar';
 
 export const EVENT_COLORS: Record<CalendarEventType, string> = {

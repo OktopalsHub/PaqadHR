@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { shouldHardRedirectOnRefreshExpiry } from '../api/auth-refresh.ts';
 import { isPublicAuthOrMarketingPath, skipsSessionBootstrap } from './public-routes.ts';
 

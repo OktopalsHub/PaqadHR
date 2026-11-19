@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { UserRoundCheck, UserRoundX } from 'lucide-react';
+
 import type { TenantActivity } from '../../../lib/api/activities.ts';
 import {
   formatActivityChangePreview,

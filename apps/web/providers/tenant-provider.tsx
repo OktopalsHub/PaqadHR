@@ -10,6 +10,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+
 import { useUserTenants } from '@/hooks/queries/use-tenants';
 import {
   getTenantSlugFromHost,

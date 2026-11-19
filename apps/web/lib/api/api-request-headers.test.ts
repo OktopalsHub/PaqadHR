@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { prepareApiRequestHeaders } from './api-request-headers.ts';
 
 test('defaults string request bodies to application/json when content type is missing', () => {

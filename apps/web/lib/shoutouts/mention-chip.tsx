@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 
 const mentionClassName = 'font-medium text-sky-600 hover:underline dark:text-sky-400';

@@ -3,6 +3,7 @@
 import { LoaderCircle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { memo, useEffect } from 'react';
+
 import { subscribePagePath } from '@/lib/navigation/tenant-routes';
 import { useAuth } from '@/providers/auth-provider';
 import { useTenant } from '@/providers/tenant-provider';

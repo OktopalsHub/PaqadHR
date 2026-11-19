@@ -9,6 +9,7 @@ import {
   AppTableHeaderSection,
   AppTablePanel,
 } from '@/components/ui/app-table';
+
 import type { CandidateStatus } from './board-columns';
 import type { BoardCandidate } from './recruitment-kanban-board';
 

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { companySameAs } from '@/lib/constants/company';
 import { LANDING_PRICING_BY_CURRENCY } from '@/lib/constants/plan-catalog';
+
 import { faqPageSchema, organizationSchema, planOffers, webPageSchema } from './site-schema';
 
 test('plan offers publish real prices in both currencies', () => {

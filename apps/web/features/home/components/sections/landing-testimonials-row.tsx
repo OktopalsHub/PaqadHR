@@ -3,6 +3,7 @@
 import { motion, useInView, useReducedMotion } from 'framer-motion';
 import { Star } from 'lucide-react';
 import { useRef } from 'react';
+
 import { fadeUp, stagger } from '../../constants/landing-motion';
 import { testimonials } from '../../constants/testimonals';
 

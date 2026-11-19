@@ -3,6 +3,7 @@
 import { Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +18,7 @@ import {
 import { SettingsSidebarNav } from '@/features/settings/components/settings-sidebar-nav';
 import { shouldUseSettingsSidebar } from '@/features/settings/lib/settings-tabs';
 import { useTenantHref, useTenantNavItems } from '@/hooks/use-tenant-nav-items';
+
 import { NavMain } from './nav-main';
 import { WorkspaceSwitcher } from './workspace-switcher';
 

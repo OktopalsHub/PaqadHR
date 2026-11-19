@@ -1,4 +1,5 @@
 import { getCorrelationId, getCorrelationIdHeaderName } from '@/lib/observability/correlation-id';
+
 import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
 export type FetchWithCsrfOptions = RequestInit & {

@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+
 import { useBrandMode } from '@/hooks/use-brand-mode';
 import { brandAssetUrl } from '@/lib/brand';
 import { cn } from '@/lib/utils';

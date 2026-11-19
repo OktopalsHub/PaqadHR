@@ -2,6 +2,7 @@
 
 import { Building2, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { useDepartments } from '@/hooks/queries/use-departments';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { CreateDepartmentDialog } from './create-department-dialog';
 import { DepartmentCard } from './department-card';
 

@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
+
 import { captureAttribution } from '@/lib/observability/attribution';
 import { resetCorrelationId } from '@/lib/observability/correlation-id';
 import {

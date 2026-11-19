@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
+
 import type { CreateTenantInput, UpdateTenantInput } from '@/lib/api/tenants';
 import {
   createTenant,

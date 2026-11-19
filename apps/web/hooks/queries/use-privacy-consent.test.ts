@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { QueryClient } from '@tanstack/react-query';
+
 import type { PrivacyConsentStatus } from '@/lib/api/privacy';
 import { queryKeys } from '@/lib/query/keys';
+
 import { applyAcceptedPrivacyConsentCache } from './use-privacy-consent.ts';
 
 test('privacy consent cache keys are scoped per user', () => {

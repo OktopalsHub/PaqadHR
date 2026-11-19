@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import type { SearchableRecruitmentJob } from './filter-recruitment-jobs.ts';
 import { filterRecruitmentJobs } from './filter-recruitment-jobs.ts';
 

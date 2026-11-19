@@ -3,6 +3,7 @@
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 import { useRecruitmentOverview } from '../hooks/use-recruitment-overview';
 import { RecruitmentApplicantsTable } from './dashboard/recruitment-applicants-table';
 import { RecruitmentApplicationsChart } from './dashboard/recruitment-applications-chart';

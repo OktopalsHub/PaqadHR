@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -74,8 +74,8 @@
 
 /* ─── Paqadhr Design System v1.0 — light ─── */
 :root {
-  --font-inter: "Inter", sans-serif;
-  --font-montserrat: "Montserrat", sans-serif;
+  --font-inter: 'Inter', sans-serif;
+  --font-montserrat: 'Montserrat', sans-serif;
   --radius-xs: 0.25rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -384,19 +384,19 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
   button:not(:disabled),
-  [type="button"]:not(:disabled),
-  [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [role="tab"]:not(:disabled):not([data-disabled]),
-  [role="switch"]:not(:disabled),
-  [role="checkbox"]:not(:disabled),
-  [role="radio"]:not(:disabled),
-  [role="combobox"]:not(:disabled),
-  [role="menuitem"]:not([data-disabled]),
-  [role="menuitemcheckbox"]:not([data-disabled]),
-  [role="menuitemradio"]:not([data-disabled]),
-  [role="option"]:not([data-disabled]),
+  [type='button']:not(:disabled),
+  [type='submit']:not(:disabled),
+  [type='reset']:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not(:disabled):not([data-disabled]),
+  [role='switch']:not(:disabled),
+  [role='checkbox']:not(:disabled),
+  [role='radio']:not(:disabled),
+  [role='combobox']:not(:disabled),
+  [role='menuitem']:not([data-disabled]),
+  [role='menuitemcheckbox']:not([data-disabled]),
+  [role='menuitemradio']:not([data-disabled]),
+  [role='option']:not([data-disabled]),
   a[href],
   label[for],
   summary {
@@ -406,7 +406,7 @@
   input:disabled,
   select:disabled,
   textarea:disabled,
-  [aria-disabled="true"] {
+  [aria-disabled='true'] {
     cursor: not-allowed;
   }
 }
@@ -448,7 +448,7 @@
   .culture-message {
     @apply border border-border/50 bg-muted/35 text-foreground;
     font-family:
-      "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+      'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
     font-size: 1rem;
     line-height: 1.6;
   }
@@ -512,14 +512,14 @@
   .dark .text-neutral-950,
   .dark .text-neutral-900,
   .dark .text-neutral-800,
-  .dark [class*="dark:text-slate-100"],
-  .dark [class*="dark:text-slate-200"],
-  .dark [class*="dark:text-zinc-100"],
-  .dark [class*="dark:text-zinc-200"],
-  .dark [class*="dark:text-stone-100"],
-  .dark [class*="dark:text-stone-200"],
-  .dark [class*="dark:text-neutral-100"],
-  .dark [class*="dark:text-neutral-200"] {
+  .dark [class*='dark:text-slate-100'],
+  .dark [class*='dark:text-slate-200'],
+  .dark [class*='dark:text-zinc-100'],
+  .dark [class*='dark:text-zinc-200'],
+  .dark [class*='dark:text-stone-100'],
+  .dark [class*='dark:text-stone-200'],
+  .dark [class*='dark:text-neutral-100'],
+  .dark [class*='dark:text-neutral-200'] {
     color: #edf7f2;
   }
   .dark .text-slate-700,
@@ -538,18 +538,18 @@
   .dark .text-neutral-600,
   .dark .text-neutral-500,
   .dark .text-neutral-400,
-  .dark [class*="dark:text-slate-300"],
-  .dark [class*="dark:text-slate-400"],
-  .dark [class*="dark:text-slate-500"],
-  .dark [class*="dark:text-zinc-300"],
-  .dark [class*="dark:text-zinc-400"],
-  .dark [class*="dark:text-zinc-500"],
-  .dark [class*="dark:text-stone-300"],
-  .dark [class*="dark:text-stone-400"],
-  .dark [class*="dark:text-stone-500"],
-  .dark [class*="dark:text-neutral-300"],
-  .dark [class*="dark:text-neutral-400"],
-  .dark [class*="dark:text-neutral-500"] {
+  .dark [class*='dark:text-slate-300'],
+  .dark [class*='dark:text-slate-400'],
+  .dark [class*='dark:text-slate-500'],
+  .dark [class*='dark:text-zinc-300'],
+  .dark [class*='dark:text-zinc-400'],
+  .dark [class*='dark:text-zinc-500'],
+  .dark [class*='dark:text-stone-300'],
+  .dark [class*='dark:text-stone-400'],
+  .dark [class*='dark:text-stone-500'],
+  .dark [class*='dark:text-neutral-300'],
+  .dark [class*='dark:text-neutral-400'],
+  .dark [class*='dark:text-neutral-500'] {
     color: #9eb7ad;
   }
   .dark .bg-white,
@@ -573,48 +573,48 @@
   .dark .border-neutral-200 {
     border-color: #214136;
   }
-  .dark [class*="dark:bg-slate-950"],
-  .dark [class*="dark:bg-zinc-950"],
-  .dark [class*="dark:bg-stone-950"],
-  .dark [class*="dark:bg-neutral-950"] {
+  .dark [class*='dark:bg-slate-950'],
+  .dark [class*='dark:bg-zinc-950'],
+  .dark [class*='dark:bg-stone-950'],
+  .dark [class*='dark:bg-neutral-950'] {
     background-color: rgba(11, 23, 19, 0.88);
   }
-  .dark [class*="dark:bg-slate-900"],
-  .dark [class*="dark:bg-zinc-900"],
-  .dark [class*="dark:bg-stone-900"],
-  .dark [class*="dark:bg-neutral-900"] {
+  .dark [class*='dark:bg-slate-900'],
+  .dark [class*='dark:bg-zinc-900'],
+  .dark [class*='dark:bg-stone-900'],
+  .dark [class*='dark:bg-neutral-900'] {
     background-color: rgba(15, 29, 24, 0.92);
   }
-  .dark [class*="dark:bg-slate-800"],
-  .dark [class*="dark:bg-zinc-800"],
-  .dark [class*="dark:bg-stone-800"],
-  .dark [class*="dark:bg-neutral-800"] {
+  .dark [class*='dark:bg-slate-800'],
+  .dark [class*='dark:bg-zinc-800'],
+  .dark [class*='dark:bg-stone-800'],
+  .dark [class*='dark:bg-neutral-800'] {
     background-color: rgba(22, 43, 35, 0.94);
   }
-  .dark [class*="dark:border-slate-800"],
-  .dark [class*="dark:border-slate-700"],
-  .dark [class*="dark:border-zinc-800"],
-  .dark [class*="dark:border-zinc-700"],
-  .dark [class*="dark:border-stone-800"],
-  .dark [class*="dark:border-stone-700"],
-  .dark [class*="dark:border-neutral-800"],
-  .dark [class*="dark:border-neutral-700"] {
+  .dark [class*='dark:border-slate-800'],
+  .dark [class*='dark:border-slate-700'],
+  .dark [class*='dark:border-zinc-800'],
+  .dark [class*='dark:border-zinc-700'],
+  .dark [class*='dark:border-stone-800'],
+  .dark [class*='dark:border-stone-700'],
+  .dark [class*='dark:border-neutral-800'],
+  .dark [class*='dark:border-neutral-700'] {
     border-color: #214136;
   }
-  .dark [class*="dark:hover:bg-slate-950"]:hover,
-  .dark [class*="dark:hover:bg-zinc-950"]:hover,
-  .dark [class*="dark:hover:bg-stone-950"]:hover,
-  .dark [class*="dark:hover:bg-neutral-950"]:hover {
+  .dark [class*='dark:hover:bg-slate-950']:hover,
+  .dark [class*='dark:hover:bg-zinc-950']:hover,
+  .dark [class*='dark:hover:bg-stone-950']:hover,
+  .dark [class*='dark:hover:bg-neutral-950']:hover {
     background-color: rgba(17, 34, 28, 0.94);
   }
-  .dark [class*="dark:hover:bg-slate-900"]:hover,
-  .dark [class*="dark:hover:bg-zinc-900"]:hover,
-  .dark [class*="dark:hover:bg-stone-900"]:hover,
-  .dark [class*="dark:hover:bg-neutral-900"]:hover,
-  .dark [class*="dark:hover:bg-slate-800"]:hover,
-  .dark [class*="dark:hover:bg-zinc-800"]:hover,
-  .dark [class*="dark:hover:bg-stone-800"]:hover,
-  .dark [class*="dark:hover:bg-neutral-800"]:hover {
+  .dark [class*='dark:hover:bg-slate-900']:hover,
+  .dark [class*='dark:hover:bg-zinc-900']:hover,
+  .dark [class*='dark:hover:bg-stone-900']:hover,
+  .dark [class*='dark:hover:bg-neutral-900']:hover,
+  .dark [class*='dark:hover:bg-slate-800']:hover,
+  .dark [class*='dark:hover:bg-zinc-800']:hover,
+  .dark [class*='dark:hover:bg-stone-800']:hover,
+  .dark [class*='dark:hover:bg-neutral-800']:hover {
     background-color: rgba(24, 47, 38, 0.96);
   }
 }

@@ -5,13 +5,15 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
+
+import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import {
   isAuthRefreshPaused,
   refreshAccessToken,
   startProactiveRefresh,
 } from '@/lib/api/auth-refresh';
-import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import { beginNetworkActivity } from '@/lib/network-activity';
+
 import { prepareApiRequestHeaders } from './api-request-headers';
 import { resolveApiErrorMessage } from './client-error-message';
 import {

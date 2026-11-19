@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Calendar, Gift } from 'lucide-react';
+
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { Badge } from '@/components/ui/badge';

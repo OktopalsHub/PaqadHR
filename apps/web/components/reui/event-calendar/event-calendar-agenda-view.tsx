@@ -5,6 +5,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { addDays, format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { useMemo } from 'react';
+
 import {
   EventCalendarViewContext,
   useEventCalendar,

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+
 import { LoadingSpinner } from '@/components/loading-block';
 import { PageLoadingSkeleton } from '@/components/page-loading-skeleton';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';

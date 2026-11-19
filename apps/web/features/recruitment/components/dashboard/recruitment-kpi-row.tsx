@@ -1,6 +1,8 @@
 import { Briefcase, CheckCircle2, UserCheck, UserX } from 'lucide-react';
+
 import { StatCard } from '@/components/stat-card';
 import { cn } from '@/lib/utils';
+
 import type { RecruitmentKpis } from '../../lib/recruitment-dashboard-metrics';
 
 type RecruitmentKpiRowProps = {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+
 import { fetchPricingPreview } from '@/lib/api/onboarding';
 import { queryKeys } from '@/lib/query/keys';
 

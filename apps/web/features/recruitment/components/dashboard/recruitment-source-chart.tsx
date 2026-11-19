@@ -1,8 +1,10 @@
 'use client';
 
 import { Cell, Pie, PieChart } from 'recharts';
+
 import { ContentCard } from '@/components/content-card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+
 import type { SourceChartPoint } from '../../lib/recruitment-dashboard-metrics';
 
 const COLORS = ['var(--primary)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)'];

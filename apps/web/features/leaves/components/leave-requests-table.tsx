@@ -3,6 +3,7 @@
 import { Pencil, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { PersonAvatar } from '@/components/person-avatar';
 import {
@@ -31,6 +32,7 @@ import {
 } from '@/hooks/queries/use-leaves';
 import { canApproveLeaveRequest, isTenantAdmin } from '@/lib/auth/manager-access';
 import type { LeaveRequest } from '@/lib/schemas/leave';
+
 import { EditLeaveRequestDialog } from './edit-leave-request-dialog';
 import { LeaveStatusBadge } from './leave-status-badge';
 

@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { memo } from 'react';
+
 import { Button } from '@/components/ui/button';
 import type { AppNotification } from '@/lib/api/notifications';
 import { cn } from '@/lib/utils';

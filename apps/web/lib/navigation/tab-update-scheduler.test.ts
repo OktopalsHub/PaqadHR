@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { createTabUrlUpdateScheduler } from './tab-update-scheduler.ts';
 
 test('writes the latest tab when changed twice before queued work runs', () => {

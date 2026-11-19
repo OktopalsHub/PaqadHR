@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { formatOtpCountdown, getRemainingOtpSeconds } from './otp-countdown';
 
 test('formats and clamps the OTP countdown', () => {

@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
+
 import { resolveDateRange } from '@/features/attendance/lib/attendance-utils';
 import { fetchTenantActivities } from '@/lib/api/activities';
 import { fetchAnalyticsOverview } from '@/lib/api/analytics';
@@ -17,6 +18,7 @@ import { fetchShoutouts } from '@/lib/api/shoutouts';
 import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
 import type { NavItem } from '../constants/nav-items';
 
 const PREFETCH_STALE_TIME_MS = 60_000;

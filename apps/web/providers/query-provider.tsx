@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useMemo } from 'react';
+
 import { setQueryClientForTenants } from '@/lib/api/tenants';
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {

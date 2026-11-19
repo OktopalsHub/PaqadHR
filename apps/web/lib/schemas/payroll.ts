@@ -50,6 +50,13 @@ export const payrollReadinessSchema = z.object({
   readyCount: z.number(),
   notReadyCount: z.number(),
   canApprove: z.boolean(),
+  platformFeePercentage: z.number().optional(),
+  platformFeeByCurrency: z.record(z.string(), z.number()).optional(),
+  payoutFeeReserveByCurrency: z.record(z.string(), z.number()).optional(),
+  nombaTransferChargeByCurrency: z.record(z.string(), z.number()).optional(),
+  totalChargeAmountByCurrency: z.record(z.string(), z.number()).optional(),
+  providerFeeQuoteAvailable: z.boolean().optional(),
+  providerFeeNote: z.string().optional(),
   items: z.array(payrollReadinessItemSchema),
 });
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+
 import { adjustmentTypeLabel, formatAdjustmentLineLabel } from './format-adjustment-line';
 
 assert.equal(adjustmentTypeLabel('bonus'), 'Bonus');

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
+
 import { getNetworkActivitySnapshot, subscribeToNetworkActivity } from '@/lib/network-activity';
 
 const getServerSnapshot = () => false;

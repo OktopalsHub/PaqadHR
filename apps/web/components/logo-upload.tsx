@@ -2,6 +2,7 @@
 
 import { Camera, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+
 import { OrgAvatar } from '@/components/org-avatar';
 import { Button } from '@/components/ui/button';
 import { IMAGE_ACCEPT, IMAGE_UPLOAD_ERROR, isAcceptedImageFile } from '@/lib/api/files';

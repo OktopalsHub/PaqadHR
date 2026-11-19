@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { NextRequest } from 'next/server';
+
 import { MARKETING_PAGES } from '@/lib/constants/marketing-pages';
+
 import { middleware } from './middleware.ts';
 
 function requestFor(pathname: string): NextRequest {

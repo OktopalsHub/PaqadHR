@@ -6,6 +6,7 @@ import { ar, de, es, fr, ja } from 'date-fns/locale';
 import { Eye, Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { AppPage } from '@/components/app-page';
 import { EventCalendar } from '@/components/reui/event-calendar/event-calendar';
 import { EventCalendarContent } from '@/components/reui/event-calendar/event-calendar-content';
@@ -63,6 +64,7 @@ import { formatDate } from '@/lib/format-date';
 import { CALENDAR_SHELL_HEIGHT_CLASS, shouldShowHydrationPlaceholder } from '@/lib/hydration-gate';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { CalendarToolbar } from './calendar-toolbar';
 
 const DEFAULT_FILTERS = {

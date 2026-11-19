@@ -5,6 +5,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { addDays, format } from 'date-fns';
 import { CalendarIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
+
 import {
   useEventCalendarNavigation,
   useEventCalendarSettings,
@@ -222,8 +223,10 @@ function EventCalendarTitle({
   });
 }
 
-interface EventCalendarViewSwitcherProps
-  extends Omit<useRender.ComponentProps<'button'>, 'children'> {
+interface EventCalendarViewSwitcherProps extends Omit<
+  useRender.ComponentProps<'button'>,
+  'children'
+> {
   children?: ReactNode;
   /** Hover/focus-visible hint; defaults to the "Select view" label. Pass
    *  null to disable (overlay-opener policy). */
@@ -362,8 +365,10 @@ function EventCalendarViewShortcut({ children }: { children: ReactNode }) {
   );
 }
 
-interface EventCalendarDatePickerProps
-  extends Omit<useRender.ComponentProps<'button'>, 'children'> {
+interface EventCalendarDatePickerProps extends Omit<
+  useRender.ComponentProps<'button'>,
+  'children'
+> {
   children?: ReactNode;
   /** "auto" (default) resolves per view: range for week/N-days/agenda. */
   mode?: 'auto' | 'single' | 'range';

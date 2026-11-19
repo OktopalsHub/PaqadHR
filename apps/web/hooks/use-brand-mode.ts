@@ -2,6 +2,7 @@
 
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
+
 import type { BrandMode } from '@/lib/brand';
 
 export function useBrandMode(): BrandMode {

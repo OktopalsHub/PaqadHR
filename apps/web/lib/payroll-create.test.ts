@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { groupEmployeeIdsBySalaryCurrency } from './payroll-create.ts';
 
 test('groupEmployeeIdsBySalaryCurrency groups active employees by salary currency', () => {

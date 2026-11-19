@@ -2,6 +2,7 @@
 
 import { Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
+
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { PersonAvatar } from '@/components/person-avatar';

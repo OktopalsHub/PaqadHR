@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+
 import { PASSWORD_REQUIREMENTS } from '@/lib/password-policy';
 import { cn } from '@/lib/utils';
 

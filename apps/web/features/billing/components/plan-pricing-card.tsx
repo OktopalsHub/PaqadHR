@@ -2,6 +2,7 @@
 
 import { Check } from 'lucide-react';
 import { memo, type ReactNode } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { getPlanCatalog } from '@/lib/constants/plan-catalog';
 import { formatPlanMoney } from '@/lib/format-plan-money';

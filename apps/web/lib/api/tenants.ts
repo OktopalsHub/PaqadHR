@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { cacheKeys, removeCached } from '@/lib/cache';
 import { formatWorkspaceName } from '@/lib/format-name';

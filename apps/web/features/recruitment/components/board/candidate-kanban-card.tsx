@@ -1,4 +1,5 @@
 import { FileText, Percent, UserX } from 'lucide-react';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import { cn } from '@/lib/utils';
 

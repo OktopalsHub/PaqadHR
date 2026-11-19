@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
+
 import { getNavItems, type NavItem } from '@/features/navigations/constants/nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { getTenantSlugFromPath, tenantPath } from '@/lib/navigation/tenant-routes';

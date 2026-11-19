@@ -2,6 +2,7 @@
 
 import { Sparkles } from 'lucide-react';
 import { memo } from 'react';
+
 import { MemberAvatar, memberLabel } from '@/components/member-avatar';
 import { Badge } from '@/components/ui/badge';
 import { formatPaqPointsDelta } from '@/lib/constants/paq-points';

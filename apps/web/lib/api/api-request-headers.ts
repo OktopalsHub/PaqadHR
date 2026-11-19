@@ -1,4 +1,5 @@
 import { AxiosHeaders } from 'axios';
+
 import { getCorrelationId, getCorrelationIdHeaderName } from '@/lib/observability/correlation-id';
 
 export function prepareApiRequestHeaders(headersInit?: HeadersInit, body?: unknown): AxiosHeaders {

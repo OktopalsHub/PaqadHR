@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import type { BoardColumnId, CandidateStatus } from './board-columns.ts';
 import { canReject, columnForStatus, resolveColumnDrop } from './board-columns.ts';
 

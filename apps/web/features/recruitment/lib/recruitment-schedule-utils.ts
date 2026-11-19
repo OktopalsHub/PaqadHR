@@ -1,5 +1,6 @@
 import { getEventsForDay, parseEventDate } from '@/features/calenders/lib/calendar-utils';
 import type { CalendarEvent } from '@/lib/schemas/calendar';
+
 import type { ScheduleEvent } from './recruitment-types';
 
 export function calendarEventsToSchedule(

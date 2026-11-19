@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+
 import { AvatarUpload } from '@/components/avatar-upload';
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useMemberAvatarUpload } from '@/hooks/queries/use-image-upload';
+
 import { type EmployeeDetailState, employeeDisplayName } from '../../lib/employee-detail-state';
 import { EmployeeWorkspaceStatus } from './employee-workspace-status';
 

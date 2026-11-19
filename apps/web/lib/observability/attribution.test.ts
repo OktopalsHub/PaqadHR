@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import {
   type Attribution,
   attributionEventProperties,
@@ -92,8 +93,8 @@ test('parses a stored attribution round-trip and drops unknown fields', () => {
   assert.equal(parsed?.first.campaign, 'october');
   assert.equal(parsed?.last.source, 'linkedin');
   assert.equal(parsed?.last.capturedAt, '2026-10-20T10:00:00.000Z');
-  assert.equal((parsed?.first as unknown as Record<string, unknown>).extra, undefined);
-  assert.equal((parsed as unknown as Record<string, unknown>).injected, undefined);
+  assert.equal(((parsed?.first ?? {}) as unknown as Record<string, unknown>).extra, undefined);
+  assert.equal(((parsed ?? {}) as unknown as Record<string, unknown>).injected, undefined);
 });
 
 test('signup payload keeps first touch when it differs from the last touch', () => {

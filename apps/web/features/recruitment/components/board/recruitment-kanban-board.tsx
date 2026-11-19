@@ -15,7 +15,9 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
+
 import {
   BOARD_COLUMNS,
   type BoardColumnId,

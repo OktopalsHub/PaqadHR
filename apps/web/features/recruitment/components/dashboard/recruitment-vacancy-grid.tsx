@@ -2,10 +2,12 @@
 
 import { MapPin, Users } from 'lucide-react';
 import Link from 'next/link';
+
 import { ContentCard } from '@/components/content-card';
 import { Badge } from '@/components/ui/badge';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import type { JobOpening } from '@/lib/schemas/recruitment';
+
 import { formatEmploymentType } from '../../lib/recruitment-dashboard-metrics';
 
 type RecruitmentVacancyGridProps = {

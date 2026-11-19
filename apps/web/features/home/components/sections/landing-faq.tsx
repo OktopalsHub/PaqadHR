@@ -1,4 +1,5 @@
 import Link from 'next/link';
+
 import { JsonLd } from '@/components/json-ld';
 import { COMPANY } from '@/lib/constants/company';
 import { CONTENT_UPDATED_AT } from '@/lib/constants/marketing-pages';

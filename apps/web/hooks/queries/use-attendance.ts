@@ -1,6 +1,7 @@
 'use client';
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import {
   approveAttendanceException,
@@ -27,6 +28,7 @@ import {
 import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { useEmployees } from './use-employees';
 
 function useCanViewTeamAttendance() {

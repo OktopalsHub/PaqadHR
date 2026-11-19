@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildContentSecurityPolicy } from './content-security-policy.ts';
+
 import { buildContentSecurityPolicyFromSources } from './content-security-policy-core.ts';
+import { buildContentSecurityPolicy } from './content-security-policy.ts';
 
 test('development CSP keeps eval and websocket sources for local tooling', () => {
   const csp = buildContentSecurityPolicyFromSources({

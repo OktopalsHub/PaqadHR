@@ -1,4 +1,5 @@
 import { DollarSign, Target, TrendingUp, Users } from 'lucide-react';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

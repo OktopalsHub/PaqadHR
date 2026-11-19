@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { STRONG_PASSWORD_MESSAGE } from '@/lib/password-policy';
 
 const emailField = z

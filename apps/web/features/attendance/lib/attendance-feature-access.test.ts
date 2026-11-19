@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { canAccessAttendanceFeature } from './attendance-feature-access.ts';
 
 test('denied attendance access does not pass the feature gate', () => {

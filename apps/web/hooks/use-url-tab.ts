@@ -2,6 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
 import { readTabParam, replaceTabInUrl } from '@/lib/navigation/tab-query';
 import { createTabUrlUpdateScheduler } from '@/lib/navigation/tab-update-scheduler';
 

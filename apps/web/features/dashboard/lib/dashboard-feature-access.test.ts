@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { getDashboardRecruitmentAccessState } from './dashboard-feature-access.ts';
 
 test('recruitment queries and sections are disabled when entitlement is absent', () => {

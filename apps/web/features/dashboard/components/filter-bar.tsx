@@ -1,4 +1,5 @@
 import { Calendar, Filter, MapPin, Users } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 
 interface FilterBarProps {

@@ -1,8 +1,10 @@
 import axios from 'axios';
+
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import { isPublicAuthOrMarketingPath } from '@/lib/navigation/public-routes';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
 import { clearSessionStorage } from '@/lib/session';
+
 import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
 function resolveApiV1Base(): string {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { executeFetchWithCsrf } from './fetch-with-csrf.ts';
 
 const CSRF_HEADER = 'x-csrf-token';

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { createLandingPricingCurrencyController } from './landing-pricing-currency.ts';
 
 test('resolved landing pricing updates currency while the CTA is still mounted', () => {

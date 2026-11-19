@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import {
   addCustomHoliday,
   assignPointsToAll,
@@ -15,6 +16,7 @@ import {
 } from '@/lib/api/tenant-settings';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
 import {
   paymentMethodCurrenciesQueryKey,
   shouldInvalidatePaymentMethodCurrencies,

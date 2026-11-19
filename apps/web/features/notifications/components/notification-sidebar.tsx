@@ -4,6 +4,7 @@ import { Megaphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -24,6 +25,7 @@ import type { AppNotification } from '@/lib/api/notifications';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { NotificationItem } from './notification-item';
 import { SendNotificationForm } from './send-notification-form';
 

@@ -1,8 +1,10 @@
 import { CalendarDays } from 'lucide-react';
+
 import { ContentCard } from '@/components/content-card';
 import { StatCard } from '@/components/stat-card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+
 import { type DemoLeaveRequest, demoLeaveRequests } from '../../../constants/landing-demo-data';
 
 type LeavesDemoViewProps = {

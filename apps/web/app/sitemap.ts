@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+
 import { COMPANY } from '@/lib/constants/company';
 import { MARKETING_PAGES } from '@/lib/constants/marketing-pages';
 

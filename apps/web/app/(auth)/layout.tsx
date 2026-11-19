@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+
 import { PaqadLogo } from '@/components/paqad-logo';
 import { AppProviders } from '@/providers/app-providers';
 import { ForceLightTheme } from '@/providers/force-light-theme';

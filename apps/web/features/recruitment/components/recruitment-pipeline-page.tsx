@@ -3,6 +3,7 @@
 import { Plus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
@@ -10,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useAllCandidates, useUpdateCandidateStatus } from '@/hooks/queries/use-recruitment';
 import type { CandidateStatus } from '@/lib/schemas/recruitment';
+
 import { AddCandidateDialog } from './add-candidate-dialog';
 import { isDisqualified } from './board/board-columns';
 import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { cn } from '@/lib/utils';
 

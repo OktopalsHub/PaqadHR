@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+
 import { useCalendarEvents } from '@/hooks/queries/use-calendar';
 import { useAllCandidates, useJobOpenings } from '@/hooks/queries/use-recruitment';
+
 import {
   computeApplicationsChart,
   computeDepartmentChart,

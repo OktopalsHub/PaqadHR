@@ -1,4 +1,5 @@
 import Link from 'next/link';
+
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
 import { LEGAL_CONTENT } from '@/lib/legal-content.generated';

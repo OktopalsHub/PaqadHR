@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { payrollRowAction } from './payroll-payout-action.ts';
 
 const admin = { isAdmin: true, payrollGatewayEnabled: true };

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Loader2, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { SearchSelect } from '@/components/search-select';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,7 @@ import { numberToWords } from '@/lib/number-to-words';
 import { queryKeys } from '@/lib/query/keys';
 import { resolvePrimaryPayrollCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
+
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
 const PAY_TYPES = ['Salary', 'Hourly', 'Commission', 'Contract'];

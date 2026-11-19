@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
 import { SlackIcon } from '@/components/icons/slack-icon';
 import {
   AlertDialog,
@@ -24,6 +25,7 @@ import {
   useSlackChannels,
 } from '@/hooks/queries/use-integrations';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { SlackChannelPickerInline } from './slack-channel-picker-inline';
 import { SlackUserSyncSection } from './slack-user-sync-section';
 
