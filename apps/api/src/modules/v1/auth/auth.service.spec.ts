@@ -674,10 +674,8 @@ describe('AuthService', () => {
   describe('register', () => {
     it('rejects a password that does not meet the password policy', async () => {
       await expect(
-        authService.register('test@example.com', 'numbers123', {}, undefined, true),
-      ).rejects.toThrow(
-        'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.',
-      );
+        authService.register('test@example.com', 'short', {}, undefined, true),
+      ).rejects.toThrow('Password must be at least 8 characters.');
     });
 
     it('returns the existing user when email and password match a credential account', async () => {

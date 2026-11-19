@@ -4,11 +4,16 @@ import { BadRequestException, Injectable, Logger, UnauthorizedException } from '
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
-  STRONG_PASSWORD_MESSAGE,
-  STRONG_PASSWORD_REGEX,
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_MIN_LENGTH_MESSAGE,
 } from 'src/common/constants/password-policy.constant';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
-import { PasswordService, StringUtility, sha256Hex } from 'src/common/utils';
+import {
+  PasswordService,
+  StringUtility,
+  logOtpForLocalDevelopment,
+  sha256Hex,
+} from 'src/common/utils';
 import { Repository } from 'typeorm';
 
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
@@ -88,8 +93,8 @@ export class AuthPasswordService {
   }
 
   async resetPassword(token: string, newPassword: string) {
-    if (!STRONG_PASSWORD_REGEX.test(newPassword))
-      throw new BadRequestException(STRONG_PASSWORD_MESSAGE);
+    if (newPassword.length < MIN_PASSWORD_LENGTH)
+      throw new BadRequestException(PASSWORD_MIN_LENGTH_MESSAGE);
     const verification = await this.verificationRepository.findOne({
       where: { token: sha256Hex(token) },
     });
@@ -132,6 +137,7 @@ export class AuthPasswordService {
     if (this.rateLimitService.isLocked(lock))
       throw new UnauthorizedException('Too many failed attempts. Try again later.');
     const code = String(randomInt(100000, 999999));
+    logOtpForLocalDevelopment(email, code, this.otpPurposeLabel(purpose));
     const identifier = this.otpIdentifier(userId, purpose);
     const hashedCode = await PasswordService.hashPassword(code);
     await this.verificationRepository.delete({ identifier });
@@ -229,8 +235,8 @@ export class AuthPasswordService {
   }
 
   async changePassword(userId: string, otpProof: string, newPassword: string) {
-    if (!STRONG_PASSWORD_REGEX.test(newPassword))
-      throw new BadRequestException(STRONG_PASSWORD_MESSAGE);
+    if (newPassword.length < MIN_PASSWORD_LENGTH)
+      throw new BadRequestException(PASSWORD_MIN_LENGTH_MESSAGE);
     this.assertOtpProof(otpProof, userId, 'password_change');
     const account = await this.accountRepository.findOne({
       where: { userId, providerId: 'credential' },

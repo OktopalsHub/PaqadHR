@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
-import { PasswordRequirements } from '@/components/password-requirements';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -30,7 +29,6 @@ import { PasswordInput } from './form-fields/password-input';
 const Register = () => {
   const { register, isLoading } = useAuth();
   const [emailToVerify, setEmailToVerify] = useState<string | null>(null);
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
@@ -113,16 +111,8 @@ const Register = () => {
                     placeholder="Enter your password"
                     className="h-11.5 rounded-[16px] border-slate-200 bg-white/90 px-4 pr-11 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-visible:ring-[3px] focus-visible:ring-emerald-500/18 focus-visible:ring-offset-0"
                     {...field}
-                    onFocus={() => setIsPasswordFocused(true)}
-                    onBlur={() => {
-                      field.onBlur();
-                      setIsPasswordFocused(false);
-                    }}
                   />
                 </FormControl>
-                {isPasswordFocused ? (
-                  <PasswordRequirements password={form.watch('password')} />
-                ) : null}
                 <FormMessage />
               </FormItem>
             )}
