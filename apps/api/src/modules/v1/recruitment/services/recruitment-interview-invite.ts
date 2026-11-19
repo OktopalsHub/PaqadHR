@@ -13,6 +13,7 @@ export type InterviewInviteInput = {
   durationMinutes: number;
   type: string;
   location?: string | null;
+  companyLogoUrl?: string | null;
 };
 
 const icsStamp = (date: Date) =>
@@ -66,6 +67,7 @@ export function buildInterviewEmail(input: InterviewInviteInput) {
     html: renderEmailLayout({
       preheader: lead,
       organizationName: input.companyName || undefined,
+      organizationLogoUrl: input.companyLogoUrl,
       content: `<div style="font-size:15px;line-height:1.6;">${html}</div>`,
     }),
   };

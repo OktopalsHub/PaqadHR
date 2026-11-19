@@ -348,8 +348,7 @@ describe('PayrollPayoutService', () => {
 
   describe('requeryStuckPayouts', () => {
     it('requeries Nomba and updates stuck processing items', async () => {
-      const { service, nombaTransferApi, payrollItemRepo, payrollRunRepository } =
-        createService();
+      const { service, nombaTransferApi, payrollItemRepo, payrollRunRepository } = createService();
       const stuckItem = {
         ...baseItem(),
         transactionId: 'txn-stuck',

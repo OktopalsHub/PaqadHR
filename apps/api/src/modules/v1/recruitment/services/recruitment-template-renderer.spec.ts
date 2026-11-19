@@ -42,3 +42,14 @@ describe('shared email layout', () => {
     expect(html).toContain('Sent by Acme &lt;Ltd&gt; via Paqad');
   });
 });
+
+describe('workspace logo in the shared layout', () => {
+  it('shows the workspace logo when https and falls back to Paqad otherwise', () => {
+    const custom = wrapRecruitmentBody('<p>x</p>', 'Acme', 'x', 'https://cdn.acme.com/logo.png');
+    expect(custom).toContain('src="https://cdn.acme.com/logo.png"');
+    expect(custom).toContain('alt="Acme"');
+    const unsafe = wrapRecruitmentBody('<p>x</p>', 'Acme', 'x', 'http://cdn.acme.com/logo.png');
+    expect(unsafe).not.toContain('cdn.acme.com');
+    expect(unsafe).toContain('alt="Paqad"');
+  });
+});

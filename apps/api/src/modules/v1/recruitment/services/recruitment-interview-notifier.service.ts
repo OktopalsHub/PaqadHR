@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { Repository } from 'typeorm';
 
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
@@ -20,6 +21,7 @@ export class RecruitmentInterviewNotifier {
 
   constructor(
     private readonly email: ZeptomailEmailService,
+    private readonly fileUrls: FileUrlService,
     @InjectRepository(Candidate) private readonly candidates: Repository<Candidate>,
     @InjectRepository(JobOpening) private readonly jobs: Repository<JobOpening>,
     @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
@@ -51,6 +53,9 @@ export class RecruitmentInterviewNotifier {
         }),
       ]);
       if (!candidate) return;
+      const companyLogoUrl = tenant?.logoKey
+        ? this.fileUrls.getTenantLogoUrl(interview.tenantId, tenant.logoKey)
+        : null;
       const content = buildInterviewEmail({
         kind,
         interviewId: interview.id,
@@ -61,6 +66,7 @@ export class RecruitmentInterviewNotifier {
         durationMinutes: interview.duration,
         type: interview.type,
         location: interview.location,
+        companyLogoUrl,
       });
       const ics = buildInterviewIcs({
         kind,
@@ -72,6 +78,7 @@ export class RecruitmentInterviewNotifier {
         durationMinutes: interview.duration,
         type: interview.type,
         location: interview.location,
+        companyLogoUrl,
       });
       const result = await this.email.sendEmail({
         to: candidate.email,

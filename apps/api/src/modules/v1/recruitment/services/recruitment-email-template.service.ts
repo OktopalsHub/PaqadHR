@@ -32,10 +32,12 @@ export function wrapRecruitmentBody(
   body: string,
   organizationName: string | undefined,
   text: string,
+  organizationLogoUrl?: string | null,
 ) {
   return renderEmailLayout({
     preheader: text.replace(/\s+/g, ' ').slice(0, 110),
     organizationName,
+    organizationLogoUrl,
     content: `<div style="font-size:15px;line-height:1.6;">${body}</div>`,
   });
 }
@@ -103,12 +105,13 @@ export class RecruitmentEmailTemplateService {
   render(
     template: Pick<RecruitmentEmailTemplate, 'subject' | 'bodyHtml'>,
     ctx: RecruitmentTemplateContext,
+    logoUrl?: string | null,
   ) {
     const body = renderRecruitmentTemplate(template.bodyHtml, ctx, { html: true });
     const text = htmlToText(body);
     return {
       subject: renderRecruitmentTemplate(template.subject, ctx, { html: false }).slice(0, 255),
-      html: wrapRecruitmentBody(body, ctx['company.name'], text),
+      html: wrapRecruitmentBody(body, ctx['company.name'], text, logoUrl),
       text,
     };
   }

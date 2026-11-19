@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { Repository } from 'typeorm';
 
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
@@ -26,6 +27,7 @@ export class RecruitmentCandidateMailer {
   constructor(
     private readonly templates: RecruitmentEmailTemplateService,
     private readonly email: ZeptomailEmailService,
+    private readonly fileUrls: FileUrlService,
     @InjectRepository(Candidate) private readonly candidates: Repository<Candidate>,
     @InjectRepository(JobOpening) private readonly jobs: Repository<JobOpening>,
     @InjectRepository(Tenant) private readonly tenants: Repository<Tenant>,
@@ -44,18 +46,28 @@ export class RecruitmentCandidateMailer {
         where: { id: candidate.jobOpeningId },
         select: { id: true, title: true },
       }),
-      this.tenants.findOne({ where: { id: input.tenantId }, select: { id: true, name: true } }),
+      this.tenants.findOne({
+        where: { id: input.tenantId },
+        select: { id: true, name: true, logoKey: true },
+      }),
     ]);
 
-    const rendered = this.templates.render(template, {
-      'candidate.firstName': candidate.firstName,
-      'candidate.lastName': candidate.lastName,
-      'candidate.fullName': `${candidate.firstName} ${candidate.lastName}`.trim(),
-      'job.title': job?.title ?? '',
-      'company.name': tenant?.name ?? '',
-      'stage.name': input.stageName ?? '',
-      'sender.name': input.actorName ?? tenant?.name ?? '',
-    });
+    const logoUrl = tenant?.logoKey
+      ? this.fileUrls.getTenantLogoUrl(input.tenantId, tenant.logoKey)
+      : null;
+    const rendered = this.templates.render(
+      template,
+      {
+        'candidate.firstName': candidate.firstName,
+        'candidate.lastName': candidate.lastName,
+        'candidate.fullName': `${candidate.firstName} ${candidate.lastName}`.trim(),
+        'job.title': job?.title ?? '',
+        'company.name': tenant?.name ?? '',
+        'stage.name': input.stageName ?? '',
+        'sender.name': input.actorName ?? tenant?.name ?? '',
+      },
+      logoUrl,
+    );
 
     const result = await this.email.sendEmail({
       to: candidate.email,
