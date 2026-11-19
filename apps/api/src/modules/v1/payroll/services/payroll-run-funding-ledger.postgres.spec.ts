@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
+
 import { Client } from 'pg';
 import { PayrollRunFundingLedger1792000000000 } from 'src/common/database/migrations/1792000000000-payroll-run-funding-ledger';
 
+// ON DELETE RESTRICT reports 23503 on PostgreSQL <= 17 and 23001 (restrict_violation) on 18.
+const RESTRICT_VIOLATION_CODES = /^(23503|23001)$/;
 const integrationDatabaseUrl = process.env.PAYROLL_LEDGER_INTEGRATION_DATABASE_URL;
 const integrationDescribe = integrationDatabaseUrl ? describe : describe.skip;
 
@@ -174,11 +177,11 @@ integrationDescribe('Payroll run funding ledger PostgreSQL integration', () => {
 
     await expect(
       client.query('DELETE FROM payroll_runs WHERE id = $1', [payrollRunId]),
-    ).rejects.toMatchObject({ code: '23503' });
+    ).rejects.toMatchObject({ code: expect.stringMatching(RESTRICT_VIOLATION_CODES) });
     await expect(
       client.query('DELETE FROM tenants WHERE id = $1', [tenantId]),
     ).rejects.toMatchObject({
-      code: '23503',
+      code: expect.stringMatching(RESTRICT_VIOLATION_CODES),
     });
 
     const queryRunner = {

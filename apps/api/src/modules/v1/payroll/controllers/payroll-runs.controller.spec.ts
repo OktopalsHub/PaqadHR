@@ -1,8 +1,9 @@
 import { RATE_LIMIT_KEY, RateLimitPresets } from 'src/common/decorators';
+
 import { PayrollRunsController } from './payroll-runs.controller';
 
 describe('PayrollRunsController rate limiting', () => {
-  const controller = new PayrollRunsController({} as never, {} as never);
+  const controller = new PayrollRunsController({} as never, {} as never, {} as never, {} as never);
 
   it.each([
     ['create run', controller.createPayrollRun],

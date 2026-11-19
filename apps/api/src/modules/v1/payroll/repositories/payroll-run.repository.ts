@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { IPaginatedData } from 'src/common/interfaces';
+import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import {
   type DeepPartial,
   type FindManyOptions,
@@ -8,6 +9,7 @@ import {
   In,
   Repository,
 } from 'typeorm';
+
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import { PayrollRun } from '../entities/payroll-run.entity';
@@ -27,14 +29,14 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
   async findByIdWithItems(id: string, tenantId: string): Promise<PayrollRun | null> {
     return this.findOne({
       where: { id, tenantId },
-      relations: ['items', 'items.employee', 'createdBy'],
+      relations: { items: { employee: true }, createdBy: true },
     });
   }
   async findByTenantId(tenantId: string): Promise<PayrollRun[]> {
     return this.find({
       withDeleted: false,
       where: { tenantId },
-      relations: ['items', 'createdBy', 'tenant'],
+      relations: { items: true, createdBy: true, tenant: true },
     });
   }
   async findByTenantAndPeriod(
@@ -48,7 +50,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
         periodStart,
         periodEnd,
       },
-      relations: ['items', 'createdBy'],
+      relations: { items: true, createdBy: true },
     });
   }
   async findActiveRunsForTenant(tenantId: string): Promise<PayrollRun[]> {
@@ -58,7 +60,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
         tenantId,
         status: In([PayrollStatus.DRAFT, PayrollStatus.PROCESSING]),
       },
-      relations: ['items', 'createdBy'],
+      relations: { items: true, createdBy: true },
     });
   }
   async findById(
@@ -70,7 +72,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     return this.findOne({
       where: { id, ...additionalWhere },
       withDeleted: includeDeleted,
-      relations,
+      relations: relationsFromPaths(relations),
     });
   }
   async findAll(
@@ -78,7 +80,11 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     where?: FindManyOptions<PayrollRun>['where'],
     relations?: string[],
   ): Promise<PayrollRun[]> {
-    return this.find({ withDeleted: includeDeleted, where, relations });
+    return this.find({
+      withDeleted: includeDeleted,
+      where,
+      relations: relationsFromPaths(relations),
+    });
   }
   async createAndSave(data: DeepPartial<PayrollRun>): Promise<PayrollRun> {
     const entity = super.create(data);
@@ -112,70 +118,11 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
   }
 
   /**
-   * Tenant ids with paid Bachs items. The payout reconciliation sweep uses this list to
-   * recover provider-confirmed debits if the payroll state committed but the ledger write
-   * failed, including when no new webhook is delivered.
-   */
-  async findDistinctTenantIdsWithPaidBachsItems(): Promise<string[]> {
-    const rows = await this.createQueryBuilder('run')
-      .select('DISTINCT run.tenant_id', 'tenantId')
-      .innerJoin('run.items', 'item', 'item.status = :status', {
-        status: PayrollItemStatus.PAID,
-      })
-      .andWhere('LOWER(item.payment_provider) LIKE :provider', { provider: '%bachs%' })
-      .getRawMany<{ tenantId: string }>();
-
-    return rows.map((row) => row.tenantId).filter((tenantId): tenantId is string => !!tenantId);
-  }
-
-  /**
    * Runs with a retry funding approval or checkout that has been open since before `cutoff`.
    *
    * The retry funding state lives in the run metadata JSON, so it is read with a JSONB cast
    * instead of loading every run. Only the columns the expiry sweep needs are selected.
    */
-  async findRunsWithOpenRetryFundingBefore(cutoff: Date, limit = 50): Promise<PayrollRun[]> {
-    return this.createQueryBuilder('run')
-      .select(['run.id', 'run.tenantId', 'run.status', 'run.metadata', 'run.updatedAt'])
-      .where(`run.metadata::jsonb -> 'retryFunding' ->> 'status' IN (:...statuses)`, {
-        statuses: ['approved', 'pending'],
-      })
-      .andWhere(
-        `COALESCE(
-           run.metadata::jsonb -> 'retryFunding' ->> 'checkoutRequestedAt',
-           run.metadata::jsonb -> 'retryFunding' ->> 'approvedAt'
-         )::timestamptz < :cutoff`,
-        { cutoff },
-      )
-      .orderBy('run.updatedAt', 'ASC')
-      .limit(limit)
-      .getMany();
-  }
-
-  /**
-   * Runs across tenants that still hold an open retry funding approval or checkout.
-   *
-   * Backs the support view: an operator needs to find the run a tenant is stuck on without
-   * loading every payroll run in the instance.
-   */
-  async findRunsWithOpenRetryFunding(limit = 50): Promise<PayrollRun[]> {
-    return this.createQueryBuilder('run')
-      .select([
-        'run.id',
-        'run.tenantId',
-        'run.title',
-        'run.status',
-        'run.metadata',
-        'run.updatedAt',
-      ])
-      .where(`run.metadata::jsonb -> 'retryFunding' ->> 'status' IN (:...statuses)`, {
-        statuses: ['approved', 'pending'],
-      })
-      .orderBy('run.updatedAt', 'DESC')
-      .limit(limit)
-      .getMany();
-  }
-
   async findAllPaginated(
     page: number,
     limit: number,
@@ -187,7 +134,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     const [records, totalItems] = await this.findAndCount({
       withDeleted: includeDeleted,
       where,
-      relations,
+      relations: relationsFromPaths(relations),
       skip: (page - 1) * limit,
       take: limit,
     });

@@ -1,4 +1,5 @@
 import { Column, Entity, Index } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { PaymentProvider } from '../../../../common/enums/payment-provider.enum';
 

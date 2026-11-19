@@ -23,14 +23,15 @@ export async function resolvePayrollPayoutConversion(
   if (salary === payout) {
     return { paymentAmount: netAmount, exchangeRate: 1, fxAtPayout: false };
   }
-  if (isCryptoCurrency(salary) || isCryptoCurrency(payout)) {
-    return { paymentAmount: 0, exchangeRate: 0, fxAtPayout: true };
-  }
-
-  // Neither side is a supported currency. Without this guard the pair falls through to the
-  // fiat converter, which has no rate for e.g. NGN→SOL and returns a bogus amount that is
-  // then paid out. Reject instead of quoting a conversion that cannot exist.
-  if (!isSupportedFiatCurrency(salary) || !isSupportedFiatCurrency(payout)) {
+  const salaryIsCrypto = isCryptoCurrency(salary);
+  const payoutIsCrypto = isCryptoCurrency(payout);
+  if (
+    (salaryIsCrypto && !payoutIsCrypto && !isSupportedFiatCurrency(payout)) ||
+    (payoutIsCrypto && !salaryIsCrypto && !isSupportedFiatCurrency(salary)) ||
+    (!salaryIsCrypto &&
+      !payoutIsCrypto &&
+      (!isSupportedFiatCurrency(salary) || !isSupportedFiatCurrency(payout)))
+  ) {
     const unsupported = [salary, payout].filter(
       (code) => !isSupportedFiatCurrency(code) && !isCryptoCurrency(code),
     );
@@ -39,6 +40,21 @@ export async function resolvePayrollPayoutConversion(
         ? `${unsupported[0]} payouts are not supported. Pay employees in USDT or USDC instead.`
         : `Cannot pay ${salary} salary in ${payout}. Supported payout currencies: NGN, USD, EUR, GBP, USDT, USDC.`,
     );
+  }
+  if (salaryIsCrypto && payoutIsCrypto) {
+    throw new BadRequestException(
+      `Bridge payroll cannot convert ${salary} to ${payout}; select the same stablecoin for salary and payout.`,
+    );
+  }
+  if ((salary === 'NGN' || payout === 'NGN') && salary !== payout) {
+    throw new BadRequestException(
+      'Bridge FX for NGN is not available for this payroll route. Select a confirmed currency route.',
+    );
+  }
+  // USDC is USD-pegged. A USD salary paid in USDC (or USDC salary paid in USD) is
+  // a denomination change only; the subsequent payment route still must support it.
+  if ((salary === 'USD' && payout === 'USDC') || (salary === 'USDC' && payout === 'USD')) {
+    return { paymentAmount: netAmount, exchangeRate: 1, fxAtPayout: false };
   }
 
   const paymentAmount = await fiatExchange.convert(netAmount, salary, payout);

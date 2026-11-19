@@ -1,5 +1,6 @@
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
-import { resolvePostApprovalPayrollStatus } from './payout-reconciliation';
+
+import { resolvePostApprovalPayrollStatus } from './payout-reconciliation.shared';
 
 describe('resolvePostApprovalPayrollStatus', () => {
   it('keeps approved while payouts are in flight (never processing)', () => {

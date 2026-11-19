@@ -12,6 +12,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+
 import { AdjustmentMethod } from '../../../../common/enums/adjustment-method.enum';
 import { AdjustmentType } from '../../../../common/enums/adjustment-type.enum';
 

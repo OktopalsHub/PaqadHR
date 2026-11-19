@@ -1,10 +1,12 @@
 import { Column, Entity, Index } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 
 export enum PayrollFundingLedgerEventType {
   FUNDING_RECEIVED = 'funding_received',
   PAYOUT_RESERVED = 'payout_reserved',
   PAYOUT_CONFIRMED = 'payout_confirmed',
+  PAYOUT_REVERSED = 'payout_reversed',
   RESERVATION_RELEASED = 'reservation_released',
   SHORTFALL_APPROVED = 'shortfall_approved',
   SHORTFALL_CANCELLED = 'shortfall_cancelled',

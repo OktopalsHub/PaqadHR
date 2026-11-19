@@ -23,15 +23,18 @@ describe('PayrollFeeService', () => {
     ).resolves.toMatchObject({
       originalAmount: 10_000,
       platformFee: 200,
-      payoutFeePerTransfer: 100,
-      payoutFeeReserve: 300,
+      payoutFeePerTransfer: 53.75,
+      payoutFeeReserve: 161.25,
       payoutTransferCount: 3,
-      totalAmountToCharge: 10_500,
+      nombaTransferChargePerTransfer: 50,
+      nombaTransferCharge: 150,
+      totalAmountToCharge: 10_511.25,
       feePercentage: 2,
       breakdown: {
         employeePayments: 10_000,
         platformFee: 200,
-        payoutFeeReserve: 300,
+        payoutFeeReserve: 161.25,
+        nombaTransferCharge: 150,
       },
     });
   });
@@ -47,8 +50,9 @@ describe('PayrollFeeService', () => {
       'tenant-1',
     );
 
-    expect(result.totalPayoutFeeReserves).toEqual({ NGN: 200 });
-    expect(result.totalChargeAmount.NGN).toBe(30_800);
+    expect(result.totalPayoutFeeReserves).toEqual({ NGN: 107.5 });
+    expect(result.totalNombaTransferCharges).toEqual({ NGN: 100 });
+    expect(result.totalChargeAmount.NGN).toBe(30_807.5);
     expect(result.byCurrency).toHaveLength(2);
   });
 
@@ -66,8 +70,8 @@ describe('PayrollFeeService', () => {
         'tenant-1',
       );
 
-      expect(result.byCurrency.map((item) => item.payoutFeeReserve)).toEqual([0.02, 0.02]);
-      expect(result.totalPayoutFeeReserves).toEqual({ NGN: 0.04 });
+      expect(result.byCurrency.map((item) => item.payoutFeeReserve)).toEqual([0.015, 0.015]);
+      expect(result.totalPayoutFeeReserves).toEqual({ NGN: 0.03 });
     } finally {
       if (previous === undefined) {
         delete process.env.PAYROLL_PAYOUT_FEE_NGN;
@@ -77,7 +81,7 @@ describe('PayrollFeeService', () => {
     }
   });
 
-  it('does not add an NGN reserve to other currencies by default', async () => {
+  it('reserves a 1% Bridge buffer per transfer for USD and no NGN reserve', async () => {
     const service = createService(2);
 
     const result = await service.calculatePayrollFee({
@@ -87,7 +91,7 @@ describe('PayrollFeeService', () => {
       transferCount: 4,
     });
 
-    expect(result.payoutFeeReserve).toBe(0);
-    expect(result.totalAmountToCharge).toBe(1_020);
+    expect(result.payoutFeeReserve).toBe(40);
+    expect(result.totalAmountToCharge).toBe(1_060);
   });
 });

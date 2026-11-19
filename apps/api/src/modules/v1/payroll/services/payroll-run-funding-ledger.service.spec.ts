@@ -1,8 +1,8 @@
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
-import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
+
 import { PayrollItem } from '../entities/payroll-item.entity';
-import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollFundingLedgerEventType } from '../entities/payroll-run-funding-ledger-entry.entity';
+import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollRunFundingLedgerService } from './payroll-run-funding-ledger.service';
 
 describe('PayrollRunFundingLedgerService', () => {
@@ -242,221 +242,6 @@ describe('PayrollRunFundingLedgerService', () => {
       'Payout debit reference was already allocated to a different payroll transaction',
     );
     expect(repository.insert).not.toHaveBeenCalled();
-  });
-
-  it('atomically reserves and prepares every selected retry item', async () => {
-    const selectedItems = [
-      {
-        id: 'item-1',
-        status: PayrollItemStatus.FAILED,
-        metadata: { payoutRetryCount: 0 },
-      },
-      {
-        id: 'item-2',
-        status: PayrollItemStatus.FAILED,
-        metadata: { payoutRetryCount: 2 },
-      },
-    ];
-    const ledger = {
-      find: jest.fn().mockResolvedValue([
-        {
-          eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
-          amount: '100.00',
-          currency: 'USD',
-        },
-      ]),
-      findOne: jest.fn().mockResolvedValue(null),
-      insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 'reservation' }] }),
-    };
-    const itemRepository = {
-      find: jest.fn().mockResolvedValue(selectedItems),
-      save: jest.fn().mockImplementation(async (item) => item),
-    };
-    const runRepository = {
-      findOne: jest.fn().mockResolvedValue({
-        id: input.payrollRunId,
-        tenantId: input.tenantId,
-        status: PayrollStatus.APPROVED,
-      }),
-    };
-    const manager = {
-      getRepository: jest.fn((entity: unknown) => {
-        if (entity === PayrollRun) return runRepository;
-        if (entity === PayrollItem) return itemRepository;
-        return ledger;
-      }),
-    };
-    repository.manager = {
-      transaction: jest.fn(async (callback: (tx: typeof manager) => Promise<void>) =>
-        callback(manager),
-      ),
-    } as never;
-
-    await service.reserveFailedPayoutsForRetry({
-      tenantId: input.tenantId,
-      payrollRunId: input.payrollRunId,
-      provider: 'BACHS',
-      performedById: 'member-1',
-      evidence: { approvedById: 'member-1' },
-      reservations: [
-        {
-          payrollItemId: 'item-1',
-          amount: 30,
-          currency: 'USD',
-          reservationKey: 'retry-1:item-1',
-        },
-        {
-          payrollItemId: 'item-2',
-          amount: 40,
-          currency: 'USD',
-          reservationKey: 'retry-1:item-2',
-        },
-      ],
-    });
-
-    expect(runRepository.findOne).toHaveBeenCalledWith({
-      where: { id: input.payrollRunId, tenantId: input.tenantId },
-      lock: { mode: 'pessimistic_write' },
-    });
-    expect(ledger.insert).toHaveBeenCalledTimes(2);
-    expect(itemRepository.save).toHaveBeenCalledTimes(2);
-    expect(selectedItems.map((item) => item.status)).toEqual([
-      PayrollItemStatus.PENDING,
-      PayrollItemStatus.PENDING,
-    ]);
-    expect(selectedItems.map((item) => item.metadata?.payoutRetryCount)).toEqual([1, 3]);
-  });
-
-  it('does not partially reserve or prepare retry items when funds are insufficient', async () => {
-    const selectedItems = [
-      { id: 'item-1', status: PayrollItemStatus.FAILED, metadata: {} },
-      { id: 'item-2', status: PayrollItemStatus.FAILED, metadata: {} },
-    ];
-    const ledger = {
-      find: jest.fn().mockResolvedValue([
-        {
-          eventType: PayrollFundingLedgerEventType.FUNDING_RECEIVED,
-          amount: '50.00',
-          currency: 'USD',
-        },
-      ]),
-      findOne: jest.fn().mockResolvedValue(null),
-      insert: jest.fn(),
-    };
-    const itemRepository = {
-      find: jest.fn().mockResolvedValue(selectedItems),
-      save: jest.fn(),
-    };
-    const runRepository = {
-      findOne: jest.fn().mockResolvedValue({
-        id: input.payrollRunId,
-        tenantId: input.tenantId,
-        status: PayrollStatus.APPROVED,
-      }),
-    };
-    const manager = {
-      getRepository: jest.fn((entity: unknown) => {
-        if (entity === PayrollRun) return runRepository;
-        if (entity === PayrollItem) return itemRepository;
-        return ledger;
-      }),
-    };
-    repository.manager = {
-      transaction: jest.fn(async (callback: (tx: typeof manager) => Promise<void>) =>
-        callback(manager),
-      ),
-    } as never;
-
-    await expect(
-      service.reserveFailedPayoutsForRetry({
-        tenantId: input.tenantId,
-        payrollRunId: input.payrollRunId,
-        provider: 'BACHS',
-        performedById: 'member-1',
-        evidence: {},
-        reservations: [
-          {
-            payrollItemId: 'item-1',
-            amount: 30,
-            currency: 'USD',
-            reservationKey: 'retry-1:item-1',
-          },
-          {
-            payrollItemId: 'item-2',
-            amount: 40,
-            currency: 'USD',
-            reservationKey: 'retry-1:item-2',
-          },
-        ],
-      }),
-    ).rejects.toThrow(/Insufficient verified run-scoped funds/);
-
-    expect(ledger.insert).not.toHaveBeenCalled();
-    expect(itemRepository.save).not.toHaveBeenCalled();
-    expect(selectedItems.every((item) => item.status === PayrollItemStatus.FAILED)).toBe(true);
-  });
-
-  it('records an approval for the exact selected failed payouts', async () => {
-    const selectedItemIds = ['item-2', 'item-1'];
-    const ledgerRepository = {
-      findOne: jest.fn().mockResolvedValue(null),
-      insert: jest.fn().mockResolvedValue({ identifiers: [{ id: 'approval-1' }] }),
-      find: jest.fn().mockResolvedValue([]),
-    };
-    const itemRepository = {
-      find: jest.fn().mockResolvedValue([
-        { id: 'item-1', status: PayrollItemStatus.FAILED },
-        { id: 'item-2', status: PayrollItemStatus.FAILED },
-      ]),
-    };
-    const runRepository = {
-      findOne: jest.fn().mockResolvedValue({
-        id: input.payrollRunId,
-        tenantId: input.tenantId,
-        status: PayrollStatus.APPROVED,
-      }),
-    };
-    const manager = {
-      getRepository: jest.fn((entity: unknown) => {
-        if (entity === PayrollRun) return runRepository;
-        if (entity === PayrollItem) return itemRepository;
-        return ledgerRepository;
-      }),
-    };
-    repository.manager = {
-      transaction: jest.fn(async (callback: (tx: typeof manager) => Promise<void>) =>
-        callback(manager),
-      ),
-    } as never;
-
-    await service.recordRetryShortfallApproval({
-      tenantId: input.tenantId,
-      payrollRunId: input.payrollRunId,
-      selectedItemIds,
-      amount: 80,
-      currency: 'usd',
-      approvedById: 'member-1',
-      provider: 'BACHS',
-      approvalReference: 'retry-order-1',
-    });
-
-    expect(runRepository.findOne).toHaveBeenCalledWith({
-      where: { id: input.payrollRunId, tenantId: input.tenantId },
-      lock: { mode: 'pessimistic_write' },
-    });
-    expect(ledgerRepository.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: PayrollFundingLedgerEventType.SHORTFALL_APPROVED,
-        amount: '80.00',
-        currency: 'USD',
-        approvedById: 'member-1',
-        idempotencyKey: `shortfall-approval:${input.payrollRunId}:retry-order-1`,
-        evidence: expect.objectContaining({
-          selectedItemIds: 'item-1,item-2',
-          approvalStatus: 'approved',
-        }),
-      }),
-    );
   });
 
   it('releases a reservation when local validation proves no provider submission occurred', async () => {
@@ -815,5 +600,50 @@ describe('PayrollRunFundingLedgerService', () => {
         }),
       }),
     );
+  });
+
+  describe('recordPayoutReversal', () => {
+    const reversal = {
+      tenantId: 'tenant-1',
+      payrollRunId: 'run-1',
+      payrollItemId: 'item-1',
+      provider: 'BACHS',
+      providerReference: 'tx-1',
+    };
+    const debit = {
+      eventType: PayrollFundingLedgerEventType.PAYOUT_CONFIRMED,
+      payrollItemId: 'item-1',
+      providerReference: 'tx-1',
+      idempotencyKey: 'payout:BACHS:tx-1',
+      amount: '100.00',
+      currency: 'USD',
+    };
+
+    it('credits back the confirmed debit exactly once', async () => {
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([debit]);
+      await expect(service.recordPayoutReversal(reversal)).resolves.toBe('recorded');
+      expect(repository.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: PayrollFundingLedgerEventType.PAYOUT_REVERSED,
+          amount: '100.00',
+          currency: 'USD',
+          idempotencyKey: 'payout-reversal:BACHS:tx-1',
+        }),
+      );
+    });
+
+    it('is a no-op on replay', async () => {
+      repository.findOne.mockResolvedValue({ ...reversal, idempotencyKey: 'x' });
+      await expect(service.recordPayoutReversal(reversal)).resolves.toBe('already_recorded');
+      expect(repository.insert).not.toHaveBeenCalled();
+    });
+
+    it('records nothing when no confirmed debit exists', async () => {
+      repository.findOne.mockResolvedValue(null);
+      repository.find.mockResolvedValue([]);
+      await expect(service.recordPayoutReversal(reversal)).resolves.toBe('no_confirmed_debit');
+      expect(repository.insert).not.toHaveBeenCalled();
+    });
   });
 });

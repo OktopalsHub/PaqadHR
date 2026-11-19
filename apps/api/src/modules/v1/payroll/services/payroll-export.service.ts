@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
+
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import type { PayrollItem } from '../entities/payroll-item.entity';
@@ -28,7 +29,7 @@ export class PayrollExportService {
   async getPayrollRunForExport(payrollRunId: string, tenantId: string): Promise<PayrollRun> {
     const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
-      relations: ['items', 'items.employee'],
+      relations: { items: { employee: true } },
     });
     if (!run) {
       throw new NotFoundException('Payroll run not found');

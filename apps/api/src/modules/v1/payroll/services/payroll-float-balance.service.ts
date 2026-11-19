@@ -1,14 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { getMonnifyBaseUrl, getMonnifyWalletAccountNumber } from 'src/common/config/monnify.config';
 import {
   getNombaAccountId,
   getNombaBaseUrl,
   getNombaSubAccountId,
 } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import { BachsApiService } from 'src/common/services/bachs-api.service';
-import { FincraAuthService } from 'src/common/services/fincra-auth.service';
-import { MonnifyAuthService } from 'src/common/services/monnify-auth.service';
 import { NombaAuthService } from 'src/common/services/nomba-auth.service';
 
 export type PayrollFloatBalanceResult =
@@ -19,12 +15,7 @@ export type PayrollFloatBalanceResult =
 export class PayrollFloatBalanceService {
   private readonly logger = new Logger(PayrollFloatBalanceService.name);
 
-  constructor(
-    private readonly nombaAuth: NombaAuthService,
-    private readonly monnifyAuth: MonnifyAuthService,
-    private readonly fincraAuth: FincraAuthService,
-    private readonly bachsApi: BachsApiService,
-  ) {}
+  constructor(private readonly nombaAuth: NombaAuthService) {}
 
   async getAvailableBalance(
     provider: PaymentProvider,
@@ -35,17 +26,6 @@ export class PayrollFloatBalanceService {
       switch (provider) {
         case PaymentProvider.NOMBA:
           return await this.getNombaBalance(code);
-        case PaymentProvider.MONNIFY:
-          return await this.getMonnifyBalance(code);
-        case PaymentProvider.FINCRA:
-          return await this.getFincraBalance(code);
-        case PaymentProvider.BACHS:
-          return await this.getBachsBalance(code);
-        case PaymentProvider.NOAH:
-          return {
-            supported: false,
-            reason: `${provider} balance lookup is not available. Use payroll checkout to fund the payout float.`,
-          };
         default:
           return {
             supported: false,
@@ -70,14 +50,6 @@ export class PayrollFloatBalanceService {
     switch (provider) {
       case PaymentProvider.NOMBA:
         return 'https://dashboard.nomba.com';
-      case PaymentProvider.MONNIFY:
-        return 'https://app.monnify.com';
-      case PaymentProvider.FINCRA:
-        return 'https://dashboard.fincra.com';
-      case PaymentProvider.NOAH:
-        return 'https://dashboard.noah.com';
-      case PaymentProvider.BACHS:
-        return '';
       default:
         return '';
     }
@@ -85,13 +57,7 @@ export class PayrollFloatBalanceService {
 
   /** Hosted checkout that credits the same merchant float used for payouts. */
   supportsHostedFloatTopup(provider: PaymentProvider): boolean {
-    return [
-      PaymentProvider.NOMBA,
-      PaymentProvider.MONNIFY,
-      PaymentProvider.NOAH,
-      PaymentProvider.FINCRA,
-      PaymentProvider.BACHS,
-    ].includes(provider);
+    return provider === PaymentProvider.NOMBA;
   }
 
   private async getNombaBalance(currency: string): Promise<PayrollFloatBalanceResult> {
@@ -138,85 +104,5 @@ export class PayrollFloatBalanceService {
       available,
       currency: (parsed.data?.currency || currency).toUpperCase(),
     };
-  }
-
-  private async getMonnifyBalance(currency: string): Promise<PayrollFloatBalanceResult> {
-    if (!this.monnifyAuth.isConfigured()) {
-      return { supported: false, reason: 'Monnify is not configured' };
-    }
-    const accountNumber = getMonnifyWalletAccountNumber();
-    if (!accountNumber) {
-      return {
-        supported: false,
-        reason: 'MONNIFY_WALLET_ACCOUNT_NUMBER is not configured',
-      };
-    }
-    const token = await this.monnifyAuth.getAccessToken();
-    const url = `${getMonnifyBaseUrl()}/api/v2/disbursements/wallet-balance?accountNumber=${encodeURIComponent(accountNumber)}`;
-    const response = await this.monnifyAuth.monnifyFetch(url, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`Monnify wallet balance failed (${response.status})`);
-    }
-    const parsed = text
-      ? (JSON.parse(text) as {
-          responseBody?: { availableBalance?: number | string; balance?: number | string };
-        })
-      : {};
-    const raw = parsed.responseBody?.availableBalance ?? parsed.responseBody?.balance;
-    const available = Number(raw);
-    if (!Number.isFinite(available)) {
-      return { supported: false, reason: 'Monnify balance response was incomplete' };
-    }
-    return { supported: true, available, currency: currency.toUpperCase() };
-  }
-
-  private async getFincraBalance(currency: string): Promise<PayrollFloatBalanceResult> {
-    // Fincra requires businessID as a query param (header alone returns 422).
-    const businessId = await this.fincraAuth.resolveBusinessId();
-    const { parsed, httpStatus } = await this.fincraAuth.request<
-      | Array<{ currency?: string; availableBalance?: number | string; balance?: number | string }>
-      | { currency?: string; availableBalance?: number | string; balance?: number | string }
-    >('GET', `/wallets?businessID=${encodeURIComponent(businessId)}`, undefined, {
-      includeBusinessId: true,
-    });
-
-    if (httpStatus >= 400) {
-      throw new Error(`Fincra wallets failed (${httpStatus})`);
-    }
-
-    const rows = Array.isArray(parsed.data) ? parsed.data : parsed.data ? [parsed.data] : [];
-    const match =
-      rows.find((row) => (row.currency || '').toUpperCase() === currency.toUpperCase()) ?? rows[0];
-    if (!match) {
-      return { supported: false, reason: 'No Fincra wallet found for this currency' };
-    }
-    const available = Number(match.availableBalance ?? match.balance);
-    if (!Number.isFinite(available)) {
-      return { supported: false, reason: 'Fincra balance response was incomplete' };
-    }
-    return {
-      supported: true,
-      available,
-      currency: (match.currency || currency).toUpperCase(),
-    };
-  }
-
-  /**
-   * Bachs debits payouts from the per-currency `available_balance`; the checkout shortfall must
-   * be sized against it or the company pays for money the float already holds.
-   */
-  private async getBachsBalance(currency: string): Promise<PayrollFloatBalanceResult> {
-    if (!this.bachsApi.isConfigured()) {
-      return { supported: false, reason: 'Bachs is not configured for balance lookup' };
-    }
-    const available = await this.bachsApi.getAvailableBalance(currency);
-    if (available == null) {
-      return { supported: false, reason: 'Bachs balance response was incomplete' };
-    }
-    return { supported: true, available, currency: currency.toUpperCase() };
   }
 }

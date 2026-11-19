@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
@@ -7,11 +8,7 @@ import { PayrollRun } from './payroll-run.entity';
 
 @Entity({ name: 'payroll_items' })
 export class PayrollItem extends BaseEntity {
-  @ManyToOne(
-    () => PayrollRun,
-    (run) => run.items,
-    { onDelete: 'CASCADE' },
-  )
+  @ManyToOne(() => PayrollRun, (run) => run.items, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'payroll_run_id' })
   payrollRun: PayrollRun;
   @Column({ name: 'payroll_run_id' })
@@ -86,8 +83,8 @@ export class PayrollItem extends BaseEntity {
   paymentAmount: number;
   @Column({
     type: 'decimal',
-    precision: 10,
-    scale: 6,
+    precision: 18,
+    scale: 12,
     comment: 'Exchange rate used for conversion',
   })
   exchangeRate: number;

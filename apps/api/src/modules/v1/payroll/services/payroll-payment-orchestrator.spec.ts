@@ -1,5 +1,6 @@
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
+
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
 import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
@@ -15,9 +16,6 @@ describe('PayrollPaymentOrchestrator', () => {
     const payrollItemRepository = {
       save: jest.fn().mockResolvedValue(undefined),
     } as unknown as PayrollItemRepository;
-    const paymentMethodService = {
-      assessPayrollReadiness: jest.fn().mockResolvedValue({ ready: true }),
-    };
     const auditService = {
       logPayrollApproved: jest.fn().mockResolvedValue(undefined),
     };
@@ -28,11 +26,25 @@ describe('PayrollPaymentOrchestrator', () => {
     const service = new PayrollPaymentOrchestrator(
       payrollRunRepository,
       payrollItemRepository,
-      paymentMethodService as never,
+      {
+        assessRunReadiness: jest
+          .fn()
+          .mockResolvedValue([
+            { itemId: 'item-1', ready: true, platformFeeAmount: '0', platformFeePercentage: 0 },
+          ]),
+      } as never,
       {} as never,
       auditService as never,
       {} as never,
       {} as never,
+      { assessRunReadiness: jest.fn().mockResolvedValue(new Map()) } as never,
+      {
+        previewPayrollFees: jest.fn().mockResolvedValue({
+          totalPayoutFeeReserves: {},
+          totalNombaTransferCharges: {},
+          totalChargeAmount: {},
+        }),
+      } as never,
       {} as never,
       lifecycleNotify as never,
     );

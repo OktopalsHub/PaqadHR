@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
-import { FiatExchangeService } from '../../../../common/services/fiat-exchange.service';
+import { BridgeApiService } from '../../../../common/services/bridge-api.service';
 import { EmploymentService } from '../../employment/employment.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
@@ -39,7 +40,7 @@ export class PayrollCalculationService {
     private readonly tenantMembersService: TenantMembersService,
     private readonly paymentMethodService: PaymentMethodService,
     private readonly payrollPaymentOrchestrator: PayrollPaymentOrchestrator,
-    private readonly fiatExchange: FiatExchangeService,
+    private readonly bridgeApi: BridgeApiService,
   ) {}
 
   async calculatePayroll(
@@ -49,7 +50,7 @@ export class PayrollCalculationService {
   ) {
     const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
-      relations: ['items', 'items.employee'],
+      relations: { items: { employee: true } },
     });
     if (!run) throw new BadRequestException('Payroll run not found');
 
@@ -79,11 +80,34 @@ export class PayrollCalculationService {
         const amounts = computePayrollItemAmounts(salaryInfo.baseSalary, lines);
         const salaryCurrency = salaryInfo.currency.toUpperCase();
         const payoutCurrency = payoutMethod.currency.toUpperCase();
+        let bridgeFxQuote:
+          | {
+              fromCurrency: string;
+              toCurrency: string;
+              sellRate: string;
+              midmarketRate: string;
+              buyRate: string;
+              updatedAt: string;
+            }
+          | undefined;
         const conversion = await resolvePayrollPayoutConversion(
           amounts.netAmount,
           salaryCurrency,
           payoutCurrency,
-          this.fiatExchange,
+          {
+            convert: async (amount, fromCurrency, toCurrency) => {
+              const rate = await this.getBridgeSellRate(fromCurrency, toCurrency);
+              bridgeFxQuote = {
+                fromCurrency,
+                toCurrency,
+                sellRate: rate.sellRate,
+                midmarketRate: rate.midmarketRate,
+                buyRate: rate.buyRate,
+                updatedAt: rate.updatedAt,
+              };
+              return Number((amount * Number(rate.sellRate)).toFixed(8));
+            },
+          },
         );
 
         item.baseSalary = amounts.baseSalary;
@@ -100,7 +124,8 @@ export class PayrollCalculationService {
           payType: salaryInfo.payType,
           paySchedule: salaryInfo.paySchedule,
           adjustmentLines: lines,
-          fxAtPayout: conversion.fxAtPayout,
+          fxAtPayout: conversion.fxAtPayout || Boolean(bridgeFxQuote),
+          ...(bridgeFxQuote ? { bridgeFxQuote } : {}),
           payoutMethodId: payoutMethod.id,
         };
         await this.payrollItemRepository.save(item);
@@ -128,6 +153,51 @@ export class PayrollCalculationService {
     return {
       warnings,
       readiness: await this.payrollPaymentOrchestrator.getPayrollReadiness(payrollRunId, tenantId),
+    };
+  }
+
+  private async getBridgeSellRate(fromCurrency: string, toCurrency: string) {
+    const from = fromCurrency.toUpperCase();
+    const to = toCurrency.toUpperCase();
+    const bridgeFrom = from === 'USDC' ? 'USD' : from;
+    const bridgeTo = to === 'USDC' ? 'USD' : to;
+    if (bridgeFrom === bridgeTo) {
+      return {
+        sellRate: '1',
+        midmarketRate: '1',
+        buyRate: '1',
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    if (bridgeFrom === 'USD' || bridgeTo === 'USD') {
+      const rate = await this.bridgeApi.getExchangeRate(bridgeFrom, bridgeTo);
+      return {
+        sellRate: rate.sell_rate,
+        midmarketRate: rate.midmarket_rate,
+        buyRate: rate.buy_rate,
+        updatedAt: rate.updated_at,
+      };
+    }
+
+    // Bridge publishes USD legs for EUR and GBP rather than every cross pair.
+    const [toUsd, fromUsd] = await Promise.all([
+      this.bridgeApi.getExchangeRate(bridgeFrom, 'USD'),
+      this.bridgeApi.getExchangeRate('USD', bridgeTo),
+    ]);
+    const sellRate = Number(toUsd.sell_rate) * Number(fromUsd.sell_rate);
+    if (!Number.isFinite(sellRate) || sellRate <= 0) {
+      throw new BadRequestException('Bridge returned an invalid cross-currency exchange rate.');
+    }
+    return {
+      sellRate: sellRate.toPrecision(15),
+      midmarketRate: (Number(toUsd.midmarket_rate) * Number(fromUsd.midmarket_rate)).toPrecision(
+        15,
+      ),
+      buyRate: (Number(toUsd.buy_rate) * Number(fromUsd.buy_rate)).toPrecision(15),
+      updatedAt:
+        Date.parse(toUsd.updated_at) < Date.parse(fromUsd.updated_at)
+          ? toUsd.updated_at
+          : fromUsd.updated_at,
     };
   }
 

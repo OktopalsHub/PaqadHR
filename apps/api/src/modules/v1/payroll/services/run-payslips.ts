@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Optional } from '@nestjs/common';
+
 import { TenantMemberRole } from '../../../../common/enums';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
@@ -44,7 +45,7 @@ export class RunPayslips {
   async getRunPayslips(payrollRunId: string, tenantId: string) {
     const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
-      relations: ['items', 'items.employee'],
+      relations: { items: { employee: true } },
     });
     if (!run) throw new BadRequestException('Payroll run not found');
     return (run.items ?? [])
@@ -75,7 +76,7 @@ export class RunPayslips {
   ) {
     const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
-      relations: ['items', 'items.employee'],
+      relations: { items: { employee: true } },
     });
     if (!run) throw new BadRequestException('Payroll run not found');
 
@@ -154,7 +155,7 @@ export class RunPayslips {
   ): Promise<{ notified: boolean }> {
     const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
-      relations: ['items', 'items.employee'],
+      relations: { items: { employee: true } },
     });
     if (!run) throw new BadRequestException('Payroll run not found');
     const item = run.items?.find((e) => e.id === itemId);
