@@ -136,6 +136,8 @@ export class RecruitmentAtsController {
       candidateId,
       stageId: dto.stageId,
       reason: dto.reason,
+      sendEmail: dto.sendEmail,
+      emailTemplateId: dto.emailTemplateId,
       actorMemberId: member.id,
     });
   }

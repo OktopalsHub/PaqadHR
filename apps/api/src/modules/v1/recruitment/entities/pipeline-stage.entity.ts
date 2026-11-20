@@ -25,4 +25,8 @@ export class PipelineStage extends BaseEntity {
 
   @Column({ name: 'auto_email_template_id', type: 'uuid', nullable: true })
   autoEmailTemplateId: string | null;
+
+  /** Hex colour (#rrggbb) shown next to the stage in dropdowns and on the board. */
+  @Column({ type: 'varchar', length: 7, nullable: true })
+  color: string | null;
 }

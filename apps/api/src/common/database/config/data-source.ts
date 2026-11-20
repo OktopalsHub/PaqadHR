@@ -140,6 +140,7 @@ const AppDataSource = {
     Migrations.RecruitmentScorecardsOffersPool1794700000000,
     Migrations.LeaveReportIndex1794800000000,
     Migrations.DashboardQueryIndexes1794900000000,
+    Migrations.PipelineStageColor1795000000000,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,
