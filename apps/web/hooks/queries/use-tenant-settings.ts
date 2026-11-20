@@ -15,6 +15,7 @@ import {
   updateHolidaySettings,
 } from '@/lib/api/tenant-settings';
 import { queryKeys } from '@/lib/query/keys';
+import { CATALOG_STALE_MS, REFERENCE_DATA_STALE_MS } from '@/lib/query/stale-times';
 import { useTenant } from '@/providers/tenant-provider';
 
 import {
@@ -26,6 +27,7 @@ export function useTenantSettings() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   return useQuery({
     queryKey: [...queryKeys.settings.tenant, tenantId],
+    staleTime: REFERENCE_DATA_STALE_MS,
     queryFn: fetchTenantSettings,
     enabled: !tenantLoading && Boolean(tenantId),
   });
@@ -90,6 +92,7 @@ export function useHolidaySettings() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   return useQuery({
     queryKey: [...queryKeys.settings.holidays, tenantId],
+    staleTime: REFERENCE_DATA_STALE_MS,
     queryFn: fetchHolidaySettings,
     enabled: !tenantLoading && Boolean(tenantId),
   });
@@ -99,6 +102,7 @@ export function useSupportedHolidayCountries() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   return useQuery({
     queryKey: [...queryKeys.settings.holidayCountries, tenantId],
+    staleTime: CATALOG_STALE_MS,
     queryFn: fetchSupportedHolidayCountries,
     enabled: !tenantLoading && Boolean(tenantId),
   });

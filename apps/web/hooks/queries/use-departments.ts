@@ -11,6 +11,7 @@ import {
   updateDepartment,
 } from '@/lib/api/departments';
 import { queryKeys } from '@/lib/query/keys';
+import { REFERENCE_DATA_STALE_MS } from '@/lib/query/stale-times';
 import type { Department } from '@/lib/schemas/department';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -19,6 +20,7 @@ export function useDepartments() {
 
   return useQuery({
     queryKey: [...queryKeys.departments.all, tenantId],
+    staleTime: REFERENCE_DATA_STALE_MS,
     queryFn: fetchDepartments,
     enabled: !tenantLoading && Boolean(tenantId),
   });

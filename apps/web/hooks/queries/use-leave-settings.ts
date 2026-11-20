@@ -10,12 +10,14 @@ import {
   updateLeaveType,
 } from '@/lib/api/leave-types';
 import { queryKeys } from '@/lib/query/keys';
+import { REFERENCE_DATA_STALE_MS } from '@/lib/query/stale-times';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function useLeavePolicy() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   return useQuery({
     queryKey: [...queryKeys.settings.leavePolicy, tenantId],
+    staleTime: REFERENCE_DATA_STALE_MS,
     queryFn: fetchLeavePolicy,
     enabled: !tenantLoading && Boolean(tenantId),
   });
@@ -38,6 +40,7 @@ export function useLeaveTypesAdmin() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   return useQuery({
     queryKey: [...queryKeys.settings.leaveTypes, tenantId],
+    staleTime: REFERENCE_DATA_STALE_MS,
     queryFn: fetchLeaveTypes,
     enabled: !tenantLoading && Boolean(tenantId),
   });

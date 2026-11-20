@@ -15,6 +15,7 @@ import {
   updatePosition,
 } from '@/lib/api/positions';
 import { queryKeys } from '@/lib/query/keys';
+import { REFERENCE_DATA_STALE_MS } from '@/lib/query/stale-times';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function usePositions() {
@@ -22,6 +23,7 @@ export function usePositions() {
 
   return useQuery({
     queryKey: [...queryKeys.positions.all, tenantId],
+    staleTime: REFERENCE_DATA_STALE_MS,
     queryFn: fetchPositions,
     enabled: !tenantLoading && Boolean(tenantId),
   });

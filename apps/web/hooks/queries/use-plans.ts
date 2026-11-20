@@ -13,10 +13,12 @@ import {
   upsertPlanPrice,
 } from '@/lib/api/plans';
 import { queryKeys } from '@/lib/query/keys';
+import { CATALOG_STALE_MS } from '@/lib/query/stale-times';
 
 export function usePlans() {
   return useQuery({
     queryKey: queryKeys.plans.all,
+    staleTime: CATALOG_STALE_MS,
     queryFn: fetchPlans,
   });
 }
@@ -31,6 +33,7 @@ export function useDetectPlans() {
 export function usePlansForCountry(countryCode: string) {
   return useQuery({
     queryKey: queryKeys.plans.country(countryCode),
+    staleTime: CATALOG_STALE_MS,
     queryFn: () => fetchPlansForCountry(countryCode),
     enabled: Boolean(countryCode),
   });

@@ -120,7 +120,7 @@ function useLeaveDecisionMutation(
     onError: (_error, _variables, context) => context?.rollback(),
     onSettled: () => {
       if (!isLastInFlightMutation(queryClient, mutationKey)) return;
-      return invalidateLeaveMutationQueries(queryClient);
+      void invalidateLeaveMutationQueries(queryClient);
     },
   });
 }
