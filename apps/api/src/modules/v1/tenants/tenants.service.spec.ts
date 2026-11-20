@@ -34,7 +34,9 @@ describe('TenantsService', () => {
   };
   let employmentRepository: {
     count: jest.Mock;
+    createQueryBuilder: jest.Mock;
   };
+  let directReportRows: { managerId: string; total: string }[];
   let walletRepository: {
     findOne: jest.Mock;
   };
@@ -59,8 +61,18 @@ describe('TenantsService', () => {
     fileUrlService = {
       getTenantLogoUrl: jest.fn(),
     };
+    directReportRows = [];
+    const directReportsQuery = {
+      innerJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockImplementation(async () => directReportRows),
+    };
     employmentRepository = {
       count: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(directReportsQuery),
     };
     walletRepository = {
       findOne: jest.fn().mockResolvedValue(null),
@@ -141,6 +153,7 @@ describe('TenantsService', () => {
         new Map([['tenant-1', { entitled: true, needsPayment: false, plan: 'growth' }]]),
       );
       fileUrlService.getTenantLogoUrl.mockReturnValue('https://cdn.example.com/acme/logo.png');
+      directReportRows = [{ managerId: 'member-1', total: '2' }];
 
       const workspaces = await service.getSessionWorkspaces('user-1');
 
@@ -163,6 +176,7 @@ describe('TenantsService', () => {
             id: 'member-1',
             role: TenantMemberRole.OWNER,
             isActive: true,
+            directReportsCount: 2,
           },
           entitled: true,
           needsPayment: false,
@@ -181,6 +195,7 @@ describe('TenantsService', () => {
             id: 'member-2',
             role: TenantMemberRole.MEMBER,
             isActive: true,
+            directReportsCount: 0,
           },
           entitled: false,
           needsPayment: true,

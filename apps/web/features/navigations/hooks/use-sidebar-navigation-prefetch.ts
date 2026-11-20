@@ -15,7 +15,7 @@ import { fetchLeaves, fetchMyLeaves } from '@/lib/api/leaves';
 import { fetchPayrollRuns } from '@/lib/api/payroll';
 import { fetchAllCandidates, fetchJobOpenings } from '@/lib/api/recruitment';
 import { fetchShoutouts } from '@/lib/api/shoutouts';
-import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
+import { isTenantAdmin, resolveViewerDirectReportsCount } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -83,7 +83,7 @@ export function useSidebarNavigationPrefetch() {
           ]);
           const canViewTeamLeaves =
             isTenantAdmin(tenant?.member?.role) ||
-            (tenant?.member?.id ? hasDirectReports(tenant.member.id, employees ?? []) : false);
+            resolveViewerDirectReportsCount(tenant?.member, employees) > 0;
 
           void queryClient.prefetchQuery({
             queryKey: [

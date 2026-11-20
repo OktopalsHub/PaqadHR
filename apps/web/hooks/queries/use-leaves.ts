@@ -13,27 +13,19 @@ import {
   rejectLeave,
   updateLeave,
 } from '@/lib/api/leaves';
-import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
+import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
 import type { CreateLeaveInput, UpdateLeaveInput } from '@/lib/schemas/leave';
 import { useTenant } from '@/providers/tenant-provider';
 
 import { invalidateLeaveMutationQueries } from './leave-mutation-invalidation';
+import { useViewerHasDirectReports } from './use-direct-reports';
 import { useEmployees } from './use-employees';
 
 function useCanViewTeamLeaves() {
   const { tenant } = useTenant();
-  const { data: employees = [] } = useEmployees();
-  const role = tenant?.member?.role;
-  const viewerId = tenant?.member?.id;
-
-  if (isTenantAdmin(role)) {
-    return true;
-  }
-  if (!viewerId) {
-    return false;
-  }
-  return hasDirectReports(viewerId, employees);
+  const viewerHasDirectReports = useViewerHasDirectReports();
+  return isTenantAdmin(tenant?.member?.role) || viewerHasDirectReports;
 }
 
 export function useLeaves(options?: { limit?: number }) {

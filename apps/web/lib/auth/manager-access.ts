@@ -52,3 +52,16 @@ export function canViewTeamPayroll(
   }
   return viewerMemberId ? hasDirectReports(viewerMemberId, members) : false;
 }
+
+/**
+ * How many people report to the viewer. The session payload carries the count,
+ * so the full member list is only needed for payloads that predate it.
+ */
+export function resolveViewerDirectReportsCount(
+  member: { id: string; directReportsCount?: number } | null | undefined,
+  members: Pick<ApiTenantMember, 'reportsToId'>[] | undefined,
+): number {
+  if (!member) return 0;
+  if (typeof member.directReportsCount === 'number') return member.directReportsCount;
+  return members ? members.filter((item) => item.reportsToId === member.id).length : 0;
+}

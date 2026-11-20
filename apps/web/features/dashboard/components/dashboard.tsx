@@ -37,7 +37,8 @@ import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashbo
 import { JobDetailSheet } from '@/features/recruitment/components/job-detail-sheet';
 import { useRecruitmentOverview } from '@/features/recruitment/hooks/use-recruitment-overview';
 import { useAttendanceStats, useClockInInfo } from '@/hooks/queries/use-attendance';
-import { useEmployees, useEmployeeSummary } from '@/hooks/queries/use-employees';
+import { useViewerDirectReportsCount } from '@/hooks/queries/use-direct-reports';
+import { useEmployeeSummary } from '@/hooks/queries/use-employees';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
 import { usePayrollSetupSummary } from '@/hooks/queries/use-payroll';
@@ -137,11 +138,7 @@ export const Dashboard = () => {
     recruitmentFeature: FeatureAccess.RECRUITMENT,
   });
   const { canAccessRecruitment, recruitmentQueriesEnabled } = recruitmentAccess;
-  const { data: employees = [] } = useEmployees();
-  const memberId = tenant?.member?.id;
-  const directReports = memberId
-    ? employees.filter((employee) => employee.reportsToId === memberId).length
-    : 0;
+  const directReports = useViewerDirectReportsCount();
   const role = resolveDashboardRole(isAdmin, directReports);
   const { enabled: clockInEnabled, isLoading: attendanceSettingLoading } = useClockInEnabled();
   // Attendance counts only when the plan includes it and the workspace has switched it on.

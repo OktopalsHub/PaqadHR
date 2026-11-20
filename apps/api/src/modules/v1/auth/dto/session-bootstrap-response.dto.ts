@@ -23,6 +23,11 @@ export class SessionWorkspaceMemberDto {
 
   @ApiProperty()
   isActive: boolean;
+
+  @ApiProperty({
+    description: 'Active members who report to this member; lets the client skip loading the full member list to decide on team views.',
+  })
+  directReportsCount: number;
 }
 
 export class SessionWorkspaceDto {
