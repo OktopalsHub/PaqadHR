@@ -7,6 +7,7 @@ import {
   cancelLeave,
   createLeave,
   deleteLeave,
+  fetchLeaveDashboardSummary,
   fetchLeaves,
   fetchMyLeaveBalances,
   fetchMyLeaves,
@@ -46,6 +47,25 @@ export function useLeaves(options?: { limit?: number }) {
     ],
     queryFn: canViewTeamLeaves ? fetchLeaves : fetchMyLeaves,
     select: options?.limit ? (data) => data.slice(0, options.limit) : undefined,
+    enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useLeaveDashboardSummary(today: string) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+  const canViewTeamLeaves = useCanViewTeamLeaves();
+
+  // Under the leaves prefix, so approving, rejecting or filing leave refreshes it.
+  return useQuery({
+    queryKey: [
+      ...queryKeys.leaves.all,
+      tenantId,
+      'dashboard-summary',
+      canViewTeamLeaves ? 'team' : 'self',
+      today,
+    ],
+    queryFn: () => fetchLeaveDashboardSummary(today),
     enabled: !tenantLoading && Boolean(tenantId),
     placeholderData: keepPreviousData,
   });

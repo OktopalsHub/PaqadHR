@@ -21,12 +21,9 @@ export type DashboardKpi = {
   href?: string;
 };
 
-type LeaveLike = { status?: string; startDate: string; endDate: string };
-
 export type DashboardKpiInput = {
   role: DashboardRole;
-  today: string;
-  leaves: LeaveLike[];
+  leaveCounts: { pending: number; onLeaveToday: number };
   leavesLoading: boolean;
   employeeSummary?: { activeEmployees: number; departments: number };
   teamSize: number;
@@ -47,27 +44,22 @@ export type DashboardKpiInput = {
 
 const plural = (count: number, one: string, many = `${one}s`) => (count === 1 ? one : many);
 
-const isApproved = (leave: LeaveLike) => leave.status?.toLowerCase() === 'approved';
-const isPending = (leave: LeaveLike) => leave.status?.toLowerCase() === 'pending';
-const coversDay = (leave: LeaveLike, day: string) =>
-  String(leave.startDate).slice(0, 10) <= day && String(leave.endDate).slice(0, 10) >= day;
-
 export function resolveDashboardRole(isAdmin: boolean, directReports: number): DashboardRole {
   if (isAdmin) return 'admin';
   return directReports > 0 ? 'manager' : 'member';
 }
 
 export function buildDashboardKpis(input: DashboardKpiInput): DashboardKpi[] {
-  const { role, today, leaves, leavesLoading } = input;
-  const onLeaveToday = leaves.filter((leave) => isApproved(leave) && coversDay(leave, today));
-  const pending = leaves.filter(isPending);
+  const { role, leaveCounts, leavesLoading } = input;
+  const onLeaveCount = leaveCounts.onLeaveToday;
+  const pendingCount = leaveCounts.pending;
   const leaveValue = (count: number) => (leavesLoading ? '—' : count);
 
   const pendingApprovals: DashboardKpi = {
     key: 'pending-approvals',
     label: 'Pending approvals',
-    value: leaveValue(pending.length),
-    hint: pending.length === 0 ? 'Nothing waiting on you' : 'Leave requests waiting on you',
+    value: leaveValue(pendingCount),
+    hint: pendingCount === 0 ? 'Nothing waiting on you' : 'Leave requests waiting on you',
     icon: 'clipboardCheck',
     tone: 'info',
     href: 'leaves',
@@ -106,14 +98,14 @@ export function buildDashboardKpis(input: DashboardKpiInput): DashboardKpi[] {
       cards.push({
         key: 'on-leave-today',
         label: 'On leave today',
-        value: leaveValue(onLeaveToday.length),
+        value: leaveValue(onLeaveCount),
         hint: 'Approved leave covering today',
         icon: 'palmtree',
         tone: 'success',
         href: 'leaves',
       });
     }
-    cards.push({ ...pendingApprovals, hint: `${onLeaveToday.length} on leave today` });
+    cards.push({ ...pendingApprovals, hint: `${onLeaveCount} on leave today` });
     if (input.payrollSetup) {
       const { paymentReadyCount, totalEmployees } = input.payrollSetup;
       cards.push({
@@ -174,7 +166,7 @@ export function buildDashboardKpis(input: DashboardKpiInput): DashboardKpi[] {
       {
         key: 'team-on-leave',
         label: 'Team on leave today',
-        value: leaveValue(onLeaveToday.length),
+        value: leaveValue(onLeaveCount),
         hint: 'Approved leave covering today',
         icon: 'calendarClock',
         tone: 'success',
@@ -205,8 +197,8 @@ export function buildDashboardKpis(input: DashboardKpiInput): DashboardKpi[] {
   cards.push({
     key: 'my-pending',
     label: 'My pending requests',
-    value: leaveValue(pending.length),
-    hint: pending.length === 0 ? 'All caught up' : 'Awaiting a decision',
+    value: leaveValue(pendingCount),
+    hint: pendingCount === 0 ? 'All caught up' : 'Awaiting a decision',
     icon: 'clipboardCheck',
     tone: 'warning',
     href: 'leaves',

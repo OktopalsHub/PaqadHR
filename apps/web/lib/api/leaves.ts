@@ -165,3 +165,23 @@ export async function rejectLeave(leaveId: string, comments?: string): Promise<v
     body: JSON.stringify({ comments: comments ?? '' }),
   });
 }
+
+export type LeaveDashboardSummary = {
+  pending: number;
+  onLeaveToday: number;
+  recent: {
+    id: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    requester: { id: string; firstName: string; lastName: string } | null;
+    leaveType: { name: string } | null;
+  }[];
+};
+
+export async function fetchLeaveDashboardSummary(today: string): Promise<LeaveDashboardSummary> {
+  const tenantId = await resolveTenantId();
+  return apiClient<LeaveDashboardSummary>(
+    `${tenantPath(tenantId, 'leaves/dashboard-summary')}?today=${today}`,
+  );
+}

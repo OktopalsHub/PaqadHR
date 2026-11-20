@@ -9,12 +9,7 @@ import {
 
 const base: DashboardKpiInput = {
   role: 'admin',
-  today: '2026-11-20',
-  leaves: [
-    { status: 'approved', startDate: '2026-11-19', endDate: '2026-11-21' },
-    { status: 'approved', startDate: '2026-12-01', endDate: '2026-12-02' },
-    { status: 'pending', startDate: '2026-11-25', endDate: '2026-11-26' },
-  ],
+  leaveCounts: { pending: 1, onLeaveToday: 1 },
   leavesLoading: false,
   employeeSummary: { activeEmployees: 12, departments: 3 },
   teamSize: 4,

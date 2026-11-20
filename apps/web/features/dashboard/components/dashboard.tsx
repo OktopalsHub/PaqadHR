@@ -46,7 +46,7 @@ import { useCalendarEvents } from '@/hooks/queries/use-calendar';
 import { useViewerDirectReportsCount } from '@/hooks/queries/use-direct-reports';
 import { useEmployeeSummary } from '@/hooks/queries/use-employees';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
-import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
+import { useLeaveBalances, useLeaveDashboardSummary } from '@/hooks/queries/use-leaves';
 import { usePayrollSetupSummary } from '@/hooks/queries/use-payroll';
 import { useDashboardRecruitmentSummary } from '@/hooks/queries/use-recruitment';
 import { useMyPointsBalance } from '@/hooks/queries/use-shoutouts';
@@ -55,6 +55,7 @@ import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatDate } from '@/lib/format-date';
+import { formatPersonName } from '@/lib/format-name';
 import { useTenant } from '@/providers/tenant-provider';
 
 const KPI_ICONS: Record<DashboardKpiIcon, LucideIcon> = {
@@ -162,11 +163,11 @@ export const Dashboard = () => {
     refetch: refetchEmployeeSummary,
   } = useEmployeeSummary();
   const {
-    data: leaves = [],
+    data: leaveSummary,
     isLoading: leavesLoading,
     isError: leavesError,
     refetch: refetchLeaves,
-  } = useLeaves();
+  } = useLeaveDashboardSummary(todayKey());
   const {
     data: recruitmentSummary,
     isLoading: summaryLoading,
@@ -196,10 +197,19 @@ export const Dashboard = () => {
   const schedule = useMemo(() => calendarEventsToSchedule(calendarEvents), [calendarEvents]);
   const recentLeaves = useMemo(
     () =>
-      [...leaves]
-        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-        .slice(0, 5),
-    [leaves],
+      (leaveSummary?.recent ?? []).map((leave) => ({
+        id: leave.id,
+        employee: formatPersonName(
+          leave.requester?.firstName,
+          leave.requester?.lastName,
+          'Unknown',
+        ),
+        type: leave.leaveType?.name ?? 'Leave',
+        startDate: leave.startDate,
+        endDate: leave.endDate,
+        status: leave.status,
+      })),
+    [leaveSummary],
   );
   const pipelineStages = useMemo(
     () => toPipelineStages(recruitmentSummary?.statusCounts ?? {}),
@@ -213,8 +223,10 @@ export const Dashboard = () => {
   const contentCardTitleClassName = 'text-[17px] font-semibold text-foreground';
   const statCards = buildDashboardKpis({
     role,
-    today: todayKey(),
-    leaves,
+    leaveCounts: {
+      pending: leaveSummary?.pending ?? 0,
+      onLeaveToday: leaveSummary?.onLeaveToday ?? 0,
+    },
     leavesLoading,
     employeeSummary,
     teamSize: directReports,
