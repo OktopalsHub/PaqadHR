@@ -43,6 +43,7 @@ import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
 import { usePayrollSetupSummary } from '@/hooks/queries/use-payroll';
 import { useJobOpenings } from '@/hooks/queries/use-recruitment';
 import { useMyPointsBalance } from '@/hooks/queries/use-shoutouts';
+import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { FeatureAccess } from '@/lib/constants/feature-access';
@@ -81,6 +82,37 @@ function formatClockTime(value: string) {
     : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function KpiCard({ card, href }: { card: DashboardKpi; href?: string }) {
+  const Icon = KPI_ICONS[card.icon];
+  const body = (
+    <article className="dashboard-panel h-full rounded-[8px] px-5 py-5 transition-colors hover:bg-background/60">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
+            {card.label}
+          </p>
+          <p className="mt-3 truncate text-[31px] font-semibold leading-none tracking-[-0.035em] text-foreground">
+            {card.value}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">{card.hint}</p>
+        </div>
+        <div
+          className={`flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-sm ${KPI_TONES[card.tone]}`}
+        >
+          <Icon className="size-4.5" />
+        </div>
+      </div>
+    </article>
+  );
+  return href ? (
+    <Link href={href} className="block">
+      {body}
+    </Link>
+  ) : (
+    body
+  );
+}
+
 function leaveStatusVariant(status: string) {
   switch (status.toLowerCase()) {
     case 'approved':
@@ -111,7 +143,9 @@ export const Dashboard = () => {
     ? employees.filter((employee) => employee.reportsToId === memberId).length
     : 0;
   const role = resolveDashboardRole(isAdmin, directReports);
-  const attendanceEnabled = isAdmin && hasFeature(FeatureAccess.ATTENDANCE);
+  const { enabled: clockInEnabled, isLoading: attendanceSettingLoading } = useClockInEnabled();
+  // Attendance counts only when the plan includes it and the workspace has switched it on.
+  const attendanceEnabled = isAdmin && hasFeature(FeatureAccess.ATTENDANCE) && clockInEnabled;
   const payrollEnabled = isAdmin && hasFeature(FeatureAccess.PAYROLL);
   const attendanceStatsQuery = useAttendanceStats(todayKey(), todayKey(), {
     enabled: attendanceEnabled,
@@ -152,10 +186,6 @@ export const Dashboard = () => {
 
   const jobs = jobsData?.jobs ?? [];
   const openRoles = useMemo(() => jobs.filter((job) => job.status === 'ACTIVE').length, [jobs]);
-  const pendingLeaves = useMemo(
-    () => leaves.filter((leave) => leave.status?.toLowerCase() === 'pending').length,
-    [leaves],
-  );
   const recentLeaves = useMemo(
     () =>
       [...leaves]
@@ -163,7 +193,6 @@ export const Dashboard = () => {
         .slice(0, 5),
     [leaves],
   );
-  const departmentCount = useMemo(() => employeeSummary?.departments ?? 0, [employeeSummary]);
   const pipelineStages = useMemo(() => {
     const stages = [
       { label: 'Applied', statuses: ['APPLIED'] },
@@ -197,11 +226,14 @@ export const Dashboard = () => {
     leavesLoading,
     employeeSummary,
     teamSize: directReports,
-    attendanceStats: attendanceEnabled
-      ? attendanceStatsQuery.isError
-        ? null
-        : attendanceStatsQuery.data
-      : null,
+    attendanceStats:
+      isAdmin && attendanceSettingLoading
+        ? undefined
+        : attendanceEnabled
+          ? attendanceStatsQuery.isError
+            ? null
+            : attendanceStatsQuery.data
+          : null,
     payrollSetup: payrollEnabled && !payrollSetupQuery.isError ? payrollSetupQuery.data : null,
     openRoles: recruitmentAccess.includeOpenRolesCard
       ? { count: openRoles, activeCandidates, loading: jobsLoading || overviewLoading }
@@ -260,36 +292,13 @@ export const Dashboard = () => {
       ) : null}
 
       <div className={statGridClassName}>
-        {statCards.map((card) => {
-          const Icon = KPI_ICONS[card.icon];
-          const body = (
-            <article className="dashboard-panel h-full rounded-[8px] px-5 py-5 transition-colors hover:bg-background/60">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
-                    {card.label}
-                  </p>
-                  <p className="mt-3 truncate text-[31px] font-semibold leading-none tracking-[-0.035em] text-foreground">
-                    {card.value}
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">{card.hint}</p>
-                </div>
-                <div
-                  className={`flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-sm ${KPI_TONES[card.tone]}`}
-                >
-                  <Icon className="size-4.5" />
-                </div>
-              </div>
-            </article>
-          );
-          return card.href ? (
-            <Link key={card.key} href={tenantHref(card.href)} className="block">
-              {body}
-            </Link>
-          ) : (
-            <div key={card.key}>{body}</div>
-          );
-        })}
+        {statCards.map((card) => (
+          <KpiCard
+            key={card.key}
+            card={card}
+            href={card.href ? tenantHref(card.href) : undefined}
+          />
+        ))}
       </div>
 
       <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">

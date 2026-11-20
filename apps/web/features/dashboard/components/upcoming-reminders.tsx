@@ -10,16 +10,6 @@ import { celebrationsQueryKey, fetchCelebrations } from '@/lib/api/calendar';
 import { formatOrdinal } from '@/lib/format-ordinal';
 import { useTenant } from '@/providers/tenant-provider';
 
-type ApiCelebration = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  preferredName?: string;
-  type: 'birthday' | 'anniversary';
-  date: string;
-  years?: number;
-};
-
 export function UpcomingReminders() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { data = [], isLoading } = useQuery({
