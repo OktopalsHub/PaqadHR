@@ -51,8 +51,14 @@ export function useRecruitmentOverview(
     isLoading: candidatesLoading,
     refetch: refetchCandidates,
   } = dependencies.useAllCandidates(queryOptions);
+  // The schedule sits below the headline numbers, so its five requests wait for
+  // jobs and candidates instead of competing with them for the browser's connections.
   const { data: calendarEvents = [], refetch: refetchCalendarEvents } =
-    dependencies.useCalendarEvents({ ...queryOptions, dateRange: todayRange() });
+    dependencies.useCalendarEvents({
+      ...queryOptions,
+      enabled: enabled && !jobsLoading && !candidatesLoading,
+      dateRange: todayRange(),
+    });
 
   const apiJobs = jobsData?.jobs ?? [];
   const isLoading = enabled && (jobsLoading || candidatesLoading);
