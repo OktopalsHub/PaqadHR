@@ -16,6 +16,12 @@ import {
   setTalentPool,
   submitScorecard,
 } from '@/lib/api/recruitment-ats';
+import {
+  applyOptimisticUpdate,
+  isLastInFlightMutation,
+  patchListItem,
+} from '@/lib/query/optimistic';
+import type { Candidate } from '@/lib/schemas/recruitment';
 
 const key = (name: string, candidateId: string | null) => ['recruitment', name, candidateId];
 
@@ -27,13 +33,40 @@ export function useCandidateTimeline(candidateId: string | null) {
   });
 }
 
+const CANDIDATE_LIST_KEYS = [
+  ['recruitment', 'allCandidates'],
+  ['recruitment', 'candidates'],
+];
+
 export function useMoveCandidateStage(candidateId: string) {
   const queryClient = useQueryClient();
+  const mutationKey = ['recruitment', 'move-candidate-stage'] as const;
+
   return useMutation({
+    mutationKey,
     mutationFn: (stageId: string) => moveCandidateToStage(candidateId, stageId),
-    onSuccess: () => {
+    // Show the new stage at once; the server decides the resulting status afterwards.
+    onMutate: async (stageId) => {
+      const rollbacks = await Promise.all(
+        CANDIDATE_LIST_KEYS.map((queryKey) =>
+          applyOptimisticUpdate<unknown>(queryClient, queryKey, (data) =>
+            patchListItem<Candidate>(data, candidateId, { stageId }),
+          ),
+        ),
+      );
+      return {
+        rollback: () => {
+          for (const rollback of rollbacks) rollback();
+        },
+      };
+    },
+    onError: (_error, _stageId, context) => context?.rollback(),
+    onSettled: () => {
+      if (!isLastInFlightMutation(queryClient, mutationKey)) return;
       void queryClient.invalidateQueries({ queryKey: key('timeline', candidateId) });
-      void queryClient.invalidateQueries({ queryKey: ['recruitment'] });
+      for (const queryKey of CANDIDATE_LIST_KEYS) {
+        void queryClient.invalidateQueries({ queryKey });
+      }
     },
   });
 }

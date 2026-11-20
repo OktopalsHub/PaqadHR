@@ -54,7 +54,7 @@ export function CandidateOverviewPanel({ candidate }: { candidate: DetailCandida
         <select
           id="candidate-stage"
           className={SELECT_CLASS}
-          defaultValue={candidate.stageId ?? ''}
+          value={candidate.stageId ?? ''}
           onChange={(e) =>
             e.target.value &&
             move.mutate(e.target.value, {
@@ -62,7 +62,6 @@ export function CandidateOverviewPanel({ candidate }: { candidate: DetailCandida
               onError: (error) => notifyError(error),
             })
           }
-          disabled={move.isPending}
         >
           <option value="">
             {candidate.stageId ? 'Select a stage' : `Status: ${candidate.status}`}
