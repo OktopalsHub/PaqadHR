@@ -77,6 +77,19 @@ export class TenantGuard implements CanActivate {
     if (!membership.tenant?.isActive) {
       throw new ForbiddenException('Tenant is not active');
     }
+    // Lets TenantMemberGuard reuse this lookup instead of querying the member and tenant again.
+    request.tenantAccess = {
+      userId: request.user.principalId,
+      tenantId: requestedTenantId,
+      memberId: membership.id,
+      role: membership.role,
+      tenant: {
+        id: membership.tenant.id,
+        slug: membership.tenant.slug,
+        name: membership.tenant.name,
+        isActive: membership.tenant.isActive,
+      },
+    };
 
     return true;
   }

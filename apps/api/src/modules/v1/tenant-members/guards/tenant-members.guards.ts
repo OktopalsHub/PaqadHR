@@ -18,6 +18,16 @@ import { resolveTenantIdFromRequest } from '../../../../common/utils/tenant-requ
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantMembersService } from '../tenant-members.service';
 
+type TenantAccessRequest = {
+  tenantAccess?: {
+    userId: string;
+    tenantId: string;
+    memberId: string;
+    role: string;
+    tenant: { id: string; slug: string; name: string; isActive: boolean };
+  };
+};
+
 @Injectable()
 export class TenantMemberGuard implements CanActivate {
   constructor(
@@ -47,14 +57,21 @@ export class TenantMemberGuard implements CanActivate {
       throw new ForbiddenException('Authentication required');
     }
 
-    const tenant = await this.tenantRepository.findOne({
-      where: { id: tenantId },
-    });
+    const access = (request as TenantAccessRequest).tenantAccess;
+    const reused = access?.userId === userId && access.tenantId === tenantId ? access : null;
+
+    const tenant =
+      reused?.tenant ??
+      (await this.tenantRepository.findOne({
+        where: { id: tenantId },
+      }));
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
     }
 
-    const member = await this.tenantMemberService.findUserTenantMembership(userId, tenantId);
+    const member = reused
+      ? { id: reused.memberId, role: reused.role }
+      : await this.tenantMemberService.findUserTenantMembership(userId, tenantId);
     if (!member) {
       throw new ForbiddenException('You are not a member of this tenant');
     }

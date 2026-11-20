@@ -141,7 +141,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
     return this.tenantMemberRepository.findOne({ where: { userId, tenantId } });
   }
 
-  /** Guard lookup: one query, only the columns the access checks read. */
+  /** Guard lookup: one query with the columns the tenant and member guards read. */
   async findActiveMembershipWithTenantStatus(
     userId: string,
     tenantId: string,
@@ -149,7 +149,15 @@ export class TenantMemberRepository extends Repository<TenantMember> {
     return this.tenantMemberRepository
       .createQueryBuilder('member')
       .innerJoin('member.tenant', 'tenant')
-      .select(['member.id', 'member.isActive', 'tenant.id', 'tenant.isActive'])
+      .select([
+        'member.id',
+        'member.isActive',
+        'member.role',
+        'tenant.id',
+        'tenant.isActive',
+        'tenant.slug',
+        'tenant.name',
+      ])
       .where('member.userId = :userId AND member.tenantId = :tenantId', { userId, tenantId })
       .getOne();
   }
