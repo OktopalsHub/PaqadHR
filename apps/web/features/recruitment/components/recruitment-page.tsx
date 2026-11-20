@@ -99,7 +99,7 @@ export function RecruitmentPage() {
         />
       ) : (
         <section className="dashboard-panel rounded-[8px] p-5">
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {filteredJobs.map((job) => (
               <JobOpeningCard
                 key={job.id}
