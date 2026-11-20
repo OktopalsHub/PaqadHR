@@ -26,6 +26,13 @@ const defaultRecruitmentOverviewDependencies: RecruitmentOverviewDependencies = 
   useCalendarEvents,
 };
 
+/** The schedule widget only shows today, so ask for today instead of a three-year calendar. */
+function todayRange() {
+  const today = new Date();
+  const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return { from: day, to: day };
+}
+
 export function useRecruitmentOverview(
   options?: { enabled?: boolean },
   dependencies: RecruitmentOverviewDependencies = defaultRecruitmentOverviewDependencies,
@@ -45,7 +52,7 @@ export function useRecruitmentOverview(
     refetch: refetchCandidates,
   } = dependencies.useAllCandidates(queryOptions);
   const { data: calendarEvents = [], refetch: refetchCalendarEvents } =
-    dependencies.useCalendarEvents(queryOptions);
+    dependencies.useCalendarEvents({ ...queryOptions, dateRange: todayRange() });
 
   const apiJobs = jobsData?.jobs ?? [];
   const isLoading = enabled && (jobsLoading || candidatesLoading);

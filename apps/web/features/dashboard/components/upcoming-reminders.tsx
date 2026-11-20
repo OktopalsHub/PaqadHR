@@ -6,10 +6,8 @@ import { Calendar, Gift } from 'lucide-react';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { Badge } from '@/components/ui/badge';
-import { apiClient, tenantPath } from '@/lib/api/client';
-import { resolveTenantId } from '@/lib/api/tenants';
+import { celebrationsQueryKey, fetchCelebrations } from '@/lib/api/calendar';
 import { formatOrdinal } from '@/lib/format-ordinal';
-import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
 type ApiCelebration = {
@@ -22,16 +20,12 @@ type ApiCelebration = {
   years?: number;
 };
 
-async function fetchCelebrations(): Promise<ApiCelebration[]> {
-  const tenantId = await resolveTenantId();
-  return apiClient<ApiCelebration[]>(tenantPath(tenantId, 'celebrations'));
-}
-
 export function UpcomingReminders() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { data = [], isLoading } = useQuery({
-    queryKey: [...queryKeys.calendar.events, 'celebrations', tenantId],
+    queryKey: celebrationsQueryKey(tenantId),
     queryFn: fetchCelebrations,
+    staleTime: 30_000,
     enabled: !tenantLoading && Boolean(tenantId),
   });
 

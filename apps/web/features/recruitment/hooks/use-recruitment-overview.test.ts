@@ -78,10 +78,12 @@ test('disabled recruitment overview propagates disabled query options to every d
     },
   );
 
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   assert.deepEqual(calls, [
     ['jobs', { enabled: false }],
     ['candidates', { enabled: false }],
-    ['calendar', { enabled: false }],
+    ['calendar', { enabled: false, dateRange: { from: today, to: today } }],
   ]);
   assert.equal(result.isLoading, false);
   assert.equal(result.jobsError, false);
