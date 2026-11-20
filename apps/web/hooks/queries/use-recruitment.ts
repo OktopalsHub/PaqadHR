@@ -18,7 +18,13 @@ import {
   updateJobOpening,
 } from '@/lib/api/recruitment';
 import { queryKeys } from '@/lib/query/keys';
+import {
+  applyOptimisticUpdate,
+  isLastInFlightMutation,
+  patchListItem,
+} from '@/lib/query/optimistic';
 import type {
+  Candidate,
   CandidateStatus,
   CreateCandidateInput,
   CreateJobOpeningInput,
@@ -108,11 +114,33 @@ export function useAllCandidates(options?: { enabled?: boolean; limit?: number }
 export function useUpdateCandidateStatus(jobId: string | null) {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
+  const mutationKey = ['recruitment', 'update-candidate-status'] as const;
 
   return useMutation({
+    mutationKey,
     mutationFn: ({ candidateId, status }: { candidateId: string; status: CandidateStatus }) =>
       updateCandidateStatus(candidateId, status),
-    onSuccess: () => {
+    // Move the card right away; the board is rebuilt from these lists.
+    onMutate: async ({ candidateId, status }) => {
+      const rollbacks = await Promise.all(
+        [
+          [...queryKeys.recruitment.allCandidates, tenantId],
+          ['recruitment', 'candidates'],
+        ].map((queryKey) =>
+          applyOptimisticUpdate<unknown>(queryClient, queryKey, (data) =>
+            patchListItem<Candidate>(data, candidateId, { status }),
+          ),
+        ),
+      );
+      return {
+        rollback: () => {
+          for (const rollback of rollbacks) rollback();
+        },
+      };
+    },
+    onError: (_error, _variables, context) => context?.rollback(),
+    onSettled: () => {
+      if (!isLastInFlightMutation(queryClient, mutationKey)) return;
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
       });

@@ -15,7 +15,12 @@ import {
 } from '@/lib/api/leaves';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
-import type { CreateLeaveInput, UpdateLeaveInput } from '@/lib/schemas/leave';
+import {
+  applyOptimisticUpdate,
+  isLastInFlightMutation,
+  patchListItem,
+} from '@/lib/query/optimistic';
+import type { CreateLeaveInput, LeaveRequest, UpdateLeaveInput } from '@/lib/schemas/leave';
 import { useTenant } from '@/providers/tenant-provider';
 
 import { invalidateLeaveMutationQueries } from './leave-mutation-invalidation';
@@ -93,24 +98,43 @@ export function useCancelLeave() {
   });
 }
 
-export function useApproveLeave() {
+function useLeaveDecisionMutation(
+  decision: 'approved' | 'rejected',
+  request: (input: { leaveId: string; comments?: string }) => Promise<void>,
+) {
   const queryClient = useQueryClient();
+  const mutationKey = ['leaves', 'decision'] as const;
 
   return useMutation({
-    mutationFn: ({ leaveId, comments }: { leaveId: string; comments?: string }) =>
-      approveLeave(leaveId, comments),
-    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
+    mutationKey,
+    mutationFn: request,
+    // Flip the row at once; balances and the calendar refresh once the server confirms.
+    onMutate: async ({ leaveId }) => {
+      const rollback = await applyOptimisticUpdate<unknown>(
+        queryClient,
+        queryKeys.leaves.all,
+        (data) => patchListItem<LeaveRequest>(data, leaveId, { status: decision }),
+      );
+      return { rollback };
+    },
+    onError: (_error, _variables, context) => context?.rollback(),
+    onSettled: () => {
+      if (!isLastInFlightMutation(queryClient, mutationKey)) return;
+      return invalidateLeaveMutationQueries(queryClient);
+    },
   });
 }
 
-export function useRejectLeave() {
-  const queryClient = useQueryClient();
+export function useApproveLeave() {
+  return useLeaveDecisionMutation('approved', ({ leaveId, comments }) =>
+    approveLeave(leaveId, comments),
+  );
+}
 
-  return useMutation({
-    mutationFn: ({ leaveId, comments }: { leaveId: string; comments?: string }) =>
-      rejectLeave(leaveId, comments),
-    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
-  });
+export function useRejectLeave() {
+  return useLeaveDecisionMutation('rejected', ({ leaveId, comments }) =>
+    rejectLeave(leaveId, comments),
+  );
 }
 
 export function useLeaveApprovalContext() {
