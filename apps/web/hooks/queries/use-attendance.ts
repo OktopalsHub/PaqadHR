@@ -46,14 +46,19 @@ function useCanViewTeamAttendance() {
   return hasDirectReports(viewerMemberId, employees);
 }
 
-export function useClockInInfo() {
+export function useClockInInfo(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { enabled: clockInEnabled, isLoading: settingsLoading } = useClockInEnabled();
 
   return useQuery({
     queryKey: [...queryKeys.attendance.clockInInfo, tenantId],
     queryFn: () => fetchClockInInfo(),
-    enabled: !tenantLoading && !settingsLoading && Boolean(tenantId) && clockInEnabled,
+    enabled:
+      (options?.enabled ?? true) &&
+      !tenantLoading &&
+      !settingsLoading &&
+      Boolean(tenantId) &&
+      clockInEnabled,
     refetchInterval: clockInEnabled ? 60_000 : false,
   });
 }
@@ -171,13 +176,17 @@ export function useTodayAttendance() {
   });
 }
 
-export function useAttendanceStats(startDate?: string, endDate?: string) {
+export function useAttendanceStats(
+  startDate?: string,
+  endDate?: string,
+  options?: { enabled?: boolean },
+) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.attendance.stats, tenantId, startDate, endDate],
     queryFn: () => fetchAttendanceStats(startDate, endDate),
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     placeholderData: keepPreviousData,
   });
 }

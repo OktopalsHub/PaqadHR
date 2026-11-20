@@ -223,13 +223,14 @@ export async function fetchTodayAttendance(): Promise<TodayAttendance[]> {
   return apiClient<TodayAttendance[]>(tenantPath(tenantId, 'attendance/today'));
 }
 
+/** Record counts by status for the requested date range (the API has no per-member breakdown). */
 export type AttendanceStats = {
-  totalMembers: number;
-  presentToday: number;
-  absentToday: number;
-  lateToday: number;
-  averageWorkHours: number;
-  attendanceRate: number;
+  totalPresent: number;
+  totalAbsent: number;
+  totalLate: number;
+  totalHalfDay: number;
+  totalOnLeave: number;
+  totalRecords: number;
 };
 
 export async function fetchAttendanceStats(

@@ -1,6 +1,18 @@
 'use client';
 
-import { Briefcase, CalendarClock, ClipboardCheck, RefreshCw, Users } from 'lucide-react';
+import {
+  Briefcase,
+  CalendarClock,
+  ClipboardCheck,
+  Clock,
+  Gift,
+  type LucideIcon,
+  Palmtree,
+  RefreshCw,
+  UserCheck,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -13,21 +25,61 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardActivityFeed } from '@/features/dashboard/components/dashboard-activity-feed';
 import { UpcomingReminders } from '@/features/dashboard/components/upcoming-reminders';
 import { getDashboardRecruitmentAccessState } from '@/features/dashboard/lib/dashboard-feature-access';
+import {
+  buildDashboardKpis,
+  type DashboardKpi,
+  type DashboardKpiIcon,
+  resolveDashboardRole,
+} from '@/features/dashboard/lib/dashboard-kpis';
 import { RecruitmentApplicantsTable } from '@/features/recruitment/components/dashboard/recruitment-applicants-table';
 import { RecruitmentScheduleWidget } from '@/features/recruitment/components/dashboard/recruitment-schedule-widget';
 import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashboard/recruitment-vacancy-grid';
 import { JobDetailSheet } from '@/features/recruitment/components/job-detail-sheet';
 import { useRecruitmentOverview } from '@/features/recruitment/hooks/use-recruitment-overview';
-import { useEmployeeSummary } from '@/hooks/queries/use-employees';
+import { useAttendanceStats, useClockInInfo } from '@/hooks/queries/use-attendance';
+import { useEmployees, useEmployeeSummary } from '@/hooks/queries/use-employees';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
-import { useLeaves } from '@/hooks/queries/use-leaves';
+import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
+import { usePayrollSetupSummary } from '@/hooks/queries/use-payroll';
 import { useJobOpenings } from '@/hooks/queries/use-recruitment';
+import { useMyPointsBalance } from '@/hooks/queries/use-shoutouts';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatDate } from '@/lib/format-date';
 import type { JobOpening } from '@/lib/schemas/recruitment';
 import { useTenant } from '@/providers/tenant-provider';
+
+const KPI_ICONS: Record<DashboardKpiIcon, LucideIcon> = {
+  users: Users,
+  userCheck: UserCheck,
+  calendarClock: CalendarClock,
+  clipboardCheck: ClipboardCheck,
+  wallet: Wallet,
+  briefcase: Briefcase,
+  clock: Clock,
+  gift: Gift,
+  palmtree: Palmtree,
+};
+
+const KPI_TONES: Record<DashboardKpi['tone'], string> = {
+  warning: 'bg-warning/15 text-warning',
+  success: 'bg-success/15 text-success',
+  info: 'bg-info/15 text-info',
+  indigo: 'bg-indigo-100 text-indigo-700',
+};
+
+function todayKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function formatClockTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
 function leaveStatusVariant(status: string) {
   switch (status.toLowerCase()) {
@@ -53,6 +105,21 @@ export const Dashboard = () => {
     recruitmentFeature: FeatureAccess.RECRUITMENT,
   });
   const { canAccessRecruitment, recruitmentQueriesEnabled } = recruitmentAccess;
+  const { data: employees = [] } = useEmployees();
+  const memberId = tenant?.member?.id;
+  const directReports = memberId
+    ? employees.filter((employee) => employee.reportsToId === memberId).length
+    : 0;
+  const role = resolveDashboardRole(isAdmin, directReports);
+  const attendanceEnabled = isAdmin && hasFeature(FeatureAccess.ATTENDANCE);
+  const payrollEnabled = isAdmin && hasFeature(FeatureAccess.PAYROLL);
+  const attendanceStatsQuery = useAttendanceStats(todayKey(), todayKey(), {
+    enabled: attendanceEnabled,
+  });
+  const payrollSetupQuery = usePayrollSetupSummary(payrollEnabled);
+  const leaveBalancesQuery = useLeaveBalances({ enabled: !isAdmin });
+  const clockInQuery = useClockInInfo({ enabled: role === 'member' });
+  const pointsQuery = useMyPointsBalance({ enabled: !isAdmin });
   const {
     data: employeeSummary,
     isError: employeesError,
@@ -116,16 +183,6 @@ export const Dashboard = () => {
   );
   const contentCardHeaderClassName = 'border-b border-border/60 px-5 py-4';
   const contentCardTitleClassName = 'text-[17px] font-semibold text-foreground';
-  const onLeaveToday = useMemo(() => {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    return leaves.filter(
-      (leave) =>
-        leave.status?.toLowerCase() === 'approved' &&
-        String(leave.startDate).slice(0, 10) <= today &&
-        String(leave.endDate).slice(0, 10) >= today,
-    ).length;
-  }, [leaves]);
   const activeCandidates = useMemo(
     () =>
       overview.applicantRows.filter(
@@ -133,51 +190,40 @@ export const Dashboard = () => {
       ).length,
     [overview.applicantRows],
   );
-  const statCards = [
-    {
-      label: 'Headcount',
-      // Keep the placeholder until the summary for this workspace actually
-      // arrives — never flash a stale/default number while the tenant resolves.
-      value: employeeSummary ? employeeSummary.activeEmployees : '—',
-      hint: employeeSummary
-        ? `Active employees · ${departmentCount} ${departmentCount === 1 ? 'department' : 'departments'}`
-        : 'Active employees',
-      icon: Users,
-      iconClassName: 'bg-warning/15 text-warning',
-    },
-    {
-      label: 'On leave today',
-      value: leavesLoading ? '—' : onLeaveToday,
-      hint: leavesLoading ? 'Loading requests…' : 'Approved leave covering today',
-      icon: CalendarClock,
-      iconClassName: 'bg-success/15 text-success',
-    },
-    {
-      label: 'Pending approvals',
-      value: leavesLoading ? '—' : pendingLeaves,
-      hint: leavesLoading ? 'Loading requests…' : 'Leave requests waiting on you',
-      icon: ClipboardCheck,
-      iconClassName: 'bg-info/15 text-info',
-    },
-    ...(recruitmentAccess.includeOpenRolesCard
-      ? [
-          {
-            label: 'Open roles',
-            value: jobsLoading || overviewLoading ? '—' : openRoles,
-            hint:
-              jobsLoading || overviewLoading
-                ? 'Loading postings…'
-                : `${activeCandidates} active ${activeCandidates === 1 ? 'candidate' : 'candidates'}`,
-            icon: Briefcase,
-            iconClassName: 'bg-indigo-100 text-indigo-700',
-          },
-        ]
-      : []),
-  ] as const;
+  const statCards = buildDashboardKpis({
+    role,
+    today: todayKey(),
+    leaves,
+    leavesLoading,
+    employeeSummary,
+    teamSize: directReports,
+    attendanceStats: attendanceEnabled
+      ? attendanceStatsQuery.isError
+        ? null
+        : attendanceStatsQuery.data
+      : null,
+    payrollSetup: payrollEnabled && !payrollSetupQuery.isError ? payrollSetupQuery.data : null,
+    openRoles: recruitmentAccess.includeOpenRolesCard
+      ? { count: openRoles, activeCandidates, loading: jobsLoading || overviewLoading }
+      : null,
+    leaveBalances: leaveBalancesQuery.data,
+    clockIn: clockInQuery.data
+      ? {
+          status: clockInQuery.data.status,
+          isOnLeave: clockInQuery.data.isOnLeave,
+          clockedInAt: clockInQuery.data.activeSession?.clockIn
+            ? formatClockTime(clockInQuery.data.activeSession.clockIn)
+            : null,
+        }
+      : null,
+    points: pointsQuery.data ?? null,
+  });
   const statGridClassName =
-    statCards.length === 3
-      ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'
-      : 'grid gap-4 md:grid-cols-2 xl:grid-cols-4';
+    statCards.length >= 5
+      ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-5'
+      : statCards.length === 3
+        ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'
+        : 'grid gap-4 md:grid-cols-2 xl:grid-cols-4';
 
   const handleSelectJobDetails = useCallback((job: JobOpening) => {
     setSelectedJobId(job.id);
@@ -215,26 +261,33 @@ export const Dashboard = () => {
 
       <div className={statGridClassName}>
         {statCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <article key={card.label} className="dashboard-panel rounded-[8px] px-5 py-5">
+          const Icon = KPI_ICONS[card.icon];
+          const body = (
+            <article className="dashboard-panel h-full rounded-[8px] px-5 py-5 transition-colors hover:bg-background/60">
               <div className="flex items-start justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
                     {card.label}
                   </p>
-                  <p className="mt-3 text-[31px] font-semibold leading-none tracking-[-0.035em] text-foreground">
+                  <p className="mt-3 truncate text-[31px] font-semibold leading-none tracking-[-0.035em] text-foreground">
                     {card.value}
                   </p>
                   <p className="mt-2 text-sm text-muted-foreground">{card.hint}</p>
                 </div>
                 <div
-                  className={`flex size-11 items-center justify-center rounded-2xl shadow-sm ${card.iconClassName}`}
+                  className={`flex size-11 shrink-0 items-center justify-center rounded-2xl shadow-sm ${KPI_TONES[card.tone]}`}
                 >
                   <Icon className="size-4.5" />
                 </div>
               </div>
             </article>
+          );
+          return card.href ? (
+            <Link key={card.key} href={tenantHref(card.href)} className="block">
+              {body}
+            </Link>
+          ) : (
+            <div key={card.key}>{body}</div>
           );
         })}
       </div>
@@ -247,7 +300,13 @@ export const Dashboard = () => {
 
           headerClassName={contentCardHeaderClassName}
           titleClassName={contentCardTitleClassName}
-          title="Recent leave requests"
+          title={
+            role === 'admin'
+              ? 'Recent leave requests'
+              : role === 'manager'
+                ? 'Team leave requests'
+                : 'My leave requests'
+          }
           action={
             <Link href={tenantHref('leaves')} className="dashboard-link text-xs font-semibold">
               View all

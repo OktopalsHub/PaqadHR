@@ -54,13 +54,13 @@ export function useLeaves(options?: { limit?: number }) {
   });
 }
 
-export function useLeaveBalances() {
+export function useLeaveBalances(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.leaves.balances, tenantId],
     queryFn: fetchMyLeaveBalances,
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
   });
 }
 
