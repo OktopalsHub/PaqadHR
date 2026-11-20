@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 import { Badge } from '@/components/ui/badge';
@@ -44,50 +44,44 @@ export function JobOpeningCard({
   const tenantHref = useTenantHref();
 
   return (
-    <article className="relative">
+    <article className="relative h-full">
       <button
         type="button"
         onClick={() => router.push(tenantHref(`recruitment/roles/${job.id}`))}
-        className={cn(
-          'app-card w-full cursor-pointer rounded-[8px] p-5 text-left transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:border-[#c7d7f1] hover:shadow-[0_18px_34px_-28px_rgba(71,95,140,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fbbf24]/50 dark:hover:border-slate-700 dark:hover:shadow-none',
-          onSelectDetails && 'pr-16',
-        )}
+        className="app-card flex h-full w-full cursor-pointer flex-col rounded-[8px] p-5 text-left transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:border-[#c7d7f1] hover:shadow-[0_18px_34px_-28px_rgba(71,95,140,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fbbf24]/50 dark:hover:border-slate-700 dark:hover:shadow-none"
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold text-slate-950 dark:text-slate-100">
-                {job.title}
-              </h3>
-              {job.isUrgent ? (
-                <Badge
-                  variant="destructive"
-                  className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
-                >
-                  Urgent
-                </Badge>
-              ) : null}
-            </div>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              {[job.departmentName, job.position, formatStatus(job.employmentType ?? '')]
-                .filter(Boolean)
-                .join(' · ') || 'No department'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+        <div
+          className={cn('flex min-h-8 flex-wrap items-center gap-2', onSelectDetails && 'pr-10')}
+        >
+          <Badge
+            variant="outline"
+            className={cn(
+              'rounded-full px-3 py-1 text-[11px] font-semibold',
+              statusClassName(job.status),
+            )}
+          >
+            {formatStatus(job.status)}
+          </Badge>
+          {job.isUrgent ? (
             <Badge
-              variant="outline"
-              className={cn(
-                'rounded-full px-3 py-1 text-[11px] font-semibold',
-                statusClassName(job.status),
-              )}
+              variant="destructive"
+              className="rounded-full px-2.5 py-1 text-[10px] font-semibold"
             >
-              {formatStatus(job.status)}
+              Urgent
             </Badge>
-            <ChevronRight className="size-4 text-slate-400 dark:text-slate-500" />
-          </div>
+          ) : null}
         </div>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-400">
+        <div className="mt-3 min-w-0 space-y-1">
+          <h3 className="line-clamp-2 text-base font-semibold text-slate-950 dark:text-slate-100">
+            {job.title}
+          </h3>
+          <p className="line-clamp-2 text-sm text-slate-600 dark:text-slate-400">
+            {[job.departmentName, job.position, formatStatus(job.employmentType ?? '')]
+              .filter(Boolean)
+              .join(' · ') || 'No department'}
+          </p>
+        </div>
+        <div className="mt-auto flex flex-wrap gap-2 pt-4 text-xs text-slate-600 dark:text-slate-400">
           {job.numberOfOpenings != null ? (
             <span className="inline-flex items-center rounded-full border border-[#d7e3f6] bg-[#eef4ff] px-2.5 py-1 font-medium dark:border-slate-700 dark:bg-slate-900">
               {job.numberOfOpenings} opening{job.numberOfOpenings === 1 ? '' : 's'}
