@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { CandidateStatus, JobStatus } from 'src/common/enums';
-import { Repository } from 'typeorm';
+import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { CandidateStatus, JobStatus } from "src/common/enums";
+import { Repository } from "typeorm";
 
-import { Candidate } from '../entities/candidate.entity';
-import { JobOpening } from '../entities/job-opening.entity';
+import { Candidate } from "../entities/candidate.entity";
+import { JobOpening } from "../entities/job-opening.entity";
 
 const MAX_VACANCIES = 12;
 const MAX_RECENT_APPLICANTS = 50;
@@ -24,66 +24,74 @@ export class RecruitmentDashboardService {
   ) {}
 
   async getSummary(tenantId: string) {
-    const [openRoles, vacancies, statusRows, applicantCountRows, recentApplicants] =
+    const [openRoles, vacancies, countRows, recentApplicants] =
       await Promise.all([
-        this.jobRepository.count({ where: { tenantId, status: JobStatus.ACTIVE } }),
+        this.jobRepository.count({
+          where: { tenantId, status: JobStatus.ACTIVE },
+        }),
         this.jobRepository
-          .createQueryBuilder('job')
-          .select(['job.id', 'job.title', 'job.employmentType', 'job.status', 'job.location'])
-          .where('job.tenantId = :tenantId', { tenantId })
-          .andWhere('job.status = :status', { status: JobStatus.ACTIVE })
-          .orderBy('job.isUrgent', 'DESC')
-          .addOrderBy('job.publishedAt', 'DESC')
+          .createQueryBuilder("job")
+          .select([
+            "job.id",
+            "job.title",
+            "job.employmentType",
+            "job.status",
+            "job.location",
+          ])
+          .where("job.tenantId = :tenantId", { tenantId })
+          .andWhere("job.status = :status", { status: JobStatus.ACTIVE })
+          .orderBy("job.isUrgent", "DESC")
+          .addOrderBy("job.publishedAt", "DESC")
           .limit(MAX_VACANCIES)
           .getMany(),
         this.candidateRepository
-          .createQueryBuilder('candidate')
-          .select('candidate.status', 'status')
-          .addSelect('COUNT(*)', 'count')
-          .where('candidate.tenantId = :tenantId', { tenantId })
-          .groupBy('candidate.status')
-          .getRawMany<{ status: CandidateStatus; count: string }>(),
+          .createQueryBuilder("candidate")
+          .select("candidate.jobOpeningId", "jobOpeningId")
+          .addSelect("candidate.status", "status")
+          .addSelect("COUNT(*)", "count")
+          .where("candidate.tenantId = :tenantId", { tenantId })
+          .groupBy("candidate.jobOpeningId")
+          .addGroupBy("candidate.status")
+          .getRawMany<{
+            jobOpeningId: string;
+            status: CandidateStatus;
+            count: string;
+          }>(),
         this.candidateRepository
-          .createQueryBuilder('candidate')
-          .select('candidate.jobOpeningId', 'jobOpeningId')
-          .addSelect('COUNT(*)', 'count')
-          .where('candidate.tenantId = :tenantId', { tenantId })
-          .groupBy('candidate.jobOpeningId')
-          .getRawMany<{ jobOpeningId: string; count: string }>(),
-        this.candidateRepository
-          .createQueryBuilder('candidate')
-          .leftJoin('candidate.jobOpening', 'job')
+          .createQueryBuilder("candidate")
+          .leftJoin("candidate.jobOpening", "job")
           .select([
-            'candidate.id',
-            'candidate.jobOpeningId',
-            'candidate.firstName',
-            'candidate.lastName',
-            'candidate.email',
-            'candidate.status',
-            'candidate.appliedAt',
-            'candidate.createdAt',
-            'job.title',
-            'job.employmentType',
+            "candidate.id",
+            "candidate.jobOpeningId",
+            "candidate.firstName",
+            "candidate.lastName",
+            "candidate.email",
+            "candidate.status",
+            "candidate.appliedAt",
+            "candidate.createdAt",
+            "job.title",
+            "job.employmentType",
           ])
-          .where('candidate.tenantId = :tenantId', { tenantId })
-          .orderBy('candidate.appliedAt', 'DESC', 'NULLS LAST')
+          .where("candidate.tenantId = :tenantId", { tenantId })
+          .orderBy("candidate.appliedAt", "DESC", "NULLS LAST")
           .limit(MAX_RECENT_APPLICANTS)
           .getMany(),
       ]);
 
     const statusCounts: Record<string, number> = {};
+    const applicantCounts = new Map<string, number>();
     let totalCandidates = 0;
     let activeCandidates = 0;
-    for (const row of statusRows) {
+    for (const row of countRows) {
       const count = Number(row.count);
-      statusCounts[row.status] = count;
+      statusCounts[row.status] = (statusCounts[row.status] ?? 0) + count;
+      applicantCounts.set(
+        row.jobOpeningId,
+        (applicantCounts.get(row.jobOpeningId) ?? 0) + count,
+      );
       totalCandidates += count;
       if (!INACTIVE_STATUSES.includes(row.status)) activeCandidates += count;
     }
-
-    const applicantCounts = new Map(
-      applicantCountRows.map((row) => [row.jobOpeningId, Number(row.count)]),
-    );
 
     return {
       openRoles,
