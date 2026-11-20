@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { celebrationsQueryKey, fetchCalendarEvents, fetchCelebrations } from '@/lib/api/calendar';
 import { queryKeys } from '@/lib/query/keys';
@@ -27,6 +27,8 @@ export function useCalendarEvents(options?: {
             staleTime: 30_000,
           }),
       }),
+    // Keep the grid on screen while the next window loads.
+    placeholderData: keepPreviousData,
     enabled: getCalendarEventsQueryEnabled({
       enabled: options?.enabled,
       tenantId,

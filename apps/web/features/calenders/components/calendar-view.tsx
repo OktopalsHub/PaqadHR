@@ -65,6 +65,7 @@ import { CALENDAR_SHELL_HEIGHT_CLASS, shouldShowHydrationPlaceholder } from '@/l
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
+import { calendarWindowForDate, nextCalendarWindow } from '../lib/calendar-fetch-window';
 import { CalendarToolbar } from './calendar-toolbar';
 
 const DEFAULT_FILTERS = {
@@ -523,7 +524,13 @@ export const CalendarView = () => {
   const [settings, setSettings] = useState<CalendarSettings>(DEFAULT_SETTINGS);
   const [view, setView] = useState<ReuiCalendarView>('month');
   const [hasHydrated, setHasHydrated] = useState(() => hasCalendarClientHydrated);
-  const { data: events = [], isLoading, isError, error } = useCalendarEvents();
+  const [fetchWindow, setFetchWindow] = useState(() => calendarWindowForDate(new Date()));
+  const {
+    data: events = [],
+    isLoading,
+    isError,
+    error,
+  } = useCalendarEvents({ dateRange: fetchWindow });
 
   useEffect(() => {
     hasCalendarClientHydrated = true;
@@ -611,6 +618,9 @@ export const CalendarView = () => {
                 events={reuiEvents}
                 defaultView="month"
                 onViewChange={setView}
+                onRangeChange={(info) =>
+                  setFetchWindow((current) => nextCalendarWindow(current, info.range, info.date))
+                }
                 locale={activeLocale.locale}
                 // nested partials are merged over the defaults at runtime
                 i18n={activeLocale.i18n as Partial<EventCalendarI18nConfig> | undefined}
