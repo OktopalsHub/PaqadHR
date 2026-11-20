@@ -73,6 +73,8 @@ export class TenantMember extends BaseEntity {
   joinDate: Date;
   @Column({ name: 'leave_date', type: 'timestamp', nullable: true })
   leaveDate: Date;
+  @Column({ name: 'recruitment_ask_email_on_move', type: 'boolean', default: true })
+  recruitmentAskEmailOnMove: boolean;
   @Column({ name: 'user_id' })
   userId: string;
   @ManyToOne(() => User, (user) => user.tenantMembers)

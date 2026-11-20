@@ -267,3 +267,18 @@ export async function setTalentPool(candidateId: string, inPool: boolean): Promi
     body: { inPool },
   });
 }
+
+export type RecruitmentPreferences = { askEmailOnMove: boolean };
+
+export async function fetchRecruitmentPreferences(): Promise<RecruitmentPreferences> {
+  return apiClient<RecruitmentPreferences>(await atsPath('preferences/me'));
+}
+
+export async function updateRecruitmentPreferences(
+  input: RecruitmentPreferences,
+): Promise<RecruitmentPreferences> {
+  return apiClient<RecruitmentPreferences>(await atsPath('preferences/me'), {
+    method: 'PATCH',
+    body: input,
+  });
+}

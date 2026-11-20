@@ -152,7 +152,7 @@ export function RecruitmentPipelineSettingsPage() {
             <p className="font-medium">Ask before emailing candidates</p>
             <p className="text-xs text-slate-500">
               When you move a candidate, show a card asking whether to send them an email. Turn it
-              off and moves send the stage&apos;s automatic email instead. This is your own setting.
+              off and moves send the stage&apos;s automatic email instead. This follows your account.
             </p>
           </div>
           <Switch

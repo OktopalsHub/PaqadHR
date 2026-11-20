@@ -41,6 +41,7 @@ import { RecruitmentCandidateMailer } from './services/recruitment-candidate-mai
 import { RecruitmentEmailTemplateService } from './services/recruitment-email-template.service';
 import { RecruitmentInterviewNotifier } from './services/recruitment-interview-notifier.service';
 import { RecruitmentOfferService } from './services/recruitment-offer.service';
+import { RecruitmentPreferencesService } from './services/recruitment-preferences.service';
 import { RecruitmentPipelineService } from './services/recruitment-pipeline.service';
 import { RecruitmentScorecardService } from './services/recruitment-scorecard.service';
 import { RecruitmentTalentPoolService } from './services/recruitment-talent-pool.service';
@@ -97,6 +98,7 @@ import { RecruitmentDashboardService } from './services/recruitment-dashboard.se
     RecruitmentEmailTemplateService,
     RecruitmentCandidateMailer,
     RecruitmentPipelineService,
+    RecruitmentPreferencesService,
     DepartmentExistsConstraint,
     TurnstileService,
   ],
