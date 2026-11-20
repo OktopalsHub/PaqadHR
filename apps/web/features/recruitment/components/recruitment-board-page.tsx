@@ -11,7 +11,6 @@ import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useCandidatesByJob, useJobOpening } from '@/hooks/queries/use-recruitment';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
-import type { CandidateStatus } from '@/lib/schemas/recruitment';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
 
 import { useBoardMove } from '../hooks/use-board-move';
@@ -109,10 +108,6 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
     isDisqualified(candidate.status),
   ).length;
 
-  const handleMoveCandidate = (candidateId: string, status: CandidateStatus) => {
-    const candidate = boardCandidates.find((item) => item.id === candidateId);
-    if (candidate) boardMove.request(candidate, status);
-  };
 
   if (jobLoading || candidatesLoading) {
     return (
@@ -197,7 +192,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
         <RecruitmentKanbanBoard
           candidates={boardCandidates}
           interactive
-          onMoveCandidate={handleMoveCandidate}
+          onMoveCandidate={boardMove.request}
           onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
         />
       ) : (

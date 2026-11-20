@@ -9,7 +9,6 @@ import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useAllCandidates } from '@/hooks/queries/use-recruitment';
-import type { CandidateStatus } from '@/lib/schemas/recruitment';
 
 import { useBoardMove } from '../hooks/use-board-move';
 import { AddCandidateDialog } from './add-candidate-dialog';
@@ -50,10 +49,6 @@ export function RecruitmentPipelinePage() {
     isDisqualified(candidate.status),
   ).length;
 
-  const handleMoveCandidate = (candidateId: string, status: CandidateStatus) => {
-    const candidate = boardCandidates.find((item) => item.id === candidateId);
-    if (candidate) boardMove.request(candidate, status);
-  };
 
   if (isLoading) {
     return (
@@ -121,7 +116,7 @@ export function RecruitmentPipelinePage() {
         <RecruitmentKanbanBoard
           candidates={boardCandidates}
           interactive
-          onMoveCandidate={handleMoveCandidate}
+          onMoveCandidate={boardMove.request}
           onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
         />
       ) : (

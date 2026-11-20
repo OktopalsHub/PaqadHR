@@ -46,25 +46,19 @@ export function CandidateKanbanCard({
           fallbackClassName="bg-white text-[11px] font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-200"
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <p
+            title={fullName}
+            className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100"
+          >
             {fullName}
           </p>
-          <p className="truncate text-xs text-slate-500 dark:text-slate-400">{candidate.email}</p>
-        </div>
-        {onOpen ? (
-          <button
-            type="button"
-            aria-label={`Open ${fullName}`}
-            className="shrink-0 rounded-[6px] border border-[#d7e3f6] bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpen();
-            }}
+          <p
+            title={candidate.email}
+            className="truncate text-xs text-slate-500 dark:text-slate-400"
           >
-            Details
-          </button>
-        ) : null}
+            {candidate.email}
+          </p>
+        </div>
         {onReject ? (
           <button
             type="button"
@@ -88,22 +82,36 @@ export function CandidateKanbanCard({
         </p>
       ) : null}
 
-      {(candidate.fileCount != null || candidate.matchScore != null) && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
-          {candidate.fileCount != null ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#d7e3f6] bg-white/80 px-2 py-1 font-medium dark:border-slate-700 dark:bg-slate-900/90">
-              <FileText className="size-3" />
-              {candidate.fileCount} file{candidate.fileCount === 1 ? '' : 's'}
-            </span>
-          ) : null}
-          {candidate.matchScore != null ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#d7e3f6] bg-white/80 px-2 py-1 font-medium dark:border-slate-700 dark:bg-slate-900/90">
-              <Percent className="size-3" />
-              {candidate.matchScore}%
-            </span>
-          ) : null}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600 dark:text-slate-400">
+        {candidate.fileCount != null ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#d7e3f6] bg-white/80 px-2 py-1 font-medium dark:border-slate-700 dark:bg-slate-900/90">
+            <FileText className="size-3" />
+            {candidate.fileCount} file{candidate.fileCount === 1 ? '' : 's'}
+          </span>
+        ) : null}
+        {candidate.matchScore != null ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-[#d7e3f6] bg-white/80 px-2 py-1 font-medium dark:border-slate-700 dark:bg-slate-900/90">
+            <Percent className="size-3" />
+            {candidate.matchScore}%
+          </span>
+        ) : null}
+        <span className="ml-auto">
+        {onOpen ? (
+          <button
+            type="button"
+            aria-label={`Open ${fullName}`}
+            className="shrink-0 rounded-[6px] border border-[#d7e3f6] bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            Details
+          </button>
+        ) : null}
+        </span>
+      </div>
     </article>
   );
 }

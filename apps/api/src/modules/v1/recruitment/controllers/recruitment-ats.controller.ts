@@ -144,7 +144,7 @@ export class RecruitmentAtsController {
   }
 
   @Post('candidates/:candidateId/stage')
-  @RateLimit(RateLimitPresets.SENSITIVE)
+  @RateLimit(RateLimitPresets.API)
   moveCandidate(
     @Param('tenantId') tenantId: string,
     @Param('candidateId') candidateId: string,

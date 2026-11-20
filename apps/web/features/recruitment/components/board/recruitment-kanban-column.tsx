@@ -26,7 +26,7 @@ export function RecruitmentKanbanColumn({
   showAdd = false,
 }: RecruitmentKanbanColumnProps) {
   return (
-    <div className={cn('app-card flex w-[280px] shrink-0 flex-col rounded-[8px] p-3', className)}>
+    <div className={cn('app-card flex w-[300px] shrink-0 flex-col rounded-[8px] p-3', className)}>
       <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#d7e3f6] px-1 pb-3 dark:border-slate-800">
         <div className="flex items-center gap-2">
           {color ? <StageColorDot color={color} /> : null}

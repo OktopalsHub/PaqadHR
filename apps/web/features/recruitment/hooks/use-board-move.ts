@@ -20,7 +20,7 @@ import { useTenant } from '@/providers/tenant-provider';
 
 import type { BoardCandidate } from '../components/board/recruitment-kanban-board';
 import { useAskEmailOnMove } from './use-ask-email-on-move';
-import { useEmailTemplates, usePipeline } from './use-recruitment-ats';
+import { useEmailTemplates } from './use-recruitment-ats';
 
 export type PendingMove = {
   candidate: BoardCandidate;
@@ -28,17 +28,9 @@ export type PendingMove = {
   stage: PipelineStage;
 };
 
-export function pickStageForStatus(
-  stages: PipelineStage[],
-  status: CandidateStatus,
-): PipelineStage | undefined {
-  return stages.find((stage) => stage.type === status);
-}
-
 export function useBoardMove(jobId: string | null) {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
-  const { data: stages = [] } = usePipeline();
   const { data: templates = [] } = useEmailTemplates();
   const [askBeforeEmail] = useAskEmailOnMove();
   const [pending, setPending] = useState<PendingMove | null>(null);
@@ -100,13 +92,8 @@ export function useBoardMove(jobId: string | null) {
     });
   };
 
-  const request = (candidate: BoardCandidate, status: CandidateStatus) => {
-    const stage = pickStageForStatus(stages, status);
-    if (!stage) {
-      toast.error('This pipeline has no stage for that column. Add one in Pipeline settings.');
-      return;
-    }
-    const move = { candidate, status, stage };
+  const request = (candidate: BoardCandidate, stage: PipelineStage) => {
+    const move = { candidate, status: stage.type as CandidateStatus, stage };
     if (askBeforeEmail && templates.some((template) => template.isActive)) {
       setPending(move);
       return;
