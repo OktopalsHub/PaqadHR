@@ -132,7 +132,7 @@ function applySecurityHeaders(response: NextResponse, requestHost: string, nonce
   response.headers.delete('x-powered-by');
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const nonce = createNonce();
   const requestHost = request.nextUrl.hostname;
   const hostHeader = request.headers.get('host') ?? requestHost;

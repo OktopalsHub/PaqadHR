@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server';
 
 import { MARKETING_PAGES } from '@/lib/constants/marketing-pages';
 
-import { middleware } from './middleware.ts';
+import { proxy } from './proxy.ts';
 
 function requestFor(pathname: string): NextRequest {
   return new NextRequest(new URL(`https://paqadhr.com${pathname}`), {
@@ -14,7 +14,7 @@ function requestFor(pathname: string): NextRequest {
 }
 
 /**
- * Stub the workspace lookup the middleware makes before redirecting an apex
+ * Stub the workspace lookup the proxy makes before redirecting an apex
  * path to a tenant host. `slugs` are the workspaces that exist.
  */
 function stubWorkspaceLookup(slugs: string[]): () => void {
@@ -33,7 +33,7 @@ function stubWorkspaceLookup(slugs: string[]): () => void {
 }
 
 test('missing asset paths return 404 instead of the tenant app shell', async () => {
-  const response = await middleware(requestFor('/missing-asset.png'));
+  const response = await proxy(requestFor('/missing-asset.png'));
 
   assert.equal(response.status, 404);
   assert.equal(response.headers.get('content-type'), 'text/plain; charset=utf-8');
@@ -42,7 +42,7 @@ test('missing asset paths return 404 instead of the tenant app shell', async () 
 
 test('known static files and real pages are not treated as missing assets', async () => {
   for (const pathname of ['/icon.png', '/robots.txt', '/sitemap.xml', '/llms.txt', '/signin']) {
-    const response = await middleware(requestFor(pathname));
+    const response = await proxy(requestFor(pathname));
 
     assert.notEqual(response.status, 404, `${pathname} should not 404`);
   }
@@ -55,7 +55,7 @@ test('reserved tenant slugs on the apex 404 instead of throwing a 500', async ()
     // Every one of these is a reserved tenant slug (so buildTenantHost() throws) but not a
     // page, which used to surface as an uncaught "Reserved tenant slug" -> HTTP 500.
     for (const pathname of ['/blog', '/careers', '/company', '/legal', '/recruitment']) {
-      const response = await middleware(requestFor(pathname));
+      const response = await proxy(requestFor(pathname));
       assert.equal(response.status, 404, `${pathname} should be 404`);
       assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
     }
@@ -69,7 +69,7 @@ test('reserved route segments are not redirected to a tenant host', async () => 
   const previous = process.env.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS;
   process.env.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS = 'true';
   try {
-    const response = await middleware(requestFor('/pricing'));
+    const response = await proxy(requestFor('/pricing'));
     assert.equal(response.status, 200, '/pricing must render, not redirect');
     assert.equal(response.headers.get('location'), null);
   } finally {
@@ -83,7 +83,7 @@ test('legacy path redirects stay out of the index', async () => {
   process.env.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS = 'true';
   const restoreFetch = stubWorkspaceLookup(['acme']);
   try {
-    const response = await middleware(requestFor('/acme/payroll'));
+    const response = await proxy(requestFor('/acme/payroll'));
     assert.equal(response.status, 301);
     assert.equal(response.headers.get('location'), 'https://acme.paqadhr.com/payroll');
     assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
@@ -99,7 +99,7 @@ test('a slug that was never a workspace answers 404 instead of an empty workspac
   process.env.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS = 'true';
   const restoreFetch = stubWorkspaceLookup(['acme']);
   try {
-    const response = await middleware(requestFor('/not-a-workspace'));
+    const response = await proxy(requestFor('/not-a-workspace'));
     assert.equal(response.status, 404);
     assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
   } finally {
@@ -117,7 +117,7 @@ test('a workspace lookup that cannot be answered keeps the tenant redirect', asy
     throw new Error('api unreachable');
   }) as typeof fetch;
   try {
-    const response = await middleware(requestFor('/acme/payroll'));
+    const response = await proxy(requestFor('/acme/payroll'));
     assert.equal(response.status, 301);
   } finally {
     globalThis.fetch = original;
@@ -134,7 +134,7 @@ test('every marketing page survives the tenant redirect', async () => {
     // Marketing paths are also reserved tenant slugs, so a missing entry in
     // RESERVED_ROUTE_SEGMENTS turns a live page into a 404 at the edge.
     for (const page of MARKETING_PAGES) {
-      const response = await middleware(requestFor(page.path));
+      const response = await proxy(requestFor(page.path));
       assert.notEqual(response.status, 404, `${page.path} must not 404`);
       assert.notEqual(response.status, 301, `${page.path} must not redirect to a tenant`);
     }
