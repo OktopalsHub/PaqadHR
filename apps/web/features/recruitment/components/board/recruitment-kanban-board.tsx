@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 
 import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
 
+import { usePipeline } from '../../hooks/use-recruitment-ats';
+import { stageColor, statusColor } from '../../lib/stage-colors';
 import {
   BOARD_COLUMNS,
   type BoardColumnId,
@@ -44,6 +46,7 @@ type RecruitmentKanbanBoardProps = {
 function DroppableColumn({
   columnId,
   title,
+  color,
   count,
   candidates,
   interactive,
@@ -52,6 +55,7 @@ function DroppableColumn({
 }: {
   columnId: BoardColumnId;
   title: string;
+  color: string;
   count: number;
   candidates: BoardCandidate[];
   interactive?: boolean;
@@ -71,6 +75,7 @@ function DroppableColumn({
     >
       <RecruitmentKanbanColumn
         title={title}
+        color={color}
         count={count}
         candidates={candidates}
         showAdd={!interactive}
@@ -131,6 +136,11 @@ export function RecruitmentKanbanBoard({
   onMoveCandidate,
   onOpenCandidate,
 }: RecruitmentKanbanBoardProps) {
+  const { data: stages = [] } = usePipeline();
+  const colorForColumn = (column: (typeof BOARD_COLUMNS)[number]) => {
+    const stage = stages.find((item) => column.statuses.includes(item.type as CandidateStatus));
+    return stage ? stageColor(stage) : statusColor(column.primaryStatus);
+  };
   const [activeId, setActiveId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<BoardCandidate | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -194,6 +204,7 @@ export function RecruitmentKanbanBoard({
           key={column.id}
           columnId={column.id}
           title={column.title}
+          color={colorForColumn(column)}
           count={grouped[column.id].length}
           candidates={grouped[column.id]}
           interactive={interactive}

@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
+import { StageColorDot } from '../stage-color-dot';
 import { type CandidateCardData, CandidateKanbanCard } from './candidate-kanban-card';
 
 type RecruitmentKanbanColumnProps = {
   title: string;
+  color?: string;
   count: number;
   candidates: CandidateCardData[];
   className?: string;
@@ -16,6 +18,7 @@ type RecruitmentKanbanColumnProps = {
 
 export function RecruitmentKanbanColumn({
   title,
+  color,
   count,
   candidates,
   className,
@@ -26,6 +29,7 @@ export function RecruitmentKanbanColumn({
     <div className={cn('app-card flex w-[280px] shrink-0 flex-col rounded-[8px] p-3', className)}>
       <div className="mb-3 flex items-center justify-between gap-3 border-b border-[#d7e3f6] px-1 pb-3 dark:border-slate-800">
         <div className="flex items-center gap-2">
+          {color ? <StageColorDot color={color} /> : null}
           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
           <span className="inline-flex min-w-7 items-center justify-center rounded-full border border-[#d7e3f6] bg-[#eef4ff] px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
             {count}

@@ -10,11 +10,24 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import type { PipelineStage } from '@/lib/api/recruitment-ats';
 
+import { useAskEmailOnMove } from '../hooks/use-ask-email-on-move';
 import { useEmailTemplates, usePipeline, usePipelineMutations } from '../hooks/use-recruitment-ats';
+import { stageColor } from '../lib/stage-colors';
 import { RecruitmentSectionTabs } from './recruitment-section-tabs';
+import { StageColorDot } from './stage-color-dot';
+import { StageColorPicker } from './stage-color-picker';
 
+const NO_TEMPLATE = 'none';
 const STAGE_TYPES = ['APPLIED', 'SCREENING', 'INTERVIEW', 'OFFER', 'HIRED', 'REJECTED'] as const;
 
 function notifyError(error: unknown) {
@@ -27,6 +40,7 @@ export function RecruitmentPipelineSettingsPage() {
   const { add, update, reorder, remove } = usePipelineMutations();
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<string>('SCREENING');
+  const [askBeforeEmail, setAskBeforeEmail] = useAskEmailOnMove();
 
   const move = (index: number, direction: -1 | 1) => {
     if (!stages) return;
@@ -73,29 +87,41 @@ export function RecruitmentPipelineSettingsPage() {
           </Button>
         </div>
         <div className="min-w-40 flex-1">
-          <p className="font-medium">{stage.name}</p>
+          <p className="flex items-center gap-2 font-medium">
+            <StageColorDot color={stageColor(stage)} />
+            {stage.name}
+          </p>
           <p className="text-xs text-slate-500">{stage.type}</p>
         </div>
-        <label className="flex items-center gap-2 text-sm">
+        <StageColorPicker
+          stageName={stage.name}
+          value={stageColor(stage)}
+          onChange={(color) => update.mutate({ id: stage.id, color }, { onError: notifyError })}
+        />
+        <div className="flex items-center gap-2 text-sm">
           <span className="text-slate-500">Auto-email</span>
-          <select
-            className="rounded-md border bg-transparent px-2 py-1 text-sm"
-            value={stage.autoEmailTemplateId ?? ''}
-            onChange={(e) =>
+          <Select
+            value={stage.autoEmailTemplateId ?? NO_TEMPLATE}
+            onValueChange={(value) =>
               update.mutate(
-                { id: stage.id, autoEmailTemplateId: e.target.value || null },
+                { id: stage.id, autoEmailTemplateId: value === NO_TEMPLATE ? null : value },
                 { onError: notifyError },
               )
             }
           >
-            <option value="">None</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            <SelectTrigger className="w-56" aria-label={`Auto-email for ${stage.name}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_TEMPLATE}>None</SelectItem>
+              {templates.map((template) => (
+                <SelectItem key={template.id} value={template.id}>
+                  {template.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Button
           size="icon"
           variant="ghost"
@@ -120,6 +146,23 @@ export function RecruitmentPipelineSettingsPage() {
         </p>
       </div>
 
+      <Card>
+        <CardContent className="flex items-center justify-between gap-4 p-4">
+          <div>
+            <p className="font-medium">Ask before emailing candidates</p>
+            <p className="text-xs text-slate-500">
+              When you move a candidate, show a card asking whether to send them an email. Turn it
+              off and moves send the stage&apos;s automatic email instead. This is your own setting.
+            </p>
+          </div>
+          <Switch
+            checked={askBeforeEmail}
+            onCheckedChange={setAskBeforeEmail}
+            aria-label="Ask before emailing candidates"
+          />
+        </CardContent>
+      </Card>
+
       {isLoading ? <LoadingBlock /> : null}
       {error ? (
         <Alert variant="destructive">
@@ -139,18 +182,18 @@ export function RecruitmentPipelineSettingsPage() {
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
         />
-        <select
-          aria-label="Stage type"
-          className="rounded-md border bg-transparent px-2 py-2 text-sm"
-          value={newType}
-          onChange={(e) => setNewType(e.target.value)}
-        >
-          {STAGE_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
-            </option>
-          ))}
-        </select>
+        <Select value={newType} onValueChange={setNewType}>
+          <SelectTrigger className="w-40" aria-label="Stage type">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STAGE_TYPES.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button onClick={onAdd} disabled={!newName.trim() || add.isPending}>
           <PlusIcon className="size-4" />
           Add stage
