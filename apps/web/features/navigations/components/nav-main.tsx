@@ -12,6 +12,7 @@ import {
 
 import type { NavItem } from '../constants/nav-items';
 import { useSidebarNavigationPrefetch } from '../hooks/use-sidebar-navigation-prefetch';
+import { NavLinkPending } from './nav-link-pending';
 
 export const NavMain = ({ items }: { items: NavItem[] }) => {
   const pathname = usePathname();
@@ -40,10 +41,10 @@ export const NavMain = ({ items }: { items: NavItem[] }) => {
                   href={item.href}
                   onMouseEnter={() => prefetchNavigation(item)}
                   onFocus={() => prefetchNavigation(item)}
-                  onClick={() => prefetchNavigation(item)}
                 >
                   <item.icon className="size-[18px]" />
                   <span>{item.name}</span>
+                  <NavLinkPending />
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
