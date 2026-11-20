@@ -35,21 +35,26 @@ import { RecruitmentApplicantsTable } from '@/features/recruitment/components/da
 import { RecruitmentScheduleWidget } from '@/features/recruitment/components/dashboard/recruitment-schedule-widget';
 import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashboard/recruitment-vacancy-grid';
 import { JobDetailSheet } from '@/features/recruitment/components/job-detail-sheet';
-import { useRecruitmentOverview } from '@/features/recruitment/hooks/use-recruitment-overview';
+import {
+  toDashboardApplicantRows,
+  toPipelineStages,
+  toVacancyApplicantCounts,
+} from '@/features/recruitment/lib/dashboard-summary-mapper';
+import { calendarEventsToSchedule } from '@/features/recruitment/lib/recruitment-schedule-utils';
 import { useAttendanceStats, useClockInInfo } from '@/hooks/queries/use-attendance';
+import { useCalendarEvents } from '@/hooks/queries/use-calendar';
 import { useViewerDirectReportsCount } from '@/hooks/queries/use-direct-reports';
 import { useEmployeeSummary } from '@/hooks/queries/use-employees';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
 import { usePayrollSetupSummary } from '@/hooks/queries/use-payroll';
-import { useJobOpenings } from '@/hooks/queries/use-recruitment';
+import { useDashboardRecruitmentSummary } from '@/hooks/queries/use-recruitment';
 import { useMyPointsBalance } from '@/hooks/queries/use-shoutouts';
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatDate } from '@/lib/format-date';
-import type { JobOpening } from '@/lib/schemas/recruitment';
 import { useTenant } from '@/providers/tenant-provider';
 
 const KPI_ICONS: Record<DashboardKpiIcon, LucideIcon> = {
@@ -163,26 +168,32 @@ export const Dashboard = () => {
     refetch: refetchLeaves,
   } = useLeaves();
   const {
-    data: jobsData,
-    isLoading: jobsLoading,
-    isError: jobsError,
-  } = useJobOpenings({ enabled: recruitmentQueriesEnabled });
-  const {
-    overview,
-    isLoading: overviewLoading,
-    jobsError: overviewError,
-    refetch: refetchOverview,
-  } = useRecruitmentOverview({ enabled: recruitmentQueriesEnabled });
+    data: recruitmentSummary,
+    isLoading: summaryLoading,
+    isError: summaryError,
+    refetch: refetchSummary,
+  } = useDashboardRecruitmentSummary({ enabled: recruitmentQueriesEnabled });
+  // The schedule sits below the headline numbers, so its requests wait for the summary.
+  const { data: calendarEvents = [], refetch: refetchCalendarEvents } = useCalendarEvents({
+    enabled: recruitmentQueriesEnabled && !summaryLoading,
+    dateRange: { from: todayKey(), to: todayKey() },
+  });
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const tenantHref = useTenantHref();
 
   const hasError =
-    employeesError ||
-    leavesError ||
-    (isAdmin && canAccessRecruitment && (jobsError || overviewError));
+    employeesError || leavesError || (isAdmin && canAccessRecruitment && summaryError);
 
-  const jobs = jobsData?.jobs ?? [];
-  const openRoles = useMemo(() => jobs.filter((job) => job.status === 'ACTIVE').length, [jobs]);
+  const openRoles = recruitmentSummary?.openRoles ?? 0;
+  const activeCandidates = recruitmentSummary?.activeCandidates ?? 0;
+  const totalCandidates = recruitmentSummary?.totalCandidates ?? 0;
+  const vacancies = useMemo(() => recruitmentSummary?.vacancies ?? [], [recruitmentSummary]);
+  const applicantRows = useMemo(
+    () => toDashboardApplicantRows(recruitmentSummary?.recentApplicants ?? []),
+    [recruitmentSummary],
+  );
+  const applicantCounts = useMemo(() => toVacancyApplicantCounts(vacancies), [vacancies]);
+  const schedule = useMemo(() => calendarEventsToSchedule(calendarEvents), [calendarEvents]);
   const recentLeaves = useMemo(
     () =>
       [...leaves]
@@ -190,32 +201,16 @@ export const Dashboard = () => {
         .slice(0, 5),
     [leaves],
   );
-  const pipelineStages = useMemo(() => {
-    const stages = [
-      { label: 'Applied', statuses: ['APPLIED'] },
-      { label: 'Screening', statuses: ['SCREENING', 'UNDER_REVIEW'] },
-      { label: 'Interview', statuses: ['INTERVIEW'] },
-      { label: 'Offer', statuses: ['OFFER'] },
-      { label: 'Hired', statuses: ['HIRED'] },
-    ];
-    return stages.map((stage) => ({
-      label: stage.label,
-      count: overview.applicantRows.filter((row) => stage.statuses.includes(row.status)).length,
-    }));
-  }, [overview.applicantRows]);
+  const pipelineStages = useMemo(
+    () => toPipelineStages(recruitmentSummary?.statusCounts ?? {}),
+    [recruitmentSummary],
+  );
   const pipelineMax = useMemo(
     () => Math.max(1, ...pipelineStages.map((stage) => stage.count)),
     [pipelineStages],
   );
   const contentCardHeaderClassName = 'border-b border-border/60 px-5 py-4';
   const contentCardTitleClassName = 'text-[17px] font-semibold text-foreground';
-  const activeCandidates = useMemo(
-    () =>
-      overview.applicantRows.filter(
-        (row) => !['HIRED', 'REJECTED', 'WITHDRAWN'].includes(row.status),
-      ).length,
-    [overview.applicantRows],
-  );
   const statCards = buildDashboardKpis({
     role,
     today: todayKey(),
@@ -233,7 +228,7 @@ export const Dashboard = () => {
           : null,
     payrollSetup: payrollEnabled && !payrollSetupQuery.isError ? payrollSetupQuery.data : null,
     openRoles: recruitmentAccess.includeOpenRolesCard
-      ? { count: openRoles, activeCandidates, loading: jobsLoading || overviewLoading }
+      ? { count: openRoles, activeCandidates, loading: summaryLoading }
       : null,
     leaveBalances: leaveBalancesQuery.data,
     clockIn: clockInQuery.data
@@ -254,7 +249,7 @@ export const Dashboard = () => {
         ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'
         : 'grid gap-4 md:grid-cols-2 xl:grid-cols-4';
 
-  const handleSelectJobDetails = useCallback((job: JobOpening) => {
+  const handleSelectJobDetails = useCallback((job: { id: string }) => {
     setSelectedJobId(job.id);
   }, []);
 
@@ -266,7 +261,8 @@ export const Dashboard = () => {
     void refetchEmployeeSummary();
     void refetchLeaves();
     if (recruitmentQueriesEnabled) {
-      void refetchOverview();
+      void refetchSummary();
+      void refetchCalendarEvents();
     }
   };
 
@@ -408,9 +404,8 @@ export const Dashboard = () => {
               ))}
             </ul>
             <p className="text-xs text-muted-foreground">
-              {openRoles} open {openRoles === 1 ? 'role' : 'roles'} ·{' '}
-              {overview.applicantRows.length}{' '}
-              {overview.applicantRows.length === 1 ? 'candidate' : 'candidates'} in total
+              {openRoles} open {openRoles === 1 ? 'role' : 'roles'} · {totalCandidates}{' '}
+              {totalCandidates === 1 ? 'candidate' : 'candidates'} in total
             </p>
           </ContentCard>
         ) : (
@@ -424,16 +419,16 @@ export const Dashboard = () => {
         <>
           <div className="grid gap-5 lg:grid-cols-2">
             <RecruitmentVacancyGrid
-              jobs={overview.jobs.filter((job) => job.status === 'ACTIVE')}
-              applicantCounts={overview.applicantCounts}
+              jobs={vacancies}
+              applicantCounts={applicantCounts}
               onSelectDetails={handleSelectJobDetails}
             />
-            <RecruitmentScheduleWidget events={overview.schedule} />
+            <RecruitmentScheduleWidget events={schedule} />
           </div>
 
           <div className="grid gap-5 xl:grid-cols-3">
             <div className="min-w-0 h-full xl:col-span-2">
-              <RecruitmentApplicantsTable rows={overview.applicantRows} />
+              <RecruitmentApplicantsTable rows={applicantRows} />
             </div>
             <div className="min-w-0 h-full">
               <DashboardActivityFeed />

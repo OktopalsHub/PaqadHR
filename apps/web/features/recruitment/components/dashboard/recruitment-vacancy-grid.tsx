@@ -6,17 +6,17 @@ import Link from 'next/link';
 import { ContentCard } from '@/components/content-card';
 import { Badge } from '@/components/ui/badge';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
-import type { JobOpening } from '@/lib/schemas/recruitment';
 
+import type { DashboardVacancy } from '../../lib/dashboard-summary-mapper';
 import { formatEmploymentType } from '../../lib/recruitment-dashboard-metrics';
 
 type RecruitmentVacancyGridProps = {
-  jobs: JobOpening[];
+  jobs: DashboardVacancy[];
   applicantCounts: Record<string, number>;
-  onSelectDetails?: (job: JobOpening) => void;
+  onSelectDetails?: (job: DashboardVacancy) => void;
 };
 
-function formatLocation(job: JobOpening) {
+function formatLocation(job: DashboardVacancy) {
   if (!job.location) return '—';
   const parts = [job.location.type, job.location.city].filter(Boolean);
   return parts.join(' · ');

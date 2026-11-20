@@ -264,3 +264,34 @@ export async function uploadPublicCandidateFile(
   });
   return { fileName, fileKey };
 }
+
+export type DashboardRecruitmentSummary = {
+  openRoles: number;
+  totalCandidates: number;
+  activeCandidates: number;
+  statusCounts: Record<string, number>;
+  vacancies: {
+    id: string;
+    title: string;
+    employmentType: string;
+    status: string;
+    location?: { type?: string; city?: string } | null;
+    applicantCount: number;
+  }[];
+  recentApplicants: {
+    id: string;
+    jobOpeningId?: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    status: CandidateStatus;
+    appliedAt: string | null;
+    roleTitle: string | null;
+    employmentType: string | null;
+  }[];
+};
+
+export async function fetchDashboardRecruitmentSummary(): Promise<DashboardRecruitmentSummary> {
+  const tenantId = await resolveTenantId();
+  return apiClient<DashboardRecruitmentSummary>(tenantPath(tenantId, 'jobs/dashboard-summary'));
+}

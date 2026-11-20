@@ -45,6 +45,8 @@ import { RecruitmentPipelineService } from './services/recruitment-pipeline.serv
 import { RecruitmentScorecardService } from './services/recruitment-scorecard.service';
 import { RecruitmentTalentPoolService } from './services/recruitment-talent-pool.service';
 
+import { RecruitmentDashboardService } from './services/recruitment-dashboard.service';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -79,6 +81,7 @@ import { RecruitmentTalentPoolService } from './services/recruitment-talent-pool
   ],
   providers: [
     JobOpeningService,
+    RecruitmentDashboardService,
     JobOpeningRepository,
     CandidateService,
     CandidateRepository,
