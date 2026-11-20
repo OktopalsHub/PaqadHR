@@ -1,4 +1,3 @@
-import { Agent } from '@mastra/core/agent';
 import {
   BadGatewayException,
   Injectable,
@@ -112,11 +111,12 @@ export class RecruitmentAiService {
     const config = resolveAiModelConfig();
     if (!config) throw new ServiceUnavailableException('AI features are not configured');
     try {
+      const { Agent } = await import('@mastra/core/agent');
       const agent = new Agent({
         id: 'recruitment-assistant',
         name: 'recruitment-assistant',
         instructions,
-        model: createAiModel(config),
+        model: await createAiModel(config),
       });
       const response = await agent.generate(prompt, { structuredOutput: { schema } });
       return schema.parse(response.object) as z.infer<T>;

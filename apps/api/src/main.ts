@@ -1,3 +1,4 @@
+import './compile-cache';
 import './instrument';
 import { Logger, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';

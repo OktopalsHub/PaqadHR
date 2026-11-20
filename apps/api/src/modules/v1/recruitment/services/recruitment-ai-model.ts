@@ -1,5 +1,3 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createDeepSeek } from '@ai-sdk/deepseek';
 import type { Agent } from '@mastra/core/agent';
 
 export type AiProvider = 'anthropic' | 'deepseek';
@@ -34,8 +32,12 @@ export function resolveAiModelConfig(env: Env = process.env): AiModelConfig | nu
 
 type AgentModel = ConstructorParameters<typeof Agent>[0]['model'];
 
-export function createAiModel(config: AiModelConfig): AgentModel {
-  return config.provider === 'deepseek'
-    ? createDeepSeek({ apiKey: config.apiKey })(config.model)
-    : createAnthropic({ apiKey: config.apiKey })(config.model);
+/** Providers load on first use: the SDKs add seconds to API boot and most requests never need them. */
+export async function createAiModel(config: AiModelConfig): Promise<AgentModel> {
+  if (config.provider === 'deepseek') {
+    const { createDeepSeek } = await import('@ai-sdk/deepseek');
+    return createDeepSeek({ apiKey: config.apiKey })(config.model);
+  }
+  const { createAnthropic } = await import('@ai-sdk/anthropic');
+  return createAnthropic({ apiKey: config.apiKey })(config.model);
 }

@@ -54,7 +54,7 @@ export class TenantMemberGuard implements CanActivate {
       throw new NotFoundException('Tenant not found');
     }
 
-    const member = await this.tenantMemberService.checkUserTenantMembership(userId, tenantId);
+    const member = await this.tenantMemberService.findUserTenantMembership(userId, tenantId);
     if (!member) {
       throw new ForbiddenException('You are not a member of this tenant');
     }

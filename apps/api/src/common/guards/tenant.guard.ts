@@ -67,19 +67,14 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException('Tenant access denied');
     }
 
-    const membership = await this.tenantMemberRepository.findMembershipByUserAndTenant(
+    const membership = await this.tenantMemberRepository.findActiveMembershipWithTenantStatus(
       request.user.principalId,
       requestedTenantId,
     );
     if (!membership?.isActive) {
       throw new ForbiddenException('Tenant access denied');
     }
-
-    const tenantMembership = await this.tenantMemberRepository.findOne({
-      where: { id: membership.id, tenantId: requestedTenantId },
-      relations: { tenant: true },
-    });
-    if (!tenantMembership?.tenant?.isActive) {
+    if (!membership.tenant?.isActive) {
       throw new ForbiddenException('Tenant is not active');
     }
 
