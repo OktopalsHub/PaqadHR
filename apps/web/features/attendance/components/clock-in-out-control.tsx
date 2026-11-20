@@ -2,6 +2,7 @@
 
 import { Loader2, LogIn, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useElapsedSince } from '@/features/attendance/hooks/use-elapsed-since';

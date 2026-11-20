@@ -161,24 +161,17 @@ export async function processPayrollRun(id: string): Promise<void> {
 }
 
 export async function fundAndPayPayroll(id: string): Promise<{
-  action: 'paid' | 'checkout';
-  message?: string;
-  checkoutUrl?: string;
-  orderReference?: string;
-  result?: {
-    totalItems: number;
-    successfulPayments: number;
-    failedPayments: number;
+  message: string;
+  processedAt: string;
+  result: {
+    action?: 'checkout' | 'paid';
+    checkoutUrl?: string;
+    orderReference?: string;
+    totalItems?: number;
+    successfulPayments?: number;
+    failedPayments?: number;
     processingPayments?: number;
     payoutResults?: Array<{ error?: string; outcome?: string }>;
-  };
-  preflight?: {
-    ok: boolean;
-    shortfall: number;
-    currency: string;
-    message: string;
-    dashboardUrl?: string;
-    canCheckout?: boolean;
   };
 }> {
   const tenantId = await resolveTenantId();
@@ -187,23 +180,19 @@ export async function fundAndPayPayroll(id: string): Promise<{
   });
 }
 
-export type PayrollFundingPreflight = {
-  ok: boolean;
-  provider: string;
-  currency: string;
-  requiredAmount: number;
-  availableBalance: number | null;
-  shortfall: number;
-  balanceSupported: boolean;
-  canCheckout: boolean;
-  dashboardUrl: string;
-  message: string;
-  employeeTotal?: number;
-  platformFee?: number;
-  feePercentage?: number;
-  payoutFeeReserve?: number;
-  payoutFeePerTransfer?: number;
-  payoutTransferCount?: number;
+export type PayrollFundingPreflight = PayrollReadiness & {
+  funding?: {
+    provider: string;
+    ok: boolean;
+    message: string;
+    bridgeFundingRequirements?: Array<{
+      currency: string;
+      network: string;
+      requiredAmount: string;
+      availableBalance: string;
+      shortfall: string;
+    }>;
+  };
 };
 
 export async function fetchPayrollFundingPreflight(id: string): Promise<PayrollFundingPreflight> {
@@ -249,100 +238,6 @@ export async function retryFailedPayrollPayments(
   });
 }
 
-export type RetryFundingPreview = {
-  /** Amount the company pays at checkout (required funding minus the provider balance used). */
-  amount: number;
-  /** Total run-scoped funding the selected failed payouts need. */
-  requiredAmount?: number;
-  /** Provider balance credited to this run instead of being charged at checkout. */
-  balanceApplied?: number;
-  availableBalance?: number | null;
-  currency: string;
-  selectedItemIds: string[];
-  platformFee: 0;
-  payoutFeeReserve: number;
-};
-
-export async function previewRetryFunding(
-  id: string,
-  itemIds: string[],
-): Promise<RetryFundingPreview> {
-  const tenantId = await resolveTenantId();
-  return apiClient<RetryFundingPreview>(
-    tenantPath(tenantId, `payroll/runs/${id}/retry-funding/preflight`),
-    {
-      method: 'POST',
-      body: JSON.stringify({ itemIds }),
-    },
-  );
-}
-
-export async function approveRetryFunding(
-  id: string,
-  itemIds: string[],
-  expectedAmount: number,
-  currency: string,
-): Promise<RetryFundingPreview & { approved: true; orderReference: string }> {
-  const tenantId = await resolveTenantId();
-  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/retry-funding/approve`), {
-    method: 'POST',
-    body: JSON.stringify({ itemIds, expectedAmount, currency }),
-  });
-}
-
-export async function createRetryFundingCheckout(
-  id: string,
-): Promise<{ checkoutUrl: string; orderReference: string; amount: number; currency: string }> {
-  const tenantId = await resolveTenantId();
-  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/retry-funding/checkout`), {
-    method: 'POST',
-  });
-}
-
-export type RetryFundingReconcileResult = {
-  status: 'funded' | 'pending' | 'unavailable';
-  orderReference?: string;
-  amount?: number;
-  currency?: string;
-  reason?: string;
-};
-
-/**
- * Re-verify a pending retry-funding checkout with the payout provider. Safe to call repeatedly:
- * it only proves the company's payment and credits the run's funding ledger, and it never
- * starts payout. Use it when a checkout was completed but the funding webhook was dropped.
- */
-export async function reconcileRetryFunding(id: string): Promise<RetryFundingReconcileResult> {
-  const tenantId = await resolveTenantId();
-  return apiClient<RetryFundingReconcileResult>(
-    tenantPath(tenantId, `payroll/runs/${id}/retry-funding/reconcile`),
-    { method: 'POST' },
-  );
-}
-
-export type RetryFundingCancelResult = {
-  status: 'cancelled' | 'funded' | 'not_pending';
-  orderReference?: string;
-  amount?: number;
-  currency?: string;
-  reason?: string;
-};
-
-/**
- * Cancel an open retry funding approval or checkout.
- *
- * The server asks the payment provider first: a checkout that was actually paid is credited to
- * the run instead of being cancelled, so cancelling can never cost the company a second
- * payment. Cancelling only releases the run so a fresh funding review can be started.
- */
-export async function cancelRetryFunding(id: string): Promise<RetryFundingCancelResult> {
-  const tenantId = await resolveTenantId();
-  return apiClient<RetryFundingCancelResult>(
-    tenantPath(tenantId, `payroll/runs/${id}/retry-funding/cancel`),
-    { method: 'POST' },
-  );
-}
-
 export type PayrollFundingLedger = {
   payrollRunId: string;
   entries: Array<{
@@ -372,16 +267,7 @@ export async function fetchPayrollFundingLedger(id: string): Promise<PayrollFund
 export async function schedulePayrollPayout(
   id: string,
   paymentDate?: string,
-): Promise<
-  | { action: 'scheduled'; message: string; run: PayrollRun }
-  | {
-      action: 'checkout';
-      message: string;
-      checkoutUrl: string;
-      orderReference: string;
-      preflight?: { currency: string; message: string; shortfall: number };
-    }
-> {
+): Promise<{ message: string; payrollRunId: string; paymentDate: string | null }> {
   const tenantId = await resolveTenantId();
   return apiClient(tenantPath(tenantId, `payroll/runs/${id}/schedule`), {
     method: 'POST',

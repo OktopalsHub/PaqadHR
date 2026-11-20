@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
-  STRONG_PASSWORD_MESSAGE,
-  STRONG_PASSWORD_REGEX,
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_MIN_LENGTH_MESSAGE,
 } from 'src/common/constants/password-policy.constant';
 import { UserRole } from 'src/common/enums';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
@@ -287,8 +287,8 @@ export class AuthCredentialService {
     try {
       if (termsAccepted !== true)
         throw new BadRequestException('You must accept the terms and privacy policy to register');
-      if (!STRONG_PASSWORD_REGEX.test(password))
-        throw new BadRequestException(STRONG_PASSWORD_MESSAGE);
+      if (password.length < MIN_PASSWORD_LENGTH)
+        throw new BadRequestException(PASSWORD_MIN_LENGTH_MESSAGE);
       const attribution = normalizeSignupAttribution(attributionInput);
       const normalizedEmail = StringUtility.trimAndLowerCase(email);
       const emailExist = await this.userRepository.findUserByEmail(normalizedEmail);

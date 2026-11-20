@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+
 import { ContentCard } from '@/components/content-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AttendanceTeamSessions } from '@/features/attendance/components/attendance-team-sessions';

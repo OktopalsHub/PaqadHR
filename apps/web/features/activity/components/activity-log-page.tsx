@@ -2,6 +2,7 @@
 
 import { Activity, Loader2, ShieldAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
+
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
@@ -12,6 +13,7 @@ import type { TenantActivity } from '@/lib/api/activities';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
+
 import {
   type ActivityCategory,
   getActivityCategory,

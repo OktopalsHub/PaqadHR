@@ -1,5 +1,7 @@
 import { Briefcase, CalendarClock, ChevronRight, Sparkles, Users, Wallet } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
+
 import { demoDashboardStats } from '../../../constants/landing-demo-data';
 
 type DashboardDemoViewProps = {

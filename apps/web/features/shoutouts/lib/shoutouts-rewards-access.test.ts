@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { getShoutoutsRewardsAccessState } from './shoutouts-rewards-access.ts';
 
 test('rewards stay closed while feature access is still loading', () => {

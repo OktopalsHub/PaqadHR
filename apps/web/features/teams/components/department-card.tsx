@@ -1,5 +1,6 @@
 import { Building, ChevronDown, ChevronRight, Mail, Phone, UsersRound } from 'lucide-react';
 import { useState } from 'react';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Department } from '@/lib/schemas/department';
+
 import { DepartmentEditButton } from './edit-department-dialog';
 import { ManageDepartmentMembersDialog } from './manage-department-members-dialog';
 

@@ -1,19 +1,21 @@
 # Local development database only. API and web run on the host (pnpm dev).
-# Usage: docker compose up -d db  /  docker compose logs -f db  /  docker compose down
+# Usage: pnpm infra:up  /  pnpm infra:logs  /  pnpm infra:down
+# Host port defaults to 5433 so it never clashes with another Postgres on 5432.
+# Override with POSTGRES_PORT=5432 pnpm infra:up
 services:
   db:
-    image: postgres:16
+    image: postgres:18-alpine
     container_name: paqadhr-postgres-dev
     restart: unless-stopped
     # Loopback only: never publish the dev database beyond this machine.
     ports:
-      - '127.0.0.1:5432:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: paqadhr
     volumes:
-      - paqadhr-dev-data:/var/lib/postgresql/data
+      - paqadhr-pg18-data:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d paqadhr']
       interval: 5s
@@ -44,6 +46,6 @@ services:
       retries: 20
 
 volumes:
-  paqadhr-dev-data:
+  paqadhr-pg18-data:
     # Named volume survives `docker compose down` (use `down -v` to wipe).
-    name: paqadhr-dev-data
+    name: paqadhr-pg18-data

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateStatus, JobStatus, LeaveStatus } from 'src/common/enums';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
-import { MoreThanOrEqual, type Repository } from 'typeorm';
+import { In, type Repository } from 'typeorm';
 
 import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { Department } from '../departments/entities/department.entity';
@@ -11,6 +11,8 @@ import { PayrollRun } from '../payroll/entities/payroll-run.entity';
 import { Candidate } from '../recruitment/entities/candidate.entity';
 import { JobOpening } from '../recruitment/entities/job-opening.entity';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
+
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 @Injectable()
 export class AnalyticsWorkforceQueriesService {
@@ -35,57 +37,52 @@ export class AnalyticsWorkforceQueriesService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const [totalEmployees, activeEmployees, departmentCount, newHiresLast30Days] =
-      await Promise.all([
-        this.memberRepository.count({ where: { tenantId } }),
-        this.memberRepository.count({ where: { tenantId, isActive: true } }),
-        this.departmentRepository.count({ where: { tenantId } }),
-        this.memberRepository.count({
-          where: {
-            tenantId,
-            joinDate: MoreThanOrEqual(thirtyDaysAgo),
-          },
-        }),
-      ]);
+    const [members, departmentCount] = await Promise.all([
+      this.memberRepository
+        .createQueryBuilder('member')
+        .select('COUNT(*)', 'total')
+        .addSelect('COUNT(*) FILTER (WHERE member.isActive = true)', 'active')
+        .addSelect('COUNT(*) FILTER (WHERE member.joinDate >= :thirtyDaysAgo)', 'recent')
+        .where('member.tenantId = :tenantId', { tenantId })
+        .setParameter('thirtyDaysAgo', thirtyDaysAgo)
+        .getRawOne<{ total: string; active: string; recent: string }>(),
+      this.departmentRepository.count({ where: { tenantId } }),
+    ]);
 
     return {
-      totalEmployees,
-      activeEmployees,
+      totalEmployees: Number(members?.total ?? 0),
+      activeEmployees: Number(members?.active ?? 0),
       departmentCount,
-      newHiresLast30Days,
+      newHiresLast30Days: Number(members?.recent ?? 0),
     };
   }
 
   async getLeaveSummary(tenantId: string) {
-    const leaves = await this.leaveRepository.find({
-      where: { tenantId },
-      select: { id: true, status: true, startDate: true, endDate: true },
-    });
+    const today = this.toDateKey(new Date());
+    const rows = await this.leaveRepository
+      .createQueryBuilder('leave')
+      .select('leave.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE leave.status = :approved AND leave.startDate <= :today AND leave.endDate >= :today)',
+        'onLeave',
+      )
+      .where('leave.tenantId = :tenantId', { tenantId })
+      .setParameters({ approved: LeaveStatus.APPROVED, today })
+      .groupBy('leave.status')
+      .getRawMany<{ status: string; count: string; onLeave: string }>();
 
-    const today = this.startOfDay(new Date());
-    const counts = {
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-      cancelled: 0,
-    };
-
+    const counts = { pending: 0, approved: 0, rejected: 0, cancelled: 0 };
+    let total = 0;
     let onLeaveNow = 0;
-
-    for (const leave of leaves) {
-      const status = leave.status as LeaveStatus;
-      if (status === LeaveStatus.PENDING) counts.pending += 1;
-      if (status === LeaveStatus.APPROVED) counts.approved += 1;
-      if (status === LeaveStatus.REJECTED) counts.rejected += 1;
-      if (status === LeaveStatus.CANCELLED) counts.cancelled += 1;
-
-      if (status === LeaveStatus.APPROVED) {
-        const start = this.startOfDay(new Date(leave.startDate));
-        const end = this.startOfDay(new Date(leave.endDate));
-        if (today >= start && today <= end) {
-          onLeaveNow += 1;
-        }
-      }
+    for (const row of rows) {
+      const count = Number(row.count);
+      total += count;
+      onLeaveNow += Number(row.onLeave);
+      if (row.status === LeaveStatus.PENDING) counts.pending = count;
+      if (row.status === LeaveStatus.APPROVED) counts.approved = count;
+      if (row.status === LeaveStatus.REJECTED) counts.rejected = count;
+      if (row.status === LeaveStatus.CANCELLED) counts.cancelled = count;
     }
 
     const byStatus = [
@@ -96,7 +93,7 @@ export class AnalyticsWorkforceQueriesService {
     ].filter((item) => item.value > 0);
 
     return {
-      total: leaves.length,
+      total,
       pending: counts.pending,
       approved: counts.approved,
       rejected: counts.rejected,
@@ -106,41 +103,61 @@ export class AnalyticsWorkforceQueriesService {
   }
 
   async getRecruitmentSummary(tenantId: string) {
-    const [jobs, candidates] = await Promise.all([
-      this.jobRepository.find({
-        where: { tenantId },
-        select: { id: true, status: true },
-      }),
-      this.candidateRepository.find({
-        where: { tenantId },
-        select: { id: true, status: true, appliedAt: true },
-      }),
+    const months = 6;
+    const now = new Date();
+    const since = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1);
+
+    const [jobs, statusRows, monthRows] = await Promise.all([
+      this.jobRepository
+        .createQueryBuilder('job')
+        .select('COUNT(*)', 'total')
+        .addSelect('COUNT(*) FILTER (WHERE job.status = :active)', 'open')
+        .where('job.tenantId = :tenantId', { tenantId })
+        .setParameter('active', JobStatus.ACTIVE)
+        .getRawOne<{ total: string; open: string }>(),
+      this.candidateRepository
+        .createQueryBuilder('candidate')
+        .select('candidate.status', 'status')
+        .addSelect('COUNT(*)', 'count')
+        .where('candidate.tenantId = :tenantId', { tenantId })
+        .groupBy('candidate.status')
+        .getRawMany<{ status: CandidateStatus; count: string }>(),
+      this.candidateRepository
+        .createQueryBuilder('candidate')
+        .select("to_char(candidate.appliedAt, 'YYYY-MM')", 'month')
+        .addSelect('COUNT(*)', 'count')
+        .where('candidate.tenantId = :tenantId', { tenantId })
+        .andWhere('candidate.appliedAt >= :since', { since })
+        .groupBy('month')
+        .getRawMany<{ month: string; count: string }>(),
     ]);
 
-    const openRoles = jobs.filter((job) => job.status === JobStatus.ACTIVE).length;
-    const hired = candidates.filter(
-      (candidate) => candidate.status === CandidateStatus.HIRED,
-    ).length;
-
-    const pipelineMap = new Map<string, number>();
-    for (const candidate of candidates) {
-      const label = this.formatCandidateStatus(candidate.status);
-      pipelineMap.set(label, (pipelineMap.get(label) ?? 0) + 1);
-    }
-
-    const pipelineByStatus = [...pipelineMap.entries()]
-      .map(([label, value]) => ({ label, value }))
+    let totalCandidates = 0;
+    let hired = 0;
+    const pipelineByStatus = statusRows
+      .map((row) => {
+        const value = Number(row.count);
+        totalCandidates += value;
+        if (row.status === CandidateStatus.HIRED) hired = value;
+        return { label: this.formatCandidateStatus(row.status), value };
+      })
       .sort((a, b) => b.value - a.value);
 
-    const applicationsByMonth = this.buildMonthlyTrend(
-      candidates.map((candidate) => new Date(candidate.appliedAt)),
-      6,
-    );
+    const countByMonth = new Map(monthRows.map((row) => [row.month, Number(row.count)]));
+    const applicationsByMonth: { label: string; value: number }[] = [];
+    for (let offset = months - 1; offset >= 0; offset -= 1) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      const key = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+      applicationsByMonth.push({
+        label: MONTH_LABELS[monthDate.getMonth()],
+        value: countByMonth.get(key) ?? 0,
+      });
+    }
 
     return {
-      totalJobs: jobs.length,
-      openRoles,
-      totalCandidates: candidates.length,
+      totalJobs: Number(jobs?.total ?? 0),
+      openRoles: Number(jobs?.open ?? 0),
+      totalCandidates,
       hired,
       pipelineByStatus,
       applicationsByMonth,
@@ -148,32 +165,43 @@ export class AnalyticsWorkforceQueriesService {
   }
 
   async getPayrollSummary(tenantId: string) {
-    const runs = await this.payrollRunRepository.find({
-      where: { tenantId },
-      order: { createdAt: 'DESC' },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        totalNetAmount: true,
-        baseCurrency: true,
-        processedAt: true,
-        createdAt: true,
-      },
-    });
+    const settled = [PayrollStatus.COMPLETED, PayrollStatus.APPROVED];
+    const lastRunColumns = {
+      id: true,
+      title: true,
+      status: true,
+      totalNetAmount: true,
+      baseCurrency: true,
+      processedAt: true,
+      createdAt: true,
+    } as const;
 
-    const completedRuns = runs.filter(
-      (run) => run.status === PayrollStatus.COMPLETED || run.status === PayrollStatus.APPROVED,
-    ).length;
+    const [totals, lastSettled] = await Promise.all([
+      this.payrollRunRepository
+        .createQueryBuilder('run')
+        .select('COUNT(*)', 'total')
+        .addSelect('COUNT(*) FILTER (WHERE run.status IN (:...settled))', 'settled')
+        .where('run.tenantId = :tenantId', { tenantId })
+        .setParameter('settled', settled)
+        .getRawOne<{ total: string; settled: string }>(),
+      this.payrollRunRepository.findOne({
+        where: { tenantId, status: In(settled) },
+        order: { createdAt: 'DESC' },
+        select: lastRunColumns,
+      }),
+    ]);
 
     const lastCompleted =
-      runs.find(
-        (run) => run.status === PayrollStatus.COMPLETED || run.status === PayrollStatus.APPROVED,
-      ) ?? runs[0];
+      lastSettled ??
+      (await this.payrollRunRepository.findOne({
+        where: { tenantId },
+        order: { createdAt: 'DESC' },
+        select: lastRunColumns,
+      }));
 
     return {
-      totalRuns: runs.length,
-      completedRuns,
+      totalRuns: Number(totals?.total ?? 0),
+      completedRuns: Number(totals?.settled ?? 0),
       lastRunAmount: lastCompleted ? Number(lastCompleted.totalNetAmount) : null,
       lastRunCurrency: lastCompleted?.baseCurrency ?? null,
       lastRunDate: lastCompleted
@@ -213,47 +241,6 @@ export class AnalyticsWorkforceQueriesService {
       .sort((a, b) => b.memberCount - a.memberCount);
   }
 
-  private buildMonthlyTrend(dates: Date[], months: number) {
-    const MONTH_LABELS = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    const points: { label: string; value: number }[] = [];
-    const now = new Date();
-
-    for (let offset = months - 1; offset >= 0; offset -= 1) {
-      const monthDate = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-      const monthEnd = new Date(
-        monthDate.getFullYear(),
-        monthDate.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
-      );
-
-      const value = dates.filter((date) => date >= monthDate && date <= monthEnd).length;
-
-      points.push({
-        label: MONTH_LABELS[monthDate.getMonth()],
-        value,
-      });
-    }
-
-    return points;
-  }
-
   private formatCandidateStatus(status: CandidateStatus) {
     return status
       .split('_')
@@ -261,9 +248,9 @@ export class AnalyticsWorkforceQueriesService {
       .join(' ');
   }
 
-  private startOfDay(date: Date) {
-    const next = new Date(date);
-    next.setHours(0, 0, 0, 0);
-    return next;
+  private toDateKey(date: Date) {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
   }
 }

@@ -1,5 +1,7 @@
 import { Briefcase, CalendarDays, Heart, LayoutDashboard, Wallet } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
+
 import type { DemoNavId } from '../../constants/landing-demo-data';
 import { demoSidebarItems, demoWorkspace } from '../../constants/landing-demo-data';
 

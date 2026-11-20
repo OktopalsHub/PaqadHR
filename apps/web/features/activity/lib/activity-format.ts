@@ -13,6 +13,7 @@ import {
   Users,
   Wallet,
 } from 'lucide-react';
+
 import type { TenantActivity } from '@/lib/api/activities';
 
 export type ActivityCategory =

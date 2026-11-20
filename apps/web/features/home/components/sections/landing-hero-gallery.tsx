@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+
 import { fadeUp } from '../../constants/landing-motion';
 
 const gallery = [

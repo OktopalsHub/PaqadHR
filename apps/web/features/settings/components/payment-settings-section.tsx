@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   CheckCircle2,
   Loader2,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+
 import { BankLogo } from '@/components/bank-logo';
 import { OtpVerificationDialog } from '@/components/otp-verification-dialog';
 import { SearchSelect } from '@/components/search-select';
@@ -48,7 +49,9 @@ import {
   useSupportedPaymentCurrencies,
 } from '@/hooks/queries/use-payment-methods';
 import { useDebounce } from '@/hooks/use-debounce';
+import { apiClient } from '@/lib/api/client';
 import { lookupNigerianBankAccount } from '@/lib/api/payment-methods';
+import { resolveTenantId } from '@/lib/api/tenants';
 import { networksForCryptoCurrency } from '@/lib/constants/currencies';
 import {
   getPayoutFieldConfig,
@@ -60,6 +63,144 @@ import {
 } from '@/lib/payout-bank-fields';
 import type { PaymentMethodSummary } from '@/lib/schemas/payment-method';
 import { useTenant } from '@/providers/tenant-provider';
+
+function BridgeEmployeeWalletSetup() {
+  const { tenantId } = useTenant();
+  const [fullName, setFullName] = useState('');
+  const [currency, setCurrency] = useState<'USDC' | 'USDT'>('USDC');
+  const [network, setNetwork] = useState('');
+  const [links, setLinks] = useState<{ kycLink: string; termsLink: string } | null>(null);
+  const statusQuery = useQuery({
+    queryKey: ['bridge-employee-onboarding', tenantId],
+    queryFn: () =>
+      apiClient<{ status: string; kycStatus: string; termsStatus: string }>(
+        '/wallets/me/bridge/onboarding',
+      ),
+    enabled: Boolean(tenantId),
+    retry: false,
+  });
+  const startOnboarding = useMutation({
+    mutationFn: () =>
+      apiClient<{ kycLink: string; termsLink: string }>('/wallets/me/bridge/onboarding', {
+        method: 'POST',
+        body: JSON.stringify({ fullName: fullName.trim() }),
+      }),
+    onSuccess: (result) => setLinks(result),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Bridge onboarding failed'),
+  });
+  const createWallet = useMutation({
+    mutationFn: () =>
+      apiClient('/wallets/me/bridge', {
+        method: 'POST',
+        body: JSON.stringify({ currency, network: network.trim().toUpperCase() }),
+      }),
+    onSuccess: () => toast.success(`${currency} Bridge wallet created`),
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : 'Bridge wallet creation failed'),
+  });
+  const approved = statusQuery.data?.status === 'approved';
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border/60 p-4">
+      <div>
+        <h3 className="text-sm font-medium">Employee Bridge wallet</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Each employee completes their own Bridge verification and keeps the wallet when changing
+          employers.
+        </p>
+      </div>
+      {approved ? (
+        <div className="space-y-3">
+          <p className="text-sm">Bridge identity and terms are approved.</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Wallet asset</Label>
+              <Select
+                value={currency}
+                onValueChange={(value) => setCurrency(value as 'USDC' | 'USDT')}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USDC">USDC</SelectItem>
+                  <SelectItem value="USDT">USDT</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Bridge network</Label>
+              <Input
+                value={network}
+                onChange={(event) => setNetwork(event.target.value)}
+                placeholder="For example, SOL"
+                maxLength={32}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                className="w-full"
+                disabled={createWallet.isPending || network.trim().length < 2}
+                onClick={() => createWallet.mutate()}
+              >
+                {createWallet.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Create wallet
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label>Legal name</Label>
+            <Input
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              maxLength={200}
+              autoComplete="name"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              disabled={startOnboarding.isPending || fullName.trim().length < 2}
+              onClick={() => startOnboarding.mutate()}
+            >
+              {startOnboarding.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Start Bridge verification
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={statusQuery.isFetching}
+              onClick={() => void statusQuery.refetch()}
+            >
+              {statusQuery.isFetching ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Refresh status
+            </Button>
+          </div>
+          {statusQuery.data ? (
+            <p className="text-xs text-muted-foreground">
+              Verification: {statusQuery.data.kycStatus.replaceAll('_', ' ')} · Terms:{' '}
+              {statusQuery.data.termsStatus.replaceAll('_', ' ')}
+            </p>
+          ) : null}
+          {links ? (
+            <div className="flex flex-wrap gap-3 text-sm">
+              <a className="underline" href={links.kycLink} target="_blank" rel="noreferrer">
+                Complete identity verification
+              </a>
+              <a className="underline" href={links.termsLink} target="_blank" rel="noreferrer">
+                Accept Bridge terms
+              </a>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const COUNTRY_BY_CURRENCY: Record<string, string> = {
   NGN: 'NG',
@@ -89,8 +230,29 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
   const [submitOpen, setSubmitOpen] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
   const [currentPasscode, setCurrentPasscode] = useState('');
+  const [linkBridgeOpen, setLinkBridgeOpen] = useState(false);
+  const [bridgeSourceCurrency, setBridgeSourceCurrency] = useState<'USDC' | 'USDT'>('USDC');
+  const [bridgeNetwork, setBridgeNetwork] = useState('');
+  const linkBridgeAccount = useMutation({
+    mutationFn: async () => {
+      const tenantId = await resolveTenantId();
+      return apiClient('/wallets/me/bridge/external-accounts', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenantId,
+          paymentMethodId: method.id,
+          sourceCurrency: bridgeSourceCurrency,
+          network: bridgeNetwork.trim().toUpperCase(),
+        }),
+      });
+    },
+  });
 
   const canSubmit = method.status === 'draft' || method.status === 'rejected';
+  const canLinkBridgeBank =
+    method.status === 'verified' &&
+    method.type === 'bank' &&
+    ['USD', 'EUR', 'GBP'].includes(method.currency.toUpperCase());
   const confirmOpen = confirmAction !== null;
 
   useEffect(() => {
@@ -175,6 +337,12 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
               Submit for review
             </DropdownMenuItem>
           ) : null}
+          {canLinkBridgeBank ? (
+            <DropdownMenuItem onClick={() => setLinkBridgeOpen(true)}>
+              <ShieldCheck className="size-4" />
+              Link Bridge payroll bank
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem variant="destructive" onClick={() => setConfirmAction('delete')}>
             <Trash2 className="size-4" />
             Delete
@@ -214,6 +382,67 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
         title="Verify to submit payment method"
         onVerified={(proof) => void handleSubmitForReview(proof)}
       />
+
+      <Dialog open={linkBridgeOpen} onOpenChange={setLinkBridgeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link bank account for Bridge payroll</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Bridge will attach this verified bank account to your personal Bridge customer. Your
+              employer can then pay your salary to your Bridge wallet and withdraw it to this bank.
+            </p>
+            <div className="space-y-2">
+              <Label>Bridge wallet asset</Label>
+              <Select
+                value={bridgeSourceCurrency}
+                onValueChange={(value) => setBridgeSourceCurrency(value as 'USDC' | 'USDT')}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USDC">USDC</SelectItem>
+                  <SelectItem value="USDT">USDT</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Bridge network</Label>
+              <Input
+                value={bridgeNetwork}
+                onChange={(event) => setBridgeNetwork(event.target.value)}
+                placeholder="For example, SOL"
+                maxLength={32}
+                autoCapitalize="characters"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter the network enabled for your employer’s Bridge payroll route.
+              </p>
+            </div>
+            <Button
+              className="w-full"
+              disabled={linkBridgeAccount.isPending || bridgeNetwork.trim().length < 2}
+              onClick={() =>
+                void linkBridgeAccount.mutateAsync().then(
+                  () => {
+                    toast.success('Bridge bank account linked');
+                    setLinkBridgeOpen(false);
+                  },
+                  (err) =>
+                    toast.error(err instanceof Error ? err.message : 'Bridge linking failed'),
+                )
+              }
+            >
+              {linkBridgeAccount.isPending ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : null}
+              Link bank account
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={confirmOpen}
@@ -434,10 +663,10 @@ export function PaymentSettingsSection() {
       : 0;
   const lookupUnavailable = Boolean(
     rawLookupError &&
-      (lookupErrorStatus === 503 ||
-        /not available|not configured|unavailable|authenticate with Nomba|Nomba payout/i.test(
-          rawLookupError,
-        )),
+    (lookupErrorStatus === 503 ||
+      /not available|not configured|unavailable|authenticate with Nomba|Nomba payout/i.test(
+        rawLookupError,
+      )),
   );
   const lookupError = lookupUnavailable
     ? 'Auto-verify unavailable. Enter the account name as on your statement.'
@@ -602,6 +831,7 @@ export function PaymentSettingsSection() {
 
   return (
     <div className="space-y-4">
+      <BridgeEmployeeWalletSetup />
       {methods.length === 0 ? (
         <p className="text-sm text-muted-foreground">No payment method on file yet.</p>
       ) : (

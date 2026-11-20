@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 import type { ReactNode } from 'react';
+
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 

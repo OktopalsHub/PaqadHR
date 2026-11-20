@@ -27,6 +27,7 @@ import {
 import { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { CandidateService } from '../services/candidate.service';
 import { JobOpeningService } from '../services/job-opening.service';
+import { RecruitmentPipelineService } from '../services/recruitment-pipeline.service';
 
 @ApiTags('Public Applications')
 @Public()
@@ -38,6 +39,7 @@ export class ApplicationController {
     private readonly jobOpeningService: JobOpeningService,
     private readonly rateLimitService: RateLimitService,
     private readonly turnstileService: TurnstileService,
+    private readonly pipeline: RecruitmentPipelineService,
   ) {}
 
   private resolveClientIp(req: Request, ip: string): string {
@@ -106,6 +108,7 @@ export class ApplicationController {
     await this.assertApplicationRateLimit(`apply:${jobId}`, clientIp);
     await this.assertTurnstile(createCandidateDto.turnstileToken, clientIp);
     const candidate = await this.candidateService.applyForJob(jobId, createCandidateDto);
+    void this.pipeline.onApplicationReceived(candidate).catch(() => undefined);
     return PublicApplicationMapper.toResponse(candidate);
   }
 

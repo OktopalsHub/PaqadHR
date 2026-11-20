@@ -3,6 +3,7 @@
 import { Search, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';

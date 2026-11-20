@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
 import { AvatarUpload } from '@/components/avatar-upload';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
@@ -25,7 +26,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { changePassword, fetchAuthSecurity } from '@/lib/api/auth';
 import { subscribePagePath } from '@/lib/navigation/tenant-routes';
-import { isStrongPassword, STRONG_PASSWORD_MESSAGE } from '@/lib/password-policy';
+import { isValidPassword, PASSWORD_MIN_LENGTH_MESSAGE } from '@/lib/password-policy';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function SettingsProfileTab() {
@@ -92,8 +93,8 @@ export function SettingsProfileTab() {
       setOtpOpen(true);
       return;
     }
-    if (!isStrongPassword(newPassword)) {
-      toast.error(STRONG_PASSWORD_MESSAGE);
+    if (!isValidPassword(newPassword)) {
+      toast.error(PASSWORD_MIN_LENGTH_MESSAGE);
       return;
     }
     if (newPassword !== confirmPassword) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import {
   type CreateAttendancePolicyInput,
   createAttendancePolicy,
@@ -10,6 +11,7 @@ import {
   updateAttendancePolicy,
 } from '@/lib/api/attendance-policies';
 import { queryKeys } from '@/lib/query/keys';
+import { REFERENCE_DATA_STALE_MS } from '@/lib/query/stale-times';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function useAttendancePolicies() {
@@ -17,6 +19,7 @@ export function useAttendancePolicies() {
 
   return useQuery({
     queryKey: [...queryKeys.attendance.policies, tenantId],
+    staleTime: REFERENCE_DATA_STALE_MS,
     queryFn: fetchAttendancePolicies,
     enabled: !tenantLoading && Boolean(tenantId),
   });

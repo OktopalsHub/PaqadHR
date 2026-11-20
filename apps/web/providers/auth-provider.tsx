@@ -12,6 +12,7 @@ import {
   useState,
 } from 'react';
 import { toast } from 'sonner';
+
 import { ToastMessage } from '@/components/toast-message';
 import { IdleLockGate } from '@/features/auth/components/idle-lock-gate';
 import { PrivacyConsentGate } from '@/features/auth/components/privacy-consent-gate';

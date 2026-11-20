@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { getLeaveAssignmentPanelState } from './leave-assignment-panel-state.ts';
 
 test('reports the fully configured state when there are no missing assignments', () => {

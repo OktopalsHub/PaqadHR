@@ -2,11 +2,13 @@
 
 import { Briefcase, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+
 import { useRecruitmentOverview } from '../hooks/use-recruitment-overview';
 import { filterRecruitmentJobs } from '../lib/filter-recruitment-jobs';
 import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';

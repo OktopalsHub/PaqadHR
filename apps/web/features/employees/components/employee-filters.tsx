@@ -1,6 +1,7 @@
 'use client';
 
 import { Search } from 'lucide-react';
+
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -10,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Department } from '@/lib/schemas/department';
+
 import { STATUSES } from '../constants/';
 import type { EmployeeFilters, ViewMode } from '../types/';
 import { ViewModeToggle } from './view-mode-toggle';

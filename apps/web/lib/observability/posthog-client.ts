@@ -1,4 +1,5 @@
 import type { PostHog } from 'posthog-js';
+
 import { type Attribution, attributionEventProperties } from '@/lib/observability/attribution';
 
 type PostHogClient = Pick<PostHog, 'capture' | 'identify' | 'register' | 'reset'>;

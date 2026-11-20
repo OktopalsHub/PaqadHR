@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { resolveBuildEnvironment, resolveWorkerConfig } from './cf-config.mjs';
 
 const envFixture = (overrides = {}) => ({

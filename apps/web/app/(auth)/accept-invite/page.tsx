@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+
 import { LoadingBlock } from '@/components/loading-block';
 import { AcceptInvitePage } from '@/features/invitations/components/accept-invite-page';
 

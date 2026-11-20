@@ -1,6 +1,8 @@
 import { Heart, Sparkles } from 'lucide-react';
+
 import { formatPaqPointsDelta } from '@/lib/constants/paq-points';
 import { cn } from '@/lib/utils';
+
 import { demoShoutouts } from '../../../constants/landing-demo-data';
 
 type ShoutoutsDemoViewProps = {

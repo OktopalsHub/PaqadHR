@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+
 import { formatElapsedMs } from '@/features/attendance/lib/attendance-utils';
 
 export function useElapsedSince(clockIn?: string | null): string {

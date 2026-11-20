@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { ForgottenSessionModal } from '@/features/attendance/components/forgotten-session-modal';
 import { SubscriptionGate } from '@/features/billing/components/subscription-gate';

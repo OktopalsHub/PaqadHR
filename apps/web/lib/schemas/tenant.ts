@@ -5,6 +5,8 @@ export const tenantMemberSchema = z
     id: z.string(),
     role: z.string().optional(),
     isActive: z.boolean().optional(),
+    /** Active members reporting to this member; absent on older payloads. */
+    directReportsCount: z.number().optional(),
   })
   .passthrough();
 

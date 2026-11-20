@@ -1,8 +1,10 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
+
 import { ContentCard } from '@/components/content-card';
 import { PersonAvatar } from '@/components/person-avatar';
+
 import type { ActivityItem } from '../../lib/recruitment-types';
 
 type RecruitmentActivityFeedProps = {

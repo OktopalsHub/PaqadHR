@@ -15,7 +15,9 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
+
 import {
   BOARD_COLUMNS,
   type BoardColumnId,
@@ -36,6 +38,7 @@ type RecruitmentKanbanBoardProps = {
   candidates: BoardCandidate[];
   interactive?: boolean;
   onMoveCandidate?: (candidateId: string, status: CandidateStatus) => void;
+  onOpenCandidate?: (candidate: BoardCandidate) => void;
 };
 
 function DroppableColumn({
@@ -45,6 +48,7 @@ function DroppableColumn({
   candidates,
   interactive,
   onRejectCandidate,
+  onOpenCandidate,
 }: {
   columnId: BoardColumnId;
   title: string;
@@ -52,6 +56,7 @@ function DroppableColumn({
   candidates: BoardCandidate[];
   interactive?: boolean;
   onRejectCandidate?: (candidate: BoardCandidate) => void;
+  onOpenCandidate?: (candidate: BoardCandidate) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: columnId });
 
@@ -74,6 +79,7 @@ function DroppableColumn({
             <SortableCard
               candidate={candidate as BoardCandidate}
               onRejectCandidate={onRejectCandidate}
+              onOpenCandidate={onOpenCandidate}
             />
           ) : (
             <CandidateKanbanCard candidate={candidate} />
@@ -87,9 +93,11 @@ function DroppableColumn({
 function SortableCard({
   candidate,
   onRejectCandidate,
+  onOpenCandidate,
 }: {
   candidate: BoardCandidate;
   onRejectCandidate?: (candidate: BoardCandidate) => void;
+  onOpenCandidate?: (candidate: BoardCandidate) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: candidate.id,
@@ -106,6 +114,7 @@ function SortableCard({
       <CandidateKanbanCard
         candidate={candidate}
         isDragging={isDragging}
+        onOpen={onOpenCandidate ? () => onOpenCandidate(candidate) : undefined}
         onReject={
           onRejectCandidate && canReject(candidate.status)
             ? () => onRejectCandidate(candidate)
@@ -120,6 +129,7 @@ export function RecruitmentKanbanBoard({
   candidates,
   interactive = false,
   onMoveCandidate,
+  onOpenCandidate,
 }: RecruitmentKanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<BoardCandidate | null>(null);
@@ -188,6 +198,7 @@ export function RecruitmentKanbanBoard({
           candidates={grouped[column.id]}
           interactive={interactive}
           onRejectCandidate={interactive && onMoveCandidate ? setRejectTarget : undefined}
+          onOpenCandidate={onOpenCandidate}
         />
       ))}
     </div>

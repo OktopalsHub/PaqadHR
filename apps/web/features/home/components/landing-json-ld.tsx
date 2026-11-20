@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { JsonLd } from '@/components/json-ld';
 import {
   organizationSchema,

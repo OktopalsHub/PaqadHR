@@ -15,10 +15,15 @@
     "deploy": "pnpm --filter web deploy",
     "cf-deploy": "pnpm --filter web cf-deploy",
     "cf-typegen": "pnpm --filter web cf-typegen",
-    "db:up": "docker compose up -d db",
-    "db:status": "docker compose ps",
-    "db:logs": "docker compose logs -f db",
-    "db:down": "docker compose down"
+    "infra:up": "docker compose up -d --wait db",
+    "infra:down": "docker compose down",
+    "infra:status": "docker compose ps",
+    "infra:logs": "docker compose logs -f db",
+    "infra:reset": "docker compose down -v && docker compose up -d --wait db",
+    "db:up": "pnpm infra:up",
+    "db:status": "pnpm infra:status",
+    "db:logs": "pnpm infra:logs",
+    "db:down": "pnpm infra:down"
   },
   "dependencies": {
     "zeptomail": "^8.0.1"

@@ -4,10 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { PasswordRequirements } from '@/components/password-requirements';
+
 import { ToastMessage } from '@/components/toast-message';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +19,7 @@ import {
 } from '@/components/ui/form';
 import { resetPassword } from '@/lib/api/auth';
 import { type ResetPasswordInput, resetPasswordSchema } from '@/lib/schemas/auth';
+
 import { PasswordInput } from './form-fields/password-input';
 
 interface ResetPasswordFormProps {
@@ -28,7 +28,6 @@ interface ResetPasswordFormProps {
 
 export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const router = useRouter();
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   const form = useForm<ResetPasswordInput>({
     resolver: zodResolver(resetPasswordSchema),
@@ -75,7 +74,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       <div>
         <h2 className="text-xl font-semibold">Set a new password</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Create a password that meets all of the requirements below.
+          Create a password with at least 8 characters.
         </p>
       </div>
       <Form {...form}>
@@ -90,19 +89,8 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               <FormItem>
                 <FormLabel>New password</FormLabel>
                 <FormControl>
-                  <PasswordInput
-                    autoComplete="new-password"
-                    {...field}
-                    onFocus={() => setIsPasswordFocused(true)}
-                    onBlur={() => {
-                      field.onBlur();
-                      setIsPasswordFocused(false);
-                    }}
-                  />
+                  <PasswordInput autoComplete="new-password" {...field} />
                 </FormControl>
-                {isPasswordFocused ? (
-                  <PasswordRequirements password={form.watch('password')} />
-                ) : null}
                 <FormMessage />
               </FormItem>
             )}
@@ -114,15 +102,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               <FormItem>
                 <FormLabel>Confirm password</FormLabel>
                 <FormControl>
-                  <PasswordInput
-                    autoComplete="new-password"
-                    {...field}
-                    onFocus={() => setIsPasswordFocused(true)}
-                    onBlur={() => {
-                      field.onBlur();
-                      setIsPasswordFocused(false);
-                    }}
-                  />
+                  <PasswordInput autoComplete="new-password" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

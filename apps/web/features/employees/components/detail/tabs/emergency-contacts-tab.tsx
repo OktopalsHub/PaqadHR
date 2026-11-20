@@ -2,11 +2,13 @@
 
 import { PlusCircle, Trash } from 'lucide-react';
 import { useState } from 'react';
+
 import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
+
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 import { EmergencyContactForm } from '../../emergency-contact-form';
 

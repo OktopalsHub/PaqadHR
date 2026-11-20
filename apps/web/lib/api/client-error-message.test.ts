@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { resolveApiErrorMessage } from './client-error-message.ts';
 
 test('api client reports a friendly message for network-level failures', () => {

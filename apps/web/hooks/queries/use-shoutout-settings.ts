@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import type { ShoutoutCategoryRecord } from '@/lib/api/shoutout-categories-admin';
 import {
   createShoutoutCategory,

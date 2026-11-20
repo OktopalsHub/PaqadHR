@@ -1,11 +1,13 @@
 import { Gift, Loader2, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { CatalogItem } from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { cn } from '@/lib/utils';
+
 import { formatCost } from './rewards-page-catalog-utils';
 
 export function CatalogCard({

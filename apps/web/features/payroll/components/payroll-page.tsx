@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
@@ -57,16 +58,8 @@ import { tenantPath } from '@/lib/navigation/tenant-routes';
 import type { PayrollRun } from '@/lib/schemas/payroll';
 import { resolvePrimaryPayrollCurrency } from '@/lib/tenant-currency';
 import { useTenant } from '@/providers/tenant-provider';
-import { payrollRowAction } from './payroll-payout-action';
 
-function formatFundingAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
+import { payrollRowAction } from './payroll-payout-action';
 
 function statusVariant(status: string) {
   switch (status) {
@@ -447,25 +440,8 @@ export function PayrollPage() {
         return;
       }
       if (action === 'retry') {
-        try {
-          const response = await actions.retryFailed.mutateAsync({ id });
-          toastPayrollPayoutResult(response.result, 'retry');
-        } catch (err) {
-          const message = err instanceof Error ? err.message : '';
-          // Bachs retries need run-scoped funding, which can only be reviewed on the run page.
-          // Sending the user there beats retrying an endpoint that will keep returning 400.
-          if (
-            message.includes(
-              'Bachs retry requires approved, provider-verified run-scoped funding',
-            ) ||
-            message.includes('Bachs retry funding does not cover')
-          ) {
-            setSelectedRunId(id);
-            toast.message('This run needs company-funded retry funding. Review it here.');
-            return;
-          }
-          throw err;
-        }
+        const response = await actions.retryFailed.mutateAsync({ id });
+        toastPayrollPayoutResult(response.result, 'retry');
         return;
       }
       if (action === 'schedule') {
@@ -487,31 +463,14 @@ export function PayrollPage() {
       toast.error('Pick a payment date');
       return;
     }
-    const checkoutTab = window.open('about:blank', '_blank');
     try {
-      const response = await actions.schedule.mutateAsync({
+      await actions.schedule.mutateAsync({
         id: scheduleRunId,
         paymentDate: new Date(scheduleDate).toISOString(),
       });
-      if (response.action === 'checkout') {
-        if (response.checkoutUrl) {
-          toast.message(
-            response.preflight?.message ??
-              `Complete checkout as your company now. Employees will be paid on ${formatDate(scheduleDate)}.`,
-          );
-          await openCheckoutUrlWithOptionalTab(response.checkoutUrl, checkoutTab);
-        } else {
-          checkoutTab?.close();
-          toast.error(response.message);
-        }
-        setScheduleRunId(null);
-        return;
-      }
-      checkoutTab?.close();
       setScheduleRunId(null);
-      toast.success(`Funded and scheduled for ${formatDate(scheduleDate)}`);
+      toast.success(`Scheduled for ${formatDate(scheduleDate)}`);
     } catch (err) {
-      checkoutTab?.close();
       toast.error(err instanceof Error ? err.message : 'Schedule failed');
     }
   };
@@ -547,20 +506,9 @@ export function PayrollPage() {
     const checkoutTab = window.open('about:blank', '_blank');
     try {
       const response = await actions.fundAndPay.mutateAsync(payNowRunId);
-      if (response.action === 'checkout') {
-        if (response.checkoutUrl) {
-          toast.message(
-            response.preflight?.message ??
-              'Complete checkout as your company — we then pay each employee automatically',
-          );
-          await openCheckoutUrlWithOptionalTab(response.checkoutUrl, checkoutTab);
-        } else {
-          checkoutTab?.close();
-          toast.error(
-            response.preflight?.message ??
-              `Fund the payout provider${response.preflight?.dashboardUrl ? ` (${response.preflight.dashboardUrl})` : ''} then retry.`,
-          );
-        }
+      if (response.result.checkoutUrl) {
+        await openCheckoutUrlWithOptionalTab(response.result.checkoutUrl, checkoutTab);
+        toast.message('Complete the Nomba checkout to fund this payroll run.');
         setPayNowRunId(null);
         return;
       }
@@ -855,17 +803,18 @@ export function PayrollPage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              Review the payout funding estimate and fees before opening checkout. We then send each
-              employee&apos;s salary to their bank or wallet automatically.
+              Payroll is paid from your organization&apos;s Bridge wallet to each employee&apos;s
+              Bridge wallet. The plan-based PaqadHR fee is collected with each transfer. Make sure
+              the organization wallet is funded before continuing.
             </p>
             {fundingPreflightLoading ? (
-              <p className="text-sm text-slate-500">Calculating payroll and provider fees…</p>
+              <p className="text-sm text-slate-500">Checking employee wallets and payout routes…</p>
             ) : fundingPreflightError ? (
               <div className="space-y-2 text-sm text-red-600" role="alert">
                 <p>
                   {fundingPreflightQueryError instanceof Error
                     ? fundingPreflightQueryError.message
-                    : 'Could not calculate the payroll funding total.'}
+                    : 'Could not check payroll payout readiness.'}
                 </p>
                 <Button
                   type="button"
@@ -873,57 +822,82 @@ export function PayrollPage() {
                   className="w-full"
                   onClick={() => void refetchFundingPreflight()}
                 >
-                  Retry fee estimate
+                  Retry readiness check
                 </Button>
               </div>
             ) : fundingPreflight ? (
               <div className="space-y-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">
-                    {fundingPreflight.provider === 'bachs'
-                      ? 'Payout funding incl. Bachs quote costs'
-                      : 'Employee payout funding'}
-                  </span>
-                  <span className="text-right font-medium">
-                    {formatFundingAmount(
-                      fundingPreflight.employeeTotal ?? fundingPreflight.requiredAmount,
-                      fundingPreflight.currency,
+                <p className="font-medium">
+                  {fundingPreflight.readyCount} of {fundingPreflight.totalEmployees} employees are
+                  ready
+                </p>
+                {fundingPreflight.platformFeeByCurrency && (
+                  <div className="space-y-1 text-slate-600 dark:text-slate-300">
+                    <p>
+                      PaqadHR plan fee ({fundingPreflight.platformFeePercentage ?? 0}%):{' '}
+                      {Object.entries(fundingPreflight.platformFeeByCurrency)
+                        .map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`)
+                        .join(' + ')}
+                    </p>
+                    {fundingPreflight.payoutFeeReserveByCurrency &&
+                      Object.keys(fundingPreflight.payoutFeeReserveByCurrency).length > 0 && (
+                        <p>
+                          Payout fee reserve:{' '}
+                          {Object.entries(fundingPreflight.payoutFeeReserveByCurrency)
+                            .map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`)
+                            .join(' + ')}
+                        </p>
+                      )}
+                    {fundingPreflight.nombaTransferChargeByCurrency &&
+                      Object.keys(fundingPreflight.nombaTransferChargeByCurrency).length > 0 && (
+                        <p>
+                          PaqadHR NGN transfer charge:{' '}
+                          {Object.entries(fundingPreflight.nombaTransferChargeByCurrency)
+                            .map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`)
+                            .join(' + ')}
+                        </p>
+                      )}
+                    {fundingPreflight.totalChargeAmountByCurrency && (
+                      <p className="font-medium text-slate-900 dark:text-slate-100">
+                        Total payroll funding:{' '}
+                        {Object.entries(fundingPreflight.totalChargeAmountByCurrency)
+                          .map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`)
+                          .join(' + ')}
+                      </p>
                     )}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">
-                    PaqadHR fee
-                    {fundingPreflight.feePercentage != null
-                      ? ` (${fundingPreflight.feePercentage}%)`
-                      : ''}
-                  </span>
-                  <span>
-                    {formatFundingAmount(
-                      fundingPreflight.platformFee ?? 0,
-                      fundingPreflight.currency,
+                    {fundingPreflight.providerFeeNote && (
+                      <p className="text-sm">{fundingPreflight.providerFeeNote}</p>
                     )}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Additional payout-fee reserve</span>
-                  <span>
-                    {formatFundingAmount(
-                      fundingPreflight.payoutFeeReserve ?? 0,
-                      fundingPreflight.currency,
+                    {fundingPreflight.funding?.provider === 'bridge' && (
+                      <div className="space-y-1 text-sm">
+                        <p>{fundingPreflight.funding.message}</p>
+                        {fundingPreflight.funding.bridgeFundingRequirements?.map((requirement) => (
+                          <p key={`${requirement.currency}:${requirement.network}`}>
+                            {requirement.currency} on {requirement.network}: need{' '}
+                            {requirement.requiredAmount}, available {requirement.availableBalance},
+                            shortfall {requirement.shortfall}
+                          </p>
+                        ))}
+                      </div>
                     )}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
-                  <span>Total funding required</span>
-                  <span>
-                    {formatFundingAmount(
-                      fundingPreflight.requiredAmount,
-                      fundingPreflight.currency,
-                    )}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">{fundingPreflight.message}</p>
+                  </div>
+                )}
+                {!fundingPreflight.canApprove ? (
+                  <ul className="max-h-40 space-y-1 overflow-y-auto text-amber-700 dark:text-amber-300">
+                    {fundingPreflight.items
+                      .filter((item) => !item.ready)
+                      .map((item) => (
+                        <li key={item.itemId}>
+                          {item.employeeName}: {item.message}
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-500">
+                    Payouts will be sent from the organization Bridge wallet in the configured
+                    supported currency and network.
+                  </p>
+                )}
               </div>
             ) : null}
             <Button
@@ -934,7 +908,8 @@ export function PayrollPage() {
                 fundingPreflightLoading ||
                 fundingPreflightError ||
                 !fundingPreflight ||
-                (!fundingPreflight.ok && !fundingPreflight.canCheckout)
+                !fundingPreflight.canApprove ||
+                (fundingPreflight.funding?.provider === 'bridge' && !fundingPreflight.funding.ok)
               }
               onClick={() => void confirmPayNow()}
             >
@@ -956,13 +931,13 @@ export function PayrollPage() {
           </DialogHeader>
           <div className="space-y-4 pt-2">
             {fundingPreflightLoading ? (
-              <p className="text-sm text-slate-500">Calculating payroll and provider fees…</p>
+              <p className="text-sm text-slate-500">Checking employee wallets and payout routes…</p>
             ) : fundingPreflightError ? (
               <div className="space-y-2 text-sm text-red-600" role="alert">
                 <p>
                   {fundingPreflightQueryError instanceof Error
                     ? fundingPreflightQueryError.message
-                    : 'Could not calculate the payroll funding total.'}
+                    : 'Could not check payroll payout readiness.'}
                 </p>
                 <Button
                   type="button"
@@ -970,55 +945,84 @@ export function PayrollPage() {
                   className="w-full"
                   onClick={() => void refetchFundingPreflight()}
                 >
-                  Retry fee estimate
+                  Retry readiness check
                 </Button>
               </div>
             ) : fundingPreflight ? (
               <div className="space-y-2 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-800">
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Payout funding</span>
-                  <span>
-                    {formatFundingAmount(
-                      fundingPreflight.employeeTotal ?? fundingPreflight.requiredAmount,
-                      fundingPreflight.currency,
+                <p className="font-medium">
+                  {fundingPreflight.readyCount} of {fundingPreflight.totalEmployees} employees are
+                  ready
+                </p>
+                {fundingPreflight.platformFeeByCurrency && (
+                  <div className="space-y-1 text-slate-600 dark:text-slate-300">
+                    <p>
+                      PaqadHR plan fee ({fundingPreflight.platformFeePercentage ?? 0}%):{' '}
+                      {Object.entries(fundingPreflight.platformFeeByCurrency)
+                        .map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`)
+                        .join(' + ')}
+                    </p>
+                    {fundingPreflight.payoutFeeReserveByCurrency &&
+                      Object.keys(fundingPreflight.payoutFeeReserveByCurrency).length > 0 && (
+                        <p>
+                          Payout fee reserve:{' '}
+                          {Object.entries(fundingPreflight.payoutFeeReserveByCurrency)
+                            .map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`)
+                            .join(' + ')}
+                        </p>
+                      )}
+                    {fundingPreflight.nombaTransferChargeByCurrency &&
+                      Object.keys(fundingPreflight.nombaTransferChargeByCurrency).length > 0 && (
+                        <p>
+                          PaqadHR NGN transfer charge:{' '}
+                          {Object.entries(fundingPreflight.nombaTransferChargeByCurrency)
+                            .map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`)
+                            .join(' + ')}
+                        </p>
+                      )}
+                    {fundingPreflight.totalChargeAmountByCurrency && (
+                      <p className="font-medium text-slate-900 dark:text-slate-100">
+                        Total payroll funding:{' '}
+                        {Object.entries(fundingPreflight.totalChargeAmountByCurrency)
+                          .map(([currency, amount]) => `${currency} ${amount.toFixed(2)}`)
+                          .join(' + ')}
+                      </p>
                     )}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">PaqadHR fee</span>
-                  <span>
-                    {formatFundingAmount(
-                      fundingPreflight.platformFee ?? 0,
-                      fundingPreflight.currency,
+                    {fundingPreflight.providerFeeNote && (
+                      <p className="text-sm">{fundingPreflight.providerFeeNote}</p>
                     )}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">Payout-fee reserve</span>
-                  <span>
-                    {formatFundingAmount(
-                      fundingPreflight.payoutFeeReserve ?? 0,
-                      fundingPreflight.currency,
+                    {fundingPreflight.funding?.provider === 'bridge' && (
+                      <div className="space-y-1 text-sm">
+                        <p>{fundingPreflight.funding.message}</p>
+                        {fundingPreflight.funding.bridgeFundingRequirements?.map((requirement) => (
+                          <p key={`${requirement.currency}:${requirement.network}`}>
+                            {requirement.currency} on {requirement.network}: need{' '}
+                            {requirement.requiredAmount}, available {requirement.availableBalance},
+                            shortfall {requirement.shortfall}
+                          </p>
+                        ))}
+                      </div>
                     )}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4 border-t border-slate-200 pt-2 font-semibold dark:border-slate-800">
-                  <span>Total funding required</span>
-                  <span>
-                    {formatFundingAmount(
-                      fundingPreflight.requiredAmount,
-                      fundingPreflight.currency,
-                    )}
-                  </span>
-                </div>
+                  </div>
+                )}
+                {!fundingPreflight.canApprove ? (
+                  <ul className="max-h-40 space-y-1 overflow-y-auto text-amber-700 dark:text-amber-300">
+                    {fundingPreflight.items
+                      .filter((item) => !item.ready)
+                      .map((item) => (
+                        <li key={item.itemId}>
+                          {item.employeeName}: {item.message}
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-500">
+                    The scheduled payout will use your organization Bridge wallet.
+                  </p>
+                )}
               </div>
             ) : null}
             <div className="space-y-2">
-              {fundingPreflight && !fundingPreflight.ok && !fundingPreflight.canCheckout ? (
-                <p className="text-sm text-amber-700 dark:text-amber-300" role="alert">
-                  {fundingPreflight.message}
-                </p>
-              ) : null}
               <Label>Payment date</Label>
               <Input
                 type="date"
@@ -1035,7 +1039,8 @@ export function PayrollPage() {
                 fundingPreflightLoading ||
                 fundingPreflightError ||
                 !fundingPreflight ||
-                (!fundingPreflight.ok && !fundingPreflight.canCheckout)
+                !fundingPreflight.canApprove ||
+                (fundingPreflight.funding?.provider === 'bridge' && !fundingPreflight.funding.ok)
               }
               onClick={() => void confirmSchedule()}
             >

@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
+
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,19 +10,17 @@ import { AttendanceMyTab } from '@/features/attendance/components/attendance-my-
 import { AttendanceReportsTab } from '@/features/attendance/components/attendance-reports-tab';
 import { AttendanceTeamTab } from '@/features/attendance/components/attendance-team-tab';
 import { useClockInInfo } from '@/hooks/queries/use-attendance';
-import { useEmployees } from '@/hooks/queries/use-employees';
+import { useViewerHasDirectReports } from '@/hooks/queries/use-direct-reports';
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
-import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
+import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function AttendancePage() {
   const { tenant } = useTenant();
   const role = tenant?.member?.role;
-  const viewerMemberId = tenant?.member?.id;
-  const { data: employees = [] } = useEmployees();
+  const viewerHasDirectReports = useViewerHasDirectReports();
   const isAdmin = isTenantAdmin(role);
-  const canViewTeam =
-    isAdmin || (viewerMemberId ? hasDirectReports(viewerMemberId, employees) : false);
+  const canViewTeam = isAdmin || viewerHasDirectReports;
   const { enabled: clockInEnabled } = useClockInEnabled();
   const { isLoading } = useClockInInfo();
   const [activeTab, setActiveTab] = useState('mine');

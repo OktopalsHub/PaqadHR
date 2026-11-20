@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { clampLeavePage } from './leave-pagination-state.ts';
 
 test('moves back to the last available page after deleting its only item', () => {

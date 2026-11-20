@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { captureSentryException } from '@/lib/observability/sentry-client';

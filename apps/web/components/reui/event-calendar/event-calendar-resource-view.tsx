@@ -4,6 +4,7 @@ import { mergeProps } from '@base-ui/react/merge-props';
 import { useRender } from '@base-ui/react/use-render';
 import { addDays, addMinutes } from 'date-fns';
 import { type CSSProperties, useEffect, useMemo, useRef } from 'react';
+
 import {
   EventCalendarViewContext,
   useEventCalendar,

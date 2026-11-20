@@ -1,3 +1,6 @@
+import * as fincraConfig from 'src/common/config/fincra.config';
+import * as monnifyConfig from 'src/common/config/monnify.config';
+import * as nombaConfig from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { BachsApiService } from 'src/common/services/bachs-api.service';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
@@ -215,6 +218,12 @@ describe('TenantWalletService', () => {
     it('rejects enabling auto-topup when wallet provider is Fincra', async () => {
       const originalWalletPref = process.env.NG_REWARDS_DEPOSIT_PROVIDER;
       process.env.NG_REWARDS_DEPOSIT_PROVIDER = 'fincra';
+      // Provider fallback depends on which gateways have credentials in the machine's env.
+      const spies = [
+        jest.spyOn(fincraConfig, 'isFincraConfigured').mockReturnValue(true),
+        jest.spyOn(nombaConfig, 'isNombaConfigured').mockReturnValue(false),
+        jest.spyOn(monnifyConfig, 'isMonnifyConfigured').mockReturnValue(false),
+      ];
 
       try {
         const { walletService } = createWalletService();
@@ -222,6 +231,7 @@ describe('TenantWalletService', () => {
           walletService.updateAutoTopupConfig(tenantId, true, 1000, 5000, actorMemberId),
         ).rejects.toThrow(WALLET_SAVED_CARD_UNSUPPORTED);
       } finally {
+        for (const spy of spies) spy.mockRestore();
         if (originalWalletPref === undefined) {
           delete process.env.NG_REWARDS_DEPOSIT_PROVIDER;
         } else {

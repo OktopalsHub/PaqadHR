@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { resolveTenantId } from '@/lib/api/tenants';
 import { mapApiDepartment } from '@/lib/mappers/department';

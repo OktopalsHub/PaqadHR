@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect } from 'react';
+
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Tabs, TabsContent } from '@/components/ui/tabs';

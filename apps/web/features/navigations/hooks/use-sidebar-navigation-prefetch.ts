@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
+
 import { resolveDateRange } from '@/features/attendance/lib/attendance-utils';
 import { fetchTenantActivities } from '@/lib/api/activities';
 import { fetchAnalyticsOverview } from '@/lib/api/analytics';
@@ -14,9 +15,10 @@ import { fetchLeaves, fetchMyLeaves } from '@/lib/api/leaves';
 import { fetchPayrollRuns } from '@/lib/api/payroll';
 import { fetchAllCandidates, fetchJobOpenings } from '@/lib/api/recruitment';
 import { fetchShoutouts } from '@/lib/api/shoutouts';
-import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
+import { isTenantAdmin, resolveViewerDirectReportsCount } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
 import type { NavItem } from '../constants/nav-items';
 
 const PREFETCH_STALE_TIME_MS = 60_000;
@@ -81,7 +83,7 @@ export function useSidebarNavigationPrefetch() {
           ]);
           const canViewTeamLeaves =
             isTenantAdmin(tenant?.member?.role) ||
-            (tenant?.member?.id ? hasDirectReports(tenant.member.id, employees ?? []) : false);
+            resolveViewerDirectReportsCount(tenant?.member, employees) > 0;
 
           void queryClient.prefetchQuery({
             queryKey: [

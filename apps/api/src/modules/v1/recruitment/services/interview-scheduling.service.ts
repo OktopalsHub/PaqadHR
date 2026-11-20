@@ -15,6 +15,7 @@ import { Candidate } from '../entities/candidate.entity';
 import { Interview } from '../entities/interview.entity';
 import { JobOpening } from '../entities/job-opening.entity';
 import { InterviewRepository } from '../repositories/interview.repository';
+import { RecruitmentInterviewNotifier } from './recruitment-interview-notifier.service';
 
 @Injectable()
 export class InterviewSchedulingService {
@@ -25,6 +26,7 @@ export class InterviewSchedulingService {
     @InjectRepository(JobOpening)
     private readonly jobOpeningRepository: Repository<JobOpening>,
     private readonly activitiesService: ActivitiesService,
+    private readonly notifier: RecruitmentInterviewNotifier,
   ) {}
 
   async createInterview(
@@ -133,6 +135,7 @@ export class InterviewSchedulingService {
       })
       .catch(() => {});
 
+    void this.notifier.notify('scheduled', saved, tenantMemberId);
     return saved;
   }
 
@@ -190,7 +193,7 @@ export class InterviewSchedulingService {
     if (existingInterview.status !== 'SCHEDULED') {
       throw new ForbiddenException('Only scheduled interviews can be cancelled');
     }
-    return this.updateInterview(
+    const cancelled = await this.updateInterview(
       interviewId,
       tenantId,
       tenantMemberId,
@@ -199,6 +202,8 @@ export class InterviewSchedulingService {
       },
       existingInterview,
     );
+    void this.notifier.notify('cancelled', cancelled, tenantMemberId);
+    return cancelled;
   }
 
   async completeInterview(
@@ -253,7 +258,7 @@ export class InterviewSchedulingService {
         );
       }
     }
-    return this.updateInterview(
+    const rescheduled = await this.updateInterview(
       interviewId,
       tenantId,
       tenantMemberId,
@@ -263,6 +268,8 @@ export class InterviewSchedulingService {
       },
       existingInterview,
     );
+    void this.notifier.notify('rescheduled', rescheduled, tenantMemberId);
+    return rescheduled;
   }
 
   async bulkCancelInterviews(

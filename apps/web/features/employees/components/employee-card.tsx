@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { memo } from 'react';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { canManageMember } from '@/lib/auth/manager-access';
+
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
 

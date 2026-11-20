@@ -1,6 +1,7 @@
 'use client';
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import {
   approveAttendanceException,
@@ -24,34 +25,31 @@ import {
   rejectAttendanceException,
   updateAttendance,
 } from '@/lib/api/attendance';
-import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
+import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
-import { useEmployees } from './use-employees';
+
+import { useViewerHasDirectReports } from './use-direct-reports';
 
 function useCanViewTeamAttendance() {
   const { tenant } = useTenant();
-  const { data: employees = [] } = useEmployees();
-  const role = tenant?.member?.role;
-  const viewerMemberId = tenant?.member?.id;
-
-  if (isTenantAdmin(role)) {
-    return true;
-  }
-  if (!viewerMemberId) {
-    return false;
-  }
-  return hasDirectReports(viewerMemberId, employees);
+  const viewerHasDirectReports = useViewerHasDirectReports();
+  return isTenantAdmin(tenant?.member?.role) || viewerHasDirectReports;
 }
 
-export function useClockInInfo() {
+export function useClockInInfo(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { enabled: clockInEnabled, isLoading: settingsLoading } = useClockInEnabled();
 
   return useQuery({
     queryKey: [...queryKeys.attendance.clockInInfo, tenantId],
     queryFn: () => fetchClockInInfo(),
-    enabled: !tenantLoading && !settingsLoading && Boolean(tenantId) && clockInEnabled,
+    enabled:
+      (options?.enabled ?? true) &&
+      !tenantLoading &&
+      !settingsLoading &&
+      Boolean(tenantId) &&
+      clockInEnabled,
     refetchInterval: clockInEnabled ? 60_000 : false,
   });
 }
@@ -169,13 +167,17 @@ export function useTodayAttendance() {
   });
 }
 
-export function useAttendanceStats(startDate?: string, endDate?: string) {
+export function useAttendanceStats(
+  startDate?: string,
+  endDate?: string,
+  options?: { enabled?: boolean },
+) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.attendance.stats, tenantId, startDate, endDate],
     queryFn: () => fetchAttendanceStats(startDate, endDate),
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     placeholderData: keepPreviousData,
   });
 }

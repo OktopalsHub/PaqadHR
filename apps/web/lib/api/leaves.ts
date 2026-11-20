@@ -1,8 +1,9 @@
 import { z } from 'zod';
+
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { fetchTenantMembers } from '@/lib/api/employees';
-import { fetchUserTenants, resolveTenantId } from '@/lib/api/tenants';
-import { isTenantAdmin } from '@/lib/auth/manager-access';
+import { resolveCurrentTenant, resolveTenantId } from '@/lib/api/tenants';
+import { isTenantAdmin, resolveViewerDirectReportsCount } from '@/lib/auth/manager-access';
 import { mapApiLeaveToLeaveRequest } from '@/lib/mappers/leave';
 import { mapApiLeaveBalances } from '@/lib/mappers/leave-balance';
 import type {
@@ -52,19 +53,18 @@ export async function collectAllPages(
 }
 
 async function resolveViewerCanViewTeamLeaves(): Promise<boolean> {
-  const tenantId = await resolveTenantId();
-  const tenants = await fetchUserTenants();
-  const tenant = tenants.find((entry) => entry.id === tenantId);
-  const role = tenant?.member?.role;
-  if (isTenantAdmin(role)) {
+  const tenant = await resolveCurrentTenant();
+  const member = tenant?.member;
+  if (isTenantAdmin(member?.role)) {
     return true;
   }
-  const viewerId = tenant?.member?.id;
-  if (!viewerId) {
+  if (!member?.id) {
     return false;
   }
-  const members = await fetchTenantMembers();
-  return members.some((member) => member.reportsToId === viewerId);
+  // The session carries the count; only older payloads need the member list.
+  const members =
+    typeof member.directReportsCount === 'number' ? undefined : await fetchTenantMembers();
+  return resolveViewerDirectReportsCount(member, members) > 0;
 }
 
 function mapLeaveRecords(data: PaginatedLeaves): LeaveRequest[] {
@@ -164,4 +164,24 @@ export async function rejectLeave(leaveId: string, comments?: string): Promise<v
     method: 'PATCH',
     body: JSON.stringify({ comments: comments ?? '' }),
   });
+}
+
+export type LeaveDashboardSummary = {
+  pending: number;
+  onLeaveToday: number;
+  recent: {
+    id: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    requester: { id: string; firstName: string; lastName: string } | null;
+    leaveType: { name: string } | null;
+  }[];
+};
+
+export async function fetchLeaveDashboardSummary(today: string): Promise<LeaveDashboardSummary> {
+  const tenantId = await resolveTenantId();
+  return apiClient<LeaveDashboardSummary>(
+    `${tenantPath(tenantId, 'leaves/dashboard-summary')}?today=${today}`,
+  );
 }

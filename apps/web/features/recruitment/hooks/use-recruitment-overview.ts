@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+
 import { useCalendarEvents } from '@/hooks/queries/use-calendar';
 import { useAllCandidates, useJobOpenings } from '@/hooks/queries/use-recruitment';
+
 import {
   computeApplicationsChart,
   computeDepartmentChart,
@@ -24,6 +26,13 @@ const defaultRecruitmentOverviewDependencies: RecruitmentOverviewDependencies = 
   useCalendarEvents,
 };
 
+/** The schedule widget only shows today, so ask for today instead of a three-year calendar. */
+function todayRange() {
+  const today = new Date();
+  const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  return { from: day, to: day };
+}
+
 export function useRecruitmentOverview(
   options?: { enabled?: boolean },
   dependencies: RecruitmentOverviewDependencies = defaultRecruitmentOverviewDependencies,
@@ -42,8 +51,14 @@ export function useRecruitmentOverview(
     isLoading: candidatesLoading,
     refetch: refetchCandidates,
   } = dependencies.useAllCandidates(queryOptions);
+  // The schedule sits below the headline numbers, so its five requests wait for
+  // jobs and candidates instead of competing with them for the browser's connections.
   const { data: calendarEvents = [], refetch: refetchCalendarEvents } =
-    dependencies.useCalendarEvents(queryOptions);
+    dependencies.useCalendarEvents({
+      ...queryOptions,
+      enabled: enabled && !jobsLoading && !candidatesLoading,
+      dateRange: todayRange(),
+    });
 
   const apiJobs = jobsData?.jobs ?? [];
   const isLoading = enabled && (jobsLoading || candidatesLoading);

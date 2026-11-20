@@ -1,6 +1,8 @@
 'use client';
 
 import { Briefcase, CalendarClock, Heart, Target, TrendingUp, Users, Wallet } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
 import { AppPage } from '@/components/app-page';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,7 +14,10 @@ import {
 import { useAnalyticsOverview } from '@/hooks/queries/use-analytics';
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatPaqPoints } from '@/lib/constants/paq-points';
-import { AnalyticsCharts } from './analytics-charts';
+
+const AnalyticsCharts = dynamic(() => import('./analytics-charts').then((m) => m.AnalyticsCharts), {
+  loading: () => <Skeleton className="h-80 w-full rounded-xl" />,
+});
 
 function formatCurrency(amount: number | null, currency: string | null) {
   if (amount == null) return '—';

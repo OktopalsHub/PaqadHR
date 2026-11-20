@@ -11,6 +11,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { TabsContent } from '@/components/ui/tabs';
 import { GENDER_OPTIONS } from '@/lib/constants/gender';
+
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
 interface PersonalInfoTabProps {

@@ -3,6 +3,7 @@
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { clearAccessCookie, login as loginRequest } from '@/lib/api/auth';
@@ -17,6 +18,7 @@ import {
   touchLastActivity,
   writeIdleLock,
 } from '@/lib/auth/idle-lock';
+
 import { PasswordInput } from './form-fields/password-input';
 
 type IdleLockGateProps = {

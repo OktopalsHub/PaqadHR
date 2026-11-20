@@ -4,6 +4,7 @@ import { ArrowDownRight, ArrowUpRight, Check, Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 
 const ProductDemoShell = dynamic(

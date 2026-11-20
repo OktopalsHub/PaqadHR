@@ -11,6 +11,7 @@ import { Leave } from './entities/leave.entity';
 import { LeaveController } from './leave.controller';
 import { LeaveRepository } from './leave.repository';
 import { LeaveService } from './leave.service';
+import { LeaveDashboardService } from './services/leave-dashboard.service';
 import { LeaveApprovalService } from './services/leave-approval.service';
 import { LeaveBalanceUpdateService } from './services/leave-balance-update.service';
 import { LeaveRequestService } from './services/leave-request.service';
@@ -30,6 +31,7 @@ import { LeaveRequestService } from './services/leave-request.service';
     LeaveService,
     LeaveRequestService,
     LeaveApprovalService,
+    LeaveDashboardService,
     LeaveBalanceUpdateService,
     LeaveRepository,
   ],

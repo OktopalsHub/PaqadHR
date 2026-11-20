@@ -1,6 +1,8 @@
 import { Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
+
 import { cn } from '@/lib/utils';
+
 import { type CandidateCardData, CandidateKanbanCard } from './candidate-kanban-card';
 
 type RecruitmentKanbanColumnProps = {

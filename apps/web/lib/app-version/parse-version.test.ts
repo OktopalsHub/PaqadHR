@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { parseVersionBuildId } from './parse-version.ts';
 
 test('parseVersionBuildId accepts only { buildId: string }', () => {

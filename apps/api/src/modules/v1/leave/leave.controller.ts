@@ -21,9 +21,11 @@ import { isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { LeaveResponseDto } from './dto/leave-response.dto';
+import { LeaveDashboardQueryDto } from './dto/leave-dashboard-query.dto';
 import { ListLeavesQueryDto } from './dto/list-leaves-query.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { LeaveService } from './leave.service';
+import { LeaveDashboardService } from './services/leave-dashboard.service';
 
 @ApiTags('Leaves')
 @Controller('tenants/:tenantId/leaves')
@@ -33,6 +35,7 @@ export class LeaveController {
   constructor(
     private readonly leaveService: LeaveService,
     private readonly managerAccessService: ManagerAccessService,
+    private readonly leaveDashboardService: LeaveDashboardService,
   ) {}
 
   private async assertLeaveRead(
@@ -93,6 +96,20 @@ export class LeaveController {
       ...filters,
       requesterIds: directReports,
     });
+  }
+
+  @Get('dashboard-summary')
+  async getDashboardSummary(
+    @Param('tenantId') tenantId: string,
+    @Query() query: LeaveDashboardQueryDto,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    if (isTenantAdmin(member)) {
+      return this.leaveDashboardService.getSummary(tenantId, undefined, query.today);
+    }
+    const directReports = await this.managerAccessService.getDirectReportIds(tenantId, member.id);
+    const scope = directReports.length > 0 ? directReports : [member.id];
+    return this.leaveDashboardService.getSummary(tenantId, scope, query.today);
   }
 
   @Get('me')

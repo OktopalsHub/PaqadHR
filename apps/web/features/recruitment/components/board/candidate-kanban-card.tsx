@@ -1,4 +1,5 @@
 import { FileText, Percent, UserX } from 'lucide-react';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +18,7 @@ type CandidateKanbanCardProps = {
   className?: string;
   isDragging?: boolean;
   onReject?: () => void;
+  onOpen?: () => void;
 };
 
 export function CandidateKanbanCard({
@@ -24,6 +26,7 @@ export function CandidateKanbanCard({
   className,
   isDragging,
   onReject,
+  onOpen,
 }: CandidateKanbanCardProps) {
   const fullName = `${candidate.firstName} ${candidate.lastName}`.trim();
 
@@ -48,6 +51,20 @@ export function CandidateKanbanCard({
           </p>
           <p className="truncate text-xs text-slate-500 dark:text-slate-400">{candidate.email}</p>
         </div>
+        {onOpen ? (
+          <button
+            type="button"
+            aria-label={`Open ${fullName}`}
+            className="shrink-0 rounded-[6px] border border-[#d7e3f6] bg-white/80 px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            Details
+          </button>
+        ) : null}
         {onReject ? (
           <button
             type="button"

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+
 import { APP_BUILD_ID } from '@/lib/app-version/build-id.generated';
 import {
   isStaleChunkError,

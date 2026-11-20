@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { cacheKeys, removeCached } from '@/lib/cache';
 import { formatWorkspaceName } from '@/lib/format-name';
@@ -73,6 +74,17 @@ function invalidateTenantCache() {
 }
 
 export { invalidateTenantCache };
+
+/**
+ * The workspace on screen, read from the session cache. `resolveTenantId` has
+ * already loaded the workspace list by the time this reads it, so it avoids a
+ * fresh request in the common case.
+ */
+export async function resolveCurrentTenant(): Promise<Tenant | undefined> {
+  const tenantId = await resolveTenantId();
+  const tenants = getCachedTenants() ?? (await fetchUserTenants());
+  return tenants.find((entry) => entry.id === tenantId);
+}
 
 export async function resolveTenantId(): Promise<string> {
   const slug =

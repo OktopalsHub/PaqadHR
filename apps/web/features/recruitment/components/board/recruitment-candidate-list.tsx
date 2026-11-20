@@ -9,6 +9,7 @@ import {
   AppTableHeaderSection,
   AppTablePanel,
 } from '@/components/ui/app-table';
+
 import type { CandidateStatus } from './board-columns';
 import type { BoardCandidate } from './recruitment-kanban-board';
 
@@ -57,7 +58,13 @@ function getCandidateStatusDotClass(status: CandidateStatus) {
   }
 }
 
-function CandidateListRow({ candidate }: { candidate: BoardCandidate }) {
+function CandidateListRow({
+  candidate,
+  onOpen,
+}: {
+  candidate: BoardCandidate;
+  onOpen?: (candidate: BoardCandidate) => void;
+}) {
   const fullName = `${candidate.firstName} ${candidate.lastName}`.trim();
 
   return (
@@ -69,9 +76,19 @@ function CandidateListRow({ candidate }: { candidate: BoardCandidate }) {
             className="size-8 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
             fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
           />
-          <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-            {fullName}
-          </span>
+          {onOpen ? (
+            <button
+              type="button"
+              className="text-left text-sm font-semibold text-slate-800 underline-offset-2 hover:underline dark:text-slate-100"
+              onClick={() => onOpen(candidate)}
+            >
+              {fullName}
+            </button>
+          ) : (
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              {fullName}
+            </span>
+          )}
         </div>
       </AppTableCell>
       <AppTableCell>{candidate.email}</AppTableCell>
@@ -97,9 +114,13 @@ function CandidateListRow({ candidate }: { candidate: BoardCandidate }) {
 
 type RecruitmentCandidateListProps = {
   candidates: BoardCandidate[];
+  onOpenCandidate?: (candidate: BoardCandidate) => void;
 };
 
-export function RecruitmentCandidateList({ candidates }: RecruitmentCandidateListProps) {
+export function RecruitmentCandidateList({
+  candidates,
+  onOpenCandidate,
+}: RecruitmentCandidateListProps) {
   return (
     <AppTablePanel>
       <AppTable className="min-w-[860px]">
@@ -115,7 +136,7 @@ export function RecruitmentCandidateList({ candidates }: RecruitmentCandidateLis
         <AppTableBodySection>
           {candidates.length > 0 ? (
             candidates.map((candidate) => (
-              <CandidateListRow key={candidate.id} candidate={candidate} />
+              <CandidateListRow key={candidate.id} candidate={candidate} onOpen={onOpenCandidate} />
             ))
           ) : (
             <AppTableBodyRow className="hover:bg-transparent">

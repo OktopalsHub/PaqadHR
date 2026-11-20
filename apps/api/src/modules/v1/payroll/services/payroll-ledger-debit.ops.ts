@@ -1,6 +1,6 @@
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
-import { isPayoutDebitEvidenceStatus } from 'src/common/utils/payout-status.util';
+import { isPayoutSuccessStatus } from 'src/common/utils/payout-status.util';
 import { Repository } from 'typeorm';
 
 import { PayrollItem } from '../entities/payroll-item.entity';
@@ -40,7 +40,7 @@ export class LedgerDebitOps {
       typeof input.evidence?.verifiedStatus === 'string'
         ? input.evidence.verifiedStatus.trim().toUpperCase()
         : '';
-    if (!isPayoutDebitEvidenceStatus(verifiedStatus)) {
+    if (!isPayoutSuccessStatus(verifiedStatus)) {
       throw new Error('A payout debit requires provider-confirmed terminal success evidence');
     }
 

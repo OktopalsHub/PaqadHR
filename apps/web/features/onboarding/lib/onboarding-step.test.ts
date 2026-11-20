@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { clampOnboardingStep } from './onboarding-step.ts';
 
 test('clamps onboarding steps below zero and above the last step', () => {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { apiOriginFromBase, resolveApiBaseUrl, resolveHostApiBaseUrl } from './api-origin.ts';
 
 /** Runs `fn` with NEXT_PUBLIC_API_URL unset so host-based resolution is exercised. */

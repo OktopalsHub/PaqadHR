@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';

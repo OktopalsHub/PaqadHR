@@ -2,6 +2,7 @@
 
 import { Inbox, type LucideIcon } from 'lucide-react';
 import type * as React from 'react';
+
 import { EmptyState } from '@/components/empty-state';
 import {
   Table,

@@ -4,6 +4,7 @@ import { Float, MeshTransmissionMaterial } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useMemo, useRef } from 'react';
 import { BufferAttribute, BufferGeometry, type Mesh, type Points } from 'three';
+
 import { useBrandColor } from '@/hooks/use-brand-color';
 
 function Node({

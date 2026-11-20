@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
 import { COMPANY } from '@/lib/constants/company';

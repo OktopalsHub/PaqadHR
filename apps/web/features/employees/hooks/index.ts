@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+
 import type { Employee, EmployeeFilters, ViewMode } from '../types/';
 import { calculatePageNumbers, filterEmployees, paginateEmployees } from '../utils';
 

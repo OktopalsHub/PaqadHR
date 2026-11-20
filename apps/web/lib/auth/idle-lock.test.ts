@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { IDLE_LOCK_MS, isIdlePastThreshold } from './idle-lock.ts';
 
 test('idle threshold is eight hours', () => {

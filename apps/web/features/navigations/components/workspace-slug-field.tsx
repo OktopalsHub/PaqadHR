@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { checkSlugAvailability } from '@/lib/api/onboarding';

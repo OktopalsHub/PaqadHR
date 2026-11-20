@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import { JsonLd } from '@/components/json-ld';
 import { MarketingShell } from '@/components/marketing-shell';
 import { AnswerBlock, CtaRow, FaqList, PageSection, UpdatedNote } from '@/components/marketing-ui';

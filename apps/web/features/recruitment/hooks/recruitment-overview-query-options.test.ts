@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { getRecruitmentOverviewQueryOptions } from './recruitment-overview-query-options.ts';
 
 test('calendar querying follows a disabled recruitment overview query option', () => {

@@ -1,6 +1,8 @@
 import { Briefcase, Clock, UserCheck, Users } from 'lucide-react';
+
 import { StatCard } from '@/components/stat-card';
 import { cn } from '@/lib/utils';
+
 import { demoKanbanColumns, demoRecruitmentStats } from '../../../constants/landing-demo-data';
 
 type RecruitmentDemoViewProps = {

@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsIn, IsNotEmpty, IsString, Length, Matches, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsNotEmpty, IsString, Length, MinLength } from 'class-validator';
 import {
-  STRONG_PASSWORD_MESSAGE,
-  STRONG_PASSWORD_REGEX,
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_MIN_LENGTH_MESSAGE,
 } from 'src/common/constants/password-policy.constant';
 import { NormalizeEmail } from 'src/common/decorators';
 
@@ -50,7 +50,6 @@ export class ChangePasswordDto {
 
   @ApiProperty()
   @IsString()
-  @MinLength(8)
-  @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MESSAGE })
+  @MinLength(MIN_PASSWORD_LENGTH, { message: PASSWORD_MIN_LENGTH_MESSAGE })
   newPassword: string;
 }

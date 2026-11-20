@@ -3,10 +3,23 @@ import { EMAIL_BRAND, escapeHtml } from './brand';
 export interface EmailLayoutOptions {
   preheader: string;
   content: string;
+  /** Workspace the email is sent on behalf of; shown in the footer next to Paqad. */
+  organizationName?: string;
+  /** Workspace logo shown instead of the Paqad logo; must be an https URL. */
+  organizationLogoUrl?: string | null;
 }
 
-export function renderEmailLayout({ preheader, content }: EmailLayoutOptions): string {
-  const { logoUrl, pageBg, cardBg, footerBg, fontFamily, text, muted } = EMAIL_BRAND;
+export function renderEmailLayout({
+  preheader,
+  content,
+  organizationName,
+  organizationLogoUrl,
+}: EmailLayoutOptions): string {
+  const { logoUrl: paqadLogoUrl, pageBg, cardBg, footerBg, fontFamily, text, muted } = EMAIL_BRAND;
+
+  const customLogo = organizationLogoUrl?.startsWith('https://') ? organizationLogoUrl : null;
+  const logoUrl = escapeHtml(customLogo ?? paqadLogoUrl);
+  const logoAlt = escapeHtml(customLogo && organizationName ? organizationName : 'Paqad');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -24,7 +37,7 @@ export function renderEmailLayout({ preheader, content }: EmailLayoutOptions): s
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;background-color:${cardBg};border-radius:12px;overflow:hidden;">
           <tr>
             <td align="center" style="padding:32px 32px 8px;">
-              <img src="${logoUrl}" alt="Paqad" width="140" height="32" style="display:block;border:0;height:auto;max-width:140px;" />
+              <img src="${logoUrl}" alt="${logoAlt}" style="display:block;border:0;height:auto;max-height:48px;max-width:160px;" />
             </td>
           </tr>
           <tr>
@@ -34,7 +47,7 @@ export function renderEmailLayout({ preheader, content }: EmailLayoutOptions): s
           </tr>
           <tr>
             <td align="center" style="padding:20px 32px 28px;background-color:${footerBg};border-top:1px solid #e4e4e7;font-size:12px;line-height:1.5;color:${muted};">
-              Sent by Paqad
+              ${organizationName ? `Sent by ${escapeHtml(organizationName)} via Paqad` : 'Sent by Paqad'}
             </td>
           </tr>
         </table>

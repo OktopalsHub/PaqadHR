@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
+
 import { LoadingBlock } from '@/components/loading-block';
 import { applySessionBootstrap, waitForSessionBootstrap } from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';

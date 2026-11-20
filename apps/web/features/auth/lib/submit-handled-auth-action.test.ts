@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { submitHandledAuthAction } from './submit-handled-auth-action.ts';
 
 test('handled auth submit resolves after a rejected action', async () => {

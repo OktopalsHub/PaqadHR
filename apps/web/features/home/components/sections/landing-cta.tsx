@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { LANDING_PRICING_BY_CURRENCY, PLAN_CATALOG } from '@/lib/constants/plan-catalog';
+
 import { createLandingPricingCurrencyController } from '../../lib/landing-pricing-currency';
 import { useLandingReveal } from '../../lib/use-landing-reveal';
 

@@ -4,6 +4,7 @@ import { Search, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
@@ -17,11 +18,13 @@ import {
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import type { CandidateStatus } from '@/lib/schemas/recruitment';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
+
 import { isDisqualified } from './board/board-columns';
 import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { RecruitmentCandidateList } from './board/recruitment-candidate-list';
 import { candidatesToBoardData, RecruitmentKanbanBoard } from './board/recruitment-kanban-board';
 import { type RecruitmentViewMode, RecruitmentViewToggle } from './board/recruitment-view-toggle';
+import { CandidateDetailSheet } from './candidate/candidate-detail-sheet';
 import { ViewCareersPageLink } from './view-careers-page-link';
 
 type RecruitmentBoardPageProps = {
@@ -59,6 +62,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
   const isPreviewJob = jobId === PREVIEW_JOB_ID;
   const [search, setSearch] = useState('');
   const [view, setView] = useState<RecruitmentViewMode>('kanban');
+  const [openCandidateId, setOpenCandidateId] = useState<string | null>(null);
 
   const {
     data: job,
@@ -101,6 +105,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
   }
 
   const candidates = apiCandidates;
+  const openCandidate = candidates.find((candidate) => candidate.id === openCandidateId) ?? null;
 
   const qualifiedCount = candidates.filter((candidate) => !isDisqualified(candidate.status)).length;
   const disqualifiedCount = candidates.filter((candidate) =>
@@ -108,7 +113,6 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
   ).length;
 
   const handleMoveCandidate = async (candidateId: string, status: CandidateStatus) => {
-    if (updateStatus.isPending) return;
     try {
       await updateStatus.mutateAsync({ candidateId, status });
     } catch (err) {
@@ -200,10 +204,18 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
           candidates={boardCandidates}
           interactive
           onMoveCandidate={handleMoveCandidate}
+          onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
         />
       ) : (
-        <RecruitmentCandidateList candidates={boardCandidates} />
+        <RecruitmentCandidateList
+          candidates={boardCandidates}
+          onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
+        />
       )}
+      <CandidateDetailSheet
+        candidate={openCandidate}
+        onOpenChange={(open) => !open && setOpenCandidateId(null)}
+      />
     </AppPage>
   );
 }

@@ -16,6 +16,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+
 import {
   type EventCalendarI18nConfig,
   mergeEventCalendarI18n,
@@ -54,7 +55,6 @@ import type {
   EventCalendarUpdateResult,
   EventCalendarViewSettings,
 } from '@/components/reui/event-calendar/event-calendar-types';
-
 import { cn } from '@/lib/utils';
 
 const BASE_VIEWS: CalendarView[] = ['month', 'week', 'day', 'days', 'agenda'];
@@ -1400,11 +1400,10 @@ const DEFAULT_VIEW_CONFIG: EventCalendarViewConfig = {
   agendaSummaryMaxDots: 6,
 };
 
-const EventCalendarViewConfigContext =
-  createContext<
-    // biome-ignore lint/suspicious/noExplicitAny: generic context needs a single erased type
-    EventCalendarViewConfig<any>
-  >(DEFAULT_VIEW_CONFIG);
+const EventCalendarViewConfigContext = createContext<
+  // biome-ignore lint/suspicious/noExplicitAny: generic context needs a single erased type
+  EventCalendarViewConfig<any>
+>(DEFAULT_VIEW_CONFIG);
 
 /** Root-level display props + render overrides, for view components. */
 function useEventCalendarViewConfig<TData = unknown>(): EventCalendarViewConfig<TData> {
@@ -1466,7 +1465,8 @@ function useEventCalendarViewContext(): { view: CalendarView } {
 }
 
 interface EventCalendarProps<TData = unknown>
-  extends UseEventCalendarStateOptions<TData>,
+  extends
+    UseEventCalendarStateOptions<TData>,
     Partial<EventCalendarViewConfig<TData>>,
     Omit<useRender.ComponentProps<'div'>, 'children' | 'defaultValue'> {
   /** Adopt a hoisted useEventCalendarState instance; option props are then ignored. */

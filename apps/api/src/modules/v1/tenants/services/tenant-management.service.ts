@@ -94,9 +94,10 @@ export class TenantManagementService {
     }
 
     const tenantIds = memberships.map((member) => member.tenantId);
-    const [tenants, entitlements] = await Promise.all([
+    const [tenants, entitlements, directReportCounts] = await Promise.all([
       this.tenantRepository.getTenantByIds(tenantIds),
       this.subscriptionsService.getEntitlementsForTenants(tenantIds),
+      this.countDirectReports(memberships.map((member) => member.id)),
     ]);
     const membershipMap = new Map(memberships.map((member) => [member.tenantId, member]));
     const workspaces: SessionWorkspaceDto[] = [];
@@ -127,6 +128,7 @@ export class TenantManagementService {
           id: member.id,
           role: member.role,
           isActive: member.isActive,
+          directReportsCount: directReportCounts.get(member.id) ?? 0,
         },
         entitled: entitlement.entitled,
         needsPayment: entitlement.needsPayment,
@@ -135,6 +137,21 @@ export class TenantManagementService {
     }
 
     return workspaces;
+  }
+
+  private async countDirectReports(managerMemberIds: string[]): Promise<Map<string, number>> {
+    if (!managerMemberIds.length) {
+      return new Map();
+    }
+    const rows = await this.employmentRepository
+      .createQueryBuilder('employment')
+      .innerJoin('employment.tenantMember', 'report', 'report.isActive = true')
+      .select('employment.reportsToId', 'managerId')
+      .addSelect('COUNT(DISTINCT employment.tenantMemberId)', 'total')
+      .where('employment.reportsToId IN (:...managerMemberIds)', { managerMemberIds })
+      .groupBy('employment.reportsToId')
+      .getRawMany<{ managerId: string; total: string }>();
+    return new Map(rows.map((row) => [row.managerId, Number(row.total)]));
   }
 
   async getTenantMembers(tenantId: string): Promise<unknown[]> {

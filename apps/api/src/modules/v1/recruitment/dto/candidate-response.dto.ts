@@ -55,6 +55,8 @@ export class CandidateResponseDto {
     example: CandidateStatus.APPLIED,
   })
   status: CandidateStatus;
+  @ApiProperty({ description: 'Configured pipeline stage id', required: false, nullable: true })
+  stageId?: string | null;
   @ApiProperty({ description: 'Current stage information' })
   currentStage: {
     name: string;
@@ -122,6 +124,7 @@ export class CandidateMapper {
         uploadedAt: candidate.resume.uploadedAt,
       },
       status: candidate.status,
+      stageId: candidate.stageId ?? null,
       currentStage: candidate.currentStage,
       interviewSchedule: candidate.interviewSchedule,
       tenantId: candidate.tenantId,

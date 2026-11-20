@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+
 import { isValidTenantSlug, tenantPath } from '@/lib/navigation/tenant-routes';
 
 export default async function SchedulePage({

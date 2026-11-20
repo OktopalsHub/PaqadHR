@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+
 import { showcases } from '../../constants';
 import { LandingShowcasePanel } from './landing-showcase-panel';
 

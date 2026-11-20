@@ -1,10 +1,12 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+
 import { AppTableFooterBar } from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+
 import { ITEMS_PER_PAGE_OPTIONS } from '../constants/';
 
 interface EmployeePaginationProps {

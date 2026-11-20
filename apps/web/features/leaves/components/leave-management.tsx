@@ -2,6 +2,7 @@
 
 import { CalendarClock } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
@@ -9,6 +10,7 @@ import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
+
 import { clampLeavePage } from '../lib/leave-pagination-state';
 import { LeaveBalancesPanel } from './leave-balances-panel';
 import { LeavePagination } from './leave-pagination';

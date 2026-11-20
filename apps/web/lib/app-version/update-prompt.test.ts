@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { decideUpdateFlow } from './update-prompt.ts';
 
 test('visible tab with an unseen build prompts instead of reloading', () => {

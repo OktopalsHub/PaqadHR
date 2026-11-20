@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 import {
-  STRONG_PASSWORD_MESSAGE,
-  STRONG_PASSWORD_REGEX,
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_MIN_LENGTH_MESSAGE,
 } from 'src/common/constants/password-policy.constant';
 export class LocalSignupDto {
   @ApiProperty({
@@ -18,12 +18,11 @@ export class LocalSignupDto {
   @IsNotEmpty()
   email: string;
   @ApiProperty({
-    description: 'User password (min 8 characters)',
-    example: 'StrongPassword123!',
+    description: `User password (min ${MIN_PASSWORD_LENGTH} characters)`,
+    example: 'password123',
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(8)
-  @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MESSAGE })
+  @MinLength(MIN_PASSWORD_LENGTH, { message: PASSWORD_MIN_LENGTH_MESSAGE })
   password: string;
 }

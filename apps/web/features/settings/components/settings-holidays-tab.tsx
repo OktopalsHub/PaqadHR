@@ -3,6 +3,7 @@
 import { Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { SearchSelect } from '@/components/search-select';

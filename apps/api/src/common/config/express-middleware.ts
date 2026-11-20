@@ -111,6 +111,8 @@ export const configureMiddleware = (app: NestExpressApplication) => {
         'x-correlation-id',
         'X-Correlation-Id',
       ],
+      // Lets browsers cache the preflight so each API call stops costing an extra OPTIONS round trip.
+      maxAge: 600,
       optionsSuccessStatus: 200,
     }),
   );

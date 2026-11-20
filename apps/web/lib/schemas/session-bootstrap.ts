@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { tenantSchema } from '@/lib/schemas/tenant';
 
 export const sessionWorkspaceSchema = tenantSchema.extend({

@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import {
   getTenantSlugFromHost,
@@ -12,6 +13,7 @@ import {
   rewriteLegacyAppPath,
   tenantUrl,
 } from '@/lib/navigation/tenant-routes';
+
 import { buildContentSecurityPolicy } from './lib/security/content-security-policy';
 import { CSP_NONCE_HEADER } from './lib/security/csp-nonce';
 
@@ -130,7 +132,7 @@ function applySecurityHeaders(response: NextResponse, requestHost: string, nonce
   response.headers.delete('x-powered-by');
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const nonce = createNonce();
   const requestHost = request.nextUrl.hostname;
   const hostHeader = request.headers.get('host') ?? requestHost;

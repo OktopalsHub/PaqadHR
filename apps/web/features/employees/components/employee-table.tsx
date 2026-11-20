@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { memo } from 'react';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import {
   AppTable,
@@ -16,6 +17,7 @@ import {
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { canManageMember } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
+
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
 

@@ -3,6 +3,7 @@
 import { mergeProps } from '@base-ui/react/merge-props';
 import { useRender } from '@base-ui/react/use-render';
 import type { ComponentType, ReactNode } from 'react';
+
 import {
   useEventCalendarSelector,
   useEventCalendarViewConfig,
@@ -16,7 +17,6 @@ import {
   EventCalendarWeekView,
 } from '@/components/reui/event-calendar/event-calendar-time-grid';
 import type { CalendarView } from '@/components/reui/event-calendar/event-calendar-types';
-
 import { cn } from '@/lib/utils';
 
 const DEFAULT_VIEW_COMPONENTS: Record<CalendarView, ComponentType> = {

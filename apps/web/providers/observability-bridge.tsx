@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+
 import { identifyPostHog, resetPostHog } from '@/lib/observability/posthog-client';
 import { useAuth } from '@/providers/auth-provider';
 

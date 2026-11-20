@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { toast } from 'sonner';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useUpdateEmployeeMemberStatus } from '@/hooks/queries/use-employees';
@@ -17,6 +18,7 @@ import type { ApiTenantMember } from '@/lib/mappers/employee';
 import { queryKeys } from '@/lib/query/keys';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { useEmployeeDetailForm } from '../hooks/use-employee-detail-form';
 import { EmployeeDetailSidebar } from './detail/employee-detail-sidebar';
 import { EmployeeDetailTabs } from './detail/tabs/employee-detail-tabs';

@@ -3,6 +3,7 @@
 import { Plus } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,6 +13,7 @@ import { useDepartments } from '@/hooks/queries/use-departments';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { useEmployeeFilters } from '../hooks/';
 import { AddEmployeeDialog } from './add-employee-dialog';
 import { EmployeeCards } from './employee-card';

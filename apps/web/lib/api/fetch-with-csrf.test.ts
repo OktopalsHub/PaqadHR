@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { executeFetchWithCsrf } from './fetch-with-csrf.ts';
 
 const CSRF_HEADER = 'x-csrf-token';
@@ -156,4 +157,24 @@ test('times out a fetch attempt that never settles', async () => {
   } finally {
     globalThis.setTimeout = originalSetTimeout;
   }
+});
+
+test('sends no CSRF header when the server issues an empty token', async () => {
+  const calls: RequestInit[] = [];
+
+  await executeFetchWithCsrf(
+    'https://example.com/api/v1/notifications',
+    { method: 'POST' },
+    {
+      fetchImpl: async (_input, init) => {
+        calls.push(init ?? {});
+        return new Response(null, { status: 204 });
+      },
+      ensureCsrfToken: async () => '',
+      clearCsrfToken: () => {},
+      csrfHeader: CSRF_HEADER,
+    },
+  );
+
+  assert.equal(new Headers(calls[0].headers).has(CSRF_HEADER), false);
 });

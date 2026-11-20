@@ -2,9 +2,11 @@
 
 import { format } from 'date-fns';
 import { ChevronRight } from 'lucide-react';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import type { TenantActivity } from '@/lib/api/activities';
 import { cn } from '@/lib/utils';
+
 import { formatActivityActor, getActivityPresentation } from '../lib/activity-format';
 
 type ActivityLogItemProps = {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { isCryptoCurrency, SUPPORTED_CRYPTO_CURRENCIES } from '@/lib/constants/currencies';
 
 export { isCryptoCurrency };

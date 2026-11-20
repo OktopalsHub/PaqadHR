@@ -25,6 +25,7 @@ import { CreateJobOpeningDto } from '../dto/index';
 import { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
 import { JobOpening } from '../entities/job-opening.entity';
 import { JobOpeningService } from '../services/job-opening.service';
+import { RecruitmentDashboardService } from '../services/recruitment-dashboard.service';
 
 @ApiTags('Job Openings')
 @Controller('tenants/:tenantId/jobs')
@@ -33,7 +34,10 @@ import { JobOpeningService } from '../services/job-opening.service';
 @RequireFeatures(FeatureAccess.RECRUITMENT)
 export class JobOpeningController {
   private readonly logger = new Logger(JobOpeningController.name);
-  constructor(private readonly jobOpeningService: JobOpeningService) {}
+  constructor(
+    private readonly jobOpeningService: JobOpeningService,
+    private readonly dashboardService: RecruitmentDashboardService,
+  ) {}
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new job opening' })
@@ -137,6 +141,11 @@ export class JobOpeningController {
     archived: number;
   }> {
     return this.jobOpeningService.getJobStats(tenantId);
+  }
+  @Get('dashboard-summary')
+  @ApiOperation({ summary: 'Counts, open vacancies and recent applicants for the dashboard' })
+  async getDashboardSummary(@Param('tenantId') tenantId: string) {
+    return this.dashboardService.getSummary(tenantId);
   }
   @Get(':jobId')
   async getJob(

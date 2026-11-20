@@ -25,7 +25,14 @@ export function loadSentry(): Promise<SentryModule | null> {
           dsn,
           environment: process.env.NODE_ENV ?? 'development',
           tracesSampleRate: isProduction ? 0.15 : 0,
-          sendDefaultPii: false,
+          dataCollection: {
+            userInfo: false,
+            cookies: false,
+            httpHeaders: false,
+            httpBodies: [],
+            urlQueryParams: false,
+            stackFrameVariables: false,
+          },
           beforeSend(event) {
             return sanitizeSentryEvent(event);
           },

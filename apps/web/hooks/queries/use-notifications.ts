@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+
 import {
   type BroadcastNotificationInput,
   broadcastNotification,
@@ -10,9 +11,11 @@ import {
   fetchUnreadNotificationCount,
   markAllNotificationsRead,
   markNotificationRead,
+  type NotificationsListResponse,
   subscribeToNotificationStream,
 } from '@/lib/api/notifications';
 import { queryKeys } from '@/lib/query/keys';
+import { applyOptimisticUpdate, isLastInFlightMutation } from '@/lib/query/optimistic';
 import { useAuth } from '@/providers/auth-provider';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -100,13 +103,46 @@ export function useMarkNotificationRead() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   const keys = notificationQueryKeys(tenantId);
+  const mutationKey = ['notifications', 'mark-read'] as const;
 
   return useMutation({
+    mutationKey,
     mutationFn: (notificationId: string) => {
       if (!tenantId) throw new Error('Workspace not selected');
       return markNotificationRead(tenantId, notificationId);
     },
-    onSuccess: () => {
+    onMutate: async (notificationId) => {
+      const readAt = new Date().toISOString();
+      const wasUnread = queryClient
+        .getQueriesData<NotificationsListResponse>({ queryKey: keys.list })
+        .some(([, data]) =>
+          data?.notifications.some((item) => item.id === notificationId && !item.readAt),
+        );
+      const rollbackList = await applyOptimisticUpdate<NotificationsListResponse>(
+        queryClient,
+        keys.list,
+        (data) => ({
+          ...data,
+          notifications: data.notifications.map((item) =>
+            item.id === notificationId ? { ...item, readAt, status: 'read' } : item,
+          ),
+        }),
+      );
+      const rollbackCount = wasUnread
+        ? await applyOptimisticUpdate<number>(queryClient, keys.unreadCount, (count) =>
+            Math.max(0, count - 1),
+          )
+        : () => undefined;
+      return {
+        rollback: () => {
+          rollbackList();
+          rollbackCount();
+        },
+      };
+    },
+    onError: (_error, _variables, context) => context?.rollback(),
+    onSettled: () => {
+      if (!isLastInFlightMutation(queryClient, mutationKey)) return;
       void queryClient.invalidateQueries({ queryKey: keys.list });
       void queryClient.invalidateQueries({ queryKey: keys.unreadCount });
     },
@@ -119,11 +155,37 @@ export function useMarkAllNotificationsRead() {
   const keys = notificationQueryKeys(tenantId);
 
   return useMutation({
+    mutationKey: ['notifications', 'mark-all-read'],
     mutationFn: () => {
       if (!tenantId) throw new Error('Workspace not selected');
       return markAllNotificationsRead(tenantId);
     },
-    onSuccess: () => {
+    onMutate: async () => {
+      const readAt = new Date().toISOString();
+      const rollbackList = await applyOptimisticUpdate<NotificationsListResponse>(
+        queryClient,
+        keys.list,
+        (data) => ({
+          ...data,
+          notifications: data.notifications.map((item) =>
+            item.readAt ? item : { ...item, readAt, status: 'read' },
+          ),
+        }),
+      );
+      const rollbackCount = await applyOptimisticUpdate<number>(
+        queryClient,
+        keys.unreadCount,
+        () => 0,
+      );
+      return {
+        rollback: () => {
+          rollbackList();
+          rollbackCount();
+        },
+      };
+    },
+    onError: (_error, _variables, context) => context?.rollback(),
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: keys.list });
       void queryClient.invalidateQueries({ queryKey: keys.unreadCount });
     },

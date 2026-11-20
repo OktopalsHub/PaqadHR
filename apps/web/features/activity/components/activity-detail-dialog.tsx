@@ -1,6 +1,7 @@
 'use client';
 
 import { format } from 'date-fns';
+
 import { PersonAvatar } from '@/components/person-avatar';
 import {
   Dialog,
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import type { TenantActivity } from '@/lib/api/activities';
 import { cn } from '@/lib/utils';
+
 import {
   formatActivityActor,
   getActivityChangeEntries,

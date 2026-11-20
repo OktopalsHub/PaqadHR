@@ -1,4 +1,5 @@
 import { Trophy } from 'lucide-react';
+
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 
 export function PointsSummaryCard({

@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import type { BillingOverview } from '@/lib/schemas/subscription';
+
 import { useFeatureAccess } from './use-feature-access.ts';
 
 function createBillingOverviewFixture(overrides: Partial<BillingOverview> = {}): BillingOverview {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+
 import { captureSentryException } from '@/lib/observability/sentry-client';
 
 export default function GlobalError({

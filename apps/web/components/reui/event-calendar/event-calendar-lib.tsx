@@ -10,6 +10,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
+
 import { expandRecurrence } from '@/components/reui/event-calendar/event-calendar-recurrence';
 import type {
   CalendarEvent,

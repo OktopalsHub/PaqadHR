@@ -1,4 +1,5 @@
 import { Check, Loader2, Phone, ShoppingBag, Sparkles, Zap } from 'lucide-react';
+
 import { Badge } from '@/components/ui/badge';
 import type { RewardRedemption } from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';

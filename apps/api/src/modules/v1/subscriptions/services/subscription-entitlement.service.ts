@@ -43,6 +43,24 @@ export class SubscriptionEntitlementService {
     });
   }
 
+  /** Feature-gate lookup: one query with only the status, period and plan feature columns. */
+  private async getEntitlementSnapshot(tenantId: string): Promise<TenantSubscription | null> {
+    return this.subscriptionRepository
+      .createQueryBuilder('subscription')
+      .leftJoin('subscription.plan', 'plan')
+      .select([
+        'subscription.id',
+        'subscription.status',
+        'subscription.nextBillingDate',
+        'subscription.trialEndsAt',
+        'subscription.currentPeriodEnd',
+        'plan.id',
+        'plan.features',
+      ])
+      .where('subscription.tenantId = :tenantId', { tenantId })
+      .getOne();
+  }
+
   async updateTenantSubscription(
     tenantId: string,
     updates: Partial<TenantSubscription>,
@@ -136,7 +154,7 @@ export class SubscriptionEntitlementService {
       return true;
     }
 
-    const subscription = await this.getTenantSubscription(tenantId);
+    const subscription = await this.getEntitlementSnapshot(tenantId);
     if (!subscription || !this.isSubscriptionEntitled(subscription)) {
       return false;
     }

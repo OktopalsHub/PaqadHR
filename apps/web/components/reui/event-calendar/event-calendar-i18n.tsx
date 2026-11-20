@@ -1,4 +1,5 @@
 import { format, isSameMonth, isSameYear, type Locale } from 'date-fns';
+
 import type {
   CalendarView,
   EventCalendarDateRange,

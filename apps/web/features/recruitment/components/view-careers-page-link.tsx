@@ -1,6 +1,7 @@
 'use client';
 
 import { ExternalLink } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 

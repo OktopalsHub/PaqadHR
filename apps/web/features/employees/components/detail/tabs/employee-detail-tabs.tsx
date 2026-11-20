@@ -2,6 +2,7 @@
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUrlTab } from '@/hooks/use-url-tab';
+
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 import { type EmployeeDetailTab, isEmployeeDetailTab } from '../../../lib/employee-detail-tabs';
 import { DocumentsTab } from './documents-tab';

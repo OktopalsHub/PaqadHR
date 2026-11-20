@@ -16,6 +16,7 @@ import {
 // import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+
 import {
   SidebarGroup,
   SidebarMenu,
@@ -25,6 +26,7 @@ import {
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
+
 import {
   getVisibleSettingsTabs,
   resolveSettingsTab,

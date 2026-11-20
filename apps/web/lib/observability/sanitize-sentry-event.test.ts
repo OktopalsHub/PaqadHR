@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+
 import { sanitizeSentryEvent } from './sanitize-sentry-event.ts';
 
 test('removes credentials from browser Sentry event text', () => {

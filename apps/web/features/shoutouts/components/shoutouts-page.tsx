@@ -5,6 +5,7 @@ import { Coins, Heart, Sparkles, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
@@ -33,6 +34,7 @@ import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
+
 import { getShoutoutsRewardsAccessState } from '../lib/shoutouts-rewards-access';
 import { ShoutoutCard } from './shoutout-card';
 import {

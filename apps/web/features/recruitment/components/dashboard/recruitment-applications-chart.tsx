@@ -1,8 +1,10 @@
 'use client';
 
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
+
 import { ContentCard } from '@/components/content-card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+
 import type { ApplicationsChartPoint } from '../../lib/recruitment-dashboard-metrics';
 
 const chartConfig = {

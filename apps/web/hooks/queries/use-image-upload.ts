@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+
 import { uploadMemberAvatar, uploadWorkspaceLogo } from '@/lib/api/files';
 import { updateMemberProfile } from '@/lib/api/member-profile';
 import { updateTenant } from '@/lib/api/tenants';

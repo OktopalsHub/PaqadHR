@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+
 import { AppVersionWatcher } from '@/components/app-version-watcher';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from '@/providers/auth-provider';

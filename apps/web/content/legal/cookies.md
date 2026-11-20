@@ -12,12 +12,12 @@ We may use session cookies (deleted when you close the browser) and persistent c
 
 ## Cookies and similar technologies we use
 
-| Type | Purpose | Examples | How to control |
-| --- | --- | --- | --- |
-| Essential | Required for sign-in, security, load balancing, and core product operation | Auth session cookies (httpOnly), CSRF/security tokens | Required for the Service; block via browser may prevent sign-in |
-| Attribution | Remember which campaign or website brought a visitor to Paqad so we can measure marketing | `paqad_attribution` (first-party, 90 days, stores UTM parameters and ad click identifiers) | Browser cookie controls; contact info@paqadhr.com |
-| Analytics | Understand product usage and improve Paqad | PostHog | Browser cookie controls; contact info@paqadhr.com |
-| Functionality / diagnostics | Detect errors and improve reliability | Sentry | Browser controls; contact info@paqadhr.com |
+| Type                        | Purpose                                                                                   | Examples                                                                                   | How to control                                                  |
+| --------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| Essential                   | Required for sign-in, security, load balancing, and core product operation                | Auth session cookies (httpOnly), CSRF/security tokens                                      | Required for the Service; block via browser may prevent sign-in |
+| Attribution                 | Remember which campaign or website brought a visitor to Paqad so we can measure marketing | `paqad_attribution` (first-party, 90 days, stores UTM parameters and ad click identifiers) | Browser cookie controls; contact info@paqadhr.com               |
+| Analytics                   | Understand product usage and improve Paqad                                                | PostHog                                                                                    | Browser cookie controls; contact info@paqadhr.com               |
+| Functionality / diagnostics | Detect errors and improve reliability                                                     | Sentry                                                                                     | Browser controls; contact info@paqadhr.com                      |
 
 We do **not** set advertising or social-media advertising cookies, and we do not use advertising cookies to target ads. When you follow a campaign link, we do record the campaign parameters and ad click identifiers from that link (for example `utm_source`, `gclid`, or `fbclid`) in our first-party attribution cookie and analytics so we can measure which campaigns bring visitors to Paqad.
 
@@ -47,4 +47,4 @@ Email [info@paqadhr.com](mailto:info@paqadhr.com).
 
 ---
 
-*Based on attorney-drafted templates from [General Legal](https://github.com/General-Legal/legal-templates) (CC0). Have counsel review before relying on this notice.*
+_Based on attorney-drafted templates from [General Legal](https://github.com/General-Legal/legal-templates) (CC0). Have counsel review before relying on this notice._

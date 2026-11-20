@@ -3,7 +3,9 @@
 import { motion, useInView } from 'framer-motion';
 import { Briefcase, Calendar, Heart, Shield, Users, Wallet } from 'lucide-react';
 import { useRef } from 'react';
+
 import { fadeUp, stagger } from '../../constants/landing-motion';
+
 import '../landing.css';
 
 const features = [

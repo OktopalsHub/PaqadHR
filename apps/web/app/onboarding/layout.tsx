@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { OnboardingHeader } from '@/features/onboarding/components/onboarding-header';
 import { AppProviders } from '@/providers/app-providers';
 import { ForceLightTheme } from '@/providers/force-light-theme';

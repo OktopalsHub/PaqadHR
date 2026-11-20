@@ -3,14 +3,15 @@ import type { CalendarEventRecord } from '@/lib/api/calendar-events';
 import { fetchCalendarEvents as fetchManualCalendarEvents } from '@/lib/api/calendar-events';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import type { Interview } from '@/lib/api/interviews';
-import { fetchUpcomingInterviews } from '@/lib/api/interviews';
+import { fetchInterviewsToday, fetchUpcomingInterviews } from '@/lib/api/interviews';
 import { fetchLeavesForCalendar } from '@/lib/api/leaves';
 import { resolveTenantId } from '@/lib/api/tenants';
 import { formatDisplayName, formatPersonName } from '@/lib/format-name';
 import { formatOrdinal } from '@/lib/format-ordinal';
+import { queryKeys } from '@/lib/query/keys';
 import type { CalendarEvent, CalendarEventType } from '@/lib/schemas/calendar';
 
-type ApiCelebration = {
+export type ApiCelebration = {
   id: string;
   firstName: string;
   lastName: string;
@@ -19,6 +20,14 @@ type ApiCelebration = {
   date: string;
   years?: number;
 };
+
+export const celebrationsQueryKey = (tenantId: string | null | undefined) =>
+  [...queryKeys.calendar.events, 'celebrations', tenantId] as const;
+
+export async function fetchCelebrations(): Promise<ApiCelebration[]> {
+  const tenantId = await resolveTenantId();
+  return apiClient<ApiCelebration[]>(tenantPath(tenantId, 'celebrations'));
+}
 
 type Celebration = {
   id: string;
@@ -205,10 +214,22 @@ async function fetchHolidayEvents(fromYear: number, toYear: number): Promise<Cal
   });
 }
 
-export async function fetchCalendarEvents(dateRange?: {
-  from: string;
-  to: string;
-}): Promise<CalendarEvent[]> {
+function localDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/** A single-day look at today has its own cheap endpoint; wider ranges use the upcoming window. */
+function fetchInterviewsForRange(from: string, to: string) {
+  if (from === to && from === localDateKey(new Date())) {
+    return fetchInterviewsToday();
+  }
+  return fetchUpcomingInterviews(365);
+}
+
+export async function fetchCalendarEvents(
+  dateRange?: { from: string; to: string },
+  deps?: { celebrations?: () => Promise<ApiCelebration[]> },
+): Promise<CalendarEvent[]> {
   const tenantId = await resolveTenantId();
   const year = new Date().getFullYear();
   const from = dateRange?.from ?? `${year - 1}-01-01`;
@@ -216,9 +237,12 @@ export async function fetchCalendarEvents(dateRange?: {
 
   const [leaves, celebrations, interviews, holidays, manualEvents] = await Promise.all([
     fetchLeavesForCalendar({ status: 'approved', from, to, limit: 200 }).catch(() => []),
-    apiClient<ApiCelebration[]>(tenantPath(tenantId, 'celebrations')).catch(() => []),
-    fetchUpcomingInterviews(365).catch(() => []),
-    fetchHolidayEvents(year - 1, year + 1),
+    (deps?.celebrations ?? fetchCelebrations)().catch(() => []),
+    fetchInterviewsForRange(from, to).catch(() => []),
+    fetchHolidayEvents(
+      dateRange ? Number(from.slice(0, 4)) || year : year - 1,
+      dateRange ? Number(to.slice(0, 4)) || year : year + 1,
+    ),
     fetchManualCalendarEvents(from, to).catch(() => []),
   ]);
 

@@ -1,4 +1,5 @@
 import { Bell, Search } from 'lucide-react';
+
 import type { DemoNavId } from '../../constants/landing-demo-data';
 import { demoSidebarItems, demoWorkspace } from '../../constants/landing-demo-data';
 

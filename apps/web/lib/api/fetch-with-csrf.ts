@@ -1,4 +1,5 @@
 import { getCorrelationId, getCorrelationIdHeaderName } from '@/lib/observability/correlation-id';
+
 import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
 export type FetchWithCsrfOptions = RequestInit & {
@@ -97,7 +98,8 @@ export async function executeFetchWithCsrf(
   }
 
   if (needsCsrf) {
-    headers.set(deps.csrfHeader, await deps.ensureCsrfToken());
+    const token = await deps.ensureCsrfToken();
+    if (token) headers.set(deps.csrfHeader, token);
   }
 
   headers.set(getCorrelationIdHeaderName(), getCorrelationId());
@@ -117,7 +119,8 @@ export async function executeFetchWithCsrf(
     const payload = await parseResponsePayload(response.clone());
     if (isCsrfErrorResponse(response.status, payload)) {
       deps.clearCsrfToken();
-      headers.set(deps.csrfHeader, await deps.ensureCsrfToken(true));
+      const refreshed = await deps.ensureCsrfToken(true);
+      if (refreshed) headers.set(deps.csrfHeader, refreshed);
       response = await fetchWithTimeout(
         input,
         {

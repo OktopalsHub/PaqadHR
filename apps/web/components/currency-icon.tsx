@@ -1,6 +1,7 @@
 'use client';
 
 import type React from 'react';
+
 import { cn } from '@/lib/utils';
 
 export type CurrencyCode = 'NGN' | 'USD' | 'EUR' | 'GBP' | 'USDT' | 'USDC' | string;

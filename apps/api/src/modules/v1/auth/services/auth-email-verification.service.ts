@@ -4,7 +4,7 @@ import { BadRequestException, Injectable, Logger, UnauthorizedException } from '
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
-import { PasswordService, StringUtility } from 'src/common/utils';
+import { PasswordService, StringUtility, logOtpForLocalDevelopment } from 'src/common/utils';
 import { Repository } from 'typeorm';
 
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
@@ -40,11 +40,11 @@ export class AuthEmailVerificationService {
         `Too many verification code requests. Try again in ${rate.retryAfter ?? 60}s`,
       );
     const code = String(randomInt(100000, 999999));
-    if (process.env.NODE_ENV === 'development' && options?.isSignup) {
-      // Dev-only: surface the signup OTP in the console so local testing
-      // doesn't depend on the email provider.
-      console.log(`[DEV] Signup email verification OTP for ${user.email}: ${code}`);
-    }
+    logOtpForLocalDevelopment(
+      user.email,
+      code,
+      options?.isSignup ? 'Signup email verification' : 'Email verification',
+    );
     const identifier = this.emailVerificationIdentifier(user.id);
     const hashedCode = await PasswordService.hashPassword(code);
     await this.verificationRepository.delete({ identifier });

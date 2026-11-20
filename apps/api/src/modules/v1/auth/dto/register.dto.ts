@@ -7,13 +7,12 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import {
-  STRONG_PASSWORD_MESSAGE,
-  STRONG_PASSWORD_REGEX,
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_MIN_LENGTH_MESSAGE,
 } from 'src/common/constants/password-policy.constant';
 import { NormalizeEmail } from 'src/common/decorators';
 
@@ -26,11 +25,10 @@ export class RegisterDto {
   @IsNotEmpty()
   email: string;
 
-  @ApiProperty({ example: 'StrongPassword123!', minLength: 8 })
+  @ApiProperty({ example: 'password123', minLength: MIN_PASSWORD_LENGTH })
   @IsString()
   @IsNotEmpty()
-  @MinLength(8)
-  @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MESSAGE })
+  @MinLength(MIN_PASSWORD_LENGTH, { message: PASSWORD_MIN_LENGTH_MESSAGE })
   password: string;
 
   @ApiPropertyOptional({ example: 'Jane Doe' })

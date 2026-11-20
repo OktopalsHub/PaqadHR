@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+
 import { MentionChip } from './mention-chip';
 import type { ShoutoutLookupItem } from './parse-shoutout';
 import { tokenizeShoutoutMessage } from './shoutout-message-tokens';
