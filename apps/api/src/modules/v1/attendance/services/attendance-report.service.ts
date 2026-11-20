@@ -189,17 +189,23 @@ export class AttendanceReportService {
   }
 
   async getStats(tenantId: string, startDate: Date, endDate: Date) {
-    const attendances = await this.attendanceRepo.find({
-      where: { tenantId, date: Between(startDate, endDate) },
-      relations: { tenantMember: true },
-    });
+    const rows = await this.attendanceRepo
+      .createQueryBuilder('attendance')
+      .select('attendance.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .where('attendance.tenantId = :tenantId', { tenantId })
+      .andWhere('attendance.date BETWEEN :startDate AND :endDate', { startDate, endDate })
+      .groupBy('attendance.status')
+      .getRawMany<{ status: string; count: string }>();
+
+    const countOf = (status: string) => Number(rows.find((row) => row.status === status)?.count ?? 0);
     return {
-      totalPresent: attendances.filter((a) => a.status === 'PRESENT').length,
-      totalAbsent: attendances.filter((a) => a.status === 'ABSENT').length,
-      totalLate: attendances.filter((a) => a.status === 'LATE').length,
-      totalHalfDay: attendances.filter((a) => a.status === 'HALF_DAY').length,
-      totalOnLeave: attendances.filter((a) => a.status === 'ON_LEAVE').length,
-      totalRecords: attendances.length,
+      totalPresent: countOf('PRESENT'),
+      totalAbsent: countOf('ABSENT'),
+      totalLate: countOf('LATE'),
+      totalHalfDay: countOf('HALF_DAY'),
+      totalOnLeave: countOf('ON_LEAVE'),
+      totalRecords: rows.reduce((sum, row) => sum + Number(row.count), 0),
     };
   }
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, type Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 
 import { AttendanceService } from '../attendance/attendance.service';
 import { Shoutout } from '../shoutouts/entities/shoutout.entity';
@@ -57,57 +57,47 @@ export class AnalyticsActivityQueriesService {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const shoutouts = await this.shoutoutRepository.find({
-      where: {
-        tenantId,
-        createdAt: MoreThanOrEqual(startOfMonth),
-      },
-      select: { id: true, totalPoints: true },
-    });
+    const row = await this.shoutoutRepository
+      .createQueryBuilder('shoutout')
+      .select('COUNT(*)', 'count')
+      .addSelect('COALESCE(SUM(shoutout.totalPoints), 0)', 'points')
+      .where('shoutout.tenantId = :tenantId', { tenantId })
+      .andWhere('shoutout.createdAt >= :startOfMonth', { startOfMonth })
+      .getRawOne<{ count: string; points: string }>();
 
     return {
-      shoutoutsThisMonth: shoutouts.length,
-      pointsAwardedThisMonth: shoutouts.reduce((sum, shoutout) => sum + shoutout.totalPoints, 0),
+      shoutoutsThisMonth: Number(row?.count ?? 0),
+      pointsAwardedThisMonth: Number(row?.points ?? 0),
     };
   }
 
   async getHeadcountTrend(tenantId: string) {
-    const members = await this.memberRepository.find({
-      where: { tenantId },
-      select: { joinDate: true, leaveDate: true, isActive: true },
+    const now = new Date();
+    const months = Array.from({ length: 6 }, (_, index) => {
+      const offset = 5 - index;
+      const start = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+      const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { start, end };
     });
 
-    const points: { label: string; value: number }[] = [];
-    const now = new Date();
+    const query = this.memberRepository
+      .createQueryBuilder('member')
+      .select([])
+      .where('member.tenantId = :tenantId', { tenantId });
+    months.forEach(({ start, end }, index) => {
+      query
+        .addSelect(
+          `COUNT(*) FILTER (WHERE member.joinDate IS NOT NULL AND member.joinDate <= :end${index} AND (member.leaveDate IS NULL OR member.leaveDate >= :start${index}))`,
+          `m${index}`,
+        )
+        .setParameter(`start${index}`, start)
+        .setParameter(`end${index}`, end);
+    });
+    const row = await query.getRawOne<Record<string, string>>();
 
-    for (let offset = 5; offset >= 0; offset -= 1) {
-      const monthDate = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-      const monthEnd = new Date(
-        monthDate.getFullYear(),
-        monthDate.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
-      );
-
-      const value = members.filter((member) => {
-        if (!member.joinDate) return false;
-        const joined = new Date(member.joinDate);
-        if (joined > monthEnd) return false;
-        if (member.leaveDate) {
-          return new Date(member.leaveDate) >= monthDate;
-        }
-        return member.isActive || joined <= monthEnd;
-      }).length;
-
-      points.push({
-        label: MONTH_LABELS[monthDate.getMonth()],
-        value,
-      });
-    }
-
-    return points;
+    return months.map(({ start }, index) => ({
+      label: MONTH_LABELS[start.getMonth()],
+      value: Number(row?.[`m${index}`] ?? 0),
+    }));
   }
 }
