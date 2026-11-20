@@ -42,7 +42,7 @@ export function UpcomingReminders() {
     );
   }
 
-  const items = data.slice(0, 6).map((item) => {
+  const items = data.slice(0, 5).map((item) => {
     const name =
       item.preferredName?.trim() ||
       [item.firstName, item.lastName].filter(Boolean).join(' ') ||
@@ -60,10 +60,10 @@ export function UpcomingReminders() {
   return (
     <ContentCard
       title="Upcoming celebrations"
-      className="dashboard-panel rounded-[8px]"
+      className="dashboard-panel h-full rounded-[8px]"
       headerClassName="border-b border-border/60 px-5 py-4"
       titleClassName="text-[17px] font-semibold text-foreground"
-      bodyClassName="p-5"
+      bodyClassName="p-4"
     >
       {items.length === 0 ? (
         <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center text-muted-foreground">

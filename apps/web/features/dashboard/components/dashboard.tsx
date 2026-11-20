@@ -93,19 +93,23 @@ export const Dashboard = () => {
     () =>
       [...leaves]
         .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-        .slice(0, 6),
+        .slice(0, 5),
     [leaves],
   );
   const departmentCount = useMemo(() => employeeSummary?.departments ?? 0, [employeeSummary]);
-  const pipelineStages = useMemo(
-    () => [
-      { label: 'Active', count: jobs.filter((job) => job.status === 'ACTIVE').length },
-      { label: 'Draft', count: jobs.filter((job) => job.status === 'DRAFT').length },
-      { label: 'Closed', count: jobs.filter((job) => job.status === 'CLOSED').length },
-      { label: 'Archived', count: jobs.filter((job) => job.status === 'ARCHIVED').length },
-    ],
-    [jobs],
-  );
+  const pipelineStages = useMemo(() => {
+    const stages = [
+      { label: 'Applied', statuses: ['APPLIED'] },
+      { label: 'Screening', statuses: ['SCREENING', 'UNDER_REVIEW'] },
+      { label: 'Interview', statuses: ['INTERVIEW'] },
+      { label: 'Offer', statuses: ['OFFER'] },
+      { label: 'Hired', statuses: ['HIRED'] },
+    ];
+    return stages.map((stage) => ({
+      label: stage.label,
+      count: overview.applicantRows.filter((row) => stage.statuses.includes(row.status)).length,
+    }));
+  }, [overview.applicantRows]);
   const pipelineMax = useMemo(
     () => Math.max(1, ...pipelineStages.map((stage) => stage.count)),
     [pipelineStages],
@@ -216,13 +220,12 @@ export const Dashboard = () => {
         })}
       </div>
 
-      <UpcomingReminders />
+      <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <UpcomingReminders />
 
-      <div className="grid gap-4 xl:grid-cols-12">
         <ContentCard
-          className={`dashboard-panel rounded-[8px] ${
-            recruitmentAccess.showRecruitmentSections ? 'xl:col-span-8' : 'xl:col-span-7'
-          }`}
+          className="dashboard-panel h-full rounded-[8px]"
+
           headerClassName={contentCardHeaderClassName}
           titleClassName={contentCardTitleClassName}
           title="Recent leave requests"
@@ -249,7 +252,7 @@ export const Dashboard = () => {
               ))}
             </div>
           ) : leavesError ? (
-            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+            <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
               <CalendarClock className="size-10 text-muted-foreground" />
               <p className="text-sm">Leave requests could not be loaded right now.</p>
               <Button variant="outline" size="sm" onClick={() => void refetchLeaves()}>
@@ -257,7 +260,7 @@ export const Dashboard = () => {
               </Button>
             </div>
           ) : recentLeaves.length === 0 ? (
-            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+            <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
               <CalendarClock className="size-10 text-muted-foreground" />
               <p className="text-sm">No leave requests yet.</p>
             </div>
@@ -290,7 +293,7 @@ export const Dashboard = () => {
 
         {recruitmentAccess.showRecruitmentSections ? (
           <ContentCard
-            className="dashboard-panel rounded-[8px] xl:col-span-4"
+            className="dashboard-panel h-full rounded-[8px]"
             headerClassName={contentCardHeaderClassName}
             titleClassName={contentCardTitleClassName}
             title="Hiring pipeline"
@@ -304,41 +307,30 @@ export const Dashboard = () => {
             }
             bodyClassName="space-y-4 p-4"
           >
-            <div className="grid grid-cols-2 gap-3">
+            <ul className="space-y-3">
               {pipelineStages.map((stage) => (
-                <div key={stage.label} className="dashboard-soft-tile rounded-[8px] px-3 py-3">
-                  <p className="dashboard-outline-label text-[10px] font-semibold uppercase">
-                    {stage.label}
-                  </p>
-                  <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
-                    {stage.count}
-                  </p>
-                </div>
+                <li key={stage.label} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{stage.label}</span>
+                    <span className="font-semibold text-foreground">{stage.count}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="dashboard-chart-bar h-full rounded-full"
+                      style={{ width: `${(stage.count / pipelineMax) * 100}%` }}
+                    />
+                  </div>
+                </li>
               ))}
-            </div>
-            <div className="dashboard-soft-tile rounded-[8px] px-3 pb-2 pt-4">
-              <div className="flex h-24 items-end gap-2 border-b border-border/60 pb-2">
-                {pipelineStages.map((stage) => {
-                  const height = Math.max(10, (stage.count / pipelineMax) * 100);
-                  return (
-                    <div key={stage.label} className="flex flex-1 flex-col items-center gap-2">
-                      <div
-                        className="dashboard-chart-bar w-full max-w-9"
-                        style={{ height: `${height}%` }}
-                      ></div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-2 flex justify-between text-[10px] font-medium text-muted-foreground">
-                {pipelineStages.map((stage) => (
-                  <span key={stage.label}>{stage.label}</span>
-                ))}
-              </div>
-            </div>
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              {openRoles} open {openRoles === 1 ? 'role' : 'roles'} ·{' '}
+              {overview.applicantRows.length}{' '}
+              {overview.applicantRows.length === 1 ? 'candidate' : 'candidates'} in total
+            </p>
           </ContentCard>
         ) : (
-          <div className="min-w-0 xl:col-span-5">
+          <div className="min-w-0">
             <DashboardActivityFeed />
           </div>
         )}
