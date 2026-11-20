@@ -69,6 +69,8 @@ function inferHolidayType(
 }
 
 const HOLIDAY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+// Concurrent callers share one request, so a stalled call must fail fast for all of them.
+const GOOGLE_REQUEST_TIMEOUT_MS = 5000;
 
 @Injectable()
 export class GoogleCalendarHolidayProvider {
@@ -137,7 +139,9 @@ export class GoogleCalendarHolidayProvider {
     const url = `${GOOGLE_CALENDAR_API_BASE}/${calendarId}/events?${params.toString()}`;
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(GOOGLE_REQUEST_TIMEOUT_MS),
+      });
       if (!response.ok) {
         const body = await response.text();
         this.logger.warn(

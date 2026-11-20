@@ -9,6 +9,16 @@ dotenv.config();
 
 const databaseUrl = process.env.DATABASE_URL;
 
+function positiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+// Without these a burst queues behind the pool forever and one slow query holds a connection.
+const DB_POOL_MAX = positiveInt(process.env.DB_POOL_MAX, 10);
+const DB_ACQUIRE_TIMEOUT_MS = positiveInt(process.env.DB_ACQUIRE_TIMEOUT_MS, 5000);
+const DB_STATEMENT_TIMEOUT_MS = positiveInt(process.env.DB_STATEMENT_TIMEOUT_MS, 30000);
+
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is not defined, please check your environment variables.');
 }
@@ -17,6 +27,11 @@ const AppDataSource = {
   type: 'postgres',
   url: databaseUrl,
   synchronize: false,
+  poolSize: DB_POOL_MAX,
+  extra: {
+    connectionTimeoutMillis: DB_ACQUIRE_TIMEOUT_MS,
+    statement_timeout: DB_STATEMENT_TIMEOUT_MS,
+  },
   autoLoadEntities: true,
   entities: Object.values(Entities).filter((entity) => typeof entity === 'function'),
   migrations: [
@@ -123,6 +138,8 @@ const AppDataSource = {
     Migrations.RecruitmentAtsFoundation1794500000000,
     Migrations.CandidateAiScreening1794600000000,
     Migrations.RecruitmentScorecardsOffersPool1794700000000,
+    Migrations.LeaveReportIndex1794800000000,
+    Migrations.DashboardQueryIndexes1794900000000,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

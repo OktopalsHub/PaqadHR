@@ -101,3 +101,5 @@ export * from './1794400000000-payroll-ledger-payout-reversed';
 export * from './1794500000000-recruitment-ats-foundation';
 export * from './1794600000000-candidate-ai-screening';
 export * from './1794700000000-recruitment-scorecards-offers-pool';
+export * from './1794800000000-leave-report-index';
+export * from './1794900000000-dashboard-query-indexes';
