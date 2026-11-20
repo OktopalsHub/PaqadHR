@@ -23,4 +23,10 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     bodyHtml:
       '<p>Hi {{candidate.firstName}},</p><p>Thank you for your interest in {{company.name}}. After careful consideration we will not be moving forward with your application for {{job.title}}. We appreciate your time and wish you every success.</p><p>{{sender.name}}</p>',
   },
+  {
+    name: 'Application accepted',
+    subject: 'Welcome to {{company.name}}',
+    bodyHtml:
+      '<p>Hi {{candidate.firstName}},</p><p>Congratulations! We are pleased to let you know your application for {{job.title}} has been accepted. We will be in touch with the next steps.</p><p>{{sender.name}}</p>',
+  },
 ] as const;

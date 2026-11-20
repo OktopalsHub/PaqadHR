@@ -23,6 +23,7 @@ export type StageInput = {
   name: string;
   type: CandidateStatus;
   autoEmailTemplateId?: string | null;
+  color?: string | null;
 };
 
 @Injectable()
@@ -105,6 +106,10 @@ export class RecruitmentPipelineService {
     actorMemberId: string;
     actorName?: string;
     reason?: string;
+    /** false sends nothing; omitted sends the stage's automatic email. */
+    sendEmail?: boolean;
+    /** Sent instead of the stage's automatic email. */
+    emailTemplateId?: string;
   }) {
     const candidate = await this.candidateService.getCandidate(input.candidateId, input.tenantId);
     const stage = await this.findStage(input.tenantId, input.stageId);
@@ -112,6 +117,8 @@ export class RecruitmentPipelineService {
       throw new BadRequestException('Stage belongs to a different job');
     }
     if (candidate.stageId === stage.id) return candidate;
+    // Checked before anything changes, so a template from another workspace cannot half-apply a move.
+    await this.assertTemplate(input.tenantId, input.emailTemplateId);
 
     if (candidate.status !== stage.type) {
       await this.candidateService.updateCandidateStatus(
@@ -136,12 +143,14 @@ export class RecruitmentPipelineService {
       }),
     );
 
-    if (stage.autoEmailTemplateId) {
+    const templateId =
+      input.sendEmail === false ? null : (input.emailTemplateId ?? stage.autoEmailTemplateId);
+    if (templateId) {
       await this.mailer
         .send({
           tenantId: input.tenantId,
           candidateId: candidate.id,
-          templateId: stage.autoEmailTemplateId,
+          templateId,
           actorMemberId: input.actorMemberId,
           actorName: input.actorName,
           stageName: stage.name,

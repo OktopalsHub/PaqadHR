@@ -19,6 +19,8 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { UpdateRecruitmentPreferencesDto } from '../dto/recruitment-preferences.dto';
+import { RecruitmentPreferencesService } from '../services/recruitment-preferences.service';
 import {
   MoveCandidateStageDto,
   CreatePipelineStageDto,
@@ -48,7 +50,25 @@ export class RecruitmentAtsController {
     private readonly templates: RecruitmentEmailTemplateService,
     private readonly mailer: RecruitmentCandidateMailer,
     private readonly ai: RecruitmentAiService,
+    private readonly preferences: RecruitmentPreferencesService,
   ) {}
+
+  @Get('preferences/me')
+  getMyPreferences(
+    @Param('tenantId') tenantId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.preferences.get(tenantId, member.id);
+  }
+
+  @Patch('preferences/me')
+  updateMyPreferences(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: UpdateRecruitmentPreferencesDto,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.preferences.update(tenantId, member.id, dto.askEmailOnMove);
+  }
 
   @Get('email-templates')
   listTemplates(@Param('tenantId') tenantId: string) {
@@ -124,7 +144,7 @@ export class RecruitmentAtsController {
   }
 
   @Post('candidates/:candidateId/stage')
-  @RateLimit(RateLimitPresets.SENSITIVE)
+  @RateLimit(RateLimitPresets.API)
   moveCandidate(
     @Param('tenantId') tenantId: string,
     @Param('candidateId') candidateId: string,
@@ -136,6 +156,8 @@ export class RecruitmentAtsController {
       candidateId,
       stageId: dto.stageId,
       reason: dto.reason,
+      sendEmail: dto.sendEmail,
+      emailTemplateId: dto.emailTemplateId,
       actorMemberId: member.id,
     });
   }

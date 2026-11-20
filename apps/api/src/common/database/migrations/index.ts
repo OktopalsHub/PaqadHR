@@ -103,3 +103,5 @@ export * from './1794600000000-candidate-ai-screening';
 export * from './1794700000000-recruitment-scorecards-offers-pool';
 export * from './1794800000000-leave-report-index';
 export * from './1794900000000-dashboard-query-indexes';
+export * from './1795000000000-pipeline-stage-color';
+export * from './1795100000000-member-recruitment-preferences';

@@ -22,6 +22,7 @@ export type PipelineStage = {
   type: string;
   position: number;
   autoEmailTemplateId: string | null;
+  color: string | null;
   jobOpeningId: string | null;
 };
 
@@ -89,6 +90,7 @@ export async function addPipelineStage(input: {
   name: string;
   type: string;
   autoEmailTemplateId?: string | null;
+  color?: string | null;
 }): Promise<PipelineStage> {
   return apiClient<PipelineStage>(await atsPath('pipeline/stages'), {
     method: 'POST',
@@ -98,7 +100,12 @@ export async function addPipelineStage(input: {
 
 export async function updatePipelineStage(
   id: string,
-  input: { name?: string; type?: string; autoEmailTemplateId?: string | null },
+  input: {
+    name?: string;
+    type?: string;
+    autoEmailTemplateId?: string | null;
+    color?: string | null;
+  },
 ): Promise<PipelineStage> {
   return apiClient<PipelineStage>(await atsPath(`pipeline/stages/${id}`), {
     method: 'PATCH',
@@ -175,10 +182,16 @@ export type TalentPoolCandidate = {
   status: string;
 };
 
-export async function moveCandidateToStage(candidateId: string, stageId: string): Promise<void> {
+export type MoveStageEmail = { sendEmail?: boolean; emailTemplateId?: string };
+
+export async function moveCandidateToStage(
+  candidateId: string,
+  stageId: string,
+  email: MoveStageEmail = {},
+): Promise<void> {
   await apiClient(await atsPath(`candidates/${candidateId}/stage`), {
     method: 'POST',
-    body: { stageId },
+    body: { stageId, ...email },
   });
 }
 
@@ -252,5 +265,20 @@ export async function setTalentPool(candidateId: string, inPool: boolean): Promi
   await apiClient(await atsPath(`candidates/${candidateId}/talent-pool`), {
     method: 'POST',
     body: { inPool },
+  });
+}
+
+export type RecruitmentPreferences = { askEmailOnMove: boolean };
+
+export async function fetchRecruitmentPreferences(): Promise<RecruitmentPreferences> {
+  return apiClient<RecruitmentPreferences>(await atsPath('preferences/me'));
+}
+
+export async function updateRecruitmentPreferences(
+  input: RecruitmentPreferences,
+): Promise<RecruitmentPreferences> {
+  return apiClient<RecruitmentPreferences>(await atsPath('preferences/me'), {
+    method: 'PATCH',
+    body: input,
   });
 }

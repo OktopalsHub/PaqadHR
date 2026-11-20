@@ -81,6 +81,7 @@ export function usePipelineMutations() {
         name?: string;
         type?: string;
         autoEmailTemplateId?: string | null;
+        color?: string | null;
       }) => {
         const { id, ...body } = input;
         return updatePipelineStage(id, body);

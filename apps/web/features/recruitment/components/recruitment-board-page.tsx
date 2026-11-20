@@ -3,28 +3,24 @@
 import { Search, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  useCandidatesByJob,
-  useJobOpening,
-  useUpdateCandidateStatus,
-} from '@/hooks/queries/use-recruitment';
+import { useCandidatesByJob, useJobOpening } from '@/hooks/queries/use-recruitment';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
-import type { CandidateStatus } from '@/lib/schemas/recruitment';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
 
+import { useBoardMove } from '../hooks/use-board-move';
 import { isDisqualified } from './board/board-columns';
 import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { RecruitmentCandidateList } from './board/recruitment-candidate-list';
 import { candidatesToBoardData, RecruitmentKanbanBoard } from './board/recruitment-kanban-board';
 import { type RecruitmentViewMode, RecruitmentViewToggle } from './board/recruitment-view-toggle';
 import { CandidateDetailSheet } from './candidate/candidate-detail-sheet';
+import { MoveEmailDialog } from './move-email-dialog';
 import { ViewCareersPageLink } from './view-careers-page-link';
 
 type RecruitmentBoardPageProps = {
@@ -74,7 +70,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
     isLoading: candidatesLoading,
     isError: candidatesError,
   } = useCandidatesByJob(isPreviewJob ? null : jobId);
-  const updateStatus = useUpdateCandidateStatus(isPreviewJob ? null : jobId);
+  const boardMove = useBoardMove(isPreviewJob ? null : jobId);
 
   useBreadcrumbTail(job?.title ?? null);
 
@@ -112,13 +108,6 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
     isDisqualified(candidate.status),
   ).length;
 
-  const handleMoveCandidate = async (candidateId: string, status: CandidateStatus) => {
-    try {
-      await updateStatus.mutateAsync({ candidateId, status });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update candidate');
-    }
-  };
 
   if (jobLoading || candidatesLoading) {
     return (
@@ -203,7 +192,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
         <RecruitmentKanbanBoard
           candidates={boardCandidates}
           interactive
-          onMoveCandidate={handleMoveCandidate}
+          onMoveCandidate={boardMove.request}
           onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
         />
       ) : (
@@ -212,6 +201,12 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
           onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
         />
       )}
+      <MoveEmailDialog
+        pending={boardMove.pending}
+        templates={boardMove.templates}
+        onCancel={boardMove.cancel}
+        onConfirm={boardMove.confirm}
+      />
       <CandidateDetailSheet
         candidate={openCandidate}
         onOpenChange={(open) => !open && setOpenCandidateId(null)}

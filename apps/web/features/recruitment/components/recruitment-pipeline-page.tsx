@@ -2,16 +2,15 @@
 
 import { Plus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { toast } from 'sonner';
 
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useAllCandidates, useUpdateCandidateStatus } from '@/hooks/queries/use-recruitment';
-import type { CandidateStatus } from '@/lib/schemas/recruitment';
+import { useAllCandidates } from '@/hooks/queries/use-recruitment';
 
+import { useBoardMove } from '../hooks/use-board-move';
 import { AddCandidateDialog } from './add-candidate-dialog';
 import { isDisqualified } from './board/board-columns';
 import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
@@ -19,6 +18,7 @@ import { RecruitmentCandidateList } from './board/recruitment-candidate-list';
 import { candidatesToBoardData, RecruitmentKanbanBoard } from './board/recruitment-kanban-board';
 import { type RecruitmentViewMode, RecruitmentViewToggle } from './board/recruitment-view-toggle';
 import { CandidateDetailSheet } from './candidate/candidate-detail-sheet';
+import { MoveEmailDialog } from './move-email-dialog';
 import { RecruitmentSectionTabs } from './recruitment-section-tabs';
 import { ViewCareersPageLink } from './view-careers-page-link';
 
@@ -29,7 +29,7 @@ export function RecruitmentPipelinePage() {
   const [openCandidateId, setOpenCandidateId] = useState<string | null>(null);
 
   const { data: candidates = [], isLoading, isError } = useAllCandidates();
-  const updateStatus = useUpdateCandidateStatus(null);
+  const boardMove = useBoardMove(null);
 
   const boardCandidates = useMemo(() => {
     const items = candidatesToBoardData(candidates);
@@ -49,13 +49,6 @@ export function RecruitmentPipelinePage() {
     isDisqualified(candidate.status),
   ).length;
 
-  const handleMoveCandidate = async (candidateId: string, status: CandidateStatus) => {
-    try {
-      await updateStatus.mutateAsync({ candidateId, status });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update candidate');
-    }
-  };
 
   if (isLoading) {
     return (
@@ -123,7 +116,7 @@ export function RecruitmentPipelinePage() {
         <RecruitmentKanbanBoard
           candidates={boardCandidates}
           interactive
-          onMoveCandidate={handleMoveCandidate}
+          onMoveCandidate={boardMove.request}
           onOpenCandidate={(candidate) => setOpenCandidateId(candidate.id)}
         />
       ) : (
@@ -134,6 +127,12 @@ export function RecruitmentPipelinePage() {
       )}
 
       <AddCandidateDialog open={addOpen} onOpenChange={setAddOpen} />
+      <MoveEmailDialog
+        pending={boardMove.pending}
+        templates={boardMove.templates}
+        onCancel={boardMove.cancel}
+        onConfirm={boardMove.confirm}
+      />
       <CandidateDetailSheet
         candidate={openCandidate}
         onOpenChange={(open) => !open && setOpenCandidateId(null)}

@@ -17,48 +17,42 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
+import { LoadingBlock } from '@/components/loading-block';
+import type { PipelineStage } from '@/lib/api/recruitment-ats';
 
-import {
-  BOARD_COLUMNS,
-  type BoardColumnId,
-  type CandidateStatus,
-  canReject,
-  columnForStatus,
-  isDisqualified,
-  resolveColumnDrop,
-} from './board-columns';
+import { usePipeline } from '../../hooks/use-recruitment-ats';
+import { stageColor } from '../../lib/stage-colors';
+import { groupByStage, resolveStageDrop } from '../../lib/stage-board';
+import { type CandidateStatus, canReject, isDisqualified } from './board-columns';
 import { type CandidateCardData, CandidateKanbanCard } from './candidate-kanban-card';
 import { RecruitmentKanbanColumn } from './recruitment-kanban-column';
 
 export type BoardCandidate = CandidateCardData & {
   status: CandidateStatus;
+  stageId?: string | null;
 };
 
 type RecruitmentKanbanBoardProps = {
   candidates: BoardCandidate[];
   interactive?: boolean;
-  onMoveCandidate?: (candidateId: string, status: CandidateStatus) => void;
+  onMoveCandidate?: (candidate: BoardCandidate, stage: PipelineStage) => void;
   onOpenCandidate?: (candidate: BoardCandidate) => void;
 };
 
 function DroppableColumn({
-  columnId,
-  title,
-  count,
+  stage,
   candidates,
   interactive,
   onRejectCandidate,
   onOpenCandidate,
 }: {
-  columnId: BoardColumnId;
-  title: string;
-  count: number;
+  stage: PipelineStage;
   candidates: BoardCandidate[];
   interactive?: boolean;
   onRejectCandidate?: (candidate: BoardCandidate) => void;
   onOpenCandidate?: (candidate: BoardCandidate) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: columnId });
+  const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
     <div
@@ -70,10 +64,10 @@ function DroppableColumn({
       }
     >
       <RecruitmentKanbanColumn
-        title={title}
-        count={count}
+        title={stage.name}
+        color={stageColor(stage)}
+        count={candidates.length}
         candidates={candidates}
-        showAdd={!interactive}
         renderCard={(candidate) =>
           interactive ? (
             <SortableCard
@@ -131,23 +125,16 @@ export function RecruitmentKanbanBoard({
   onMoveCandidate,
   onOpenCandidate,
 }: RecruitmentKanbanBoardProps) {
+  const { data: stages = [], isLoading } = usePipeline();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<BoardCandidate | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  const grouped = useMemo(() => {
-    const map = Object.fromEntries(
-      BOARD_COLUMNS.map((column) => [column.id, [] as BoardCandidate[]]),
-    ) as Record<BoardColumnId, BoardCandidate[]>;
-
-    for (const candidate of candidates) {
-      map[columnForStatus(candidate.status)].push(candidate);
-    }
-
-    return map;
-  }, [candidates]);
-
+  const grouped = useMemo(() => groupByStage(stages, candidates), [stages, candidates]);
+  const rejectStage = stages.find((stage) => stage.type === 'REJECTED');
   const activeCandidate = candidates.find((c) => c.id === activeId);
+
+  if (isLoading) return <LoadingBlock />;
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -160,42 +147,36 @@ export function RecruitmentKanbanBoard({
     const { active, over } = event;
     if (!over) return;
 
-    const candidateId = String(active.id);
-    const candidate = candidates.find((c) => c.id === candidateId);
+    const candidate = candidates.find((c) => c.id === String(active.id));
     if (!candidate) return;
 
     const overId = String(over.id);
-    const targetColumn =
-      BOARD_COLUMNS.find((col) => col.id === overId) ??
-      BOARD_COLUMNS.find((col) => grouped[col.id].some((item) => item.id === overId));
+    const target =
+      stages.find((stage) => stage.id === overId) ??
+      stages.find((stage) => grouped[stage.id]?.some((item) => item.id === overId));
+    if (!target) return;
 
-    if (!targetColumn) return;
-
-    const resolution = resolveColumnDrop(candidate.status, targetColumn.id);
-
-    if (resolution.type === 'move') {
-      if (isDisqualified(resolution.status) && !isDisqualified(candidate.status)) {
-        setRejectTarget(candidate);
-        return;
-      }
-      onMoveCandidate(candidateId, resolution.status);
+    const resolution = resolveStageDrop(stages, candidate, target);
+    if (resolution.type === 'invalid') {
+      toast.error(`Cannot move this candidate from ${candidate.status} to ${target.type}`);
       return;
     }
+    if (resolution.type === 'noop') return;
 
-    if (resolution.type === 'invalid') {
-      toast.error(`Cannot move candidate from ${candidate.status} to ${resolution.status}`);
+    if (isDisqualified(target.type as CandidateStatus) && !isDisqualified(candidate.status)) {
+      setRejectTarget(candidate);
+      return;
     }
+    onMoveCandidate(candidate, target);
   };
 
   const columns = (
     <div className="flex gap-4 overflow-x-auto pb-2">
-      {BOARD_COLUMNS.map((column) => (
+      {stages.map((stage) => (
         <DroppableColumn
-          key={column.id}
-          columnId={column.id}
-          title={column.title}
-          count={grouped[column.id].length}
-          candidates={grouped[column.id]}
+          key={stage.id}
+          stage={stage}
+          candidates={grouped[stage.id] ?? []}
           interactive={interactive}
           onRejectCandidate={interactive && onMoveCandidate ? setRejectTarget : undefined}
           onOpenCandidate={onOpenCandidate}
@@ -209,9 +190,7 @@ export function RecruitmentKanbanBoard({
   }
 
   const confirmReject = () => {
-    if (rejectTarget) {
-      onMoveCandidate?.(rejectTarget.id, 'REJECTED');
-    }
+    if (rejectTarget && rejectStage) onMoveCandidate?.(rejectTarget, rejectStage);
     setRejectTarget(null);
   };
 
@@ -234,7 +213,7 @@ export function RecruitmentKanbanBoard({
         title="Reject candidate?"
         description={
           rejectTarget
-            ? `${`${rejectTarget.firstName} ${rejectTarget.lastName}`.trim()} will move to Disqualified. This is permanent — the candidate can no longer progress in this pipeline.`
+            ? `${`${rejectTarget.firstName} ${rejectTarget.lastName}`.trim()} will move to ${rejectStage?.name ?? 'Rejected'}. This is permanent — the candidate can no longer progress in this pipeline.`
             : ''
         }
         actionLabel="Reject candidate"
@@ -251,6 +230,7 @@ export function candidatesToBoardData(
     lastName: string;
     email: string;
     status: CandidateStatus;
+    stageId?: string | null;
     skills?: string;
     resume?: { filename?: string };
   }>,
@@ -261,6 +241,7 @@ export function candidatesToBoardData(
     lastName: candidate.lastName,
     email: candidate.email,
     status: candidate.status,
+    stageId: candidate.stageId ?? null,
     summary: candidate.skills,
     fileCount: candidate.resume?.filename ? 1 : 0,
   }));
