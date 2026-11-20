@@ -1,6 +1,6 @@
 'use client';
 
-import { Briefcase, Building2, CalendarClock, RefreshCw, Users } from 'lucide-react';
+import { Briefcase, CalendarClock, ClipboardCheck, RefreshCw, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -116,15 +116,48 @@ export const Dashboard = () => {
   );
   const contentCardHeaderClassName = 'border-b border-border/60 px-5 py-4';
   const contentCardTitleClassName = 'text-[17px] font-semibold text-foreground';
+  const onLeaveToday = useMemo(() => {
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return leaves.filter(
+      (leave) =>
+        leave.status?.toLowerCase() === 'approved' &&
+        String(leave.startDate).slice(0, 10) <= today &&
+        String(leave.endDate).slice(0, 10) >= today,
+    ).length;
+  }, [leaves]);
+  const activeCandidates = useMemo(
+    () =>
+      overview.applicantRows.filter(
+        (row) => !['HIRED', 'REJECTED', 'WITHDRAWN'].includes(row.status),
+      ).length,
+    [overview.applicantRows],
+  );
   const statCards = [
     {
       label: 'Headcount',
       // Keep the placeholder until the summary for this workspace actually
       // arrives — never flash a stale/default number while the tenant resolves.
       value: employeeSummary ? employeeSummary.activeEmployees : '—',
-      hint: 'Active employees',
+      hint: employeeSummary
+        ? `Active employees · ${departmentCount} ${departmentCount === 1 ? 'department' : 'departments'}`
+        : 'Active employees',
       icon: Users,
       iconClassName: 'bg-warning/15 text-warning',
+    },
+    {
+      label: 'On leave today',
+      value: leavesLoading ? '—' : onLeaveToday,
+      hint: leavesLoading ? 'Loading requests…' : 'Approved leave covering today',
+      icon: CalendarClock,
+      iconClassName: 'bg-success/15 text-success',
+    },
+    {
+      label: 'Pending approvals',
+      value: leavesLoading ? '—' : pendingLeaves,
+      hint: leavesLoading ? 'Loading requests…' : 'Leave requests waiting on you',
+      icon: ClipboardCheck,
+      iconClassName: 'bg-info/15 text-info',
     },
     ...(recruitmentAccess.includeOpenRolesCard
       ? [
@@ -134,26 +167,12 @@ export const Dashboard = () => {
             hint:
               jobsLoading || overviewLoading
                 ? 'Loading postings…'
-                : `${jobs.length} total postings`,
+                : `${activeCandidates} active ${activeCandidates === 1 ? 'candidate' : 'candidates'}`,
             icon: Briefcase,
-            iconClassName: 'bg-info/15 text-info',
+            iconClassName: 'bg-indigo-100 text-indigo-700',
           },
         ]
       : []),
-    {
-      label: 'Pending leave',
-      value: leavesLoading ? '—' : pendingLeaves,
-      hint: leavesLoading ? 'Loading requests…' : `${leaves.length} requests total`,
-      icon: CalendarClock,
-      iconClassName: 'bg-success/15 text-success',
-    },
-    {
-      label: 'Departments',
-      value: employeeSummary ? departmentCount : '—',
-      hint: 'With assigned members',
-      icon: Building2,
-      iconClassName: 'bg-indigo-100 text-indigo-700',
-    },
   ] as const;
   const statGridClassName =
     statCards.length === 3
