@@ -10,6 +10,8 @@ import type { User } from '../../users/entities/user.entity';
 import { buildUserConsentMetadata } from '../../users/interfaces/user-metadata.interface';
 import { UserRepository } from '../../users/repositories/users.repository';
 import { Account } from '../entities/account.entity';
+import { AuthEmailVerificationService } from './auth-email-verification.service';
+import { AuthSessionService } from './auth-session.service';
 
 @Injectable()
 export class AuthOAuthService {
@@ -17,7 +19,19 @@ export class AuthOAuthService {
     private readonly userRepository: UserRepository,
     @InjectRepository(Account)
     private readonly accountRepository: Repository<Account>,
+    private readonly sessionService: AuthSessionService,
+    private readonly emailVerificationService: AuthEmailVerificationService,
   ) {}
+
+  private async verifyByGoogle(user: User): Promise<void> {
+    if (user.emailVerified) return;
+    await this.userRepository.update(user.id, { emailVerified: true, password: null });
+    await this.accountRepository.delete({ userId: user.id, providerId: 'credential' });
+    await this.sessionService.logout(user.id);
+    await this.emailVerificationService.purgeUserVerifications(user.id);
+    user.emailVerified = true;
+    user.password = null;
+  }
 
   async findOrCreateGoogleUser(
     googleId: string,
@@ -43,10 +57,7 @@ export class AuthOAuthService {
           linkedGoogle.accountId = googleId;
           await this.accountRepository.save(linkedGoogle);
         }
-        if (!existingUser.emailVerified) {
-          await this.userRepository.update(existingUser.id, { emailVerified: true });
-          existingUser.emailVerified = true;
-        }
+        await this.verifyByGoogle(existingUser);
         return existingUser;
       }
       await this.accountRepository.save(
@@ -56,10 +67,7 @@ export class AuthOAuthService {
           accountId: googleId,
         }),
       );
-      if (!existingUser.emailVerified) {
-        await this.userRepository.update(existingUser.id, { emailVerified: true });
-        existingUser.emailVerified = true;
-      }
+      await this.verifyByGoogle(existingUser);
       return existingUser;
     }
     if (termsAccepted !== true)
