@@ -22,7 +22,7 @@ export function verifyTremendousWebhookSignature(rawBody: string, signature: str
     return false;
   }
   const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-  return signaturesMatch(expected, signature.trim().toLowerCase());
+  return signaturesMatch(expected, signature.trim().toLowerCase().replace(/^sha256=/, ''));
 }
 
 /**

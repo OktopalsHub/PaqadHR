@@ -1,3 +1,4 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import type { NoahApiService } from 'src/common/services/noah-api.service';
@@ -36,6 +37,7 @@ function buildWebhookEventRepository() {
     findOne: jest.fn().mockResolvedValue(null),
     save: jest.fn(),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
+    delete: jest.fn().mockResolvedValue({ affected: 1 }),
   } as unknown as Repository<PayrollWebhookEvent>;
 }
 
@@ -157,6 +159,7 @@ describe('PayrollPayoutService', () => {
 
     return {
       service,
+      webhookEventRepository,
       nombaTransferApi,
       noahApi,
       monnifyApi,
@@ -342,19 +345,11 @@ describe('PayrollPayoutService', () => {
         reference: 'txn-123',
         status: 'SUCCESS',
       };
-      const setup = (providerStatus: unknown) => {
+      const setup = (providerStatus: string | null) => {
         const ctx = createService();
         (ctx.nombaTransferApi.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
         (ctx.nombaTransferApi.parseTransferWebhook as jest.Mock).mockReturnValue(successEvent);
-        if (providerStatus instanceof Error) {
-          (ctx.nombaTransferApi.getTransactionStatus as jest.Mock).mockRejectedValue(
-            providerStatus,
-          );
-        } else {
-          (ctx.nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue(
-            providerStatus,
-          );
-        }
+        (ctx.nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue(providerStatus);
         (ctx.payrollItemRepository.findOne as jest.Mock).mockResolvedValue({
           ...baseItem(),
           payrollRun: { tenantId: 'tenant-1' },
@@ -391,20 +386,16 @@ describe('PayrollPayoutService', () => {
         );
       });
 
-      it('does not pay when Nomba cannot be queried', async () => {
-        const { service, applySpy, rawBody } = setup(null);
-        await expect(service.handleNombaWebhook(rawBody, 'valid-sig')).resolves.toEqual({
-          received: true,
-        });
+      it('returns 503 and releases the event claim when Nomba cannot confirm, so Nomba redelivers', async () => {
+        const { service, applySpy, webhookEventRepository, rawBody } = setup(null);
+        await expect(service.handleNombaWebhook(rawBody, 'valid-sig')).rejects.toBeInstanceOf(
+          ServiceUnavailableException,
+        );
         expect(applySpy).not.toHaveBeenCalled();
-      });
-
-      it('does not pay when the Nomba query throws', async () => {
-        const { service, applySpy, rawBody } = setup(new Error('nomba down'));
-        await expect(service.handleNombaWebhook(rawBody, 'valid-sig')).resolves.toEqual({
-          received: true,
+        expect(webhookEventRepository.delete).toHaveBeenCalledWith({
+          provider: PaymentProvider.NOMBA,
+          eventId: 'evt-confirm',
         });
-        expect(applySpy).not.toHaveBeenCalled();
       });
     });
 

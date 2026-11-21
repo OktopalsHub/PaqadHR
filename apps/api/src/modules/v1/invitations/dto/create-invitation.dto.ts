@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { NormalizeEmail } from 'src/common/decorators';
-import { INVITABLE_ROLES } from '../utils/invitation-role.util';
+import { INVITABLE_ROLES } from '../constants/invitation-roles.constants';
 export class CreateInvitationDto {
   @ApiProperty({ description: 'First name of the invitee', example: 'John', required: false })
   @IsString()
