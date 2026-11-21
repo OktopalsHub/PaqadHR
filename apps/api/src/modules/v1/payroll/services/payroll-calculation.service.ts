@@ -16,6 +16,7 @@ import {
   collectAdjustmentsForEmployee,
   computePayrollItemAmounts,
 } from '../utils/payroll-adjustment.util';
+import { assertPayrollRunMutable } from '../utils/payroll-mutability.util';
 import { resolvePayrollPayoutConversion } from '../utils/payroll-payout-conversion.util';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 
@@ -53,6 +54,7 @@ export class PayrollCalculationService {
       relations: { items: { employee: true } },
     });
     if (!run) throw new BadRequestException('Payroll run not found');
+    assertPayrollRunMutable(run, 'recalculate');
 
     const items = (run.items ?? []).filter((i) => i.status !== PayrollItemStatus.CANCELLED);
     if (items.length === 0) throw new BadRequestException('No active items');

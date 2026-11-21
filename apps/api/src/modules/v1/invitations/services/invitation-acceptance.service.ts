@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PasswordService } from 'src/common/utils';
 
-import { InvitationStatus } from '../../../../common/enums';
+import { InvitationStatus, UserRole } from '../../../../common/enums';
 import type { IInvitationResponseDto } from '../../../../common/interfaces/iinvitation-response-dto.interface';
 import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { RateLimitService } from '../../../../common/services/rate-limit.service';
@@ -23,6 +23,7 @@ import type { User } from '../../users/entities/user.entity';
 import { UsersService } from '../../users/users.service';
 import type { Invitation } from '../entities/invitation.entity';
 import { InvitationsRepository } from '../repositories/invitations.repository';
+import { resolveInvitedMemberRole } from '../utils/invitation-role.util';
 import {
   validateEmailFormat,
   validateInvitation,
@@ -79,7 +80,7 @@ export class InvitationAcceptanceService {
           firstName,
           lastName,
           preferredName,
-          role: invitation.role as never,
+          role: resolveInvitedMemberRole(invitation.role),
         },
       );
       return { user: existingUser, userExists: true, tenantMemberId: member.id };
@@ -93,7 +94,7 @@ export class InvitationAcceptanceService {
       email: invitation.email,
       password,
       name: `${firstName} ${lastName}`,
-      role: invitation.role,
+      role: UserRole.BASIC,
       // A valid invitation token sent to this address proves control of the invited email.
       emailVerified: true,
       isActive: true,
@@ -105,7 +106,7 @@ export class InvitationAcceptanceService {
         firstName,
         lastName,
         preferredName,
-        role: invitation.role as never,
+        role: resolveInvitedMemberRole(invitation.role),
       },
     );
     return { user: newUser, userExists: false, tenantMemberId: member.id };

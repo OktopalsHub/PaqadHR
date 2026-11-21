@@ -4,6 +4,7 @@ import { BadRequestException, Injectable, Logger, UnauthorizedException } from '
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
+import { isPayoutSuccessStatus } from 'src/common/utils/payout-status.util';
 import type { Repository } from 'typeorm';
 
 import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
@@ -103,6 +104,29 @@ export class PayoutWebhooks {
     return tenantId ? { tenantId, payrollRunId: item.payrollRunId } : null;
   }
 
+  /**
+   * The signed Nomba fields do not cover merchantTxRef or the amount, so a success event is only a
+   * claim. Ask Nomba for the status of the item's own merchant reference and act on that answer.
+   * Returns null when it cannot be confirmed; the event stays unprocessed so it can be retried.
+   */
+  private async confirmedNombaStatus(
+    claimedStatus: string,
+    merchantRef: string,
+  ): Promise<string | null> {
+    if (!isPayoutSuccessStatus(claimedStatus)) return claimedStatus;
+    try {
+      const confirmed = await this.nombaTransferApi.getTransactionStatus(merchantRef);
+      if (confirmed) return isPayoutSuccessStatus(confirmed) ? claimedStatus : confirmed;
+    } catch (error) {
+      this.logger.warn(
+        `Could not confirm Nomba payout ${merchantRef}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+    this.logger.warn(`Nomba did not confirm success for payout ${merchantRef}; leaving it unpaid`);
+    return null;
+  }
+
   async handleNombaWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
     if (!signature?.trim() || !this.nombaTransferApi.verifyWebhookSignature(rawBody, signature)) {
       this.logger.warn('Rejected Nomba payroll webhook: invalid signature');
@@ -128,9 +152,12 @@ export class PayoutWebhooks {
     const context = await this.resolvePayrollContext(merchantRef);
     if (!context) return { received: true };
 
+    const status = await this.confirmedNombaStatus(event.status, merchantRef);
+    if (!status) return { received: true };
+
     const changed = await this.apply.applyTransferStatus(
       merchantRef,
-      event.status,
+      status,
       event.reference,
       PaymentProvider.NOMBA,
       context.tenantId,

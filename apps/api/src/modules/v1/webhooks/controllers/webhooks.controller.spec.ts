@@ -1,3 +1,5 @@
+import { createHmac } from 'node:crypto';
+
 import { UnauthorizedException } from '@nestjs/common';
 import { RATE_LIMIT_KEY, RateLimitPresets } from 'src/common/decorators';
 
@@ -58,6 +60,50 @@ describe('WebhooksController', () => {
 
     it('rejects missing raw body', () => {
       expect(() => controller.handleNombaWebhook({} as any, {})).toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('handleTremendousWebhook', () => {
+    const originalSecret = process.env.TREMENDOUS_WEBHOOK_SECRET;
+    const body = '{"event_type":"REWARD_FULFILLMENT_FAILED"}';
+    const req = { rawBody: Buffer.from(body) } as any;
+
+    beforeEach(() => {
+      process.env.TREMENDOUS_WEBHOOK_SECRET = 'tremendous-secret';
+    });
+
+    afterEach(() => {
+      if (originalSecret === undefined) delete process.env.TREMENDOUS_WEBHOOK_SECRET;
+      else process.env.TREMENDOUS_WEBHOOK_SECRET = originalSecret;
+    });
+
+    it('rejects a missing signature without dispatching', () => {
+      expect(() => controller.handleTremendousWebhook(req, {})).toThrow(UnauthorizedException);
+      expect(mockTremendousWebhookService.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('rejects a forged signature without dispatching', () => {
+      expect(() =>
+        controller.handleTremendousWebhook(req, { 'tremendous-webhook-signature': 'forged' }),
+      ).toThrow(UnauthorizedException);
+      expect(mockTremendousWebhookService.dispatch).not.toHaveBeenCalled();
+    });
+
+    it('rejects every request when the secret is not configured', () => {
+      delete process.env.TREMENDOUS_WEBHOOK_SECRET;
+      const signature = createHmac('sha256', '').update(body).digest('hex');
+      expect(() =>
+        controller.handleTremendousWebhook(req, { 'tremendous-webhook-signature': signature }),
+      ).toThrow(UnauthorizedException);
+    });
+
+    it('dispatches when the signature matches the raw body', async () => {
+      const signature = createHmac('sha256', 'tremendous-secret').update(body).digest('hex');
+      const result = await controller.handleTremendousWebhook(req, {
+        'tremendous-webhook-signature': signature,
+      });
+      expect(mockTremendousWebhookService.dispatch).toHaveBeenCalledWith(body);
+      expect(result).toEqual({ received: true });
     });
   });
 

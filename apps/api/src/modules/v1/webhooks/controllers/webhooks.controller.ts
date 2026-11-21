@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { verifyTremendousWebhookSignature } from 'src/common/config/tremendous-webhook.util';
 import { Public, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import type {
   SlackEventPayload,
@@ -272,8 +273,17 @@ export class WebhooksController {
   @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Tremendous reward fulfillment webhook' })
-  async handleTremendousWebhook(@Req() req: RawBodyRequestType) {
+  handleTremendousWebhook(
+    @Req() req: RawBodyRequestType,
+    @Headers() headers: Record<string, string>,
+  ) {
     const rawBody = req.rawBody?.toString('utf8') ?? '';
+    if (
+      !rawBody ||
+      !verifyTremendousWebhookSignature(rawBody, headers['tremendous-webhook-signature'] ?? '')
+    ) {
+      throw new UnauthorizedException('Invalid signature');
+    }
     return this.trackWebhook('tremendous', this.tremendousWebhookService.dispatch(rawBody));
   }
 }

@@ -1,5 +1,8 @@
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 
+import { IsIn, IsOptional } from 'class-validator';
+
+import { INVITABLE_ROLES } from '../utils/invitation-role.util';
 import { CreateInvitationDto } from './index';
 
 export class UpdateInvitationDto extends PartialType(CreateInvitationDto) {
@@ -11,10 +14,12 @@ export class UpdateInvitationDto extends PartialType(CreateInvitationDto) {
   email?: string;
   @ApiProperty({
     description: 'Role for the invited user in the workspace',
-    example: 'MEMBER',
-    enum: ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'],
+    example: 'member',
+    enum: INVITABLE_ROLES,
     required: false,
   })
+  @IsOptional()
+  @IsIn(INVITABLE_ROLES)
   role?: string;
   @ApiProperty({
     description: 'Expiration date for the invitation',

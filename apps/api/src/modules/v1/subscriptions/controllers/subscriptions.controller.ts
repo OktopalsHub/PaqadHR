@@ -9,6 +9,7 @@ import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { StartTrialDto } from '../dto/start-trial.dto';
+import { toSubscriptionSummary } from '../utils/subscription-summary.util';
 import { SubscriptionsService } from '../services/subscriptions.service';
 
 class SetTenantRegionDto {
@@ -90,8 +91,8 @@ export class SubscriptionsController {
   @Get('tenant/:tenantId')
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get tenant subscription' })
-  getTenantSubscription(@Param('tenantId') tenantId: string) {
-    return this.subscriptionsService.getTenantSubscription(tenantId);
+  async getTenantSubscription(@Param('tenantId') tenantId: string) {
+    return toSubscriptionSummary(await this.subscriptionsService.getTenantSubscription(tenantId));
   }
 
   @Get('tenant/:tenantId/billing-status')

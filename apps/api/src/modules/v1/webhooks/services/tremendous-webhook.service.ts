@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import { isAllowedTremendousUrl } from '../../../../common/config/tremendous-webhook.util';
 import { EmailTemplateService } from '../../notifications/services/email-template.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
@@ -11,15 +12,6 @@ import { TenantMember } from '../../tenant-members/entities/tenant-member.entity
 
 /** Persisted on the redemption and shown to the member when Tremendous cannot deliver. */
 const TREMENDOUS_FAILURE_MESSAGE = 'Tremendous could not deliver this reward. Points refunded.';
-
-function isValidHttpsUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
 
 interface TremendousWebhookPayload {
   event_type: string;
@@ -115,7 +107,7 @@ export class TremendousWebhookService {
 
     const deliveryLink = reward?.delivery?.link ?? reward?.redemption?.details?.redemption_url;
     const safeDeliveryLink =
-      deliveryLink && isValidHttpsUrl(deliveryLink) ? deliveryLink : undefined;
+      deliveryLink && isAllowedTremendousUrl(deliveryLink) ? deliveryLink : undefined;
     // The link can arrive after the order was already accepted at claim time.
     const pendingLink = safeDeliveryLink && !redemption.voucher?.code ? safeDeliveryLink : null;
     const alreadyFulfilled = redemption.status === 'SUCCESS';
