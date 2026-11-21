@@ -112,6 +112,27 @@ export class InvitationAcceptanceService {
     return { user: newUser, userExists: false, tenantMemberId: member.id };
   }
 
+  private async applyInvitationPlacement(
+    invitation: Invitation,
+    tenantMemberId: string,
+  ): Promise<void> {
+    if (invitation.departmentId) {
+      await this.departmentsService.addMemberToDepartment(
+        invitation.tenantId,
+        invitation.departmentId,
+        tenantMemberId,
+        tenantMemberId,
+      );
+    }
+    if (invitation.positionId) {
+      await this.positionMemberService.assignPosition(
+        invitation.tenantId,
+        tenantMemberId,
+        invitation.positionId,
+      );
+    }
+  }
+
   private async emitAcceptanceSideEffects(
     invitation: Invitation,
     tenantMemberId: string,
@@ -209,30 +230,37 @@ export class InvitationAcceptanceService {
     validateName(firstName, lastName);
 
     const preferredName = acceptInvitationDto?.preferredName?.trim() || undefined;
-    const { user, userExists, tenantMemberId } = await this.provisionAcceptanceUser(
-      invitation,
-      acceptInvitationDto,
-      firstName,
-      lastName,
-      preferredName,
+    const claimed = await this.invitationsRepository.claimPending(
+      invitation.id,
+      InvitationStatus.ACCEPTED,
     );
+    if (!claimed) {
+      throw new ConflictException('Invitation has already been processed');
+    }
 
-    if (invitation.departmentId) {
-      await this.departmentsService.addMemberToDepartment(
-        invitation.tenantId,
-        invitation.departmentId,
-        tenantMemberId,
-        tenantMemberId,
+    let provisioned: { user: User | null; userExists: boolean; tenantMemberId: string };
+    try {
+      provisioned = await this.provisionAcceptanceUser(
+        invitation,
+        acceptInvitationDto,
+        firstName,
+        lastName,
+        preferredName,
       );
+      await this.applyInvitationPlacement(invitation, provisioned.tenantMemberId);
+    } catch (error) {
+      await this.invitationsRepository
+        .releaseClaim(invitation.id, InvitationStatus.ACCEPTED)
+        .catch((releaseError: unknown) => {
+          this.logger.error(
+            `Could not release claim on invitation ${invitation.id}`,
+            releaseError instanceof Error ? releaseError.stack : undefined,
+          );
+        });
+      throw error;
     }
-    if (invitation.positionId) {
-      await this.positionMemberService.assignPosition(
-        invitation.tenantId,
-        tenantMemberId,
-        invitation.positionId,
-      );
-    }
-    const updatedInvitation = await this.invitationsRepository.acceptInvitation(invitation.id);
+    const { user, userExists, tenantMemberId } = provisioned;
+    invitation.status = InvitationStatus.ACCEPTED;
     await this.invitationsRepository.softDelete(invitation.id);
     await this.rateLimitService.clearRateLimit(`accept_${email}`);
 
@@ -241,7 +269,7 @@ export class InvitationAcceptanceService {
     await this.emitAcceptanceSideEffects(invitation, tenantMemberId, inviteeName, user);
 
     return {
-      invitation: await this.managementService.mapToResponseDto(updatedInvitation),
+      invitation: await this.managementService.mapToResponseDto(invitation),
       userExists,
       user: user
         ? {
@@ -295,9 +323,13 @@ export class InvitationAcceptanceService {
     if (invitation.expiresAt < new Date()) {
       throw new BadRequestException('Invitation has expired');
     }
-    await this.invitationsRepository.update(invitation.id, {
-      status: InvitationStatus.DECLINED,
-    });
+    const claimed = await this.invitationsRepository.claimPending(
+      invitation.id,
+      InvitationStatus.DECLINED,
+    );
+    if (!claimed) {
+      throw new ConflictException('Invitation has already been processed');
+    }
     const updatedInvitation = await this.invitationsRepository.findOne({
       where: { id: invitation.id },
     });

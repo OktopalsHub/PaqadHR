@@ -100,6 +100,15 @@ export class InvitationsRepository extends Repository<Invitation> {
     return this.updateInvitation(id, { status: InvitationStatus.ACCEPTED });
   }
 
+  async claimPending(id: string, status: InvitationStatus): Promise<boolean> {
+    const result = await this.update({ id, status: InvitationStatus.PENDING }, { status });
+    return result.affected === 1;
+  }
+
+  async releaseClaim(id: string, status: InvitationStatus): Promise<void> {
+    await this.update({ id, status }, { status: InvitationStatus.PENDING });
+  }
+
   async declineInvitation(id: string): Promise<Invitation> {
     return this.updateInvitation(id, { status: InvitationStatus.DECLINED });
   }

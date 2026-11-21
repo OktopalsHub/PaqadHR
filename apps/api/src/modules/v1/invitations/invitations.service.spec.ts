@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 
 import { InvitationStatus } from '../../../common/enums';
 import { InvitationsService } from './invitations.service';
@@ -42,6 +42,9 @@ describe('InvitationsService', () => {
         .fn()
         .mockResolvedValue({ ...invitation, status: InvitationStatus.ACCEPTED }),
       softDelete: jest.fn().mockResolvedValue(undefined),
+      claimPending: jest.fn().mockResolvedValue(true),
+      releaseClaim: jest.fn().mockResolvedValue(undefined),
+      findOne: jest.fn().mockResolvedValue({ ...invitation, status: InvitationStatus.DECLINED }),
     };
     const tenantMembersService = {
       checkUserTenantMembership: jest.fn().mockResolvedValue(null),
@@ -324,6 +327,119 @@ describe('InvitationsService', () => {
         'member-new',
         'pos-1',
       );
+    });
+
+    it('claims the invitation before creating anything', async () => {
+      const { service, invitationsRepository, usersService, tenantMembersService } = buildService({
+        invitation: { email: 'new@example.com' },
+      });
+
+      await service.acceptInvitation('token-abc', 'new@example.com', {
+        password: 'password123',
+        firstName: 'Grace',
+        lastName: 'Hopper',
+      });
+
+      expect(invitationsRepository.claimPending).toHaveBeenCalledWith(
+        'inv-1',
+        InvitationStatus.ACCEPTED,
+      );
+      expect(invitationsRepository.claimPending.mock.invocationCallOrder[0]).toBeLessThan(
+        usersService.createUser.mock.invocationCallOrder[0],
+      );
+      expect(tenantMembersService.createTenantMember).toHaveBeenCalledTimes(1);
+    });
+
+    it('creates nothing when the claim is lost to a concurrent accept', async () => {
+      const { service, invitationsRepository, usersService, tenantMembersService } = buildService({
+        invitation: { email: 'new@example.com' },
+      });
+      invitationsRepository.claimPending.mockResolvedValue(false);
+
+      await expect(
+        service.acceptInvitation('token-abc', 'new@example.com', {
+          password: 'password123',
+          firstName: 'Grace',
+          lastName: 'Hopper',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(usersService.createUser).not.toHaveBeenCalled();
+      expect(tenantMembersService.createTenantMember).not.toHaveBeenCalled();
+    });
+
+    it('releases the claim when provisioning fails after it', async () => {
+      const { service, invitationsRepository, tenantMembersService } = buildService({
+        invitation: { email: 'new@example.com' },
+      });
+      tenantMembersService.createTenantMember.mockRejectedValue(new Error('boom'));
+
+      await expect(
+        service.acceptInvitation('token-abc', 'new@example.com', {
+          password: 'password123',
+          firstName: 'Grace',
+          lastName: 'Hopper',
+        }),
+      ).rejects.toThrow('boom');
+
+      expect(invitationsRepository.releaseClaim).toHaveBeenCalledWith(
+        'inv-1',
+        InvitationStatus.ACCEPTED,
+      );
+      expect(invitationsRepository.softDelete).not.toHaveBeenCalled();
+    });
+
+    it('rethrows the original failure when releasing the claim also fails', async () => {
+      const { service, invitationsRepository, tenantMembersService } = buildService({
+        invitation: { email: 'new@example.com' },
+      });
+      tenantMembersService.createTenantMember.mockRejectedValue(new Error('boom'));
+      invitationsRepository.releaseClaim.mockRejectedValue(new Error('release failed'));
+
+      await expect(
+        service.acceptInvitation('token-abc', 'new@example.com', {
+          password: 'password123',
+          firstName: 'Grace',
+          lastName: 'Hopper',
+        }),
+      ).rejects.toThrow('boom');
+    });
+  });
+
+  describe('declineInvitationByTokenAndEmail', () => {
+    it('declines through an atomic claim', async () => {
+      const { service, invitationsRepository } = buildService();
+
+      await service.declineInvitationByTokenAndEmail('token-abc', 'existing@example.com');
+
+      expect(invitationsRepository.claimPending).toHaveBeenCalledWith(
+        'inv-1',
+        InvitationStatus.DECLINED,
+      );
+    });
+
+    it('rejects when the invitation was already handled concurrently', async () => {
+      const { service, invitationsRepository } = buildService();
+      invitationsRepository.claimPending.mockResolvedValue(false);
+
+      await expect(
+        service.declineInvitationByTokenAndEmail('token-abc', 'existing@example.com'),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('responses', () => {
+    it('never includes the invitation token', async () => {
+      const { service } = buildService({
+        existingUser: { id: 'user-1', email: 'existing@example.com', role: 'member' },
+      });
+
+      const result = await service.acceptInvitation('token-abc', 'existing@example.com', {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      });
+
+      expect(result.invitation).not.toHaveProperty('token');
     });
   });
 });
