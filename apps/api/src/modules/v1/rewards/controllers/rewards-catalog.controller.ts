@@ -7,6 +7,8 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 
+import { CreateCustomRewardDto, UpdateCustomRewardDto } from '../dto/custom-reward.dto';
+import { UtilityLookupDto } from '../dto/utility-lookup.dto';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { RewardsService } from '../services/rewards.service';
 
@@ -83,14 +85,7 @@ export class RewardsCatalogHandler {
   @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
-  async lookupUtilityMeter(
-    @Body() body: {
-      countryCode: string;
-      billerId: string;
-      accountNumber: string;
-      serviceType?: string;
-    },
-  ) {
+  async lookupUtilityMeter(@Body() body: UtilityLookupDto) {
     return this.rewardsService.lookupUtilityMeter(
       body.countryCode,
       body.billerId,
@@ -113,18 +108,10 @@ export class RewardsCatalogHandler {
   @Roles(...ADMIN_ROLES)
   async createCustomReward(
     @Param('tenantId') tenantId: string,
-    @Body() body: {
-      name: string;
-      pointsCost: number;
-      description?: string;
-      deliveryInstructions?: string;
-      isActive?: boolean;
-      stockLimit?: number | null;
-      imageUrl?: string;
-    },
+    @Body() body: CreateCustomRewardDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.customRewardsService.create(tenantId, body as never, member.id);
+    return this.customRewardsService.create(tenantId, body, member.id);
   }
 
   @Patch('custom/:rewardId')
@@ -134,18 +121,10 @@ export class RewardsCatalogHandler {
   async updateCustomReward(
     @Param('tenantId') tenantId: string,
     @Param('rewardId') rewardId: string,
-    @Body() body: {
-      name?: string;
-      pointsCost?: number;
-      description?: string;
-      deliveryInstructions?: string;
-      isActive?: boolean;
-      stockLimit?: number | null;
-      imageUrl?: string;
-    },
+    @Body() body: UpdateCustomRewardDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.customRewardsService.update(tenantId, rewardId, body as never, member.id);
+    return this.customRewardsService.update(tenantId, rewardId, body, member.id);
   }
 
   @Delete('custom/:rewardId')

@@ -19,9 +19,9 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 
-import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreateJobOpeningDto } from '../dto/index';
+import { JobFilterQueryDto } from '../dto/job-filter-query.dto';
 import { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
 import { JobOpening } from '../entities/job-opening.entity';
 import { JobOpeningService } from '../services/job-opening.service';
@@ -125,7 +125,7 @@ export class JobOpeningController {
   @ApiQuery({ name: 'limit', type: Number, required: false })
   async getJobsByTenant(
     @Param('tenantId') tenantId: string,
-    @Query() filters: JobFilterOptions,
+    @Query() filters: JobFilterQueryDto,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<{ jobs: JobOpening[]; total: number }> {
     return this.jobOpeningService.getJobsByTenant(tenantId, member.id, filters);

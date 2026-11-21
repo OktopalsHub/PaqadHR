@@ -34,6 +34,7 @@ import {
   SubmitForVerificationDto,
   VerifyPaymentMethodDto,
 } from '../dto/payment-method.dto';
+import { DeletePaymentMethodDto } from '../dto/delete-payment-method.dto';
 import { PaymentMethodService } from '../services/payment-method.service';
 
 @ApiTags('Payment Methods')
@@ -161,7 +162,7 @@ export class PaymentMethodController {
   async deletePaymentMethod(
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
-    @Body() body: { passcode?: string },
+    @Body() body: DeletePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     await this.paymentMethodService.deletePaymentMethod(

@@ -15,7 +15,13 @@ import type { MemberContext } from 'src/common/interfaces';
 
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
+import { ClaimRewardDto } from '../dto/claim-reward.dto';
+import { CreateCustomRewardDto, UpdateCustomRewardDto } from '../dto/custom-reward.dto';
+import { CreateTaskDto, SubmitTaskDto, UpdateTaskDto } from '../dto/task.dto';
+import { UtilityLookupDto } from '../dto/utility-lookup.dto';
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
+import { WalletTopupCompleteDto, WalletTopupDto } from '../dto/wallet-topup.dto';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { RewardsService } from '../services/rewards.service';
 import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
@@ -79,16 +85,10 @@ export class RewardsController {
   @RewardsIntegrationsAllRoles()
   async claim(
     @Param('tenantId') t: string,
-    @Body() b: {
-      rewardType: string;
-      rewardId: string;
-      pointsCost: number;
-      currencyValue: number;
-      [key: string]: unknown;
-    },
+    @Body() b: ClaimRewardDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
-    return this.claims.claim(t, b as never, m);
+    return this.claims.claim(t, b, m);
   }
 
   @Get('claims/me')
@@ -124,7 +124,7 @@ export class RewardsController {
   @RewardsIntegrationsAdminRoles()
   async createCustomReward(
     @Param('tenantId') t: string,
-    @Body() b: { name: string; pointsCost: number; [key: string]: unknown },
+    @Body() b: CreateCustomRewardDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
     return this.catalog.createCustomReward(t, b, m);
@@ -135,7 +135,7 @@ export class RewardsController {
   async updateCustomReward(
     @Param('tenantId') t: string,
     @Param('rewardId') r: string,
-    @Body() b: { [key: string]: unknown },
+    @Body() b: UpdateCustomRewardDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
     return this.catalog.updateCustomReward(t, r, b, m);
@@ -171,14 +171,7 @@ export class RewardsController {
 
   @Post('utilities/lookup')
   @RewardsIntegrationsAllRoles()
-  async lookupUtilityMeter(
-    @Body() b: {
-      countryCode: string;
-      billerId: string;
-      accountNumber: string;
-      serviceType?: string;
-    },
-  ) {
+  async lookupUtilityMeter(@Body() b: UtilityLookupDto) {
     return this.catalog.lookupUtilityMeter(b);
   }
 
@@ -198,7 +191,7 @@ export class RewardsController {
   @RewardsIntegrationsAdminRoles()
   async manualTopup(
     @Param('tenantId') t: string,
-    @Body() b: { amount: number },
+    @Body() b: WalletTopupDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
     return this.wallet.manualTopup(t, b, m);
@@ -208,7 +201,7 @@ export class RewardsController {
   @RewardsIntegrationsAdminRoles()
   async topupCheckout(
     @Param('tenantId') t: string,
-    @Body() b: { amount: number },
+    @Body() b: WalletTopupDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
     return this.wallet.topupCheckout(t, b, m);
@@ -218,7 +211,7 @@ export class RewardsController {
   @RewardsIntegrationsAdminRoles()
   async completeTopupCheckout(
     @Param('tenantId') t: string,
-    @Body() b: { orderReference: string; amount?: number; transactionReference?: string },
+    @Body() b: WalletTopupCompleteDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
     return this.wallet.completeTopupCheckout(t, b, m);
@@ -238,10 +231,10 @@ export class RewardsController {
   @RewardsAdminRoles()
   async assignPoints(
     @Param('tenantId') t: string,
-    @Body() b: { memberIds?: string[]; points?: number; reason?: string; assignments?: unknown },
+    @Body() b: AssignMemberPointsDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
-    return this.tasks.assignPoints(t, b as never, m);
+    return this.tasks.assignPoints(t, b, m);
   }
 
   @Get('tasks')
@@ -263,16 +256,7 @@ export class RewardsController {
   @RewardsAdminRoles()
   async createTask(
     @Param('tenantId') t: string,
-    @Body() b: {
-      title: string;
-      description: string;
-      points: number;
-      icon: string;
-      category?: string;
-      imageUrl?: string;
-      submissionType: 'instant' | 'text' | 'file';
-      isRecurring?: boolean;
-    },
+    @Body() b: CreateTaskDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
     return this.tasks.createTask(t, b, m);
@@ -283,7 +267,7 @@ export class RewardsController {
   async updateTask(
     @Param('tenantId') t: string,
     @Param('taskId') id: string,
-    @Body() b: { [key: string]: unknown },
+    @Body() b: UpdateTaskDto,
     @CurrentTenantMember() m: MemberContext,
   ) {
     return this.tasks.updateTask(t, id, b, m);
@@ -305,7 +289,7 @@ export class RewardsController {
     @Param('tenantId') t: string,
     @Param('taskId') id: string,
     @CurrentTenantMember() m: MemberContext,
-    @Body() b: { submissionText?: string; submissionFileName?: string },
+    @Body() b: SubmitTaskDto,
   ) {
     return this.tasks.submitTask(t, id, m, b);
   }

@@ -6,6 +6,7 @@ import type { MemberContext } from 'src/common/interfaces';
 
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
+import { CreateTaskDto, SubmitTaskDto, UpdateTaskDto } from '../dto/task.dto';
 import { RewardsService } from '../services/rewards.service';
 
 const ALL_ROLES = [
@@ -46,17 +47,7 @@ export class RewardsTasksHandler {
   @Roles(...ADMIN_ROLES)
   async createTask(
     @Param('tenantId') tenantId: string,
-    @Body()
-    body: {
-      title: string;
-      description: string;
-      points: number;
-      icon: string;
-      category?: string;
-      imageUrl?: string;
-      submissionType: 'instant' | 'text' | 'file';
-      isRecurring?: boolean;
-    },
+    @Body() body: CreateTaskDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.rewardsService.createTask(tenantId, body, member.id);
@@ -68,17 +59,7 @@ export class RewardsTasksHandler {
   async updateTask(
     @Param('tenantId') tenantId: string,
     @Param('taskId') taskId: string,
-    @Body()
-    body: {
-      title?: string;
-      description?: string;
-      points?: number;
-      icon?: string;
-      category?: string;
-      imageUrl?: string;
-      submissionType?: 'instant' | 'text' | 'file';
-      isRecurring?: boolean;
-    },
+    @Body() body: UpdateTaskDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.rewardsService.updateTask(tenantId, taskId, body, member.id);
@@ -102,7 +83,7 @@ export class RewardsTasksHandler {
     @Param('tenantId') tenantId: string,
     @Param('taskId') taskId: string,
     @CurrentTenantMember() member: MemberContext,
-    @Body() body: { submissionText?: string; submissionFileName?: string },
+    @Body() body: SubmitTaskDto,
   ) {
     return this.rewardsService.submitTask(tenantId, taskId, member.id, body);
   }

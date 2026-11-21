@@ -21,7 +21,6 @@ import { DocumentType } from 'src/common/enums/document-type.enum';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
-import { FileUrlService } from 'src/common/services/file-url.service';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { assertAdmin, isTenantAdmin } from 'src/common/utils/member-access.util';
 
@@ -30,7 +29,7 @@ import type { DocumentCategory } from '../../../common/enums/document-category.e
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { DocumentUploadService } from './document-upload.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
-import { DocumentMapper } from './dto/document-response.dto';
+import { DocumentMapper, DocumentResponseDto } from './dto/document-response.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { Document } from './entities/document.entity';
 
@@ -41,7 +40,6 @@ import { Document } from './entities/document.entity';
 export class DocumentUploadController {
   constructor(
     private readonly documentUploadService: DocumentUploadService,
-    private readonly fileUrlService: FileUrlService,
     private readonly managerAccessService: ManagerAccessService,
   ) {}
 
@@ -56,13 +54,13 @@ Step 3: Call this endpoint with the fileKey from step 1`,
   @ApiResponse({
     status: 201,
     description: 'Document record created successfully',
-    type: Document,
+    type: DocumentResponseDto,
   })
   async createDocument(
     @Body() createDocumentDto: CreateDocumentDto,
     @Param('tenantId') tenantId: string,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Document> {
+  ): Promise<DocumentResponseDto> {
     if (createDocumentDto.type === DocumentType.PAY_STUB) {
       throw new BadRequestException('Payslips cannot be uploaded manually');
     }
@@ -75,7 +73,12 @@ Step 3: Call this endpoint with the fileKey from step 1`,
 
     const { memberId: _memberId, ...documentPayload } = createDocumentDto;
 
-    return this.documentUploadService.createDocument(tenantId, targetMemberId, documentPayload);
+    const created = await this.documentUploadService.createDocument(
+      tenantId,
+      targetMemberId,
+      documentPayload,
+    );
+    return DocumentMapper.toResponse(created);
   }
 
   @Get()
@@ -139,7 +142,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
       }
     }
     documents = this.documentUploadService.filterDocumentsForMember(documents, member.role);
-    return DocumentMapper.toResponseList(documents, this.fileUrlService);
+    return DocumentMapper.toResponseList(documents);
   }
 
   @Get(':id')
@@ -159,7 +162,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
       throw new ForbiddenException('Access denied to this document');
     }
     const document = await this.documentUploadService.getDocument(id, tenantId);
-    return DocumentMapper.toResponse(document, this.fileUrlService);
+    return DocumentMapper.toResponse(document);
   }
 
   @Patch(':id')
@@ -169,7 +172,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
     @Param('tenantId') tenantId: string,
     @Body() updateDocumentDto: UpdateDocumentDto,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Document> {
+  ): Promise<DocumentResponseDto> {
     const document = await this.documentUploadService.getDocument(id, tenantId);
     if (document.tenantMemberId !== member.id && !isTenantAdmin(member)) {
       await this.managerAccessService.assertAdminOrManagerOf(
@@ -178,7 +181,13 @@ Step 3: Call this endpoint with the fileKey from step 1`,
         tenantId,
       );
     }
-    return this.documentUploadService.updateDocument(id, updateDocumentDto, tenantId, member.id);
+    const updated = await this.documentUploadService.updateDocument(
+      id,
+      updateDocumentDto,
+      tenantId,
+      member.id,
+    );
+    return DocumentMapper.toResponse(updated);
   }
 
   @Get(':id/download')
@@ -222,7 +231,9 @@ Step 3: Call this endpoint with the fileKey from step 1`,
   async restoreDocument(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('tenantId') tenantId: string,
-  ): Promise<Document> {
-    return this.documentUploadService.restoreDocument(id, tenantId);
+  ): Promise<DocumentResponseDto> {
+    return DocumentMapper.toResponse(
+      await this.documentUploadService.restoreDocument(id, tenantId),
+    );
   }
 }

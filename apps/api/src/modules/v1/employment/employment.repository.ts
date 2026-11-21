@@ -25,7 +25,23 @@ export class EmploymentRepository extends Repository<Employment> {
   async listEmployments(tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.find({
       where: { tenantId },
-      relations: { position: true, reportsTo: true, tenantMember: true },
+      select: {
+        id: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        tenantMemberId: true,
+        positionId: true,
+        tenantId: true,
+        reportsToId: true,
+        payType: true,
+        paySchedule: true,
+        payRate: true,
+        currency: true,
+        comments: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       order: { startDate: 'DESC' },
       withDeleted: false,
     });

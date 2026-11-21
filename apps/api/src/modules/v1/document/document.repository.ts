@@ -27,7 +27,24 @@ export class DocumentRepository extends Repository<Document> implements IDocumen
     return this.save(entity);
   }
   async listDocuments(tenantId: string): Promise<Document[]> {
-    return this.find({ withDeleted: false, where: { tenantId } });
+    return this.find({
+      withDeleted: false,
+      where: { tenantId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        fileKey: true,
+        issueDate: true,
+        expiryDate: true,
+        description: true,
+        isVerified: true,
+        tenantMemberId: true,
+        tenantId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
   }
   async getDocument(id: string, tenantId: string): Promise<Document | null> {
     return this.findOne({ where: { id, tenantId }, withDeleted: false });

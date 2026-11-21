@@ -112,7 +112,6 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
       createdAt: Date;
       updatedAt: Date;
       leaveTypeName: string | null;
-      memberPreferredName: string | null;
       memberFirstName: string | null;
       memberLastName: string | null;
     }>
@@ -136,7 +135,6 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
         'balance.created_at AS "createdAt"',
         'balance.updated_at AS "updatedAt"',
         'leaveType.name AS "leaveTypeName"',
-        'member.preferred_name AS "memberPreferredName"',
         'member.first_name AS "memberFirstName"',
         'member.last_name AS "memberLastName"',
       ])

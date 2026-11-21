@@ -30,6 +30,7 @@ import type {
 
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { BroadcastNotificationDto } from '../dto/broadcast-notification.dto';
+import { MarkNotificationsReadDto } from '../dto/mark-notifications-read.dto';
 import type { Notification } from '../entities/notification.entity';
 import { NotificationService } from '../services/notification.service';
 import { SSENotificationService } from '../services/sse-notification.service';
@@ -103,7 +104,7 @@ export class NotificationController {
   @ApiOperation({ summary: 'Mark multiple notifications as read' })
   @ApiResponse({ status: 200, description: 'Notifications marked as read' })
   async markMultipleAsRead(
-    @Body() body: { notificationIds: string[] },
+    @Body() body: MarkNotificationsReadDto,
     @CurrentTenantMember() member: MemberContext,
     @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ success: boolean }> {

@@ -204,8 +204,8 @@ export class UsersService {
       .catch(() => {});
   }
 
-  async getUsers(): Promise<User[]> {
-    return this.userRepository.listUsers();
+  async getUsers(limit = 100, offset = 0): Promise<User[]> {
+    return this.userRepository.listUsers(false, limit, offset);
   }
 
   async getUser(id: string): Promise<User> {

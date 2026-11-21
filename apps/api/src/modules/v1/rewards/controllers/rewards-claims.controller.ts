@@ -6,7 +6,8 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 
-import { type ClaimInput, RewardsService } from '../services/rewards.service';
+import { ClaimRewardDto } from '../dto/claim-reward.dto';
+import { RewardsService } from '../services/rewards.service';
 
 const ALL_ROLES = [
   TenantMemberRole.OWNER,
@@ -24,7 +25,7 @@ export class RewardsClaimsHandler {
   @Roles(...ALL_ROLES)
   async claim(
     @Param('tenantId') tenantId: string,
-    @Body() body: ClaimInput,
+    @Body() body: ClaimRewardDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.rewardsService.claim(tenantId, member.id, body);

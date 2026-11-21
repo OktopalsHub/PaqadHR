@@ -18,6 +18,7 @@ import { ManagerAccessService } from 'src/common/services/manager-access.service
 
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { AssignPositionDto } from '../dto/assign-position.dto';
+import { PositionMemberMapper } from '../dto/position-member-response.dto';
 import { PositionMemberService } from '../services/position-member.service';
 
 @Controller('tenants/:tenantId/positions')
@@ -36,7 +37,8 @@ export class PositionMemberController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, memberId, tenantId);
-    return this.positionMemberService.getPositionHistory(tenantId, memberId);
+    const history = await this.positionMemberService.getPositionHistory(tenantId, memberId);
+    return PositionMemberMapper.toHistoryList(history);
   }
 
   @Get('position/:positionId/members')
@@ -44,7 +46,8 @@ export class PositionMemberController {
     @Param('tenantId') tenantId: string,
     @Param('positionId', ParseUUIDPipe) positionId: string,
   ) {
-    return this.positionMemberService.getMembersByPosition(tenantId, positionId);
+    const roster = await this.positionMemberService.getMembersByPosition(tenantId, positionId);
+    return PositionMemberMapper.toRosterList(roster);
   }
 
   @Post('member/:memberId/assign')
@@ -57,12 +60,13 @@ export class PositionMemberController {
     @Body() body: AssignPositionDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.positionMemberService.assignPosition(
+    const assigned = await this.positionMemberService.assignPosition(
       tenantId,
       memberId,
       body.positionId,
       body.assignedAt ?? new Date(),
       member.id,
     );
+    return PositionMemberMapper.toHistoryEntry(assigned);
   }
 }

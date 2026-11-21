@@ -77,7 +77,7 @@ export class DocumentUploadService {
 
   async updateDocument(
     id: string,
-    updateDocumentDto: UpdateDocumentDto,
+    updateDocumentDto: UpdateDocumentDto & { isVerified?: boolean },
     tenantId: string,
     actorMemberId?: string,
   ): Promise<Document> {

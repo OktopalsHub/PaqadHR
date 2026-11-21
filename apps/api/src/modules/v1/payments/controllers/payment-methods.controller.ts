@@ -18,12 +18,13 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import { TenantGuard } from 'src/common/guards/tenant.guard';
 import type { MemberContext } from 'src/common/interfaces';
 
-import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
   UpdatePaymentMethodDto,
 } from '../../payment-method/dto/payment-method.dto';
+import { ReviewPaymentMethodDto } from '../../payment-method/dto/review-payment-method.dto';
+import { VerifyPasscodeDto } from '../../payment-method/dto/paymemt-security.dto';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 
@@ -195,7 +196,7 @@ export class PaymentMethodsController {
   async deletePaymentMethod(
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
-    @Body() body: { passcode: string },
+    @Body() body: VerifyPasscodeDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     await this.paymentMethodService.deletePaymentMethod(
@@ -240,14 +241,14 @@ export class PaymentMethodsController {
   async verifyPaymentMethod(
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
-    @Body() body: { status: string; notes?: string },
+    @Body() body: ReviewPaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.paymentMethodService.verifyPaymentMethod(
       paymentMethodId,
       tenantId,
       {
-        status: body.status as PaymentMethodStatus,
+        status: body.status,
         notes: body.notes,
       },
       member.id,

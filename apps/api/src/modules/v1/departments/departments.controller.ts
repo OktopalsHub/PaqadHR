@@ -24,6 +24,7 @@ import { DepartmentsService } from './departments.service';
 import { AddDepartmentMemberDto } from './dto/add-department-member.dto';
 import { AssignDepartmentManagerDto } from './dto/assign-department-manager.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
+import { DepartmentMemberSummaryMapper } from './dto/department-member-response.dto';
 import { DepartmentResponseDto } from './dto/department-response.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 
@@ -154,6 +155,7 @@ export class DepartmentsController {
   }
   @Get(':id/members')
   async getDepartmentMembers(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.departmentsService.getDepartmentMembers(tenantId, id);
+    const members = await this.departmentsService.getDepartmentMembers(tenantId, id);
+    return DepartmentMemberSummaryMapper.toResponseList(members);
   }
 }

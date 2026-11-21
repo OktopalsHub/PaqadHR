@@ -63,3 +63,8 @@ next-env.d.ts
 brag-output/
 mcp
 audits/
+
+# local agent/audit scratch
+.agents/
+.audit/
+.scratch/

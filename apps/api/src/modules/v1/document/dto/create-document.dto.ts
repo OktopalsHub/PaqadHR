@@ -50,14 +50,6 @@ export class CreateDocumentDto {
   })
   @IsOptional()
   description?: string;
-  @ApiProperty({
-    description: 'is verified',
-    required: false,
-    example: true,
-  })
-  @IsOptional()
-  isVerified?: boolean = false;
-
   @IsUUID()
   @ApiProperty({
     description: 'Target member id (admin only; defaults to current member)',

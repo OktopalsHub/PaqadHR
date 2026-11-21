@@ -305,6 +305,10 @@ export class PaymentMethodService {
     return this.payrollReadinessService.findPrimaryPayoutMethod(tenantId, memberId);
   }
 
+  async findPrimaryPayoutMethodsByMemberIds(tenantId: string, memberIds: string[]) {
+    return this.payrollReadinessService.findPrimaryPayoutMethodsByMemberIds(tenantId, memberIds);
+  }
+
   async findVerifiedPayoutMethodForBridge(
     tenantId: string,
     memberId: string,
