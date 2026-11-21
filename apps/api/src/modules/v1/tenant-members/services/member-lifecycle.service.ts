@@ -1,9 +1,16 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
 import type { QueryDeepPartialEntity } from 'typeorm';
-import { Repository } from 'typeorm';
+import { type EntityManager, QueryFailedError, Repository } from 'typeorm';
 
 import {
   TenantMemberChangedEvent,
@@ -14,8 +21,16 @@ import type { CreateTenantMemberDto } from '../dto/create-tenant-member.dto';
 import { TenantMember } from '../entities/tenant-member.entity';
 import { TenantCounterRepository } from '../repositories/tenant-counter.repository';
 import { TenantMemberRepository } from '../repositories/tenant-members.repository';
+import { PRIVILEGED_ROLES } from '../utils/member-role-policy.util';
 import { MemberActivityService } from './member-activity.service';
 import { MemberReadService } from './member-read.service';
+
+interface LifecycleActor {
+  id: string;
+  role: string;
+}
+
+const UNIQUE_VIOLATION = '23505';
 
 @Injectable()
 export class MemberLifecycleService {
@@ -68,31 +83,33 @@ export class MemberLifecycleService {
       }
       return savedMember;
     } catch (error) {
-      this.logger.error('Error creating tenant member:', error);
+      this.logger.error(
+        'Error creating tenant member',
+        error instanceof Error ? error.stack : undefined,
+      );
       if (error instanceof BadRequestException) {
         throw error;
       }
-      if (error.message?.includes('employee number')) {
-        throw new BadRequestException('Failed to generate employee number for tenant member');
+      if (error instanceof QueryFailedError && error.driverError?.code === UNIQUE_VIOLATION) {
+        throw new ConflictException('Tenant member already exists');
       }
-      if (error.message?.includes('counter')) {
-        throw new BadRequestException('Failed to initialize employee counter for tenant');
-      }
-      throw new BadRequestException(
-        `Failed to create tenant member: ${error.message || 'Unknown error'}`,
-      );
+      throw new BadRequestException('Failed to create tenant member');
     }
   }
 
-  async removeTenantMember(userId: string, tenantId: string, actorMemberId: string): Promise<void> {
-    const member = await this.readService.getTenantMemberProfile(userId, tenantId);
-    await this.tenantMemberRepository.update(member.id, {
-      isActive: false,
-      leaveDate: new Date(),
+  async removeTenantMember(
+    memberId: string,
+    tenantId: string,
+    actor: LifecycleActor,
+  ): Promise<void> {
+    const member = await this.tenantMemberRepository.withTenantLock(tenantId, async (manager) => {
+      const target = await this.loadGuardedTarget(memberId, tenantId, actor, true, manager);
+      await manager.update(TenantMember, target.id, { isActive: false, leaveDate: new Date() });
+      return target;
     });
     this.activityService.emitActivity({
       tenantId,
-      actorMemberId,
+      actorMemberId: actor.id,
       action: 'member.removed',
       resourceType: 'member',
       resourceId: member.id,
@@ -101,37 +118,79 @@ export class MemberLifecycleService {
     this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
   }
 
+  private async loadGuardedTarget(
+    memberId: string,
+    tenantId: string,
+    actor: LifecycleActor,
+    deactivating: boolean,
+    manager: EntityManager,
+  ): Promise<TenantMember> {
+    const member = await this.tenantMemberRepository.findLifecycleTarget(
+      memberId,
+      tenantId,
+      manager,
+    );
+    if (!member) {
+      throw new NotFoundException('Tenant member not found');
+    }
+    if (actor.role !== TenantMemberRole.OWNER && PRIVILEGED_ROLES.includes(member.role)) {
+      throw new ForbiddenException('Only an owner can change an admin or owner');
+    }
+    if (deactivating && member.role === TenantMemberRole.OWNER && member.isActive) {
+      const activeOwners = await this.tenantMemberRepository.countActiveOwners(tenantId, manager);
+      if (activeOwners <= 1) {
+        throw new ConflictException('A workspace must keep at least one active owner');
+      }
+    }
+    return member;
+  }
+
   async setTenantMemberStatus(
     userId: string,
     tenantId: string,
     isActive: boolean,
   ): Promise<TenantMember> {
     const member = await this.readService.getTenantMemberProfile(userId, tenantId);
+    await this.writeStatus(member, isActive);
+    this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
+    return this.readService.getTenantMember(member.id, tenantId);
+  }
+
+  private async writeStatus(
+    member: Pick<TenantMember, 'id' | 'leaveDate'>,
+    isActive: boolean,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const update = (data: QueryDeepPartialEntity<TenantMember>) =>
+      manager
+        ? manager.update(TenantMember, member.id, data)
+        : this.tenantMemberRepository.update(member.id, data);
     const updateData: QueryDeepPartialEntity<TenantMember> = { isActive };
     if (!isActive && !member.leaveDate) {
       updateData.leaveDate = new Date();
     }
-    await this.tenantMemberRepository.update(member.id, updateData);
+    await update(updateData);
     if (isActive && member.leaveDate) {
-      await this.tenantMemberRepository.update(member.id, {
-        leaveDate: () => 'NULL',
-      } as QueryDeepPartialEntity<TenantMember>);
+      await update({ leaveDate: () => 'NULL' } as QueryDeepPartialEntity<TenantMember>);
     }
-    this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
-    return this.readService.getTenantMember(member.id, tenantId);
   }
 
   async updateTenantMemberStatus(
     memberId: string,
     tenantId: string,
     isActive: boolean,
-    actorMemberId: string,
+    actor: LifecycleActor,
   ): Promise<TenantMember> {
-    const member = await this.readService.getTenantMember(memberId, tenantId);
-    const updated = await this.setTenantMemberStatus(member.userId, tenantId, isActive);
+    const member = await this.tenantMemberRepository.withTenantLock(tenantId, async (manager) => {
+      const target = await this.loadGuardedTarget(memberId, tenantId, actor, !isActive, manager);
+      await this.writeStatus(target, isActive, manager);
+      return target;
+    });
+    this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
+    const updated = await this.readService.getTenantMember(member.id, tenantId);
     this.activityService.emitActivity({
       tenantId,
-      actorMemberId,
+      actorMemberId: actor.id,
       action: isActive ? 'member.reactivated' : 'member.deactivated',
       resourceType: 'member',
       resourceId: memberId,
@@ -158,7 +217,9 @@ export class MemberLifecycleService {
       let numberPrefix = '';
       let numberPadding = 3;
       try {
-        const settings = await this.tenantSettingsRepository.findOne({ where: { tenantId } });
+        const settings = await this.tenantSettingsRepository.findOne({
+          where: { tenantId },
+        });
         if (settings?.settings?.employee) {
           numberPrefix = settings.settings.employee.numberPrefix || '';
           numberPadding = settings.settings.employee.numberPadding || 3;
@@ -169,18 +230,10 @@ export class MemberLifecycleService {
           configError,
         );
       }
-      await this.tenantCounterRepository.getOrCreateCounter(
+      const currentValue = await this.tenantCounterRepository.nextValue(
         tenantId,
         'employee_number',
-        0,
-        numberPrefix,
-        undefined,
-        numberPadding,
-      );
-      await this.tenantCounterRepository.incrementCounter(tenantId, 'employee_number');
-      const currentValue = await this.tenantCounterRepository.getCurrentValue(
-        tenantId,
-        'employee_number',
+        { prefix: numberPrefix, paddingLength: numberPadding },
       );
       return currentValue.toString().padStart(numberPadding, '0');
     } catch (error) {

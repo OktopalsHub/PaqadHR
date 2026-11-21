@@ -99,8 +99,12 @@ export class TenantMembersService {
     return this.profileService.updateTenantMemberById(memberId, tenantId, updateDto, actor);
   }
 
-  async removeTenantMember(userId: string, tenantId: string, actorMemberId: string): Promise<void> {
-    return this.lifecycleService.removeTenantMember(userId, tenantId, actorMemberId);
+  async removeTenantMember(
+    memberId: string,
+    tenantId: string,
+    actor: MemberContext,
+  ): Promise<void> {
+    return this.lifecycleService.removeTenantMember(memberId, tenantId, actor);
   }
 
   async setTenantMemberStatus(
@@ -115,14 +119,9 @@ export class TenantMembersService {
     memberId: string,
     tenantId: string,
     isActive: boolean,
-    actorMemberId: string,
+    actor: MemberContext,
   ): Promise<TenantMember> {
-    return this.lifecycleService.updateTenantMemberStatus(
-      memberId,
-      tenantId,
-      isActive,
-      actorMemberId,
-    );
+    return this.lifecycleService.updateTenantMemberStatus(memberId, tenantId, isActive, actor);
   }
 
   async restoreTenantMember(memberId: string): Promise<void> {

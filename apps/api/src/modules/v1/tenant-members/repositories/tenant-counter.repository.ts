@@ -1,8 +1,25 @@
+import { randomUUID } from 'node:crypto';
+
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { TenantCounter } from '../entities/tenant-counter.entity';
+
+interface CounterDefaults {
+  prefix?: string;
+  suffix?: string;
+  paddingLength?: number;
+}
+
+const NEXT_VALUE_SQL = `
+  INSERT INTO "tenant_counters"
+    ("id", "tenant_id", "counter_type", "current_value", "prefix", "suffix", "padding_length")
+  VALUES ($1, $2, $3, 1, $4, $5, $6)
+  ON CONFLICT ("tenant_id", "counter_type")
+  DO UPDATE SET "current_value" = "tenant_counters"."current_value" + 1, "updated_at" = now()
+  RETURNING "current_value"
+`;
 
 @Injectable()
 export class TenantCounterRepository extends Repository<TenantCounter> {
@@ -15,6 +32,24 @@ export class TenantCounterRepository extends Repository<TenantCounter> {
       tenantCounterRepository.manager,
       tenantCounterRepository.queryRunner,
     );
+  }
+  async nextValue(
+    tenantId: string,
+    counterType: string,
+    defaults: CounterDefaults = {},
+  ): Promise<number> {
+    const rows: { current_value: number }[] = await this.tenantCounterRepository.query(
+      NEXT_VALUE_SQL,
+      [
+        randomUUID(),
+        tenantId,
+        counterType,
+        defaults.prefix ?? null,
+        defaults.suffix ?? null,
+        defaults.paddingLength ?? 3,
+      ],
+    );
+    return Number(rows[0].current_value);
   }
   async getOrCreateCounter(
     tenantId: string,

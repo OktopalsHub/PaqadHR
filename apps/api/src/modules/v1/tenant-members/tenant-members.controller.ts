@@ -119,7 +119,7 @@ export class TenantMembersController {
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentTenantMember() actor: MemberContext,
   ): Promise<void> {
-    await this.tenantMembersService.removeTenantMember(memberId, tenantId, actor.id);
+    await this.tenantMembersService.removeTenantMember(memberId, tenantId, actor);
   }
   @Patch('/members/:memberId/status')
   @UseGuards(TenantRoleGuard)
@@ -134,7 +134,7 @@ export class TenantMembersController {
       memberId,
       tenantId,
       updateDto.isActive,
-      actor.id,
+      actor,
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }

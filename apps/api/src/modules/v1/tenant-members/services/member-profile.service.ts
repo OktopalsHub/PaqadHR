@@ -19,6 +19,7 @@ import type { UpdateTenantMemberDto } from '../dto/update-tenant-member.dto';
 import { TenantMember } from '../entities/tenant-member.entity';
 import { TenantMemberRepository } from '../repositories/tenant-members.repository';
 import { describeChangedFields, pickChangedFields } from '../utils/member-activity-diff.util';
+import { assertRoleChangeAllowed } from '../utils/member-role-policy.util';
 import { MemberActivityService } from './member-activity.service';
 import { MemberOrgAssignmentService } from './member-org-assignment.service';
 import { MemberReadService } from './member-read.service';
@@ -105,7 +106,7 @@ export class MemberProfileService {
     }
     const member = await this.readService.getTenantMember(memberId, tenantId);
     const before = await this.activityService.snapshotOrgFields(member, tenantId);
-    await this.applyOrgUpdates(member, tenantId, updateDto);
+    await this.applyOrgUpdates(member, tenantId, updateDto, actor);
     const updated = await this.readService.getTenantMember(memberId, tenantId);
     const after = await this.activityService.snapshotOrgFields(updated, tenantId);
     const { beforeData, afterData } = pickChangedFields(before, after);
@@ -182,26 +183,40 @@ export class MemberProfileService {
     }
   }
 
+  private async changeRole(
+    memberId: string,
+    tenantId: string,
+    role: TenantMemberRole,
+    actor: MemberContext,
+  ): Promise<void> {
+    await this.tenantMemberRepository.withTenantLock(tenantId, async (manager) => {
+      const target = await this.tenantMemberRepository.findLifecycleTarget(
+        memberId,
+        tenantId,
+        manager,
+      );
+      if (!target) {
+        throw new NotFoundException('Tenant member not found');
+      }
+      if (target.role === TenantMemberRole.OWNER) {
+        throw new BadRequestException('Cannot change workspace role of the owner');
+      }
+      if (role === TenantMemberRole.OWNER) {
+        throw new BadRequestException('Cannot assign owner role via member update');
+      }
+      assertRoleChangeAllowed(actor.role, target.role, role);
+      await manager.update(TenantMember, target.id, { role });
+    });
+  }
+
   private async applyOrgUpdates(
     member: TenantMember,
     tenantId: string,
     updateDto: UpdateTenantMemberDto,
+    actor: MemberContext,
   ): Promise<void> {
-    const updateData: Partial<TenantMember> = {};
     if (updateDto.role !== undefined) {
-      if (member.role === TenantMemberRole.OWNER) {
-        throw new BadRequestException('Cannot change workspace role of the owner');
-      }
-      if (updateDto.role === TenantMemberRole.OWNER) {
-        throw new BadRequestException('Cannot assign owner role via member update');
-      }
-      updateData.role = updateDto.role;
-    }
-    if (Object.keys(updateData).length > 0) {
-      await this.tenantMemberRepository.update(
-        member.id,
-        updateData as QueryDeepPartialEntity<TenantMember>,
-      );
+      await this.changeRole(member.id, tenantId, updateDto.role, actor);
     }
 
     if (updateDto.departmentId !== undefined) {
