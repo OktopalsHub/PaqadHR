@@ -37,6 +37,17 @@ export function assertPayrollRunDeletable(run: PayrollRun): void {
   if (hasPaidOrProcessingItems) {
     throw new ConflictException('Payroll runs with paid or in-flight payments cannot be deleted.');
   }
+
+  const floatTopup = (run.metadata as { floatTopup?: { orderReference?: unknown; references?: unknown } } | null)
+    ?.floatTopup;
+  const hasFundingReference =
+    Boolean(floatTopup?.orderReference) ||
+    (Array.isArray(floatTopup?.references) && floatTopup.references.length > 0);
+  if (hasFundingReference) {
+    throw new ConflictException(
+      'Payroll runs with a funding checkout cannot be deleted. Cancel the run instead.',
+    );
+  }
 }
 
 /** Calculated runs can go back to draft for edits; not approved/completed/paid. */

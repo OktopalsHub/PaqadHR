@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
@@ -38,7 +38,14 @@ export class RunItemOps {
     });
     if (!run) throw new BadRequestException('Payroll run not found');
     assertPayrollRunDeletable(run);
-    await this.payrollRunRepository.delete(payrollRunId);
+    try {
+      await this.payrollRunRepository.delete(payrollRunId);
+    } catch (error) {
+      if ((error as { code?: string }).code === '23503') {
+        throw new ConflictException('Payroll run has funding or payment records and cannot be deleted.');
+      }
+      throw error;
+    }
     await this.auditService.logAdjustmentCalculated(auditContext, {
       action: 'delete_run',
       payrollRunId,

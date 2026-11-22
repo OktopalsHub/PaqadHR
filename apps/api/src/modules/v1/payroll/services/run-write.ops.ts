@@ -7,6 +7,7 @@ import { payrollTodayCalendarDatePart } from '../../../../common/validators/payr
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
+import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
@@ -74,10 +75,9 @@ export class RunWriteOps {
       idempotencyKey: key,
       payoutMode,
     });
-    const saved = await this.payrollRunRepository.save(run);
     const items = dto.employeeIds.map((memberId) =>
       this.payrollItemRepository.create({
-        payrollRunId: saved.id,
+        payrollRunId: undefined,
         memberId,
         status: PayrollItemStatus.PENDING,
         baseSalary: 0,
@@ -89,7 +89,23 @@ export class RunWriteOps {
         exchangeRate: 1,
       }),
     );
-    await this.payrollItemRepository.save(items);
+    let saved: PayrollRun;
+    try {
+      saved = await this.payrollRunRepository.manager.transaction(async (manager) => {
+        const savedRun = await manager.save(PayrollRun, run);
+        for (const item of items) item.payrollRunId = savedRun.id;
+        await manager.save(PayrollItem, items);
+        return savedRun;
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') {
+        const raced = await this.payrollRunRepository.findOne({
+          where: { tenantId, periodStart: dto.periodStart, periodEnd: dto.periodEnd, baseCurrency: currency },
+        });
+        if (raced) return Object.assign(raced, { alreadyExists: true });
+      }
+      throw error;
+    }
     await this.auditService.logPayrollCreated(
       { tenantId, payrollRunId: saved.id, performedById: createdById },
       {
@@ -109,11 +125,14 @@ export class RunWriteOps {
     dto: PatchPayrollRunDto,
     auditContext: AuditContext,
   ): Promise<PayrollRun> {
-    const run = await this.payrollRunRepository.findOne({
+    const { run, structuralChange } = await this.payrollRunRepository.manager.transaction(
+      async (manager) => {
+    const run = await manager.getRepository(PayrollRun).findOne({
       where: { id: payrollRunId, tenantId },
-      relations: { items: true },
+      lock: { mode: 'pessimistic_write' },
     });
     if (!run) throw new BadRequestException('Payroll run not found');
+    run.items = await manager.getRepository(PayrollItem).find({ where: { payrollRunId } });
 
     const structuralChange =
       dto.frequency !== undefined ||
@@ -158,7 +177,7 @@ export class RunWriteOps {
           item.status = PayrollItemStatus.CANCELLED;
           item.failureReason = 'Excluded from payroll run by administrator';
           item.metadata = { ...item.metadata, excludedFromRun: true };
-          await this.payrollItemRepository.save(item);
+          await manager.save(PayrollItem, item);
         }
       }
 
@@ -182,13 +201,16 @@ export class RunWriteOps {
           paymentAmount: 0,
           exchangeRate: 1,
         });
-        await this.payrollItemRepository.save(item);
+        await manager.save(PayrollItem, item);
       }
 
       run.employeeCount = desired.size;
     }
 
-    await this.payrollRunRepository.save(run);
+    await manager.save(PayrollRun, run);
+    return { run, structuralChange };
+      },
+    );
     await this.auditService.logAdjustmentCalculated(auditContext, {
       action: structuralChange ? 'update_run' : 'update_run_title',
       payrollRunId,

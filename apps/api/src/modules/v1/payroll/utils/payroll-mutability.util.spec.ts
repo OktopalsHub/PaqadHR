@@ -39,6 +39,19 @@ describe('assertPayrollRunDeletable', () => {
     ).toThrow(ConflictException);
   });
 
+  it('blocks runs that already have a funding checkout reference', () => {
+    const withOrder = {
+      ...draftRun(),
+      metadata: { floatTopup: { orderReference: 'ord_1' } },
+    } as unknown as PayrollRun;
+    const withReferences = {
+      ...draftRun(),
+      metadata: { floatTopup: { references: ['ref_1'] } },
+    } as unknown as PayrollRun;
+    expect(() => assertPayrollRunDeletable(withOrder)).toThrow(ConflictException);
+    expect(() => assertPayrollRunDeletable(withReferences)).toThrow(ConflictException);
+  });
+
   it('blocks runs with processing items', () => {
     expect(() =>
       assertPayrollRunDeletable(

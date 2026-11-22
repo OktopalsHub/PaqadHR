@@ -11,15 +11,8 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import { StartTrialDto } from '../dto/start-trial.dto';
 import { toSubscriptionSummary } from '../utils/subscription-summary.util';
 import { SubscriptionsService } from '../services/subscriptions.service';
+import { OnboardingRegionDto, SetTenantRegionDto } from '../dto/tenant-region.dto';
 
-class SetTenantRegionDto {
-  countryCode: string;
-  timezone?: string;
-  preferredCurrency?: string;
-}
-class OnboardingRegionDto {
-  userSelectedCountry?: string;
-}
 @ApiTags('Subscriptions')
 @Controller('subscriptions')
 export class SubscriptionsController {

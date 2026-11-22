@@ -133,22 +133,17 @@ export class RenewalProcessor {
       orderReference,
     };
 
-    const claimStatus = await this.renewalSuccess.getRenewalPeriodClaimStatus(
+    const claimed = await this.renewalSuccess.claimRenewalPeriod(
       periodEventId,
+      { orderReference },
       billingProviderEnum,
     );
-    if (claimStatus === 'pending' || claimStatus === 'charged' || claimStatus === 'success') {
+    if (!claimed) {
       this.logger.warn(
-        `Skipping renewal for ${subscription.tenantId}; period claim already ${claimStatus}`,
+        `Skipping renewal for ${subscription.tenantId}; period already claimed or charged`,
       );
       return 'skipped';
     }
-
-    await this.renewalSuccess.updateRenewalPeriodClaim(
-      periodEventId,
-      { status: 'pending', orderReference, claimedAt: new Date().toISOString() },
-      billingProviderEnum,
-    );
 
     try {
       const provider = this.billingProviderFactory.getProviderByEnum(billingProviderEnum);
@@ -189,11 +184,9 @@ export class RenewalProcessor {
       }
 
       const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
-      const normalizedPaid = normalizeWebhookAmount(
-        Number(verified.amount ?? 0),
-        expectedAmount,
-        planPrice.currency,
-      );
+      const normalizedPaid = this.paymentVerifier.requiresProviderVerification(billingProviderEnum)
+        ? normalizeWebhookAmount(Number(verified.amount ?? 0), expectedAmount, planPrice.currency)
+        : expectedAmount;
       await this.renewalSuccess.applyRenewalSuccess(
         subscription.tenantId,
         {
