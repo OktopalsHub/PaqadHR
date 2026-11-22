@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
 import { FileUrlService } from 'src/common/services/file-url.service';
@@ -201,7 +201,31 @@ export class DepartmentCrudService {
     return department;
   }
 
+  private async assertReferencesInTenant(
+    tenantId: string,
+    refs: { managerId?: string; parentId?: string },
+    departmentId?: string,
+  ): Promise<void> {
+    if (
+      refs.managerId &&
+      !(await this.tenantMembersService.memberExistsInTenant(tenantId, refs.managerId))
+    ) {
+      throw new NotFoundException('Manager not found in this workspace');
+    }
+    if (refs.parentId) {
+      if (refs.parentId === departmentId) {
+        throw new BadRequestException('A department cannot be its own parent');
+      }
+      const parent = await this.departmentsRepository.findOne({
+        where: { id: refs.parentId, tenantId },
+        select: { id: true },
+      });
+      if (!parent) throw new NotFoundException('Parent department not found');
+    }
+  }
+
   async createDepartment(tenantId: string, memberId: string, dto: CreateDepartmentDto) {
+    await this.assertReferencesInTenant(tenantId, dto);
     const departmentData = {
       ...dto,
       tenantId,
@@ -231,16 +255,14 @@ export class DepartmentCrudService {
   ) {
     const existing = await this.departmentsRepository.findOne({ where: { id, tenantId } });
     if (!existing) throw new NotFoundException('Department not found');
-    if (
-      dto.managerId !== undefined &&
-      !(await this.tenantMembersService.memberExistsInTenant(tenantId, dto.managerId))
-    ) {
-      throw new NotFoundException('Manager not found in this workspace');
-    }
-    await this.departmentsRepository.update(id, {
-      ...dto,
-      tenantId,
-    });
+    await this.assertReferencesInTenant(tenantId, dto, id);
+    await this.departmentsRepository.update(
+      { id, tenantId },
+      {
+        ...dto,
+        tenantId,
+      },
+    );
     const department = await this.departmentsRepository.findOne({ where: { id, tenantId } });
     if (department) {
       void this.activitiesService

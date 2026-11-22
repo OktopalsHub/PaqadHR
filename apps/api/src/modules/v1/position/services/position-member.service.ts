@@ -78,8 +78,18 @@ export class PositionMemberService {
   async getMembersByPosition(tenantId: string, positionId: string): Promise<PositionMember[]> {
     return this.positionMemberRepository
       .createQueryBuilder('assignment')
-      .innerJoinAndSelect('assignment.member', 'member')
+      .innerJoin('assignment.member', 'member')
       .innerJoin('assignment.position', 'position')
+      .select([
+        'assignment.id',
+        'assignment.tenantMemberId',
+        'assignment.positionId',
+        'assignment.assignedAt',
+        'assignment.isCurrent',
+        'member.id',
+        'member.firstName',
+        'member.lastName',
+      ])
       .where('assignment.positionId = :positionId', { positionId })
       .andWhere('member.tenantId = :tenantId', { tenantId })
       .andWhere('position.tenantId = :tenantId', { tenantId })

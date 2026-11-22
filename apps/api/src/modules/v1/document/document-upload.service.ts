@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
@@ -31,6 +31,7 @@ export class DocumentUploadService {
     tenantMemberId: string,
     createDocumentDto: CreateDocumentDto,
   ): Promise<Document> {
+    await this.assertFileKeyAvailable(tenantId, tenantMemberId, createDocumentDto.fileKey);
     const doc = await this.documentRepository.createDocument(
       createDocumentDto,
       tenantId,
@@ -52,6 +53,26 @@ export class DocumentUploadService {
       .catch(() => {});
 
     return doc;
+  }
+
+  private async assertFileKeyAvailable(
+    tenantId: string,
+    tenantMemberId: string,
+    fileKey: string,
+  ): Promise<void> {
+    const prefix = `tenants/${tenantId}/${FileUploadLocation.DOCUMENTS}/`;
+    const name = fileKey.startsWith(prefix) ? fileKey.slice(prefix.length) : '';
+    if (!name || name.includes('/') || name.includes('\\') || name.includes('..')) {
+      throw new BadRequestException('Invalid file key');
+    }
+    const existing = await this.documentRepository.findOne({
+      where: { fileKey, tenantId },
+      select: { id: true, tenantMemberId: true },
+      withDeleted: true,
+    });
+    if (existing && existing.tenantMemberId !== tenantMemberId) {
+      throw new BadRequestException('Invalid file key');
+    }
   }
 
   async listDocuments(tenantId: string): Promise<Document[]> {
@@ -217,28 +238,23 @@ export class DocumentUploadService {
       return true;
     }
 
-    const isManager = await this.managerAccessService.isManagerOf(
-      tenantId,
-      memberId,
-      document.tenantMemberId,
-    );
-    if (isManager) {
-      return true;
-    }
-
+    const isOwner = document.tenantMemberId === memberId;
     const accessLevel = getDocumentAccessLevel(document.type);
     switch (accessLevel) {
       case DocumentAccessLevel.PUBLIC:
         return true;
       case DocumentAccessLevel.EMPLOYEE_ONLY:
-        return document.tenantMemberId === memberId;
+        return (
+          isOwner ||
+          (await this.managerAccessService.isManagerOf(tenantId, memberId, document.tenantMemberId))
+        );
       case DocumentAccessLevel.MANAGEMENT:
+        return this.managerAccessService.isManagerOf(tenantId, memberId, document.tenantMemberId);
       case DocumentAccessLevel.HR_ONLY:
-        return false;
       case DocumentAccessLevel.ADMIN_ONLY:
         return false;
       default:
-        return document.tenantMemberId === memberId;
+        return isOwner;
     }
   }
 

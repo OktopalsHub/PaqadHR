@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -154,8 +156,13 @@ export class DepartmentsController {
     return this.departmentsService.removeMemberFromDepartment(tenantId, id, memberId, member.id);
   }
   @Get(':id/members')
-  async getDepartmentMembers(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    const members = await this.departmentsService.getDepartmentMembers(tenantId, id);
+  async getDepartmentMembers(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+  ) {
+    const members = await this.departmentsService.getDepartmentMembers(tenantId, id, page, limit);
     return DepartmentMemberSummaryMapper.toResponseList(members);
   }
 }

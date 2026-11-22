@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { normalizePaginationLimit } from 'src/common/utils/pagination.util';
 
 import { ActivitiesService } from '../activities/services/activities.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { DepartmentMembersRepository } from './repositories/department-members.repository';
 import { DepartmentsRepository } from './repositories/departments.repository';
+
+const DEPARTMENT_MEMBERS_DEFAULT_LIMIT = 50;
 
 @Injectable()
 export class DepartmentMembersService {
@@ -87,14 +90,35 @@ export class DepartmentMembersService {
     return { success: true };
   }
 
-  async getDepartmentMembers(tenantId: string, departmentId: string) {
+  async getDepartmentMembers(
+    tenantId: string,
+    departmentId: string,
+    page: number = 1,
+    limit: number = DEPARTMENT_MEMBERS_DEFAULT_LIMIT,
+  ) {
     const department = await this.departmentsRepository.findOne({
       where: { id: departmentId, tenantId },
     });
     if (!department) throw new NotFoundException('Department not found');
+    const take = normalizePaginationLimit(limit);
     const memberships = await this.departmentMembersRepository.find({
       where: { departmentId, isActive: true },
       relations: { member: true },
+      select: {
+        id: true,
+        member: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+          role: true,
+          isActive: true,
+          avatarKey: true,
+        },
+      },
+      order: { joinedAt: 'ASC', id: 'ASC' },
+      skip: (Math.max(page, 1) - 1) * take,
+      take,
     });
     return memberships.map((membership) => membership.member);
   }
