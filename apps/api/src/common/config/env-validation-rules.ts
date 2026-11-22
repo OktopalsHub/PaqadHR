@@ -1,3 +1,4 @@
+import { getBridgePayrollCapabilities } from './bridge-payroll-capabilities.config';
 import { isAllowedFincraBaseUrl, isFincraLive } from './fincra.config';
 import { isMonnifyLive, MONNIFY_PRODUCTION_BASE_URL } from './monnify.config';
 import { parseDurationToMs } from './parse-duration.util';
@@ -71,6 +72,28 @@ export function collectCookieErrors(isProduction: boolean): string[] {
     const appDomain = process.env.APP_DOMAIN?.trim();
     if (!appDomain || appDomain === 'localhost') {
       errors.push('COOKIE_CROSS_SITE=true requires a non-localhost APP_DOMAIN');
+    }
+  }
+  return errors;
+}
+
+export function collectPayrollErrors(): string[] {
+  const errors: string[] = [];
+  if (process.env.BRIDGE_PAYROLL_CAPABILITIES?.trim()) {
+    try {
+      getBridgePayrollCapabilities();
+    } catch {
+      errors.push('BRIDGE_PAYROLL_CAPABILITIES is not a valid capability list');
+    }
+  }
+  const nombaPayroll = process.env.NOMBA_PAYROLL_NGN_ENABLED?.trim().toLowerCase();
+  if (nombaPayroll !== undefined && nombaPayroll !== '' && !['true', 'false'].includes(nombaPayroll)) {
+    errors.push('NOMBA_PAYROLL_NGN_ENABLED must be true or false');
+  }
+  if (nombaPayroll === 'true') {
+    const fee = Number(process.env.PAYROLL_PAYOUT_FEE_NOMBA_NGN);
+    if (!process.env.PAYROLL_PAYOUT_FEE_NOMBA_NGN?.trim() || !Number.isFinite(fee) || fee <= 0) {
+      errors.push('NOMBA_PAYROLL_NGN_ENABLED=true requires PAYROLL_PAYOUT_FEE_NOMBA_NGN > 0');
     }
   }
   return errors;

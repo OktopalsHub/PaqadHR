@@ -91,5 +91,7 @@ export function normalizeWebhookAmount(
 }
 
 export function isAmountWithinTolerance(paid: number, expected: number): boolean {
-  return Math.abs(paid - expected) <= BILLING_AMOUNT_TOLERANCE;
+  // One whole unit is a large slice of a small price, so scale it down for cheap plans.
+  const tolerance = Math.max(0.01, Math.min(BILLING_AMOUNT_TOLERANCE, expected * 0.005));
+  return Math.abs(paid - expected) <= tolerance;
 }

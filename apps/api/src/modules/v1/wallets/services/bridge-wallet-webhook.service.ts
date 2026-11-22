@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
@@ -179,7 +185,13 @@ export class BridgeWalletWebhookService {
         network: true,
       },
     });
-    if (!virtualAccount) return;
+    if (!virtualAccount) {
+      if (status === 'payment_processed') {
+        // Leave the event unprocessed so Bridge retries it instead of losing a completed deposit.
+        throw new NotFoundException('Bridge virtual account is not registered.');
+      }
+      return;
+    }
     const customer = await this.customerRepository.findOne({
       where: { id: virtualAccount.providerCustomerId, provider: PaymentProvider.BRIDGE },
       select: { providerCustomerId: true },

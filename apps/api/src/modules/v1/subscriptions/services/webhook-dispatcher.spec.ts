@@ -16,7 +16,7 @@ function createDispatcher() {
   const repos = buildRepositoryDoubles();
 
   const renewalProcessor = { markRenewalFailed: jest.fn() };
-  const productAnalytics = { track: jest.fn() };
+  const productAnalytics = { track: jest.fn(), capture: jest.fn() };
   const eventResolver = {
     resolveWebhookSubscription: jest.fn().mockResolvedValue(undefined),
     enrichPaymentFromSubscription: jest.fn(),
@@ -310,5 +310,34 @@ describe('WebhookDispatcher routing', () => {
       expect.anything(),
       BillingProvider.BACHS,
     );
+  });
+});
+
+describe('WebhookDispatcher subscription.created activation', () => {
+  const created = (providerStatus?: string) => ({
+    kind: 'subscription.created',
+    tenantId: TENANT_ID,
+    externalSubscriptionId: 'sub_1',
+    eventId: 'evt_1',
+    planId: 'plan',
+    planPriceId: 'price',
+    providerStatus,
+  });
+
+  async function run(providerStatus?: string) {
+    const ctx = createDispatcher();
+    const subscription = { tenantId: TENANT_ID, status: SubscriptionStatus.TRIAL };
+    ctx.repos.subscriptionRepo.findOne.mockResolvedValue(subscription);
+    (ctx.providers.nombaProvider.parseWebhook as jest.Mock).mockReturnValue(created(providerStatus));
+    await ctx.dispatcher.processBillingPayload({}, BillingProvider.NOMBA);
+    return subscription;
+  }
+
+  it('does not activate while the provider reports the subscription as incomplete', async () => {
+    expect((await run('incomplete')).status).toBe(SubscriptionStatus.TRIAL);
+  });
+
+  it('activates when the provider reports it active', async () => {
+    expect((await run('active')).status).toBe(SubscriptionStatus.ACTIVE);
   });
 });
