@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -31,6 +32,7 @@ export class JobOpeningService {
     memberId: string,
     createJobOpeningDto: CreateJobOpeningDto,
   ): Promise<JobOpening> {
+    await this.assertDepartmentInTenant(tenantId, createJobOpeningDto.departmentId);
     const jobData = {
       title: createJobOpeningDto.title,
       departmentId: createJobOpeningDto.departmentId ?? null,
@@ -75,6 +77,11 @@ export class JobOpeningService {
 
     return job;
   }
+  private async assertDepartmentInTenant(tenantId: string, departmentId?: string | null) {
+    if (!departmentId) return;
+    const exists = await this.departmentRepository.exists({ where: { id: departmentId, tenantId } });
+    if (!exists) throw new BadRequestException('Department not found');
+  }
   async getJobsByTenant(
     tenantId: string,
     memberId: string,
@@ -101,9 +108,10 @@ export class JobOpeningService {
     updateJobOpeningDto: UpdateJobOpeningDto,
   ): Promise<JobOpening> {
     await this.getJob(jobId, tenantId, memberId);
-    await this.jobOpeningRepository.update(jobId, updateJobOpeningDto);
+    await this.assertDepartmentInTenant(tenantId, updateJobOpeningDto.departmentId);
+    await this.jobOpeningRepository.update({ id: jobId, tenantId }, updateJobOpeningDto);
     const updatedJob = await this.jobOpeningRepository.findOne({
-      where: { id: jobId },
+      where: { id: jobId, tenantId },
     });
     if (!updatedJob) {
       throw new NotFoundException('Job not found');
@@ -264,29 +272,29 @@ export class JobOpeningService {
     });
     return departments.map((dept) => ({ id: dept.id, name: dept.name }));
   }
-  async getActiveDepartments(): Promise<{ id: string; name: string }[]> {
-    return this.jobOpeningRepository.getActiveDepartments();
+  async getActiveDepartments(tenantId: string): Promise<{ id: string; name: string }[]> {
+    return this.jobOpeningRepository.getActiveDepartments(tenantId);
   }
-  async getActiveLocations(): Promise<string[]> {
-    return this.jobOpeningRepository.getActiveLocations();
+  async getActiveLocations(tenantId: string): Promise<string[]> {
+    return this.jobOpeningRepository.getActiveLocations(tenantId);
   }
-  async getPublicJobStats(): Promise<{
+  async getPublicJobStats(tenantId: string): Promise<{
     totalActiveJobs: number;
     totalDepartments: number;
     totalLocations: number;
     urgentJobs: number;
     recentJobs: number;
   }> {
-    return this.jobOpeningRepository.getPublicJobStats();
+    return this.jobOpeningRepository.getPublicJobStats(tenantId);
   }
-  async getRecentJobs(limit: number = 5): Promise<JobOpening[]> {
-    return this.jobOpeningRepository.getRecentJobs(limit);
+  async getRecentJobs(tenantId: string, limit: number = 5): Promise<JobOpening[]> {
+    return this.jobOpeningRepository.getRecentJobs(tenantId, limit);
   }
-  async getUrgentJobs(limit: number = 10): Promise<JobOpening[]> {
-    return this.jobOpeningRepository.getUrgentJobs(limit);
+  async getUrgentJobs(tenantId: string, limit: number = 10): Promise<JobOpening[]> {
+    return this.jobOpeningRepository.getUrgentJobs(tenantId, limit);
   }
-  async getSearchSuggestions(query: string): Promise<{ titles: string[]; positions: string[] }> {
-    return this.jobOpeningRepository.getSearchSuggestions(query);
+  async getSearchSuggestions(tenantId: string, query: string): Promise<{ titles: string[]; positions: string[] }> {
+    return this.jobOpeningRepository.getSearchSuggestions(tenantId, query);
   }
   async getJobStats(tenantId: string): Promise<{
     total: number;

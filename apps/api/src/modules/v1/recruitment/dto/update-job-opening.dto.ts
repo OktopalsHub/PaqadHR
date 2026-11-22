@@ -11,7 +11,7 @@ import {
   IsUUID,
   ValidateNested,
 } from 'class-validator';
-import { EmploymentType, JobStatus } from 'src/common/enums';
+import { EmploymentType } from 'src/common/enums';
 
 import { CustomQuestionDto } from './index';
 import { JobLocationDto } from './job-location.dto';
@@ -149,14 +149,6 @@ export class UpdateJobOpeningDto {
   @IsArray()
   @IsString({ each: true })
   benefits?: string[];
-  @ApiPropertyOptional({
-    description: 'Job opening status',
-    enum: JobStatus,
-    example: JobStatus.ACTIVE,
-  })
-  @IsEnum(JobStatus)
-  @IsOptional()
-  status?: JobStatus;
   @ApiPropertyOptional({
     description: 'Number of job openings',
     example: 2,

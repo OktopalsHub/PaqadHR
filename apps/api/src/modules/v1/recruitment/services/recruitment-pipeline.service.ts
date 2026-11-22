@@ -1,11 +1,18 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateStatus } from 'src/common/enums';
+import type { QueryDeepPartialEntity } from 'typeorm';
 import { IsNull, Repository } from 'typeorm';
 
 import { CandidateStageHistory } from '../entities/candidate-stage-history.entity';
 import { Candidate } from '../entities/candidate.entity';
 import { PipelineStage } from '../entities/pipeline-stage.entity';
+import { assertCandidateTransition } from '../utils/candidate-status-transitions';
 import { CandidateService } from './candidate.service';
 import { RecruitmentCandidateMailer } from './recruitment-candidate-mailer.service';
 import { RecruitmentEmailTemplateService } from './recruitment-email-template.service';
@@ -120,28 +127,50 @@ export class RecruitmentPipelineService {
     // Checked before anything changes, so a template from another workspace cannot half-apply a move.
     await this.assertTemplate(input.tenantId, input.emailTemplateId);
 
-    if (candidate.status !== stage.type) {
-      await this.candidateService.updateCandidateStatus(
-        candidate.id,
-        input.tenantId,
-        { status: stage.type },
+    const statusChanged = candidate.status !== stage.type;
+    if (statusChanged) assertCandidateTransition(candidate.status, stage.type);
+
+    await this.candidates.manager.transaction(async (manager) => {
+      const set: QueryDeepPartialEntity<Candidate> = {
+        stageId: stage.id,
+        currentStage: { name: stage.name, startedAt: new Date() },
+      };
+      if (statusChanged) {
+        set.status = stage.type;
+        if (stage.type === CandidateStatus.WITHDRAWN) set.withdrawnAt = new Date();
+      }
+      const moved = await manager
+        .getRepository(Candidate)
+        .createQueryBuilder()
+        .update()
+        .set(set)
+        .where({ id: candidate.id, tenantId: input.tenantId, status: candidate.status })
+        .andWhere('stage_id IS NOT DISTINCT FROM :fromStageId', {
+          fromStageId: candidate.stageId ?? null,
+        })
+        .execute();
+      if (!moved.affected) {
+        throw new ConflictException('Candidate was moved by someone else; reload and try again');
+      }
+      await manager.save(
+        CandidateStageHistory,
+        manager.create(CandidateStageHistory, {
+          tenantId: input.tenantId,
+          candidateId: candidate.id,
+          fromStageId: candidate.stageId,
+          toStageId: stage.id,
+          actorMemberId: input.actorMemberId,
+          reason: input.reason?.slice(0, 500) ?? null,
+        }),
+      );
+    });
+    if (statusChanged) {
+      this.candidateService.recordStatusActivity(
+        candidate,
+        stage.type,
         input.actorMemberId,
       );
     }
-    await this.candidates.update(
-      { id: candidate.id, tenantId: input.tenantId },
-      { stageId: stage.id, currentStage: { name: stage.name, startedAt: new Date() } },
-    );
-    await this.history.save(
-      this.history.create({
-        tenantId: input.tenantId,
-        candidateId: candidate.id,
-        fromStageId: candidate.stageId,
-        toStageId: stage.id,
-        actorMemberId: input.actorMemberId,
-        reason: input.reason?.slice(0, 500) ?? null,
-      }),
-    );
 
     const templateId =
       input.sendEmail === false ? null : (input.emailTemplateId ?? stage.autoEmailTemplateId);
@@ -159,6 +188,33 @@ export class RecruitmentPipelineService {
         .catch(() => undefined);
     }
     return this.candidateService.getCandidate(candidate.id, input.tenantId);
+  }
+
+  /** Status change from the API: lands the candidate in the matching pipeline stage, without emailing. */
+  async changeStatus(input: {
+    tenantId: string;
+    candidateId: string;
+    status: CandidateStatus;
+    actorMemberId: string;
+  }) {
+    const candidate = await this.candidateService.getCandidate(input.candidateId, input.tenantId);
+    const stages = await this.getStages(input.tenantId, candidate.jobOpeningId);
+    const stage = stages.find((s) => s.type === input.status);
+    if (!stage) {
+      return this.candidateService.updateCandidateStatus(
+        input.candidateId,
+        input.tenantId,
+        { status: input.status },
+        input.actorMemberId,
+      );
+    }
+    return this.moveCandidate({
+      tenantId: input.tenantId,
+      candidateId: input.candidateId,
+      stageId: stage.id,
+      actorMemberId: input.actorMemberId,
+      sendEmail: false,
+    });
   }
 
   /** Places a new applicant in the first pipeline stage and sends that stage's automatic email. */

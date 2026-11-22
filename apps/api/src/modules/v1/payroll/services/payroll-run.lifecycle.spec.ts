@@ -8,6 +8,9 @@ import type { PayrollRunRepository } from '../repositories/payroll-run.repositor
 import type { AuditService } from './audit.service';
 import { PayrollRunService } from './payroll-run.service';
 
+const lagosToday = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos' }).format(new Date());
+
 describe('PayrollRunService run lifecycle', () => {
   // createPayrollRun reads the tenant through payrollRunRepository.manager to resolve
   // "today" in the tenant's timezone.
@@ -76,7 +79,7 @@ describe('PayrollRunService run lifecycle', () => {
     expect(payrollRunRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         payoutMode: 'immediate',
-        paymentDate: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`),
+        paymentDate: new Date(`${lagosToday()}T00:00:00.000Z`),
       }),
     );
   });
@@ -91,7 +94,7 @@ describe('PayrollRunService run lifecycle', () => {
     expect(payrollRunRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         payoutMode: 'immediate',
-        paymentDate: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`),
+        paymentDate: new Date(`${lagosToday()}T00:00:00.000Z`),
       }),
     );
   });

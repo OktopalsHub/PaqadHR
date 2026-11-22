@@ -11,6 +11,7 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import { CandidateMapper } from '../dto/candidate-response.dto';
 import { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
 import { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
+import { RecruitmentPipelineService } from '../services/recruitment-pipeline.service';
 import { CandidateService } from '../services/candidate.service';
 
 @ApiTags('Tenant Candidates')
@@ -21,6 +22,7 @@ import { CandidateService } from '../services/candidate.service';
 export class CandidateController {
   constructor(
     private readonly candidateService: CandidateService,
+    private readonly pipelineService: RecruitmentPipelineService,
     private readonly fileUrlService: FileUrlService,
   ) {}
   @Post()
@@ -57,12 +59,12 @@ export class CandidateController {
     @Body() updateDto: UpdateCandidateStatusDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    const updated = await this.candidateService.updateCandidateStatus(
-      candidateId,
+    const updated = await this.pipelineService.changeStatus({
       tenantId,
-      updateDto,
-      member.id,
-    );
+      candidateId,
+      status: updateDto.status,
+      actorMemberId: member.id,
+    });
     return CandidateMapper.toResponse(updated, this.fileUrlService);
   }
 }
