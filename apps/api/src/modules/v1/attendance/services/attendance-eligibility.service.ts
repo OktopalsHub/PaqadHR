@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { LeaveStatus } from 'src/common/enums';
 
 import { LeaveService } from '../../leave/leave.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
@@ -61,13 +62,16 @@ export class AttendanceEligibilityService {
     date: Date,
   ): Promise<{ isOnLeave: boolean; leaveType?: string }> {
     try {
-      const leaves = await this.leaveService.getLeavesByMember(tenantId, memberId, {
-        page: 1,
-        limit: 100,
-      });
-      for (const l of leaves.records) {
-        if (l.status === 'APPROVED' && date >= new Date(l.startDate) && date <= new Date(l.endDate))
-          return { isOnLeave: true, leaveType: l.leaveType?.name };
+      const day = date.toISOString().slice(0, 10);
+      const leaves = await this.leaveService.getLeavesByMember(
+        tenantId,
+        memberId,
+        { page: 1, limit: 1 },
+        { status: LeaveStatus.APPROVED, from: day, to: day },
+      );
+      const [match] = leaves.records;
+      if (match) {
+        return { isOnLeave: true, leaveType: match.leaveType?.name };
       }
       return { isOnLeave: false };
     } catch {

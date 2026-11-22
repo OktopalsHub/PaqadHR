@@ -1,4 +1,11 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import type { QueryDeepPartialEntity } from 'typeorm';
 import { LeaveStatus } from 'src/common/enums';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { relationsFromPaths } from 'src/common/utils/find-relations.util';
@@ -44,7 +51,7 @@ export class LeaveApprovalService {
     if (leave.requestedBy === approverId) {
       throw new ForbiddenException('You cannot approve your own leave request');
     }
-    await this.leaveRepository.update(leave.id, {
+    await this.claimTransition(tenantId, leave.id, LeaveStatus.PENDING, {
       status: LeaveStatus.APPROVED,
       approvedBy: approverId,
       reviewedAt: new Date(),
@@ -82,9 +89,9 @@ export class LeaveApprovalService {
       throw new NotFoundException('Leave not found');
     }
     if (leave.requestedBy === approverId) {
-      throw new ForbiddenException('You cannot approve your own leave request');
+      throw new ForbiddenException('You cannot reject your own leave request');
     }
-    await this.leaveRepository.update(leave.id, {
+    await this.claimTransition(tenantId, leave.id, LeaveStatus.PENDING, {
       status: LeaveStatus.REJECTED,
       approvedBy: approverId,
       reviewedAt: new Date(),
@@ -131,7 +138,7 @@ export class LeaveApprovalService {
     if (start <= today) {
       throw new ForbiddenException('Cannot cancel leave that has already started');
     }
-    await this.leaveRepository.update(leave.id, {
+    await this.claimTransition(tenantId, leave.id, LeaveStatus.APPROVED, {
       status: LeaveStatus.CANCELLED,
       reviewedAt: new Date(),
       comments: leave.comments,
@@ -174,6 +181,18 @@ export class LeaveApprovalService {
     this.productAnalytics.capture(actorMemberId, 'leave_cancelled', { tenantId });
 
     return updated;
+  }
+
+  private async claimTransition(
+    tenantId: string,
+    leaveId: string,
+    from: LeaveStatus,
+    patch: QueryDeepPartialEntity<Leave>,
+  ): Promise<void> {
+    const result = await this.leaveRepository.update({ id: leaveId, tenantId, status: from }, patch);
+    if (!result.affected) {
+      throw new ConflictException('Leave request has already been processed');
+    }
   }
 
   private async findLeaveEntity(tenantId: string, leaveId: string): Promise<Leave | null> {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 
 import { LeavePolicyService } from '../leave-policy/leave-policy.service';
@@ -194,12 +194,10 @@ export class LeaveBalanceAccrualService {
     }
     const usedDaysChange = leaveBalanceUsedDaysChange(previousStatus, leave.status, leave.duration);
     if (usedDaysChange !== 0) {
-      const newUsedDays = balance.usedDays + usedDaysChange;
-      const newRemainingDays = balance.totalDays - newUsedDays;
-      await this.leaveBalanceRepository.update(balance.id, {
-        usedDays: newUsedDays,
-        remainingDays: newRemainingDays,
-      });
+      const applied = await this.leaveBalanceRepository.adjustUsedDays(balance.id, usedDaysChange);
+      if (!applied) {
+        throw new BadRequestException('Insufficient leave balance');
+      }
     }
   }
 
@@ -228,11 +226,9 @@ export class LeaveBalanceAccrualService {
     if (!balance) {
       throw new NotFoundException('Leave balance not found');
     }
-    const newUsedDays = balance.usedDays + durationDifference;
-    const newRemainingDays = balance.totalDays - newUsedDays;
-    await this.leaveBalanceRepository.update(balance.id, {
-      usedDays: newUsedDays,
-      remainingDays: newRemainingDays,
-    });
+    const applied = await this.leaveBalanceRepository.adjustUsedDays(balance.id, durationDifference);
+    if (!applied) {
+      throw new BadRequestException('Insufficient leave balance');
+    }
   }
 }

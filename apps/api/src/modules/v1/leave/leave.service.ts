@@ -160,7 +160,7 @@ export class LeaveService {
     }
 
     if (filters.status) {
-      qb.andWhere('leave.status = :status', { status: filters.status.toUpperCase() });
+      qb.andWhere('leave.status = :status', { status: filters.status });
     }
     if (filters.from) {
       qb.andWhere('leave.endDate >= :from', { from: filters.from });

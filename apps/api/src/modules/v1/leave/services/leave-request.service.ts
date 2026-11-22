@@ -44,6 +44,13 @@ export class LeaveRequestService {
       endDate,
     });
 
+    try {
+      await this.leaveBalanceService.applyLeaveImpact(saved, null);
+    } catch (error) {
+      await this.leaveRepository.delete({ id: saved.id, tenantId });
+      throw error;
+    }
+
     await this.activitiesService.queueActivity({
       tenantId,
       actorMemberId: memberId,
@@ -60,8 +67,6 @@ export class LeaveRequestService {
     });
 
     this.productAnalytics.capture(memberId, 'leave_requested', { tenantId });
-
-    await this.leaveBalanceService.applyLeaveImpact(saved, null);
 
     return saved;
   }
@@ -107,10 +112,6 @@ export class LeaveRequestService {
     if (!leave) {
       throw new ForbiddenException('You can only delete pending leave requests');
     }
-    await this.leaveBalanceService.applyLeaveImpact(
-      { ...leave, status: LeaveStatus.CANCELLED } as typeof leave,
-      LeaveStatus.PENDING,
-    );
     const result = await this.leaveRepository.softDelete({
       id: leaveId,
       tenantId,
@@ -119,6 +120,10 @@ export class LeaveRequestService {
     if (!result.affected) {
       throw new ForbiddenException('You can only delete pending leave requests');
     }
+    await this.leaveBalanceService.applyLeaveImpact(
+      { ...leave, status: LeaveStatus.CANCELLED } as typeof leave,
+      LeaveStatus.PENDING,
+    );
     return result;
   }
 }

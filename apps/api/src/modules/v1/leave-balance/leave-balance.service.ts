@@ -26,6 +26,7 @@ export class LeaveBalanceService {
   ): Promise<LeaveBalance> {
     const balance = await this.leaveBalanceRepository.save({
       ...dto,
+      regularDays: dto.totalDays,
       tenantId,
       memberId,
       leaveTypeId,
@@ -61,6 +62,7 @@ export class LeaveBalanceService {
     return this.leaveBalanceRepository.save(
       records.map((r) => ({
         ...r,
+        regularDays: r.totalDays,
         tenantId,
       })),
     );

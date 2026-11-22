@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 
 import { LeaveBalanceInitializationService } from '../../leave-balance/leave-balance-initialization.service';
@@ -13,6 +13,7 @@ import type {
 
 @Injectable()
 export class LeaveManagementListener {
+  private readonly logger = new Logger(LeaveManagementListener.name);
   constructor(
     private readonly leaveTypeService: LeaveTypeService,
     private readonly tenantMembersService: TenantMembersService,
@@ -28,7 +29,9 @@ export class LeaveManagementListener {
         description: 'Paid Time Off',
         defaultDays: 21,
       });
-    } catch (_error) {}
+    } catch (error) {
+      this.logger.error('Leave setup failed for tenant.created', error instanceof Error ? error.stack : undefined);
+    }
   }
   @OnEvent('tenant.member.created')
   async handleTenantMemberCreated(event: TenantMemberCreatedEvent) {
@@ -38,7 +41,9 @@ export class LeaveManagementListener {
         event.memberId,
         event.joinDate,
       );
-    } catch (_error) {}
+    } catch (error) {
+      this.logger.error('Leave setup failed for tenant.member.created', error instanceof Error ? error.stack : undefined);
+    }
   }
   @OnEvent('leave.type.created')
   async handleLeaveTypeCreated(event: LeaveTypeCreatedEvent) {
@@ -51,6 +56,8 @@ export class LeaveManagementListener {
         event.defaultDays,
         memberIds,
       );
-    } catch (_error) {}
+    } catch (error) {
+      this.logger.error('Leave setup failed for leave.type.created', error instanceof Error ? error.stack : undefined);
+    }
   }
 }

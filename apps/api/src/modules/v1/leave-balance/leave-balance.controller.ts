@@ -35,24 +35,6 @@ export class LeaveBalanceController {
     private readonly managerAccessService: ManagerAccessService,
   ) {}
 
-  @Post()
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  async createLeaveBalance(
-    @Param('tenantId') tenantId: string,
-    @Param('leaveTypeId') leaveTypeId: string,
-    @Body() dto: CreateLeaveBalanceDto,
-    @CurrentTenantMember() member: MemberContext,
-  ) {
-    return this.leaveBalanceService.createLeaveBalance(
-      tenantId,
-      member.id,
-      leaveTypeId,
-      dto,
-      member.id,
-    );
-  }
-
   @Get()
   async listLeaveBalances(
     @Param('tenantId') tenantId: string,
