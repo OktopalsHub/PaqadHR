@@ -47,6 +47,8 @@ export class UpdateMemberProfileDto {
   @ApiProperty({ required: false, description: 'Avatar storage key' })
   @IsOptional()
   @IsString()
+  @MaxLength(200)
+  @Matches(/^(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._-]*$/, { message: 'Invalid avatar key' })
   avatarKey?: string;
 
   @ApiProperty({ required: false, description: 'Employee BVN (11 digits)' })
