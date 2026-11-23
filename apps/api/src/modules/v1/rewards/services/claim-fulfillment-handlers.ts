@@ -209,7 +209,7 @@ export async function fulfillNombaUtility(
       voucher: {
         code: result.token || undefined,
         instructions: result.token
-          ? `Utility payment successful. Prepaid token: ${result.token}`
+          ? 'Utility payment successful. Your prepaid token is shown with this reward.'
           : `Utility payment successful. Reference: ${result.transactionId}`,
       },
       processingStartedAt: null,

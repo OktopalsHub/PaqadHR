@@ -4,7 +4,7 @@ import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.serv
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
 import { resolveNgRewardsAirtimeProvider } from 'src/common/utils/ng-money-provider.util';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 
 import { RewardRedemption } from '../entities/reward-redemption.entity';
 import { RewardsCatalogService } from './rewards-catalog.service';
@@ -47,9 +47,30 @@ export class RewardsService {
     return this.claimService.claim(tenantId, memberId, input);
   }
   async getMyClaims(tenantId: string, memberId: string): Promise<RewardRedemption[]> {
-    return this.dataSource
-      .getRepository(RewardRedemption)
-      .find({ where: { tenantId, memberId }, order: { createdAt: 'DESC' }, take: 50 });
+    const repository = this.dataSource.getRepository(RewardRedemption);
+    const claims = await repository.find({
+      where: { tenantId, memberId },
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    await this.sealLegacyVouchers(claims.map((claim) => claim.id));
+    return claims;
+  }
+
+  /** Rows written before voucher encryption hold plaintext; seal them the first time they are read. */
+  private async sealLegacyVouchers(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const repository = this.dataSource.getRepository(RewardRedemption);
+    const legacy: { id: string }[] = await this.dataSource.query(
+      `SELECT id FROM reward_redemptions
+       WHERE id = ANY($1::uuid[])
+         AND ((voucher->>'code' IS NOT NULL AND voucher->>'code' NOT LIKE 'enc1.%')
+           OR (voucher->>'pin' IS NOT NULL AND voucher->>'pin' NOT LIKE 'enc1.%'))`,
+      [ids],
+    );
+    if (legacy.length === 0) return;
+    const rows = await repository.find({ where: { id: In(legacy.map((row) => row.id)) } });
+    for (const row of rows) await repository.update(row.id, { voucher: row.voucher });
   }
   async getAllClaims(tenantId: string) {
     return this.dataSource.getRepository(RewardRedemption).find({
