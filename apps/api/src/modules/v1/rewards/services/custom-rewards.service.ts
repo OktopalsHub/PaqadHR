@@ -83,7 +83,22 @@ export class CustomRewardsService {
     if (!reward) {
       throw new NotFoundException('Custom reward not found');
     }
-    Object.assign(reward, data);
+    const { title, description, pointsCost, imageUrl, isActive, stockLimit, deliveryInstructions } =
+      data;
+    Object.assign(
+      reward,
+      Object.fromEntries(
+        Object.entries({
+          title,
+          description,
+          pointsCost,
+          imageUrl,
+          isActive,
+          stockLimit,
+          deliveryInstructions,
+        }).filter(([, value]) => value !== undefined),
+      ),
+    );
     const saved = await repo.save(reward);
     if (actorMemberId) {
       void this.activitiesService

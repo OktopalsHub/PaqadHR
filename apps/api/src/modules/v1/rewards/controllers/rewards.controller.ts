@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
@@ -70,6 +70,7 @@ export class RewardsController {
   }
 
   @Post('catalog/sync')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @RewardsIntegrationsAdminRoles()
   async syncCatalog(@Param('tenantId') t: string) {
     return this.catalog.syncCatalog(t);
@@ -82,6 +83,7 @@ export class RewardsController {
   }
 
   @Post('claim')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @RewardsIntegrationsAllRoles()
   async claim(
     @Param('tenantId') t: string,
@@ -170,6 +172,7 @@ export class RewardsController {
   }
 
   @Post('utilities/lookup')
+  @RateLimit(RateLimitPresets.API)
   @RewardsIntegrationsAllRoles()
   async lookupUtilityMeter(@Body() b: UtilityLookupDto) {
     return this.catalog.lookupUtilityMeter(b);
@@ -188,6 +191,7 @@ export class RewardsController {
   }
 
   @Post('wallet/topup')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @RewardsIntegrationsAdminRoles()
   async manualTopup(
     @Param('tenantId') t: string,
@@ -198,6 +202,7 @@ export class RewardsController {
   }
 
   @Post('wallet/topup/checkout')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @RewardsIntegrationsAdminRoles()
   async topupCheckout(
     @Param('tenantId') t: string,
@@ -208,6 +213,7 @@ export class RewardsController {
   }
 
   @Post('wallet/topup/checkout/complete')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @RewardsIntegrationsAdminRoles()
   async completeTopupCheckout(
     @Param('tenantId') t: string,
@@ -218,6 +224,7 @@ export class RewardsController {
   }
 
   @Post('wallet/auto-topup')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @RewardsIntegrationsAdminRoles()
   async updateAutoTopup(
     @Param('tenantId') t: string,
@@ -228,6 +235,7 @@ export class RewardsController {
   }
 
   @Post('assign-points')
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @RewardsAdminRoles()
   async assignPoints(
     @Param('tenantId') t: string,

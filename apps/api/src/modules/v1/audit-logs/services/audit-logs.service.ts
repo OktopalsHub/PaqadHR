@@ -5,12 +5,16 @@ import { Repository } from 'typeorm';
 import type { CreateAuditLogPayload } from '../../../../common/interfaces/create-audit-log-payload.interface';
 import { AuditLog } from '../entities/audit-log.entity';
 
+const MAX_QUEUE_SIZE = 10_000;
+const MAX_ATTEMPTS = 5;
+
 @Injectable()
 export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuditLogsService.name);
   private readonly queue: CreateAuditLogPayload[] = [];
   private drainTimer: ReturnType<typeof setInterval> | null = null;
   private draining = false;
+  private readonly attempts = new WeakMap<object, number>();
 
   public static readonly testLogs: CreateAuditLogPayload[] = [];
 
@@ -30,7 +34,7 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
       AuditLogsService.testLogs.push(payload);
       return;
     }
-    this.queue.push(payload);
+    this.enqueue(payload);
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -41,35 +45,61 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
     await this.drainQueue();
   }
 
+  private enqueue(entry: CreateAuditLogPayload): void {
+    if (this.queue.length >= MAX_QUEUE_SIZE) {
+      this.queue.shift();
+      this.logger.warn('audit log queue is full; dropped the oldest entry');
+    }
+    this.queue.push(entry);
+  }
+
   private async drainQueue(): Promise<void> {
-    if (this.draining || this.queue.length === 0) return;
+    if (this.draining) return;
     this.draining = true;
-
     try {
-      const batch = this.queue.splice(0, 25);
-      const entities = batch.map((entry) =>
-        this.auditLogRepository.create({
-          action: entry.action,
-          description: entry.description,
-          severity: entry.severity,
-          status: entry.status,
-          resourceType: entry.resourceType ?? null,
-          resourceId: entry.resourceId ?? null,
-          tenantId: entry.tenantId ?? null,
-          userId: entry.userId ?? null,
-          ipAddress: entry.ipAddress ?? null,
-          userAgent: entry.userAgent ?? null,
-          metadata: entry.metadata ?? null,
-        }),
-      );
+      while (this.queue.length > 0) {
+        const batch = this.queue.splice(0, 25);
+        try {
+          const entities = batch.map((entry) =>
+            this.auditLogRepository.create({
+              action: entry.action,
+              description: entry.description,
+              severity: entry.severity,
+              status: entry.status,
+              resourceType: entry.resourceType ?? null,
+              resourceId: entry.resourceId ?? null,
+              tenantId: entry.tenantId ?? null,
+              userId: entry.userId ?? null,
+              ipAddress: entry.ipAddress ?? null,
+              userAgent: entry.userAgent ?? null,
+              metadata: entry.metadata ?? null,
+            }),
+          );
 
-      await this.auditLogRepository.save(entities);
-    } catch (error) {
-      this.logger.error(
-        `Failed to persist audit log batch: ${error instanceof Error ? error.message : String(error)}`,
-      );
+          await this.auditLogRepository.save(entities);
+
+        } catch (error) {
+          this.requeueFailed(batch);
+          this.logger.error(
+            `Failed to persist audit log batch: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return;
+        }
+      }
     } finally {
       this.draining = false;
+    }
+  }
+
+  private requeueFailed(batch: Array<CreateAuditLogPayload>): void {
+    const keep = batch.filter((entry) => {
+      const attempts = (this.attempts.get(entry) ?? 0) + 1;
+      this.attempts.set(entry, attempts);
+      return attempts < MAX_ATTEMPTS;
+    });
+    this.queue.unshift(...keep);
+    if (keep.length < batch.length) {
+      this.logger.error(`Dropped ${batch.length - keep.length} audit log entries after repeated failures`);
     }
   }
 }
