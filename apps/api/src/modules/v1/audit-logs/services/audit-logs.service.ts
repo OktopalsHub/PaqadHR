@@ -34,7 +34,16 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
       AuditLogsService.testLogs.push(payload);
       return;
     }
-    this.enqueue(payload);
+    // Written before the caller continues, so a crash right after an action cannot lose its
+    // audit record. Only a failed write falls back to the in-memory retry queue.
+    try {
+      await this.auditLogRepository.save(this.toEntity(payload));
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist audit log, queued for retry: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.enqueue(payload);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -43,6 +52,22 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
       this.drainTimer = null;
     }
     await this.drainQueue();
+  }
+
+  private toEntity(entry: CreateAuditLogPayload): AuditLog {
+    return this.auditLogRepository.create({
+      action: entry.action,
+      description: entry.description,
+      severity: entry.severity,
+      status: entry.status,
+      resourceType: entry.resourceType ?? null,
+      resourceId: entry.resourceId ?? null,
+      tenantId: entry.tenantId ?? null,
+      userId: entry.userId ?? null,
+      ipAddress: entry.ipAddress ?? null,
+      userAgent: entry.userAgent ?? null,
+      metadata: entry.metadata ?? null,
+    });
   }
 
   private enqueue(entry: CreateAuditLogPayload): void {
@@ -60,21 +85,7 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
       while (this.queue.length > 0) {
         const batch = this.queue.splice(0, 25);
         try {
-          const entities = batch.map((entry) =>
-            this.auditLogRepository.create({
-              action: entry.action,
-              description: entry.description,
-              severity: entry.severity,
-              status: entry.status,
-              resourceType: entry.resourceType ?? null,
-              resourceId: entry.resourceId ?? null,
-              tenantId: entry.tenantId ?? null,
-              userId: entry.userId ?? null,
-              ipAddress: entry.ipAddress ?? null,
-              userAgent: entry.userAgent ?? null,
-              metadata: entry.metadata ?? null,
-            }),
-          );
+          const entities = batch.map((entry) => this.toEntity(entry));
 
           await this.auditLogRepository.save(entities);
 

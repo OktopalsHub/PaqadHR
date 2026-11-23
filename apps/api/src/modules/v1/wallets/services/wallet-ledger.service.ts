@@ -463,7 +463,7 @@ export class WalletLedgerService {
     }
   }
 
-  private async getBalanceInManager(
+  async getBalanceInManager(
     manager: EntityManager,
     accountId: string,
     normalSide: 'debit' | 'credit',

@@ -49,3 +49,16 @@ async function relaxConstraints(dataSource: DataSource): Promise<void> {
     END $$;
   `);
 }
+
+/** Empty database built by the real migrations, so triggers and CHECKs are in place. */
+export async function createMigratedDataSource(): Promise<DataSource> {
+  jest.restoreAllMocks();
+  process.env.DATABASE_URL = PG_TEST_URL;
+  const { dataSourceOptions } = await import('../common/database/config/data-source');
+  const dataSource = new DataSource({ ...dataSourceOptions, migrationsRun: false });
+  await dataSource.initialize();
+  await dataSource.query('DROP SCHEMA public CASCADE');
+  await dataSource.query('CREATE SCHEMA public');
+  await dataSource.runMigrations({ transaction: 'all' });
+  return dataSource;
+}

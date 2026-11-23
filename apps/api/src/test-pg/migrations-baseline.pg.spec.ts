@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { DataSource } from 'typeorm';
 
-import { PG_TEST_URL } from './pg-harness';
+import { createMigratedDataSource, PG_TEST_URL } from './pg-harness';
 
 const maybe = PG_TEST_URL ? describe : describe.skip;
 
@@ -11,14 +11,7 @@ maybe('migration baseline (real Postgres)', () => {
   let ds: DataSource;
 
   beforeAll(async () => {
-    jest.restoreAllMocks();
-    process.env.DATABASE_URL = PG_TEST_URL;
-    const { dataSourceOptions } = await import('../common/database/config/data-source');
-    ds = new DataSource({ ...dataSourceOptions, migrationsRun: false });
-    await ds.initialize();
-    await ds.query('DROP SCHEMA public CASCADE');
-    await ds.query('CREATE SCHEMA public');
-    await ds.runMigrations({ transaction: 'all' });
+    ds = await createMigratedDataSource();
   });
   afterAll(async () => {
     await ds?.destroy();
