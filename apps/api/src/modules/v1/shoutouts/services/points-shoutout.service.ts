@@ -7,6 +7,7 @@ import { In } from 'typeorm';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
 import { MemberPointsRepository } from '../repositories/member-points.repository';
+import { addMemberPoints } from '../utils/member-points-delta.util';
 import { PointsCalculationService } from './points-calculation.service';
 
 @Injectable()
@@ -27,27 +28,24 @@ export class PointsShoutoutService {
     actorId: string,
   ): Promise<void> {
     const allowancePeriod = await this.pointsCalculationService.getAllowancePeriod(tenantId);
-    let recipient = await this.pointsCalculationService.ensureMemberRow(
+    const recipientRow = await this.pointsCalculationService.ensureMemberRow(
       tenantId,
       recipientId,
       manager,
     );
-    recipient = await this.pointsCalculationService.ensureMonthlyReset(
-      recipient,
-      manager,
-      allowancePeriod,
-    );
-    recipient.monthlyReceived += points;
-    recipient.currentBalance += points;
-    recipient.totalEarned += points;
-    await manager.save(recipient);
+    await this.pointsCalculationService.ensureMonthlyReset(recipientRow, manager, allowancePeriod);
+    const newBalance = await addMemberPoints(manager, tenantId, recipientId, {
+      balance: points,
+      earned: points,
+      monthlyReceived: points,
+    });
 
     await this.memberPointsRepository.insertTransaction(manager, {
       tenantId,
       memberId: recipientId,
       type: ShoutoutPointTransactionType.ADMIN_ASSIGN,
       points,
-      runningBalance: recipient.currentBalance,
+      runningBalance: newBalance,
       shoutoutId,
       description: dedupKey,
       createdBy: actorId,
@@ -70,9 +68,10 @@ export class PointsShoutoutService {
       manager,
     );
 
-    sender.monthlyGiven += totalCost;
-    sender.totalGiven += totalCost;
-    await manager.save(sender);
+    await addMemberPoints(manager, tenantId, senderMemberId, {
+      given: totalCost,
+      monthlyGiven: totalCost,
+    });
 
     await this.memberPointsRepository.insertTransaction(manager, {
       tenantId,
@@ -137,16 +136,17 @@ export class PointsShoutoutService {
       }
       const pts = pointsByRecipient.get(row.memberId) ?? 0;
       if (pts > 0) {
-        row.monthlyReceived += pts;
-        row.currentBalance += pts;
-        row.totalEarned += pts;
-        await repo.save(row);
+        const newBalance = await addMemberPoints(manager, tenantId, row.memberId, {
+          balance: pts,
+          earned: pts,
+          monthlyReceived: pts,
+        });
         await this.memberPointsRepository.insertTransaction(manager, {
           tenantId,
           memberId: row.memberId,
           type: ShoutoutPointTransactionType.RECEIVED,
           points: pts,
-          runningBalance: row.currentBalance,
+          runningBalance: newBalance,
           shoutoutId,
           description: 'Received shoutout',
           createdBy: senderMemberId,

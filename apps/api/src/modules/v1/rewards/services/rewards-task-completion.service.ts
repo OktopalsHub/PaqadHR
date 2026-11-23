@@ -1,12 +1,14 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
-import { DataSource } from 'typeorm';
+import type { EntityManager } from 'typeorm';
+import { DataSource, Not } from 'typeorm';
 
 import { Employment } from '../../employment/entities/employment.entity';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
 import { Shoutout } from '../../shoutouts/entities/shoutout.entity';
+import { addMemberPoints } from '../../shoutouts/utils/member-points-delta.util';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
 import { Task } from '../entities/task.entity';
@@ -26,30 +28,33 @@ export class RewardsTaskCompletionService {
     memberId: string,
     data: { submissionText?: string; submissionFileName?: string },
   ) {
-    const taskRepo = this.dataSource.getRepository(Task);
-    const submissionRepo = this.dataSource.getRepository(TaskSubmission);
-    const task = await taskRepo.findOne({ where: { id: taskId, tenantId } });
+    const task = await this.dataSource.getRepository(Task).findOne({ where: { id: taskId, tenantId } });
     if (!task) throw new BadRequestException('Task not found');
-    let sub = await submissionRepo.findOne({ where: { taskId, memberId, tenantId } });
-    if (sub?.status === 'completed') throw new BadRequestException('Task already completed');
     const isInstant = task.submissionType === 'instant';
     const status: 'pending' | 'completed' | 'rejected' = isInstant ? 'completed' : 'pending';
-    if (!sub)
-      sub = submissionRepo.create({
-        tenantId,
-        taskId,
-        memberId,
-        status,
-        submissionText: data.submissionText ?? undefined,
-        submissionFileName: data.submissionFileName ?? undefined,
-      });
-    else {
-      sub.status = status;
-      sub.submissionText = data.submissionText ?? sub.submissionText;
-      sub.submissionFileName = data.submissionFileName ?? sub.submissionFileName;
-    }
-    await submissionRepo.save(sub!);
-    if (isInstant) await this.awardPointsForTask(tenantId, memberId, task.points, task.title);
+    await this.dataSource.transaction(async (manager) => {
+      await this.lockTaskMember(manager, taskId, memberId);
+      const submissionRepo = manager.getRepository(TaskSubmission);
+      let sub = await submissionRepo.findOne({ where: { taskId, memberId, tenantId } });
+      if (sub?.status === 'completed') throw new BadRequestException('Task already completed');
+      if (!sub)
+        sub = submissionRepo.create({
+          tenantId,
+          taskId,
+          memberId,
+          status,
+          submissionText: data.submissionText ?? undefined,
+          submissionFileName: data.submissionFileName ?? undefined,
+        });
+      else {
+        sub.status = status;
+        sub.submissionText = data.submissionText ?? sub.submissionText;
+        sub.submissionFileName = data.submissionFileName ?? sub.submissionFileName;
+      }
+      await submissionRepo.save(sub);
+      if (isInstant) await this.creditTaskPoints(manager, tenantId, memberId, task.points, task.title);
+    });
+    if (isInstant) this.notifyTaskPoints(tenantId, memberId, task.points, task.title);
     return { success: true, status, pointsAwarded: isInstant ? task.points : 0 };
   }
 
@@ -66,9 +71,15 @@ export class RewardsTaskCompletionService {
       .getRepository(Task)
       .findOne({ where: { id: taskId, tenantId } });
     if (!task) throw new BadRequestException('Task not found');
-    sub.status = 'completed';
-    await submissionRepo.save(sub);
-    await this.awardPointsForTask(tenantId, sub.memberId, task.points, task.title);
+    await this.dataSource.transaction(async (manager) => {
+      await this.lockTaskMember(manager, taskId, sub.memberId);
+      const claimed = await manager
+        .getRepository(TaskSubmission)
+        .update({ id: submissionId, tenantId, taskId, status: Not('completed') }, { status: 'completed' });
+      if (!claimed.affected) throw new BadRequestException('Submission already approved');
+      await this.creditTaskPoints(manager, tenantId, sub.memberId, task.points, task.title);
+    });
+    this.notifyTaskPoints(tenantId, sub.memberId, task.points, task.title);
     return { success: true };
   }
 
@@ -104,46 +115,55 @@ export class RewardsTaskCompletionService {
     return submitterEmployment?.reportsToId === actorId;
   }
 
-  private async awardPointsForTask(
+  /** One task completion per member and task at a time, until the schema has a unique key. */
+  private async lockTaskMember(manager: EntityManager, taskId: string, memberId: string) {
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `task-completion:${taskId}:${memberId}`,
+    ]);
+  }
+
+  private async creditTaskPoints(
+    manager: EntityManager,
     tenantId: string,
     memberId: string,
     points: number,
     taskTitle: string,
   ) {
-    await this.dataSource.transaction(async (manager) => {
-      const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
-      let row = await pointsRepo.findOne({ where: { tenantId, memberId } });
-      if (!row)
-        row = pointsRepo.create({
-          tenantId,
-          memberId,
-          currentBalance: 0,
-          totalEarned: 0,
-          lastResetDate: new Date(),
-        });
-      row.currentBalance += points;
-      row.totalEarned += points;
-      await manager.save(row);
-      await manager.getRepository(ShoutoutPointTransaction).save(
-        manager.getRepository(ShoutoutPointTransaction).create({
-          tenantId,
-          memberId,
-          type: ShoutoutPointTransactionType.ADMIN_ASSIGN,
-          points,
-          runningBalance: row.currentBalance,
-          description: `Completed task: ${taskTitle}`,
-          createdBy: memberId,
-        }),
-      );
-      await manager.getRepository(Shoutout).save(
-        manager.getRepository(Shoutout).create({
-          tenantId,
-          totalPoints: points,
-          createdBy: memberId,
-          message: `completed task: ${taskTitle}`,
-        }),
-      );
+    const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
+    if (!(await pointsRepo.exists({ where: { tenantId, memberId } })))
+      await pointsRepo
+        .createQueryBuilder()
+        .insert()
+        .into(ShoutoutMemberPoints)
+        .values({ tenantId, memberId, currentBalance: 0, totalEarned: 0, lastResetDate: new Date() })
+        .orIgnore()
+        .execute();
+    const newBalance = await addMemberPoints(manager, tenantId, memberId, {
+      balance: points,
+      earned: points,
     });
+    await manager.getRepository(ShoutoutPointTransaction).save(
+      manager.getRepository(ShoutoutPointTransaction).create({
+        tenantId,
+        memberId,
+        type: ShoutoutPointTransactionType.ADMIN_ASSIGN,
+        points,
+        runningBalance: newBalance,
+        description: `Completed task: ${taskTitle}`,
+        createdBy: memberId,
+      }),
+    );
+    await manager.getRepository(Shoutout).save(
+      manager.getRepository(Shoutout).create({
+        tenantId,
+        totalPoints: points,
+        createdBy: memberId,
+        message: `completed task: ${taskTitle}`,
+      }),
+    );
+  }
+
+  private notifyTaskPoints(tenantId: string, memberId: string, points: number, taskTitle: string) {
     this.notificationHelper
       .sendTaskCompletionPointsNotification(memberId, tenantId, { points, taskTitle })
       .catch((error) => this.logger.error('Failed to send task completion notification', error));

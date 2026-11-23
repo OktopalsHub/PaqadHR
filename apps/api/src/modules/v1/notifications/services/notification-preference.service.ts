@@ -7,6 +7,25 @@ import type { NotificationPreferenceType } from '../../../../common/enums/notifi
 import { UpdatePreferenceDto } from '../dto/update-preference.dto';
 import { NotificationPreference } from '../entities/notification-preference.entity';
 
+const PREFERENCE_FIELDS = [
+  'preferredChannel',
+  'isEnabled',
+  'emailEnabled',
+  'inAppEnabled',
+  'quietHoursStart',
+  'quietHoursEnd',
+  'quietDays',
+] as const;
+
+/** Copy only the fields a member may change; never ids, tenant or owner. */
+export function pickPreferenceFields(dto: UpdatePreferenceDto): UpdatePreferenceDto {
+  const picked: Record<string, unknown> = {};
+  for (const key of PREFERENCE_FIELDS) {
+    if (dto[key] !== undefined) picked[key] = dto[key];
+  }
+  return picked as UpdatePreferenceDto;
+}
+
 @Injectable()
 export class NotificationPreferenceService {
   constructor(
@@ -41,10 +60,10 @@ export class NotificationPreferenceService {
         isEnabled: true,
         emailEnabled: true,
         inAppEnabled: true,
-        ...updateDto,
+        ...pickPreferenceFields(updateDto),
       });
     } else {
-      Object.assign(preference, updateDto);
+      Object.assign(preference, pickPreferenceFields(updateDto));
     }
     return this.preferenceRepository.save(preference);
   }

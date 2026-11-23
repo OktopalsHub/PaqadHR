@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
+import type { EntityManager } from 'typeorm';
 import { DataSource } from 'typeorm';
 
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
@@ -45,10 +46,17 @@ export class ClaimBillingService {
         if (pointsCost !== cr.pointsCost)
           throw new BadRequestException(`Invalid points cost for custom reward: ${cr.pointsCost}`);
         if (cr.stockLimit !== null) {
-          if (cr.stockLimit <= 0) throw new BadRequestException('Reward is out of stock');
-          await manager
+          const taken = await manager
             .getRepository(CustomReward)
-            .update(cr.id, { stockLimit: cr.stockLimit - 1 });
+            .createQueryBuilder()
+            .update(CustomReward)
+            .set({ stockLimit: () => 'stock_limit - 1' })
+            .where('id = :id AND tenant_id = :tenantId AND stock_limit > 0', {
+              id: cr.id,
+              tenantId,
+            })
+            .execute();
+          if (!taken.affected) throw new BadRequestException('Reward is out of stock');
         }
       }
       const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
@@ -206,13 +214,7 @@ export class ClaimBillingService {
         }
       }
       if (input.rewardType === 'CUSTOM') {
-        const cr = await manager
-          .getRepository(CustomReward)
-          .findOne({ where: { id: input.rewardId, tenantId } });
-        if (cr && cr.stockLimit !== null)
-          await manager
-            .getRepository(CustomReward)
-            .update(cr.id, { stockLimit: cr.stockLimit + 1 });
+        await this.restoreCustomStock(manager, tenantId, input.rewardId);
       }
       return true;
     });
@@ -307,16 +309,24 @@ export class ClaimBillingService {
         }
       }
       if (rewardType === 'CUSTOM') {
-        const cr = await manager
-          .getRepository(CustomReward)
-          .findOne({ where: { id: redemption.rewardId ?? undefined, tenantId } });
-        if (cr?.stockLimit != null)
-          await manager
-            .getRepository(CustomReward)
-            .update(cr.id, { stockLimit: cr.stockLimit + 1 });
+        if (redemption.rewardId)
+          await this.restoreCustomStock(manager, tenantId, redemption.rewardId);
       }
       return true;
     });
     return refunded;
+  }
+
+  private async restoreCustomStock(manager: EntityManager, tenantId: string, rewardId: string) {
+    await manager
+      .getRepository(CustomReward)
+      .createQueryBuilder()
+      .update(CustomReward)
+      .set({ stockLimit: () => 'stock_limit + 1' })
+      .where('id = :rewardId AND tenant_id = :tenantId AND stock_limit IS NOT NULL', {
+        rewardId,
+        tenantId,
+      })
+      .execute();
   }
 }

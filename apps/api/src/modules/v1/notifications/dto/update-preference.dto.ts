@@ -1,5 +1,15 @@
-import { IsArray, IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { NotificationChannel } from 'src/common/enums/notification-channel.enum';
+import { NotificationPreferenceType } from 'src/common/enums/notification-preference-type.enum';
 
 export class UpdatePreferenceDto {
   @IsOptional()
@@ -30,4 +40,17 @@ export class UpdatePreferenceDto {
   @IsArray()
   @IsString({ each: true })
   quietDays?: string[];
+}
+
+export class PreferenceItemDto extends UpdatePreferenceDto {
+  @IsEnum(NotificationPreferenceType)
+  notificationType: NotificationPreferenceType;
+}
+
+export class UpdatePreferencesDto {
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => PreferenceItemDto)
+  preferences: PreferenceItemDto[];
 }
