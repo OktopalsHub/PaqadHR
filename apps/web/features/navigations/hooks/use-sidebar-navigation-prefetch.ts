@@ -124,6 +124,7 @@ export function useSidebarNavigationPrefetch() {
           });
           break;
         case 'analytics':
+          if (!isTenantAdmin(tenant?.member?.role)) break;
           void queryClient.prefetchQuery({
             queryKey: queryKeys.analytics.overview(tenantId),
             queryFn: fetchAnalyticsOverview,
