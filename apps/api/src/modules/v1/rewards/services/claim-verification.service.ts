@@ -9,7 +9,7 @@ import { resolveNgRewardsAirtimeProvider } from 'src/common/utils/ng-money-provi
 
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import { RewardRedemption, type RewardType } from '../entities/reward-redemption.entity';
-import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
+import { computeRedemptionDebit, computeTremendousPointsCost } from '../utils/rewards-redemption.util';
 import { RewardsCatalogService } from './rewards-catalog.service';
 
 export interface ClaimInput {
@@ -156,7 +156,11 @@ export class ClaimVerificationService {
       return {
         faceValueInRewardsCurrency: wholesale,
         totalTenantDebit: computeRedemptionDebit(wholesale, feePercentage),
-        expectedPointsCost: product.pointsCost,
+        expectedPointsCost: computeTremendousPointsCost(
+          wholesale,
+          feePercentage,
+          settings.pointsExchangeRate,
+        ),
       };
     }
     if (input.rewardType === 'CUSTOM')

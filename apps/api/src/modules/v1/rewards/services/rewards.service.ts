@@ -34,7 +34,8 @@ export class RewardsService {
     tenantId: string,
     options?: { includeAdminPricing?: boolean; countryCode?: string | null },
   ) {
-    return this.catalogService.getCatalog(tenantId, options);
+    const { feePercentage } = await this.claimService.getSubscriptionFees(tenantId, '');
+    return this.catalogService.getCatalog(tenantId, { ...options, feePercentage });
   }
   async syncCatalog(tenantId: string, options?: { force?: boolean }) {
     return this.catalogService.syncCatalog(tenantId, options);

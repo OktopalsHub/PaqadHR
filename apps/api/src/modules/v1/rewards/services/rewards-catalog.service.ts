@@ -90,7 +90,7 @@ export class RewardsCatalogService {
 
   async getCatalog(
     tenantId: string,
-    options?: { includeAdminPricing?: boolean; countryCode?: string | null },
+    options?: { includeAdminPricing?: boolean; countryCode?: string | null; feePercentage?: number },
   ): Promise<CatalogItem[]> {
     let { settings, countryCode } = await this.queryService.getRewardsContext(tenantId);
     if (!settings.enabled) return [];
