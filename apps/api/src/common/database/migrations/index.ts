@@ -82,3 +82,5 @@ export * from './1795450773721-wallet-ledger-accounts';
 export * from './1795450774472-wallet-ledger-entries';
 export * from './1795450775212-wallet-operations';
 export * from './1795450775956-wallet-provider-webhook-events';
+export * from './1795452665132-rate-limit-counters';
+export * from './1795452666681-rate-limit-lockouts';
