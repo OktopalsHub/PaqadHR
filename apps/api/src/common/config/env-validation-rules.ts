@@ -104,6 +104,14 @@ export function collectConfigErrors(): string[] {
   if (resolveTrustedOrigins().length === 0) {
     errors.push('TRUSTED_ORIGINS is not set');
   }
+  if (process.env.NODE_ENV === 'production') {
+    const hops = Number.parseInt(process.env.TRUST_PROXY ?? '', 10);
+    if (!Number.isInteger(hops) || hops < 1) {
+      errors.push(
+        'TRUST_PROXY must be the number of reverse-proxy hops (>= 1) in production; otherwise every client shares the proxy IP for rate limits and lockout',
+      );
+    }
+  }
   const publicId = process.env.R2_PUBLIC_ID?.trim();
   const customDomain = process.env.R2_CUSTOM_DOMAIN?.trim();
   if (!publicId && !customDomain) {

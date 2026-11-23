@@ -15,6 +15,7 @@ const BASE_ENV: Record<string, string> = {
   R2_BUCKET_NAME: 'bucket',
   R2_PUBLIC_ID: 'public-id',
   TRUSTED_ORIGINS: 'https://app.example.com',
+  TRUST_PROXY: '1',
   NODE_ENV: 'production',
   APP_DOMAIN: 'example.com',
   COOKIE_CROSS_SITE: 'true',

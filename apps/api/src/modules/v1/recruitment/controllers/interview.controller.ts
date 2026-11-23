@@ -16,7 +16,7 @@ import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
-import type { InterviewFilters, MemberContext } from 'src/common/interfaces';
+import { InterviewFilters, type MemberContext } from 'src/common/interfaces';
 
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreateInterviewDto, UpdateInterviewDto } from '../dto/interview.dto';
