@@ -132,7 +132,9 @@ export class RunWriteOps {
       lock: { mode: 'pessimistic_write' },
     });
     if (!run) throw new BadRequestException('Payroll run not found');
-    run.items = await manager.getRepository(PayrollItem).find({ where: { payrollRunId } });
+    const existingItems = await manager
+      .getRepository(PayrollItem)
+      .find({ where: { payrollRunId } });
 
     const structuralChange =
       dto.frequency !== undefined ||
@@ -168,7 +170,7 @@ export class RunWriteOps {
     if (dto.employeeIds !== undefined) {
       const desired = new Set(dto.employeeIds);
       const currency = run.baseCurrency;
-      const activeItems = (run.items ?? []).filter(
+      const activeItems = existingItems.filter(
         (item) => item.status !== PayrollItemStatus.CANCELLED,
       );
 
@@ -182,7 +184,7 @@ export class RunWriteOps {
       }
 
       const activeMemberIds = new Set(
-        (run.items ?? [])
+        existingItems
           .filter((item) => item.status !== PayrollItemStatus.CANCELLED)
           .map((item) => item.memberId),
       );

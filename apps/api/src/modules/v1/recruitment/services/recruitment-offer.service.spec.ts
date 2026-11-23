@@ -9,7 +9,19 @@ function build(overrides: { affected?: number; offer?: object } = {}) {
     findOne: jest.fn().mockResolvedValue(offer),
     update: jest.fn().mockResolvedValue({ affected: overrides.affected ?? 1 }),
     exists: jest.fn().mockResolvedValue(false),
+    save: jest.fn(async (value: object) => value),
+    create: jest.fn((value: object) => value),
+    getRepository: jest.fn(),
+    manager: {
+      query: jest.fn().mockResolvedValue([]),
+      getRepository: jest.fn(),
+      transaction: jest.fn(),
+    },
   };
+  offers.manager.getRepository.mockReturnValue(offers);
+  offers.manager.transaction.mockImplementation(async (fn: (m: unknown) => unknown) =>
+    fn(offers.manager),
+  );
   const candidates = {
     getCandidate: jest.fn().mockResolvedValue({ id: 'c1', status: CandidateStatus.OFFER }),
     updateCandidateStatus: jest.fn().mockResolvedValue(undefined),

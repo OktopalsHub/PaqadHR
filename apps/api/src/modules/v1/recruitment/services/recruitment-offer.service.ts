@@ -43,22 +43,28 @@ export class RecruitmentOfferService {
 
   async create(tenantId: string, candidateId: string, memberId: string, dto: CreateOfferDto) {
     await this.candidateService.getCandidate(candidateId, tenantId);
-    const open = await this.offers.exists({
-      where: { tenantId, candidateId, status: In(['DRAFT', 'SENT']) },
+    const offer = await this.offers.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `recruitment-offer:${tenantId}:${candidateId}`,
+      ]);
+      const repo = manager.getRepository(RecruitmentOffer);
+      const open = await repo.exists({
+        where: { tenantId, candidateId, status: In(['DRAFT', 'SENT']) },
+      });
+      if (open) throw new ConflictException('This candidate already has an open offer');
+      return repo.save(
+        repo.create({
+          tenantId,
+          candidateId,
+          amount: dto.amount.toFixed(2),
+          currency: dto.currency.toUpperCase(),
+          startDate: dto.startDate ?? null,
+          notes: dto.notes ?? null,
+          status: 'DRAFT',
+          createdByMemberId: memberId,
+        }),
+      );
     });
-    if (open) throw new ConflictException('This candidate already has an open offer');
-    const offer = await this.offers.save(
-      this.offers.create({
-        tenantId,
-        candidateId,
-        amount: dto.amount.toFixed(2),
-        currency: dto.currency.toUpperCase(),
-        startDate: dto.startDate ?? null,
-        notes: dto.notes ?? null,
-        status: 'DRAFT',
-        createdByMemberId: memberId,
-      }),
-    );
     return this.get(tenantId, offer.id);
   }
 
