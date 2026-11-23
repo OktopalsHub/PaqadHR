@@ -129,6 +129,9 @@ export class RewardsTaskCompletionService {
     points: number,
     taskTitle: string,
   ) {
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `member-points-row:${tenantId}:${memberId}`,
+    ]);
     const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
     if (!(await pointsRepo.exists({ where: { tenantId, memberId } })))
       await pointsRepo

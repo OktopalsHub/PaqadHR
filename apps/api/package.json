@@ -18,6 +18,7 @@
     "check:body-dtos": "node ../../.github/scripts/check-body-dto-imports.mjs",
     "check:dto-load": "node ../../.github/scripts/check-dto-load.mjs",
     "test": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js",
+    "test:pg": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js --runInBand pg.spec",
     "migration:create": "typeorm migration:create",
     "migration:run": "pnpm build && typeorm migration:run -d dist/common/database/config/data-source.js",
     "migration:revert": "typeorm migration:revert -d dist/common/database/config/data-source.js",

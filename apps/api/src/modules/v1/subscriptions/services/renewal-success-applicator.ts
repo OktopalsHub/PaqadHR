@@ -172,7 +172,7 @@ export class RenewalSuccessApplicator {
       .returning('id')
       .execute();
     if (inserted.raw.length > 0) return true;
-    const reclaimed: unknown[] = await this.dataSource.query(
+    const [reclaimedRows] = await this.dataSource.query<[unknown[], number]>(
       `UPDATE billing_events SET payload = payload || $3::jsonb
        WHERE event_id = $1 AND provider = $2
          AND (payload->>'status' = 'failed'
@@ -181,7 +181,7 @@ export class RenewalSuccessApplicator {
        RETURNING id`,
       [periodEventId, provider, JSON.stringify(payload), leaseMs],
     );
-    return reclaimed.length > 0;
+    return reclaimedRows.length > 0;
   }
 
   async getRenewalPeriodClaimStatus(
