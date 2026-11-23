@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { Client } from 'pg';
-import { PayrollRunFundingLedger1792000000000 } from 'src/common/database/migrations/1792000000000-payroll-run-funding-ledger';
+import * as Migrations from 'src/common/database/migrations';
 
 // ON DELETE RESTRICT reports 23503 on PostgreSQL <= 17 and 23001 (restrict_violation) on 18.
 const RESTRICT_VIOLATION_CODES = /^(23503|23001)$/;
@@ -14,7 +14,10 @@ integrationDescribe('Payroll run funding ledger PostgreSQL integration', () => {
   let schemaName: string;
   const tenantId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   const payrollRunId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-  const migration = new PayrollRunFundingLedger1792000000000();
+  const LedgerMigration = Object.entries(Migrations).find(([name]) =>
+    /^PayrollRunFundingLedger\d+$/.test(name),
+  )?.[1] as new () => { up(queryRunner: unknown): Promise<void>; down(queryRunner: unknown): Promise<void> };
+  const migration = new LedgerMigration();
 
   beforeAll(async () => {
     if (!integrationDatabaseUrl) {
