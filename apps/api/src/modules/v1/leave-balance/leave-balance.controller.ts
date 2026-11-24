@@ -21,7 +21,6 @@ import { ManagerAccessService } from 'src/common/services/manager-access.service
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
 
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
 import { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
 import { LeaveBalanceService } from './leave-balance.service';
 
@@ -34,24 +33,6 @@ export class LeaveBalanceController {
     private readonly leaveBalanceService: LeaveBalanceService,
     private readonly managerAccessService: ManagerAccessService,
   ) {}
-
-  @Post()
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  async createLeaveBalance(
-    @Param('tenantId') tenantId: string,
-    @Param('leaveTypeId') leaveTypeId: string,
-    @Body() dto: CreateLeaveBalanceDto,
-    @CurrentTenantMember() member: MemberContext,
-  ) {
-    return this.leaveBalanceService.createLeaveBalance(
-      tenantId,
-      member.id,
-      leaveTypeId,
-      dto,
-      member.id,
-    );
-  }
 
   @Get()
   async listLeaveBalances(

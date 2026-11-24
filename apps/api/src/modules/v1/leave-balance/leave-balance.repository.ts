@@ -16,6 +16,22 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
       leaveBalanceRepository.queryRunner,
     );
   }
+  /** Atomic used/remaining update. Returns false when a reservation exceeds what is left. */
+  async adjustUsedDays(balanceId: string, delta: number): Promise<boolean> {
+    const result = await this.leaveBalanceRepository
+      .createQueryBuilder()
+      .update(LeaveBalance)
+      .set({
+        usedDays: () => 'GREATEST(used_days + :delta, 0)',
+        remainingDays: () => 'total_days - GREATEST(used_days + :delta, 0)',
+      })
+      .where('id = :balanceId', { balanceId })
+      .andWhere(delta > 0 ? 'total_days - used_days >= :delta' : ':delta <= 0')
+      .setParameters({ delta })
+      .execute();
+    return (result.affected ?? 0) > 0;
+  }
+
   async findByCriteria(criteria: {
     tenantId: string;
     memberId: string;
@@ -112,7 +128,6 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
       createdAt: Date;
       updatedAt: Date;
       leaveTypeName: string | null;
-      memberPreferredName: string | null;
       memberFirstName: string | null;
       memberLastName: string | null;
     }>
@@ -136,7 +151,6 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
         'balance.created_at AS "createdAt"',
         'balance.updated_at AS "updatedAt"',
         'leaveType.name AS "leaveTypeName"',
-        'member.preferred_name AS "memberPreferredName"',
         'member.first_name AS "memberFirstName"',
         'member.last_name AS "memberLastName"',
       ])

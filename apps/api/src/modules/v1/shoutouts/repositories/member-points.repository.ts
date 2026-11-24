@@ -36,6 +36,16 @@ export class MemberPointsRepository extends Repository<ShoutoutMemberPoints> {
     return this.find({
       where: { tenantId },
       relations: { member: true },
+      select: {
+        tenantId: true,
+        memberId: true,
+        currentBalance: true,
+        totalEarned: true,
+        totalGiven: true,
+        monthlyGiven: true,
+        monthlyReceived: true,
+        member: { firstName: true, lastName: true },
+      },
       order: { currentBalance: 'DESC' },
     });
   }

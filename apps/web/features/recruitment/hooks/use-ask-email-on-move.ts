@@ -7,15 +7,20 @@ import {
   type RecruitmentPreferences,
   updateRecruitmentPreferences,
 } from '@/lib/api/recruitment-ats';
+import { useTenant } from '@/providers/tenant-provider';
 
-const PREFERENCES_KEY = ['recruitment', 'preferences'] as const;
+const preferencesKey = (tenantId: string | null | undefined) =>
+  ['recruitment', tenantId, 'preferences'] as const;
 
 export function useAskEmailOnMove(): [boolean, (value: boolean) => void] {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+  const PREFERENCES_KEY = preferencesKey(tenantId);
   const { data } = useQuery({
     queryKey: PREFERENCES_KEY,
     queryFn: fetchRecruitmentPreferences,
     staleTime: 5 * 60_000,
+    enabled: Boolean(tenantId),
   });
   const mutation = useMutation({
     mutationFn: (askEmailOnMove: boolean) => updateRecruitmentPreferences({ askEmailOnMove }),

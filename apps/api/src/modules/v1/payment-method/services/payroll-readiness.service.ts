@@ -9,7 +9,7 @@ import type {
   PayrollPaymentReadiness,
 } from 'src/common/interfaces/payroll-payment-readiness.interface';
 import { EncryptionService } from 'src/common/services/encryption.service';
-import { Not, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 
 import { PaymentMethod } from '../entities/payment-method.entity';
 import { requiresGlobalInstitutionCode } from '../utils/global-bank-validation.util';
@@ -42,21 +42,54 @@ export class PayrollReadinessService {
     memberId: string,
     currency?: string,
   ): Promise<PaymentMethod | null> {
+    const methods = await this.findPrimaryPayoutMethodsByMemberIds(tenantId, [memberId], currency);
+    return methods.get(memberId) ?? null;
+  }
+
+  /**
+   * Bulk form of `findPrimaryPayoutMethod`: one query for many members so callers that
+   * loop per employee (payroll calculation, readiness assessment) do not issue a
+   * payout-method query per employee.
+   */
+  async findPrimaryPayoutMethodsByMemberIds(
+    tenantId: string,
+    memberIds: string[],
+    currency?: string,
+  ): Promise<Map<string, PaymentMethod | null>> {
+    const result = new Map<string, PaymentMethod | null>();
+    if (memberIds.length === 0) return result;
     const normalizedCurrency = currency?.trim().toUpperCase();
     const methods = await this.paymentMethodRepo.find({
       where: {
         tenantId,
-        memberId,
+        memberId: In(memberIds),
         status: Not(PaymentMethodStatus.SUSPENDED),
         ...(normalizedCurrency ? { currency: normalizedCurrency } : {}),
       },
+      // Same ranking as findPrimaryPayoutMethod: primary first, then most recently
+      // updated, so grouping by member below picks the same record as before.
       order: { isPrimary: 'DESC', updatedAt: 'DESC', createdAt: 'DESC' },
     });
-    const verified = methods.filter((method) => method.status === PaymentMethodStatus.VERIFIED);
-    const primaryVerified = verified.find((method) => method.isPrimary);
-    if (primaryVerified) return this.withDecrypted(primaryVerified);
-    if (verified.length === 1) return this.withDecrypted(verified[0]);
-    return null;
+    const methodsByMember = new Map<string, PaymentMethod[]>();
+    for (const method of methods) {
+      const memberMethods = methodsByMember.get(method.memberId) ?? [];
+      memberMethods.push(method);
+      methodsByMember.set(method.memberId, memberMethods);
+    }
+    for (const [memberId, memberMethods] of methodsByMember) {
+      const verified = memberMethods.filter(
+        (method) => method.status === PaymentMethodStatus.VERIFIED,
+      );
+      const primaryVerified = verified.find((method) => method.isPrimary);
+      if (primaryVerified) {
+        result.set(memberId, this.withDecrypted(primaryVerified));
+      } else if (verified.length === 1) {
+        result.set(memberId, this.withDecrypted(verified[0]));
+      } else {
+        result.set(memberId, null);
+      }
+    }
+    return result;
   }
 
   async assessPayrollReadiness(
@@ -83,6 +116,12 @@ export class PayrollReadinessService {
     const excludedSet = new Set(excludedMemberIds);
     const lockedMembers = await this.paymentSecurityService.getLockedMemberIds(tenantId, memberIds);
     const normalizedCurrency = payoutCurrency?.trim().toUpperCase();
+    const assessedMemberIds = memberIds.filter((memberId) => !excludedSet.has(memberId));
+    const payoutMethods = await this.findPrimaryPayoutMethodsByMemberIds(
+      tenantId,
+      assessedMemberIds,
+      normalizedCurrency,
+    );
 
     const results: PayrollPaymentReadiness[] = [];
     for (const memberId of memberIds) {
@@ -96,7 +135,7 @@ export class PayrollReadinessService {
         continue;
       }
 
-      const method = await this.findPrimaryPayoutMethod(tenantId, memberId, normalizedCurrency);
+      const method = payoutMethods.get(memberId) ?? null;
       if (!method) {
         results.push({
           memberId,

@@ -24,6 +24,7 @@ import { AttendanceControllerHelpers, getDeviceType } from './attendance-control
 import { AttendanceService } from './attendance.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
+import { BulkCreateAttendanceDto, ManualAttendanceDto } from './dto/manual-attendance.dto';
 import { UpdateAttendanceDto } from './dto/update-attendance.dto';
 
 @ApiTags('Attendance')
@@ -154,12 +155,7 @@ export class AttendanceClockController {
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
-  bulkCreateAttendance(
-    @Param('tenantId') tenantId: string,
-    @Body() dto: {
-      records: Array<{ memberId: string; date: string; status: string; notes?: string }>;
-    },
-  ) {
+  bulkCreateAttendance(@Param('tenantId') tenantId: string, @Body() dto: BulkCreateAttendanceDto) {
     return this.attendanceService.bulkCreateAttendance(tenantId, dto.records);
   }
 
@@ -167,18 +163,7 @@ export class AttendanceClockController {
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
-  createManualAttendance(
-    @Param('tenantId') tenantId: string,
-    @Body() dto: {
-      tenantMemberId: string;
-      date: string;
-      clockIn?: string;
-      clockOut?: string;
-      status: string;
-      location?: string;
-      notes?: string;
-    },
-  ) {
+  createManualAttendance(@Param('tenantId') tenantId: string, @Body() dto: ManualAttendanceDto) {
     return this.attendanceService.createManualAttendance(tenantId, dto.tenantMemberId, {
       date: new Date(dto.date),
       clockIn: dto.clockIn ? new Date(dto.clockIn) : undefined,

@@ -1,9 +1,16 @@
 import { createHash } from 'node:crypto';
 
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
+import { isPayoutSuccessStatus } from 'src/common/utils/payout-status.util';
 import type { Repository } from 'typeorm';
 
 import { PayrollWebhookEvent } from '../entities/payroll-webhook-event.entity';
@@ -103,6 +110,23 @@ export class PayoutWebhooks {
     return tenantId ? { tenantId, payrollRunId: item.payrollRunId } : null;
   }
 
+  private async confirmedNombaStatus(
+    claimedStatus: string,
+    merchantRef: string,
+  ): Promise<string | null> {
+    if (!isPayoutSuccessStatus(claimedStatus)) return claimedStatus;
+    const confirmed = await this.nombaTransferApi.getTransactionStatus(merchantRef);
+    if (!confirmed) {
+      this.logger.warn(`Nomba did not confirm payout ${merchantRef}; releasing the event for retry`);
+      return null;
+    }
+    return isPayoutSuccessStatus(confirmed) ? claimedStatus : confirmed;
+  }
+
+  private async releaseWebhookEvent(provider: PaymentProvider, payload: unknown): Promise<void> {
+    await this.webhookEventRepository.delete({ provider, eventId: this.extractEventId(payload) });
+  }
+
   async handleNombaWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
     if (!signature?.trim() || !this.nombaTransferApi.verifyWebhookSignature(rawBody, signature)) {
       this.logger.warn('Rejected Nomba payroll webhook: invalid signature');
@@ -128,9 +152,15 @@ export class PayoutWebhooks {
     const context = await this.resolvePayrollContext(merchantRef);
     if (!context) return { received: true };
 
+    const status = await this.confirmedNombaStatus(event.status, merchantRef);
+    if (!status) {
+      await this.releaseWebhookEvent(PaymentProvider.NOMBA, payload);
+      throw new ServiceUnavailableException('Could not confirm Nomba payout status');
+    }
+
     const changed = await this.apply.applyTransferStatus(
       merchantRef,
-      event.status,
+      status,
       event.reference,
       PaymentProvider.NOMBA,
       context.tenantId,

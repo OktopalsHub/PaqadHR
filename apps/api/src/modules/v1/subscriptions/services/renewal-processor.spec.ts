@@ -41,7 +41,7 @@ function createProcessor() {
   };
   const renewalSuccess = {
     applyRenewalSuccess: jest.fn(),
-    getRenewalPeriodClaimStatus: jest.fn().mockResolvedValue(undefined),
+    claimRenewalPeriod: jest.fn().mockResolvedValue(true),
     updateRenewalPeriodClaim: jest.fn(),
   };
 
@@ -220,7 +220,7 @@ describe('RenewalProcessor.chargeSubscriptionRenewal', () => {
   it('skips the charge when the billing period was already claimed at the provider', async () => {
     // Idempotency now lives in the period claim, not a heal pass over provider history.
     const { processor, renewalSuccess, providers } = createProcessor();
-    renewalSuccess.getRenewalPeriodClaimStatus.mockResolvedValue('charged');
+    renewalSuccess.claimRenewalPeriod.mockResolvedValue(false);
 
     await expect(chargeRenewal(processor, dueSubscription())).resolves.toBe('skipped');
     expect(providers.nombaProvider.chargeRenewal).not.toHaveBeenCalled();
@@ -230,7 +230,6 @@ describe('RenewalProcessor.chargeSubscriptionRenewal', () => {
     const { processor, renewalSuccess, providers, plansService, paymentVerifier } =
       createProcessor();
     plansService.getPlanPriceById.mockResolvedValue(buildPlanPrice());
-    renewalSuccess.getRenewalPeriodClaimStatus.mockResolvedValue(undefined);
     paymentVerifier.verifyPaymentReference.mockResolvedValue({ status: 'success', amount: 100 });
     paymentVerifier.requiresProviderVerification.mockReturnValue(false);
 
@@ -239,9 +238,9 @@ describe('RenewalProcessor.chargeSubscriptionRenewal', () => {
       dueSubscription({ status: SubscriptionStatus.PAST_DUE, dunningAttemptCount: 1 }),
     );
 
-    expect(renewalSuccess.updateRenewalPeriodClaim).toHaveBeenCalledWith(
+    expect(renewalSuccess.claimRenewalPeriod).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ status: 'pending' }),
+      expect.objectContaining({ orderReference: expect.any(String) }),
       BillingProvider.NOMBA,
     );
     expect(providers.nombaProvider.chargeRenewal).toHaveBeenCalled();

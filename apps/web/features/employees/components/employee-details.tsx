@@ -37,31 +37,31 @@ function resolveManagerName(member: ApiTenantMember, members: ApiTenantMember[])
 function EmployeeDetailFormView({
   member,
   memberId,
+  members,
+  directoryLoading,
 }: {
   member: ApiTenantMember;
   memberId: string;
+  members: ApiTenantMember[];
+  directoryLoading: boolean;
 }) {
   const { tenantId } = useTenant();
   const { data: records, isLoading: recordsLoading } = useQuery({
     queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'records'],
     queryFn: async () => {
-      const [emergencyContacts, education, address, members] = await Promise.all([
+      const [emergencyContacts, education, address] = await Promise.all([
         fetchEmergencyContacts(memberId),
         fetchEducationRecords(memberId),
         fetchMemberAddress(memberId),
-        fetchTenantMembers(),
       ]);
-      return {
-        emergencyContacts,
-        education,
-        address,
-        managerName: resolveManagerName(member, members),
-      };
+      return { emergencyContacts, education, address };
     },
     enabled: Boolean(memberId) && Boolean(tenantId),
   });
 
-  if (recordsLoading || !records) {
+  // Wait for the directory query in EmployeeDetailContent so the manager name is
+  // seeded into the form with the same data the old duplicate fetch provided.
+  if (recordsLoading || !records || directoryLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-10 w-72" />
@@ -78,7 +78,7 @@ function EmployeeDetailFormView({
       emergencyContacts={records.emergencyContacts}
       education={records.education}
       address={records.address}
-      managerName={records.managerName}
+      managerName={resolveManagerName(member, members)}
     />
   );
 }
@@ -188,11 +188,12 @@ function EmployeeDetailContent() {
   const role = tenant?.member?.role;
   const viewerMemberId = tenant?.member?.id;
 
-  const { data: members = [] } = useQuery({
+  const membersQuery = useQuery({
     queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
     queryFn: fetchTenantMembers,
     enabled: Boolean(tenantId),
   });
+  const members = membersQuery.data ?? [];
 
   const targetMember = members.find((member) => member.id === id);
   const isSelf = viewerMemberId === id;
@@ -249,7 +250,15 @@ function EmployeeDetailContent() {
     );
   }
 
-  return <EmployeeDetailFormView key={member.id} member={member} memberId={member.id} />;
+  return (
+    <EmployeeDetailFormView
+      key={member.id}
+      member={member}
+      memberId={member.id}
+      members={members}
+      directoryLoading={membersQuery.isLoading}
+    />
+  );
 }
 
 export default EmployeeDetail;

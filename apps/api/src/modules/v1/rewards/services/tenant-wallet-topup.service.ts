@@ -355,7 +355,23 @@ export class TenantWalletTopupService {
     return { received: true, matched: true };
   }
 
+  /**
+   * Replenish a low wallet once. A transaction-scoped advisory lock keeps two debits that land
+   * together from each charging the saved card; the balance is re-read after the lock, so the
+   * second caller sees the first top-up and stops.
+   */
   async maybeAutoTopupAfterDebit(tenantId: string, actorMemberId: string): Promise<void> {
+    await this.dataSource.transaction(async (lockManager) => {
+      const [row] = await lockManager.query<{ locked: boolean }[]>(
+        'SELECT pg_try_advisory_xact_lock(hashtext($1)) AS locked',
+        [`wallet-auto-topup:${tenantId}`],
+      );
+      if (!row?.locked) return;
+      await this.autoTopupIfLow(tenantId, actorMemberId);
+    });
+  }
+
+  private async autoTopupIfLow(tenantId: string, actorMemberId: string): Promise<void> {
     const wallet = await this.dataSource
       .getRepository(TenantWallet)
       .findOneOrFail({ where: { tenantId } });

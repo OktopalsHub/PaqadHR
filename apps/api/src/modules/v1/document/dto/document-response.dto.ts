@@ -1,8 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 import { DocumentType } from '../../../../common/enums/document-type.enum';
-import { FileUrlMapper } from '../../../../common/mappers/file-url.mapper';
-import { FileUrlService } from '../../../../common/services/file-url.service';
 import type { Document } from '../entities/document.entity';
 
 export class DocumentResponseDto {
@@ -16,14 +14,6 @@ export class DocumentResponseDto {
     example: DocumentType.PASSPORT,
   })
   type: DocumentType;
-  @ApiProperty({ description: 'File storage key' })
-  fileKey: string;
-  @ApiProperty({
-    description: 'Document URL (constructed from fileKey)',
-    example: 'https://custom-domain.com/tenants/123/documents/passport_1731668445123.pdf',
-    required: false,
-  })
-  fileUrl?: string;
   @ApiProperty({ description: 'Issue date', required: false })
   issueDate?: Date;
   @ApiProperty({ description: 'Expiry date', required: false })
@@ -42,12 +32,11 @@ export class DocumentResponseDto {
   updatedAt?: string;
 }
 export class DocumentMapper {
-  static toResponse(document: Document, fileUrlService?: FileUrlService): DocumentResponseDto {
-    const response: DocumentResponseDto = {
+  static toResponse(document: Document): DocumentResponseDto {
+    return {
       id: document.id,
       name: document.name,
       type: document.type,
-      fileKey: document.fileKey,
       issueDate: document.issueDate,
       expiryDate: document.expiryDate,
       description: document.description,
@@ -55,20 +44,10 @@ export class DocumentMapper {
       tenantMemberId: document.tenantMemberId,
       tenantId: document.tenantId,
       createdAt: document.createdAt.toISOString(),
+      updatedAt: document.updatedAt?.toISOString(),
     };
-    if (fileUrlService && document.fileKey) {
-      response.fileUrl =
-        FileUrlMapper.mapDocument(document.fileKey, {
-          tenantId: document.tenantId,
-          fileUrlService,
-        }) || undefined;
-    }
-    return response;
   }
-  static toResponseList(
-    documents: Document[],
-    fileUrlService?: FileUrlService,
-  ): DocumentResponseDto[] {
-    return documents.map((document) => DocumentMapper.toResponse(document, fileUrlService));
+  static toResponseList(documents: Document[]): DocumentResponseDto[] {
+    return documents.map((document) => DocumentMapper.toResponse(document));
   }
 }

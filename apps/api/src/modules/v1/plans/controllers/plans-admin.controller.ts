@@ -4,23 +4,11 @@ import { AuthOnly } from 'src/common/decorators';
 import { UserRole } from 'src/common/enums';
 import { RoleGuard, Roles } from 'src/common/guards/role.guard';
 
-import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
 import type { PlanPrice } from '../entities/plan-price.entity';
+import { UpdatePlanPriceDto } from '../dto/update-plan-price.dto';
+import { UpsertPlanPriceDto } from '../dto/upsert-plan-price.dto';
 import { PlansService } from '../services/plans.service';
 
-class UpsertPlanPriceDto {
-  slug: string;
-  name: string;
-  description?: string;
-  countryCode: string;
-  currency: string;
-  monthlyPrice: number;
-  yearlyPrice?: number;
-  regionalConfig: PlanRegionalConfig;
-  features?: Record<string, boolean>;
-  limits?: Record<string, number>;
-  sortOrder?: number;
-}
 @ApiTags('Plans Admin')
 @Controller('admin/plans')
 @AuthOnly()
@@ -52,7 +40,7 @@ export class PlansAdminController {
   }
   @Put('prices/:id')
   @ApiOperation({ summary: 'Update plan price' })
-  async updatePlanPrice(@Param('id') id: string, @Body() updates: Partial<PlanPrice>) {
+  async updatePlanPrice(@Param('id') id: string, @Body() updates: UpdatePlanPriceDto) {
     return this.plansService.updatePlanPrice(id, updates);
   }
 }

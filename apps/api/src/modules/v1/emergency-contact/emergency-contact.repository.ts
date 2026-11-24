@@ -26,11 +26,13 @@ export class EmergencyContactRepository
     if (createEmergencyContactDto.isPrimary) {
       await this.unsetExistingPrimary(tenantMemberId, tenantId);
     }
-    return this.create({
-      ...createEmergencyContactDto,
-      tenantId,
-      tenantMemberId,
-    });
+    return this.save(
+      this.create({
+        ...createEmergencyContactDto,
+        tenantId,
+        tenantMemberId,
+      }),
+    );
   }
   async listEmergencyContacts(
     tenantId: string,

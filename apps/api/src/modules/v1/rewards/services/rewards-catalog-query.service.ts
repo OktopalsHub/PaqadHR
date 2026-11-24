@@ -9,6 +9,7 @@ import {
 } from 'src/common/utils/rewards-defaults.util';
 import { DataSource } from 'typeorm';
 
+import { computeTremendousPointsCost } from '../utils/rewards-redemption.util';
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
@@ -242,7 +243,7 @@ export class RewardsCatalogQueryService {
     tenantId: string,
     settings: RewardsSettings,
     catalogCountry: string,
-    options?: { includeAdminPricing?: boolean },
+    options?: { includeAdminPricing?: boolean; feePercentage?: number },
   ): Promise<CatalogItem[]> {
     const catalog: CatalogItem[] = [];
     const tremendousItems: CatalogItem[] = [];
@@ -263,7 +264,14 @@ export class RewardsCatalogQueryService {
         id: `tremendous_${catalogCountry}_${p.productId}`,
         name: p.name,
         type: 'TREMENDOUS',
-        pointsCost: p.pointsCost,
+        pointsCost:
+          options?.feePercentage != null && p.wholesaleInRewardsCurrency != null
+            ? computeTremendousPointsCost(
+                p.wholesaleInRewardsCurrency,
+                options.feePercentage,
+                settings.pointsExchangeRate,
+              )
+            : p.pointsCost,
         currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
         currencyCode: p.currencyCode,
         countryCode: catalogCountry,

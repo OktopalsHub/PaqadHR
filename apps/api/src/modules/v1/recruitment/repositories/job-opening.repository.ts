@@ -148,7 +148,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
     });
     return result;
   }
-  async getActiveDepartments(): Promise<{ id: string; name: string }[]> {
+  async getActiveDepartments(tenantId: string): Promise<{ id: string; name: string }[]> {
     const result = await this.jobOpeningRepository
       .createQueryBuilder('job')
       .innerJoin('job.department', 'department')
@@ -156,12 +156,13 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .addSelect('department.name', 'name')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.departmentId IS NOT NULL')
       .orderBy('department.name', 'ASC')
       .getRawMany();
     return result.map((item) => ({ id: item.id, name: item.name })).filter(Boolean);
   }
-  async getActiveLocations(): Promise<string[]> {
+  async getActiveLocations(tenantId: string): Promise<string[]> {
     const result = await this.jobOpeningRepository
       .createQueryBuilder('job')
       .select(
@@ -170,6 +171,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       )
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.location IS NOT NULL')
       .andWhere("job.location ->> 'city' IS NOT NULL")
       .andWhere("job.location ->> 'country' IS NOT NULL")
@@ -177,7 +179,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .getRawMany();
     return result.map((item) => item.location).filter(Boolean);
   }
-  async getPublicJobStats(): Promise<{
+  async getPublicJobStats(tenantId: string): Promise<{
     totalActiveJobs: number;
     totalDepartments: number;
     totalLocations: number;
@@ -187,12 +189,14 @@ export class JobOpeningRepository extends Repository<JobOpening> {
     const baseQuery = this.jobOpeningRepository
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
-      .andWhere('job.deletedAt IS NULL');
+      .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId });
     const totalActiveJobs = await baseQuery.getCount();
     const urgentJobs = await this.jobOpeningRepository
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.isUrgent = :isUrgent', { isUrgent: true })
       .getCount();
     const sevenDaysAgo = new Date();
@@ -201,6 +205,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.publishedAt >= :sevenDaysAgo', { sevenDaysAgo })
       .getCount();
     const departmentsResult = await this.jobOpeningRepository
@@ -208,6 +213,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .select('COUNT(DISTINCT job.departmentId)', 'count')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.departmentId IS NOT NULL')
       .getRawOne();
     const locationsResult = await this.jobOpeningRepository
@@ -218,6 +224,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       )
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.location IS NOT NULL')
       .andWhere("job.location ->> 'city' IS NOT NULL")
       .andWhere("job.location ->> 'country' IS NOT NULL")
@@ -230,35 +237,38 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       recentJobs,
     };
   }
-  async getRecentJobs(limit: number = 5): Promise<JobOpening[]> {
+  async getRecentJobs(tenantId: string, limit: number = 5): Promise<JobOpening[]> {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     return this.jobOpeningRepository
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.publishedAt >= :sevenDaysAgo', { sevenDaysAgo })
       .orderBy('job.publishedAt', 'DESC')
       .limit(limit)
       .getMany();
   }
-  async getUrgentJobs(limit: number = 10): Promise<JobOpening[]> {
+  async getUrgentJobs(tenantId: string, limit: number = 10): Promise<JobOpening[]> {
     return this.jobOpeningRepository
       .createQueryBuilder('job')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.isUrgent = :isUrgent', { isUrgent: true })
       .orderBy('job.publishedAt', 'DESC')
       .limit(limit)
       .getMany();
   }
-  async getSearchSuggestions(query: string): Promise<{ titles: string[]; positions: string[] }> {
-    const searchTerm = `%${query.toLowerCase()}%`;
+  async getSearchSuggestions(tenantId: string, query: string): Promise<{ titles: string[]; positions: string[] }> {
+    const searchTerm = `%${query.toLowerCase().replace(/[\\%_]/g, '\\$&')}%`;
     const titleResults = await this.jobOpeningRepository
       .createQueryBuilder('job')
       .select('DISTINCT job.title', 'title')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('LOWER(job.title) LIKE :searchTerm', { searchTerm })
       .orderBy('job.title', 'ASC')
       .limit(10)
@@ -268,6 +278,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .select('DISTINCT job.position', 'position')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL')
+      .andWhere('job.tenantId = :tenantId', { tenantId })
       .andWhere('LOWER(job.position) LIKE :searchTerm', { searchTerm })
       .andWhere('job.position IS NOT NULL')
       .orderBy('job.position', 'ASC')

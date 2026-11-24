@@ -24,7 +24,7 @@ import {
   PublicApplicationMapper,
   PublicApplicationResponseDto,
 } from '../dto/public-application-response.dto';
-import { UpdateCandidateDto } from '../dto/update-candidate.dto';
+import { UpdatePublicApplicationDto } from '../dto/update-public-application.dto';
 import { CandidateService } from '../services/candidate.service';
 import { JobOpeningService } from '../services/job-opening.service';
 import { RecruitmentPipelineService } from '../services/recruitment-pipeline.service';
@@ -170,7 +170,7 @@ export class ApplicationController {
   async updateApplication(
     @Param('jobId', ParseUUIDPipe) jobId: string,
     @Param('applicationId', ParseUUIDPipe) applicationId: string,
-    @Body() updateDto: UpdateCandidateDto & ApplicationAccessDto,
+    @Body() updateDto: UpdatePublicApplicationDto,
     @Req() req: Request,
     @Ip() ip: string,
   ): Promise<PublicApplicationResponseDto> {

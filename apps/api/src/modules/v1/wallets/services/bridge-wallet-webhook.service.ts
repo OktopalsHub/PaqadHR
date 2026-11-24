@@ -1,9 +1,21 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
 import { verifyBridgeWebhookSignature } from '../../../../common/config/bridge-webhook.util';
+import {
+  AuditAction,
+  AuditSeverity,
+  AuditStatus,
+} from '../../../../common/enums/audit-action.enum';
 import { PaymentProvider } from '../../../../common/enums/payment-provider.enum';
+import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { ProviderCustomer } from '../entities/provider-customer.entity';
 import { ProviderVirtualAccount } from '../entities/provider-virtual-account.entity';
 import { ProviderWebhookEvent } from '../entities/provider-webhook-event.entity';
@@ -35,6 +47,7 @@ export class BridgeWalletWebhookService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly ledger: WalletLedgerService,
+    private readonly auditLogs: AuditLogsService,
     @InjectRepository(ProviderWebhookEvent)
     private readonly webhookEventRepository: Repository<ProviderWebhookEvent>,
     @InjectRepository(ProviderVirtualAccount)
@@ -179,7 +192,13 @@ export class BridgeWalletWebhookService {
         network: true,
       },
     });
-    if (!virtualAccount) return;
+    if (!virtualAccount) {
+      if (status === 'payment_processed') {
+        // Leave the event unprocessed so Bridge retries it instead of losing a completed deposit.
+        throw new NotFoundException('Bridge virtual account is not registered.');
+      }
+      return;
+    }
     const customer = await this.customerRepository.findOne({
       where: { id: virtualAccount.providerCustomerId, provider: PaymentProvider.BRIDGE },
       select: { providerCustomerId: true },
@@ -216,6 +235,7 @@ export class BridgeWalletWebhookService {
         })
       : null;
 
+    let overdrawn: { balance: string; fundingId: string } | null = null;
     await this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(WalletFunding);
       let funding = await repository
@@ -300,8 +320,53 @@ export class BridgeWalletWebhookService {
           },
         );
         funding.reversalTransactionId = reversal.id;
+        const available = await this.ledger.ensureAccount({
+          ownerType: virtualAccount.ownerType,
+          tenantId: virtualAccount.tenantId,
+          userId: virtualAccount.userId,
+          accountType: 'available',
+          currency: virtualAccount.destinationCurrency,
+          network: virtualAccount.network,
+        });
+        const balance = await this.ledger.getBalanceInManager(
+          manager,
+          available.id,
+          available.normalSide,
+        );
+        if (balance.startsWith('-')) overdrawn = { balance, fundingId: funding.id };
       }
       await repository.save(funding);
+    });
+    if (overdrawn) await this.flagOverdrawnRefund(virtualAccount, depositId, overdrawn);
+  }
+
+  /**
+   * A refunded deposit that was already spent leaves the available balance negative. The
+   * reversal still posts (the money has left), new reservations stay blocked until the wallet is
+   * topped up, and this makes the shortfall visible for review instead of leaving it silent.
+   */
+  private async flagOverdrawnRefund(
+    virtualAccount: Pick<ProviderVirtualAccount, 'id' | 'tenantId' | 'userId' | 'destinationCurrency'>,
+    depositId: string,
+    overdrawn: { balance: string; fundingId: string },
+  ): Promise<void> {
+    this.logger.error(
+      `Bridge refund left wallet overdrawn: virtual account ${virtualAccount.id}, deposit ${depositId}, balance ${overdrawn.balance} ${virtualAccount.destinationCurrency}`,
+    );
+    await this.auditLogs.queueAuditLog({
+      action: AuditAction.PAYMENT_REFUNDED,
+      description: `Refunded deposit left the wallet overdrawn (${overdrawn.balance} ${virtualAccount.destinationCurrency}); new payroll reservations are blocked until it is topped up`,
+      severity: AuditSeverity.CRITICAL,
+      status: AuditStatus.WARNING,
+      resourceType: 'wallet_funding',
+      resourceId: overdrawn.fundingId,
+      tenantId: virtualAccount.tenantId,
+      userId: virtualAccount.userId,
+      metadata: {
+        providerDepositId: depositId,
+        balance: overdrawn.balance,
+        currency: virtualAccount.destinationCurrency,
+      },
     });
   }
 

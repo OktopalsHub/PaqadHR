@@ -1,12 +1,21 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseEnumPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards';
 import type { MemberContext } from 'src/common/interfaces';
 
-import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
+import { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { UpdatePreferenceDto } from '../dto/update-preference.dto';
+import { UpdatePreferenceDto, UpdatePreferencesDto } from '../dto/update-preference.dto';
 import type { NotificationPreference } from '../entities/notification-preference.entity';
 import { NotificationPreferenceService } from '../services/notification-preference.service';
 
@@ -45,7 +54,8 @@ export class NotificationPreferenceController {
     description: 'Preference retrieved successfully',
   })
   async getPreference(
-    @Param('notificationType') notificationType: NotificationPreferenceType,
+    @Param('notificationType', new ParseEnumPipe(NotificationPreferenceType))
+    notificationType: NotificationPreferenceType,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<NotificationPreference | null> {
     return this.preferenceService.getPreference(member.id, notificationType);
@@ -54,7 +64,8 @@ export class NotificationPreferenceController {
   @ApiOperation({ summary: 'Update notification preference' })
   @ApiResponse({ status: 200, description: 'Preference updated successfully' })
   async updatePreference(
-    @Param('notificationType') notificationType: NotificationPreferenceType,
+    @Param('notificationType', new ParseEnumPipe(NotificationPreferenceType))
+    notificationType: NotificationPreferenceType,
     @Body() updateDto: UpdatePreferenceDto,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<NotificationPreference> {
@@ -64,12 +75,10 @@ export class NotificationPreferenceController {
   @ApiOperation({ summary: 'Update multiple notification preferences' })
   @ApiResponse({ status: 200, description: 'Preferences updated successfully' })
   async updateMultiplePreferences(
-    @Body('preferences') preferences: Array<
-      { notificationType: NotificationPreferenceType } & UpdatePreferenceDto
-    >,
+    @Body() dto: UpdatePreferencesDto,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<NotificationPreference[]> {
-    return this.preferenceService.updateMultiplePreferences(member.id, preferences);
+    return this.preferenceService.updateMultiplePreferences(member.id, dto.preferences);
   }
   @Post('reset')
   @ApiOperation({ summary: 'Reset preferences to defaults' })

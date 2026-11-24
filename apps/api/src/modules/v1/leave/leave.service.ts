@@ -4,7 +4,7 @@ import { DateTimeHelper } from 'src/common/helpers';
 import type { IPaginationOption } from 'src/common/interfaces/pagination.interface';
 import { relationsFromPaths } from 'src/common/utils/find-relations.util';
 import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
-import type { FindOptionsWhere } from 'typeorm';
+import { In, LessThanOrEqual, MoreThanOrEqual, type FindOptionsWhere } from 'typeorm';
 
 import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
 import type { CreateLeaveDto } from './dto/create-leave.dto';
@@ -160,7 +160,7 @@ export class LeaveService {
     }
 
     if (filters.status) {
-      qb.andWhere('leave.status = :status', { status: filters.status.toUpperCase() });
+      qb.andWhere('leave.status = :status', { status: filters.status });
     }
     if (filters.from) {
       qb.andWhere('leave.endDate >= :from', { from: filters.from });
@@ -199,6 +199,35 @@ export class LeaveService {
       { requestedBy: memberId },
       'member_leaves',
     );
+  }
+
+  async getApprovedLeavesByMembers(
+    tenantId: string,
+    memberIds: string[],
+    period?: { from: Date; to: Date },
+  ): Promise<Map<string, LeaveResponseDto[]>> {
+    if (!memberIds.length) return new Map();
+    const records = await this.leaveRepository.find({
+      where: {
+        tenantId,
+        requestedBy: In(memberIds),
+        status: LeaveStatus.APPROVED,
+        ...(period
+          ? {
+              startDate: LessThanOrEqual(period.to),
+              endDate: MoreThanOrEqual(period.from),
+            }
+          : {}),
+      },
+      relations: { leaveTypes: true },
+    });
+    const byMember = new Map<string, LeaveResponseDto[]>();
+    for (const record of records) {
+      const leaves = byMember.get(record.requestedBy) ?? [];
+      leaves.push(this.toLeaveResponseDto(record));
+      byMember.set(record.requestedBy, leaves);
+    }
+    return byMember;
   }
 
   async getLeave(tenantId: string, leaveId: string) {

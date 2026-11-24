@@ -15,6 +15,15 @@ import {
   verifyGoogleOAuthConsent,
 } from '../utils/google-oauth-state.util';
 
+interface GoogleProfile {
+  id: string;
+  emails: Array<{ value: string; verified?: boolean | string }>;
+  _json?: { email_verified?: boolean | string };
+}
+
+const isVerifiedFlag = (flag: boolean | string | undefined): boolean =>
+  flag === true || flag === 'true';
+
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private readonly authService: AuthService) {
@@ -30,12 +39,11 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     req: Request,
     accessToken: string,
     refreshToken: string,
-    profile: {
-      id: string;
-      emails: Array<{ value: string }>;
-    },
+    profile: GoogleProfile,
   ): Promise<User> {
     const { id, emails } = profile;
+    if (!isVerifiedFlag(emails[0]?.verified) && !isVerifiedFlag(profile._json?.email_verified))
+      throw new UnauthorizedException('Google account email is not verified');
     const email = StringUtility.trimAndLowerCase(emails[0].value);
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, req.ip);
     const stateParam = typeof req.query?.state === 'string' ? req.query.state : undefined;

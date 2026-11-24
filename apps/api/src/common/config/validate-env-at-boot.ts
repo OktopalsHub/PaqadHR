@@ -10,6 +10,7 @@ import {
   collectMonnifyErrors,
   collectNoahErrors,
   collectNombaErrors,
+  collectPayrollErrors,
   collectPm2Warnings,
   resolveIntlPayrollProvider,
   resolveIntlRewardsDepositProvider,
@@ -39,6 +40,7 @@ export function validateEnvAtBoot(): void {
   errors.push(...collectCriticalErrors());
   errors.push(...collectCookieErrors(isProduction));
   errors.push(...collectConfigErrors());
+  errors.push(...collectPayrollErrors());
 
   const nomba = collectNombaErrors(isProduction);
   errors.push(...nomba.errors);

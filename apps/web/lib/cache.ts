@@ -99,6 +99,16 @@ export function getCacheStats(): {
 /**
  * Get cached data — memory-first (LRU, instant), then sessionStorage fallback
  */
+/** Keys holding personal data (the session bootstrap includes the user's email). */
+const MEMORY_ONLY_KEYS: ReadonlySet<string> = new Set(['auth_session']);
+
+function removePersisted(key: string): void {
+  try {
+    sessionStorage.removeItem(CACHE_PREFIX + key);
+    sessionStorage.removeItem(CACHE_EXPIRY_KEY + key);
+  } catch {}
+}
+
 export function getCached<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
 
@@ -115,6 +125,11 @@ export function getCached<T>(key: string): T | null {
       memoryCache.set(key, memEntry as MemoryEntry<unknown>);
       return memEntry.value;
     }
+  }
+
+  if (MEMORY_ONLY_KEYS.has(key)) {
+    removePersisted(key);
+    return null;
   }
 
   try {
@@ -182,7 +197,11 @@ export function setCached<T>(key: string, data: T, options?: CacheOptions): void
       }
     } catch {}
 
-    // Persistent layer — sessionStorage (survives reload, per-tab)
+    // Persistent layer — sessionStorage (survives reload, per-tab). Personal data stays in memory.
+    if (MEMORY_ONLY_KEYS.has(key)) {
+      removePersisted(key);
+      return;
+    }
     sessionStorage.setItem(CACHE_PREFIX + key, JSON.stringify(data));
     sessionStorage.setItem(CACHE_EXPIRY_KEY + key, String(expiry));
   } catch {

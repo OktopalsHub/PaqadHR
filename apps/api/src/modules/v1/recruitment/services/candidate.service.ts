@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import { CandidateSource, CandidateStatus } from 'src/common/enums';
 
@@ -10,6 +15,7 @@ import type { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dt
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import type { Candidate } from '../entities/candidate.entity';
 import { CandidateRepository } from '../repositories/index';
+import { assertCandidateTransition } from '../utils/candidate-status-transitions';
 import { JobOpeningService } from './job-opening.service';
 
 @Injectable()
@@ -135,7 +141,15 @@ export class CandidateService {
         },
       },
     });
-    const saved = await this.candidateRepository.save(entity);
+    let saved: Candidate;
+    try {
+      saved = await this.candidateRepository.save(entity);
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') {
+        throw new ConflictException('You have already applied for this position.');
+      }
+      throw error;
+    }
     this.productAnalytics.capture('anonymous', 'application_submitted', {
       tenantId: job.tenantId,
     });
@@ -158,47 +172,7 @@ export class CandidateService {
     actorMemberId?: string,
   ): Promise<Candidate> {
     const candidate = await this.getCandidate(candidateId, tenantId);
-    const allowedTransitions: Record<CandidateStatus, CandidateStatus[]> = {
-      [CandidateStatus.APPLIED]: [
-        CandidateStatus.SCREENING,
-        CandidateStatus.UNDER_REVIEW,
-        CandidateStatus.REJECTED,
-        CandidateStatus.WITHDRAWN,
-      ],
-      [CandidateStatus.SCREENING]: [
-        CandidateStatus.UNDER_REVIEW,
-        CandidateStatus.INTERVIEW,
-        CandidateStatus.REJECTED,
-        CandidateStatus.WITHDRAWN,
-      ],
-      [CandidateStatus.UNDER_REVIEW]: [
-        CandidateStatus.SCREENING,
-        CandidateStatus.INTERVIEW,
-        CandidateStatus.REJECTED,
-        CandidateStatus.WITHDRAWN,
-      ],
-      [CandidateStatus.INTERVIEW]: [
-        CandidateStatus.OFFER,
-        CandidateStatus.REJECTED,
-        CandidateStatus.WITHDRAWN,
-      ],
-      [CandidateStatus.OFFER]: [
-        CandidateStatus.HIRED,
-        CandidateStatus.REJECTED,
-        CandidateStatus.WITHDRAWN,
-      ],
-      [CandidateStatus.HIRED]: [],
-      [CandidateStatus.REJECTED]: [],
-      [CandidateStatus.WITHDRAWN]: [],
-    };
-    if (
-      updateDto.status !== candidate.status &&
-      !allowedTransitions[candidate.status]?.includes(updateDto.status)
-    ) {
-      throw new BadRequestException(
-        `Cannot move candidate from ${candidate.status} to ${updateDto.status}`,
-      );
-    }
+    assertCandidateTransition(candidate.status, updateDto.status);
     const updateData: Record<string, unknown> = {
       status: updateDto.status,
       currentStage: {
@@ -209,32 +183,38 @@ export class CandidateService {
     if (updateDto.status === CandidateStatus.WITHDRAWN) {
       updateData.withdrawnAt = new Date();
     }
-    await this.candidateRepository.update(candidateId, updateData);
-    const updatedCandidate = await this.candidateRepository.findOne({
-      where: { id: candidateId },
-    });
-    if (!updatedCandidate) {
-      throw new NotFoundException('Candidate not found');
+    const result = await this.candidateRepository.update(
+      { id: candidateId, tenantId, status: candidate.status },
+      updateData,
+    );
+    if (!result.affected) {
+      throw new ConflictException('Candidate was updated by someone else; reload and try again');
     }
-
-    if (actorMemberId) {
-      void this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId,
-          action: 'recruitment.candidate_status_updated',
-          resourceType: 'candidate',
-          resourceId: candidateId,
-          description: `Candidate status updated to "${updateDto.status}"`,
-          metadata: {
-            status: updateDto.status,
-            candidateName: `${updatedCandidate.firstName} ${updatedCandidate.lastName}`,
-          },
-        })
-        .catch(() => {});
-    }
-
+    const updatedCandidate = await this.getCandidate(candidateId, tenantId);
+    this.recordStatusActivity(updatedCandidate, updateDto.status, actorMemberId);
     return updatedCandidate;
+  }
+
+  recordStatusActivity(
+    candidate: Pick<Candidate, 'tenantId' | 'id' | 'firstName' | 'lastName'>,
+    status: CandidateStatus,
+    actorMemberId?: string,
+  ) {
+    if (!actorMemberId) return;
+    void this.activitiesService
+      .queueActivity({
+        tenantId: candidate.tenantId,
+        actorMemberId,
+        action: 'recruitment.candidate_status_updated',
+        resourceType: 'candidate',
+        resourceId: candidate.id,
+        description: `Candidate status updated to "${status}"`,
+        metadata: {
+          status,
+          candidateName: `${candidate.firstName} ${candidate.lastName}`,
+        },
+      })
+      .catch(() => {});
   }
   async getCandidatesByJob(jobId: string, tenantId: string): Promise<Candidate[]> {
     return this.candidateRepository.findByJobOpening(jobId, tenantId);

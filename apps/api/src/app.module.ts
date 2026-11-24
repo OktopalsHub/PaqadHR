@@ -10,6 +10,7 @@ import { AppService } from './app.service';
 import { dataSourceOptions } from './common/config';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
+import { SERIALIZER_PROVIDER } from './common/interceptors/serializer.provider';
 import { JwtAuthGuard } from './common/guards';
 import { FeatureAccessGuard } from './common/guards/feature-access.guard';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
@@ -140,6 +141,7 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
       provide: APP_GUARD,
       useClass: FeatureAccessGuard,
     },
+    SERIALIZER_PROVIDER,
   ],
 })
 export class AppModule {}

@@ -47,9 +47,15 @@ export class TenantMembersController {
     description: 'Tenant members retrieved successfully',
     type: [TenantMemberResponseDto],
   })
-  async getTenantMembers(@Param('tenantId') tenantId: string): Promise<ITenantMemberResponseDto[]> {
+  async getTenantMembers(
+    @Param('tenantId') tenantId: string,
+    @CurrentTenantMember() viewer: MemberContext,
+  ): Promise<ITenantMemberResponseDto[]> {
     const tenantMembers = await this.tenantMembersService.getTenantMembers(tenantId);
-    return TenantMemberMapper.toResponseList(tenantMembers, this.fileUrlService);
+    return TenantMemberMapper.toResponseList(tenantMembers, this.fileUrlService, {
+      viewerId: viewer.id,
+      viewerIsAdmin: viewer.role === TenantMemberRole.OWNER || viewer.role === TenantMemberRole.ADMIN,
+    });
   }
   @Get('members/summary')
   @ApiOperation({
@@ -119,7 +125,7 @@ export class TenantMembersController {
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentTenantMember() actor: MemberContext,
   ): Promise<void> {
-    await this.tenantMembersService.removeTenantMember(memberId, tenantId, actor.id);
+    await this.tenantMembersService.removeTenantMember(memberId, tenantId, actor);
   }
   @Patch('/members/:memberId/status')
   @UseGuards(TenantRoleGuard)
@@ -134,7 +140,7 @@ export class TenantMembersController {
       memberId,
       tenantId,
       updateDto.isActive,
-      actor.id,
+      actor,
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }

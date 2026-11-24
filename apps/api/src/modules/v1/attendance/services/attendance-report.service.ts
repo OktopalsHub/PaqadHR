@@ -264,7 +264,7 @@ export class AttendanceReportService {
       };
     }
 
-    const [attendanceRecords, departmentMap] = await Promise.all([
+    const [attendanceRecords, departmentMap, leavesByMember] = await Promise.all([
       this.attendanceRepo.find({
         where: {
           tenantId,
@@ -273,6 +273,10 @@ export class AttendanceReportService {
         },
       }),
       this.departmentUtils.getDepartmentsByMemberIds(tenantId, paginatedIds),
+      this.leaveService.getApprovedLeavesByMembers(tenantId, paginatedIds, {
+        from: startOfMonth,
+        to: endOfMonth,
+      }),
     ]);
 
     const attendanceByMember = new Map<string, typeof attendanceRecords>();
@@ -281,15 +285,6 @@ export class AttendanceReportService {
       list.push(record);
       attendanceByMember.set(record.tenantMemberId, list);
     }
-
-    const leavePromises = paginatedMembers.map(async (m) => ({
-      memberId: m.id,
-      leaves: await this.leaveService
-        .getLeavesByMember(tenantId, m.id, { page: 1, limit: 100 })
-        .then((r) => r.records.filter((l) => l.status === 'APPROVED')),
-    }));
-    const allLeaves = await Promise.all(leavePromises);
-    const leavesByMember = new Map(allLeaves.map((l) => [l.memberId, l.leaves]));
 
     const members = paginatedMembers.map((member) => {
       const memberAttendance = attendanceByMember.get(member.id) ?? [];

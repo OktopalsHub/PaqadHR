@@ -21,6 +21,7 @@ import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guard
 import { AttendanceControllerHelpers } from './attendance-controller-helpers';
 import { AttendanceService } from './attendance.service';
 import { ApproveAttendanceExceptionDto } from './dto/approve-attendance-exception.dto';
+import { AttendanceStatsQueryDto } from './dto/attendance-stats-query.dto';
 import { CreateAttendanceExceptionDto } from './dto/create-attendance-exception.dto';
 import { CreateAttendancePolicyDto } from './dto/create-attendance-policy.dto';
 import { RejectAttendanceExceptionDto } from './dto/reject-attendance-exception.dto';
@@ -87,16 +88,16 @@ export class AttendanceReportsController {
   }
 
   @Get('stats')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getAttendanceStats(
     @Param('tenantId') tenantId: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @CurrentTenantMember() member?: MemberContext,
+    @Query() query: AttendanceStatsQueryDto,
   ) {
     return this.attendanceService.getAttendanceStats(
       tenantId,
-      startDate ? new Date(startDate) : new Date(),
-      endDate ? new Date(endDate) : new Date(),
+      query.startDate ? new Date(query.startDate) : new Date(),
+      query.endDate ? new Date(query.endDate) : new Date(),
     );
   }
 

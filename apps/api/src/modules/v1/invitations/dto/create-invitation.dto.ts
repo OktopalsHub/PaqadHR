@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { NormalizeEmail } from 'src/common/decorators';
+import { INVITABLE_ROLES } from '../constants/invitation-roles.constants';
 export class CreateInvitationDto {
   @ApiProperty({ description: 'First name of the invitee', example: 'John', required: false })
   @IsString()
@@ -71,12 +72,8 @@ export class CreateInvitationDto {
   })
   @IsNotEmpty()
   email: string;
-  @ApiProperty({ description: 'Role', example: 'Employee' })
-  @IsString()
-  @ApiProperty({
-    description: 'role',
-  })
-  @IsNotEmpty()
+  @ApiProperty({ description: 'Workspace role', enum: INVITABLE_ROLES, example: 'member' })
+  @IsIn(INVITABLE_ROLES)
   role: string;
   @ApiProperty({ description: 'Position ID', example: 'uuid' })
   @IsString()

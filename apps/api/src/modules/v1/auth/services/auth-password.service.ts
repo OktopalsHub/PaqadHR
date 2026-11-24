@@ -114,6 +114,7 @@ export class AuthPasswordService {
       await this.accountRepository.save(account);
     }
     await this.verificationRepository.delete(verification.id);
+    await this.sessionRepository.delete({ userId: user.id });
     return { message: 'Password reset successfully' };
   }
 

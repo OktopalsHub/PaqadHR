@@ -11,6 +11,10 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 export class CandidateLocationDto {
@@ -20,6 +24,7 @@ export class CandidateLocationDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   city?: string;
   @ApiPropertyOptional({
     description: 'Preferred country',
@@ -27,6 +32,7 @@ export class CandidateLocationDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   country?: string;
   @ApiPropertyOptional({
     description: 'Open to remote work',
@@ -43,6 +49,8 @@ export class CandidateExperienceDto {
   })
   @IsNumber()
   @IsNotEmpty()
+  @Min(0)
+  @Max(80)
   years: number;
   @ApiPropertyOptional({
     description: 'Current or most recent job title',
@@ -50,6 +58,7 @@ export class CandidateExperienceDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(150)
   currentRole?: string;
   @ApiPropertyOptional({
     description: 'Current or most recent company',
@@ -57,6 +66,7 @@ export class CandidateExperienceDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(150)
   currentCompany?: string;
   @ApiPropertyOptional({
     description: 'Expected salary range',
@@ -64,6 +74,7 @@ export class CandidateExperienceDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   expectedSalary?: string;
   @ApiPropertyOptional({
     description: 'Earliest availability date',
@@ -81,6 +92,7 @@ export class CreateCandidateDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   firstName: string;
   @ApiProperty({
     description: 'Last name',
@@ -88,6 +100,7 @@ export class CreateCandidateDto {
   })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   lastName: string;
   @ApiProperty({
     description: 'Email address',
@@ -103,6 +116,7 @@ export class CreateCandidateDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(30)
   phone?: string;
   @ApiProperty({
     description: 'Resume filename (obtained from file upload)',
@@ -119,6 +133,8 @@ export class CreateCandidateDto {
     return value;
   })
   @IsNotEmpty()
+  @Matches(/^(?!\.)(?!.*\.\.)[^/\\\p{Cc}]+$/u, { message: 'Invalid file name' })
+  @MaxLength(200)
   resumeFilename: string;
   @ApiPropertyOptional({
     description: 'Cover letter as plain text (alternative to file upload)',
@@ -126,6 +142,7 @@ export class CreateCandidateDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   coverLetterText?: string;
   @ApiPropertyOptional({
     description: 'Cover letter filename (obtained from file upload)',
@@ -142,6 +159,8 @@ export class CreateCandidateDto {
     }
     return undefined;
   })
+  @Matches(/^(?!\.)(?!.*\.\.)[^/\\\p{Cc}]+$/u, { message: 'Invalid file name' })
+  @MaxLength(200)
   coverLetterFilename?: string;
   @ApiPropertyOptional({
     description: 'Location preferences',
@@ -158,6 +177,7 @@ export class CreateCandidateDto {
   })
   @IsOptional()
   @IsUrl()
+  @MaxLength(500)
   portfolioUrl?: string;
   @ApiPropertyOptional({
     description: 'LinkedIn profile URL',
@@ -165,6 +185,7 @@ export class CreateCandidateDto {
   })
   @IsOptional()
   @IsUrl()
+  @MaxLength(500)
   linkedinUrl?: string;
   @ApiPropertyOptional({
     description: 'GitHub profile URL',
@@ -172,6 +193,7 @@ export class CreateCandidateDto {
   })
   @IsOptional()
   @IsUrl()
+  @MaxLength(500)
   githubUrl?: string;
   @ApiPropertyOptional({
     description: 'Technical skills and technologies',

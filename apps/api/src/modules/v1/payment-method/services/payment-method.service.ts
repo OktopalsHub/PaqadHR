@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { type PaymentMethodResponse, toPaymentMethodResponse } from '../utils/payment-method-response.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import { TenantMemberRole } from 'src/common/enums/tenant-member.enum';
@@ -245,11 +246,11 @@ export class PaymentMethodService {
     id: string,
     requesterMemberId: string,
     requesterRole: string,
-  ): Promise<PaymentMethod | null> {
+  ): Promise<PaymentMethodResponse | null> {
     const pm = await this.repo.findOne({ where: { id, tenantId } });
     if (!pm) return null;
     await this.assertPaymentMethodAccess(tenantId, pm.memberId, requesterMemberId, requesterRole);
-    return this.withDecrypted(pm);
+    return this.toResponse(pm);
   }
 
   async findByMemberIdForRequester(
@@ -257,10 +258,10 @@ export class PaymentMethodService {
     memberId: string,
     requesterMemberId: string,
     requesterRole: string,
-  ): Promise<PaymentMethod | null> {
+  ): Promise<PaymentMethodResponse | null> {
     await this.assertPaymentMethodAccess(tenantId, memberId, requesterMemberId, requesterRole);
     try {
-      return this.withDecrypted(
+      return this.toResponse(
         await this.repo.findOne({ where: { tenantId, memberId }, order: { updatedAt: 'DESC' } }),
       );
     } catch (e) {
@@ -305,6 +306,10 @@ export class PaymentMethodService {
     return this.payrollReadinessService.findPrimaryPayoutMethod(tenantId, memberId);
   }
 
+  async findPrimaryPayoutMethodsByMemberIds(tenantId: string, memberIds: string[]) {
+    return this.payrollReadinessService.findPrimaryPayoutMethodsByMemberIds(tenantId, memberIds);
+  }
+
   async findVerifiedPayoutMethodForBridge(
     tenantId: string,
     memberId: string,
@@ -339,6 +344,10 @@ export class PaymentMethodService {
   }
   async resolvePayrollPaymentMethod(tenantId: string, memberId: string, currency?: string) {
     return this.payrollReadinessService.resolvePayrollPaymentMethod(tenantId, memberId, currency);
+  }
+
+  private toResponse(method: PaymentMethod | null): PaymentMethodResponse | null {
+    return toPaymentMethodResponse(method, (value) => this.pmCreationService.decryptField(value));
   }
 
   private withDecrypted(method: PaymentMethod | null): PaymentMethod | null {

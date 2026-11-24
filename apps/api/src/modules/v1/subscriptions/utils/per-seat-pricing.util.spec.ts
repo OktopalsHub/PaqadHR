@@ -1,5 +1,5 @@
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import { calculateProratedSeatCharge, getPerSeatMonthlyPrice } from './per-seat-pricing.util';
+import { calculateProratedSeatCharge, getPerSeatMonthlyPrice, isAmountWithinTolerance } from './per-seat-pricing.util';
 
 function growthNgPlanPrice(): PlanPrice {
   return {
@@ -70,5 +70,17 @@ describe('calculateProratedSeatCharge', () => {
     const asOf = new Date('2026-01-30T12:00:00.000Z');
     const { amount } = calculateProratedSeatCharge(planPrice, 1, periodStart, periodEnd, asOf);
     expect(amount).toBe(100);
+  });
+});
+
+describe('isAmountWithinTolerance', () => {
+  it('keeps one whole unit of slack on large amounts', () => {
+    expect(isAmountWithinTolerance(150000.9, 150000)).toBe(true);
+    expect(isAmountWithinTolerance(150002, 150000)).toBe(false);
+  });
+
+  it('does not let a $1 shortfall pass on a $10 plan', () => {
+    expect(isAmountWithinTolerance(9, 10)).toBe(false);
+    expect(isAmountWithinTolerance(9.97, 10)).toBe(true);
   });
 });

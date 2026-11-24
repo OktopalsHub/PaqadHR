@@ -78,7 +78,6 @@ export class InvitationManagementService {
       status: invitation.status,
       invitedBy: invitation.invitedBy,
       expiresAt: invitation.expiresAt,
-      token: invitation.token,
       ...(emailDelivery
         ? { emailSent: emailDelivery.emailSent, emailError: emailDelivery.emailError }
         : {}),

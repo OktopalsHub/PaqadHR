@@ -1,7 +1,9 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
+import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AnalyticsAggregationService as AnalyticsService } from './analytics-aggregation.service';
@@ -15,6 +17,8 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('overview')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Get workspace analytics overview' })
   async getOverview(@Param('tenantId') tenantId: string): Promise<AnalyticsOverviewDto> {
     return this.analyticsService.getOverview(tenantId);

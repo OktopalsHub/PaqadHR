@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EmploymentStatus } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { Employment } from 'src/modules/v1/employment/entities/employment.entity';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 
 import { isTenantAdmin } from '../utils/member-access.util';
 
@@ -20,6 +20,7 @@ export class ManagerAccessService {
         tenantId,
         reportsToId: managerMemberId,
         status: EmploymentStatus.ACTIVE,
+        endDate: IsNull(),
       },
       select: { tenantMemberId: true },
     });
@@ -40,6 +41,7 @@ export class ManagerAccessService {
         tenantMemberId: targetMemberId,
         reportsToId: managerMemberId,
         status: EmploymentStatus.ACTIVE,
+        endDate: IsNull(),
       },
     });
     return count > 0;

@@ -143,6 +143,11 @@ export class PointsCalculationService {
     const allowancePeriod = await this.getAllowancePeriod(tenantId);
     let sender = await this.ensureMemberRow(tenantId, senderMemberId, manager);
     sender = await this.ensureMonthlyReset(sender, manager, allowancePeriod);
+    // Serialise this sender's concurrent shoutouts so the allowance cannot be spent twice.
+    sender = await manager.getRepository(ShoutoutMemberPoints).findOneOrFail({
+      where: { id: sender.id },
+      lock: { mode: 'pessimistic_write' },
+    });
 
     const pointsSettings = await this.tenantConfigService.getPointsSettings(tenantId);
     const monthlyAllowance = pointsSettings?.monthlyAllowance ?? 0;

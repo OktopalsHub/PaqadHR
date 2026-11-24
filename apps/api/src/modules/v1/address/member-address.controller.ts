@@ -36,21 +36,23 @@ export class MemberAddressController {
   @Get()
   @HttpCode(HttpStatus.OK)
   async getMemberAddress(
+    @Param('tenantId') tenantId: string,
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
     this.assertCanView(member, memberId);
-    return this.addressService.getPrimaryAddress(memberId);
+    return this.addressService.getPrimaryAddress(tenantId, memberId);
   }
 
   @Put()
   @HttpCode(HttpStatus.OK)
   async upsertMemberAddress(
+    @Param('tenantId') tenantId: string,
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() dto: CreateAddressDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     assertSelfOnly(member, memberId);
-    return this.addressService.upsertMemberAddress(memberId, dto);
+    return this.addressService.upsertMemberAddress(tenantId, memberId, dto);
   }
 }

@@ -80,3 +80,5 @@ export * from '../../integrations/entities/integration-channel.entity';
 export * from '../../integrations/entities/platform-integration.entity';
 export * from '../../integrations/entities/platform-user.entity';
 export * from '../../integrations/entities/user-integration-token.entity';
+export * from '../../entities/rate-limit-counter.entity';
+export * from '../../entities/rate-limit-lockout.entity';

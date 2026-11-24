@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { DataSource, Repository } from 'typeorm';
@@ -13,6 +13,8 @@ import { resolveSettledAmount } from '../utils/settled-amount.util';
 import { BillingEventStore } from './billing-event-store';
 import { RenewalLifecycleService } from './renewal-lifecycle.service';
 import { SeatPricingCalculator } from './seat-pricing-calculator';
+
+const RENEWAL_CLAIM_LEASE_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class RenewalSuccessApplicator {
@@ -94,6 +96,10 @@ export class RenewalSuccessApplicator {
       );
     }
 
+    if (!settled.withinTolerance) {
+      throw new BadRequestException('Renewal amount mismatch');
+    }
+
     await this.dataSource.transaction(async (manager) => {
       const billingEventRepo = manager.getRepository(BillingEvent);
       if (await billingEventRepo.findOne({ where: { eventId: payment.eventId, provider } })) return;
@@ -142,6 +148,40 @@ export class RenewalSuccessApplicator {
         }),
       );
     });
+  }
+
+  /**
+   * Atomically take the renewal for one billing period. A fresh period is inserted as
+   * `pending`; an existing one is taken over only when it failed or its pending lease has
+   * expired. `charged` and `success` are never reclaimed, so a provider charge is not repeated.
+   */
+  async claimRenewalPeriod(
+    periodEventId: string,
+    claim: Record<string, unknown>,
+    provider: BillingProvider = BillingProvider.NOMBA,
+    leaseMs = RENEWAL_CLAIM_LEASE_MS,
+  ): Promise<boolean> {
+    const payload = { ...claim, status: 'pending', claimedAt: new Date().toISOString() };
+    const inserted = await this.dataSource
+      .getRepository(BillingEvent)
+      .createQueryBuilder()
+      .insert()
+      .into(BillingEvent)
+      .values({ eventId: periodEventId, provider, eventType: 'renewal_period', payload })
+      .orIgnore()
+      .returning('id')
+      .execute();
+    if (inserted.raw.length > 0) return true;
+    const [reclaimedRows] = await this.dataSource.query<[unknown[], number]>(
+      `UPDATE billing_events SET payload = payload || $3::jsonb
+       WHERE event_id = $1 AND provider = $2
+         AND (payload->>'status' = 'failed'
+           OR (payload->>'status' = 'pending'
+             AND (payload->>'claimedAt')::timestamptz < now() - ($4 * interval '1 millisecond')))
+       RETURNING id`,
+      [periodEventId, provider, JSON.stringify(payload), leaseMs],
+    );
+    return reclaimedRows.length > 0;
   }
 
   async getRenewalPeriodClaimStatus(

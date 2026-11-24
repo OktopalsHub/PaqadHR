@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -26,6 +27,7 @@ export class CreateCustomRewardDto {
   @ApiProperty({ example: 100 })
   @IsInt()
   @Min(1)
+  @Max(1_000_000)
   pointsCost!: number;
 
   @ApiPropertyOptional()
@@ -38,6 +40,7 @@ export class CreateCustomRewardDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(1_000_000)
   stockLimit?: number;
 
   @ApiPropertyOptional()
@@ -65,6 +68,7 @@ export class UpdateCustomRewardDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(1_000_000)
   pointsCost?: number;
 
   @ApiPropertyOptional()
@@ -82,6 +86,7 @@ export class UpdateCustomRewardDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(1_000_000)
   stockLimit?: number;
 
   @ApiPropertyOptional()

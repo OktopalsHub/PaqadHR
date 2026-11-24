@@ -38,8 +38,20 @@ export class UserRepository extends Repository<User> {
     return this.findOne({ where: { id }, withDeleted: includeDeleted });
   }
 
-  async listUsers(includeDeleted = false): Promise<User[]> {
-    return this.find({ withDeleted: includeDeleted });
+  async listUsers(includeDeleted = false, limit = 100, offset = 0): Promise<User[]> {
+    return this.find({
+      withDeleted: includeDeleted,
+      take: Math.min(Math.max(Number(limit) || 100, 1), 500),
+      skip: Math.max(Number(offset) || 0, 0),
+      select: {
+        id: true,
+        email: true,
+        isActive: true,
+        role: true,
+        countryCode: true,
+        imageKey: true,
+      },
+    });
   }
 
   async insertUser(userData: Partial<User>): Promise<User> {

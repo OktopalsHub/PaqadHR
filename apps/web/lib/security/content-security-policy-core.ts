@@ -47,6 +47,10 @@ export function buildContentSecurityPolicyFromSources(
     'https://challenges.cloudflare.com',
     'https://static.cloudflareinsights.com',
     'https://checkout.bachs.io',
+    // next-themes injects its inline theme-init script via dangerouslySetInnerHTML,
+    // so Next.js never applies the CSP nonce to it — allow it by hash.
+    // Keep in sync with the next-themes upgrade path (hash is version-sensitive).
+    "'sha256-rbbnijHn7DZ6ps39myQ3cVQF1H+U/PJfHh5ei/Q2kb8='",
   ];
 
   if (options.scriptNonce) {

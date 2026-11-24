@@ -2,6 +2,7 @@ import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { voucherTransformer } from '../utils/voucher-crypto.util';
 
 export type RewardType = 'TREMENDOUS' | 'NOMBA_AIRTIME' | 'NOMBA_UTILITY' | 'CUSTOM';
 export type RedemptionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
@@ -58,7 +59,7 @@ export class RewardRedemption extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   recipient: RecipientInfo | null;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'jsonb', nullable: true, transformer: voucherTransformer })
   voucher: VoucherInfo | null;
 
   @Column({ type: 'jsonb', nullable: true })

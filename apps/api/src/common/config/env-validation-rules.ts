@@ -1,3 +1,4 @@
+import { getBridgePayrollCapabilities } from './bridge-payroll-capabilities.config';
 import { isAllowedFincraBaseUrl, isFincraLive } from './fincra.config';
 import { isMonnifyLive, MONNIFY_PRODUCTION_BASE_URL } from './monnify.config';
 import { parseDurationToMs } from './parse-duration.util';
@@ -76,10 +77,40 @@ export function collectCookieErrors(isProduction: boolean): string[] {
   return errors;
 }
 
+export function collectPayrollErrors(): string[] {
+  const errors: string[] = [];
+  if (process.env.BRIDGE_PAYROLL_CAPABILITIES?.trim()) {
+    try {
+      getBridgePayrollCapabilities();
+    } catch {
+      errors.push('BRIDGE_PAYROLL_CAPABILITIES is not a valid capability list');
+    }
+  }
+  const nombaPayroll = process.env.NOMBA_PAYROLL_NGN_ENABLED?.trim().toLowerCase();
+  if (nombaPayroll !== undefined && nombaPayroll !== '' && !['true', 'false'].includes(nombaPayroll)) {
+    errors.push('NOMBA_PAYROLL_NGN_ENABLED must be true or false');
+  }
+  if (nombaPayroll === 'true') {
+    const fee = Number(process.env.PAYROLL_PAYOUT_FEE_NOMBA_NGN);
+    if (!process.env.PAYROLL_PAYOUT_FEE_NOMBA_NGN?.trim() || !Number.isFinite(fee) || fee <= 0) {
+      errors.push('NOMBA_PAYROLL_NGN_ENABLED=true requires PAYROLL_PAYOUT_FEE_NOMBA_NGN > 0');
+    }
+  }
+  return errors;
+}
+
 export function collectConfigErrors(): string[] {
   const errors: string[] = [];
   if (resolveTrustedOrigins().length === 0) {
     errors.push('TRUSTED_ORIGINS is not set');
+  }
+  if (process.env.NODE_ENV === 'production') {
+    const hops = Number.parseInt(process.env.TRUST_PROXY ?? '', 10);
+    if (!Number.isInteger(hops) || hops < 1) {
+      errors.push(
+        'TRUST_PROXY must be the number of reverse-proxy hops (>= 1) in production; otherwise every client shares the proxy IP for rate limits and lockout',
+      );
+    }
   }
   const publicId = process.env.R2_PUBLIC_ID?.trim();
   const customDomain = process.env.R2_CUSTOM_DOMAIN?.trim();

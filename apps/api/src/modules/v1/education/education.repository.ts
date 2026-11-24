@@ -25,7 +25,7 @@ export class EducationRepository extends Repository<Education> implements IEduca
       tenantId,
       tenantMemberId,
     };
-    return this.create(educationData);
+    return this.save(this.create(educationData));
   }
   async listEducations(tenantId: string, tenantMemberId?: string): Promise<Education[]> {
     const where: FindOptionsWhere<Education> = { tenantId };

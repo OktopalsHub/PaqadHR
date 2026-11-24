@@ -1,9 +1,10 @@
-import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, DeleteDateColumn, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
 @Entity('shoutout_member_points')
+@Index('uq_shoutout_member_points_tenant_member', ['tenantId', 'memberId'], { unique: true, where: '"deleted_at" IS NULL' })
 export class ShoutoutMemberPoints extends BaseEntity {
   @Column({ name: 'tenant_id', type: 'uuid' })
   tenantId: string;

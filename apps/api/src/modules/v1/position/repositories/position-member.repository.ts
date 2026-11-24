@@ -42,8 +42,21 @@ export class PositionMemberRepository extends Repository<PositionMember> {
   async getPositionHistory(tenantId: string, tenantMemberId: string): Promise<PositionMember[]> {
     return this.positionMemberRepository
       .createQueryBuilder('assignment')
-      .innerJoinAndSelect('assignment.member', 'member')
-      .innerJoinAndSelect('assignment.position', 'position')
+      .innerJoin('assignment.member', 'member')
+      .innerJoin('assignment.position', 'position')
+      .select([
+        'assignment.id',
+        'assignment.tenantMemberId',
+        'assignment.positionId',
+        'assignment.assignedAt',
+        'assignment.isCurrent',
+        'position.id',
+        'position.title',
+        'position.department',
+        'position.description',
+        'position.isActive',
+        'position.color',
+      ])
       .where('assignment.tenantMemberId = :tenantMemberId', { tenantMemberId })
       .andWhere('member.tenantId = :tenantId', { tenantId })
       .andWhere('position.tenantId = :tenantId', { tenantId })

@@ -43,12 +43,16 @@ export interface TenantActivitiesListResult {
   limit: number;
 }
 
+const MAX_QUEUE_SIZE = 10_000;
+const MAX_ATTEMPTS = 5;
+
 @Injectable()
 export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ActivitiesService.name);
   private readonly queue: CreateActivityPayload[] = [];
   private drainTimer: ReturnType<typeof setInterval> | null = null;
   private draining = false;
+  private readonly attempts = new WeakMap<object, number>();
 
   public static readonly testLogs: CreateActivityPayload[] = [];
 
@@ -71,7 +75,15 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
       ActivitiesService.testLogs.push(entry);
       return;
     }
-    this.queue.push(entry);
+    // Saved before returning; only a failed write falls back to the in-memory retry queue.
+    try {
+      await this.activityRepository.save(this.toEntity(entry));
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist activity, queued for retry: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.enqueue(entry);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -147,35 +159,63 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private toEntity(entry: CreateActivityPayload): TenantActivity {
+    return this.activityRepository.create({
+      tenantId: entry.tenantId,
+      actorMemberId: entry.actorMemberId || null,
+      action: entry.action,
+      resourceType: entry.resourceType ?? null,
+      resourceId: entry.resourceId ?? null,
+      description: entry.description,
+      status: entry.status ?? 'SUCCESS',
+      severity: entry.severity ?? 'LOW',
+      ipAddress: entry.ipAddress ?? null,
+      userAgent: entry.userAgent ?? null,
+      metadata: entry.metadata ?? null,
+    });
+  }
+
+  private enqueue(entry: CreateActivityPayload): void {
+    if (this.queue.length >= MAX_QUEUE_SIZE) {
+      this.queue.shift();
+      this.logger.warn('activity queue is full; dropped the oldest entry');
+    }
+    this.queue.push(entry);
+  }
+
   private async drainQueue(): Promise<void> {
-    if (this.draining || this.queue.length === 0) return;
+    if (this.draining) return;
     this.draining = true;
-
     try {
-      const batch = this.queue.splice(0, 25);
-      const entities = batch.map((entry) =>
-        this.activityRepository.create({
-          tenantId: entry.tenantId,
-          actorMemberId: entry.actorMemberId || null,
-          action: entry.action,
-          resourceType: entry.resourceType ?? null,
-          resourceId: entry.resourceId ?? null,
-          description: entry.description,
-          status: entry.status ?? 'SUCCESS',
-          severity: entry.severity ?? 'LOW',
-          ipAddress: entry.ipAddress ?? null,
-          userAgent: entry.userAgent ?? null,
-          metadata: entry.metadata ?? null,
-        }),
-      );
+      while (this.queue.length > 0) {
+        const batch = this.queue.splice(0, 25);
+        try {
+          const entities = batch.map((entry) => this.toEntity(entry));
 
-      await this.activityRepository.save(entities);
-    } catch (error) {
-      this.logger.error(
-        `Failed to persist activity batch: ${error instanceof Error ? error.message : String(error)}`,
-      );
+          await this.activityRepository.save(entities);
+
+        } catch (error) {
+          this.requeueFailed(batch);
+          this.logger.error(
+            `Failed to persist activity batch: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return;
+        }
+      }
     } finally {
       this.draining = false;
+    }
+  }
+
+  private requeueFailed(batch: Array<CreateActivityPayload>): void {
+    const keep = batch.filter((entry) => {
+      const attempts = (this.attempts.get(entry) ?? 0) + 1;
+      this.attempts.set(entry, attempts);
+      return attempts < MAX_ATTEMPTS;
+    });
+    this.queue.unshift(...keep);
+    if (keep.length < batch.length) {
+      this.logger.error(`Dropped ${batch.length - keep.length} activity entries after repeated failures`);
     }
   }
 }

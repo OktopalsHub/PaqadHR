@@ -6,6 +6,10 @@ export type OfferStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'DECLINED';
 
 @Entity('recruitment_offer')
 @Index('idx_recruitment_offer_candidate', ['tenantId', 'candidateId'])
+@Index('uq_recruitment_offer_open_per_candidate', ['candidateId'], {
+  unique: true,
+  where: "status IN ('DRAFT', 'SENT')",
+})
 export class RecruitmentOffer extends BaseEntity {
   @Column({ name: 'tenant_id', type: 'uuid' })
   tenantId: string;

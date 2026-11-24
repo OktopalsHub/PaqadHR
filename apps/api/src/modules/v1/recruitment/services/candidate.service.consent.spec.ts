@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 
 import { CandidateService } from './candidate.service';
@@ -67,5 +67,13 @@ describe('CandidateService.applyForJob consent', () => {
     const parsed = Date.parse(consentAt);
     expect(parsed).toBeGreaterThanOrEqual(before);
     expect(parsed).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('answers a duplicate-application race with a conflict, not a 500', async () => {
+    const { service, candidateRepository } = createService();
+    candidateRepository.save.mockRejectedValue({ code: '23505' });
+    await expect(
+      service.applyForJob('job-1', { ...baseDto, dataProcessingConsent: true } as never),
+    ).rejects.toThrow(ConflictException);
   });
 });

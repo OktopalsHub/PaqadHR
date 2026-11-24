@@ -304,7 +304,9 @@ describe('TenantWalletTopupService', () => {
     usageMetrics?: Record<string, unknown>;
     tenantCountryCode?: string;
     walletCurrency?: string;
+    lockAvailable?: boolean;
   }) {
+    const lockAvailable = overrides?.lockAvailable ?? true;
     const wallet = {
       id: 'wallet-1',
       tenantId,
@@ -355,6 +357,7 @@ describe('TenantWalletTopupService', () => {
     };
 
     const manager = {
+      query: jest.fn().mockResolvedValue([{ locked: lockAvailable }]),
       getRepository: jest.fn((entity) => {
         if (entity.name === 'TenantWallet') return walletRepo;
         if (entity.name === 'TenantWalletTransaction') return txRepo;
@@ -593,6 +596,22 @@ describe('TenantWalletTopupService', () => {
   }
 
   describe('maybeAutoTopupAfterDebit', () => {
+    it('does nothing when another auto top-up for the tenant holds the lock', async () => {
+      const { topupService, nombaApi } = createTopupService({
+        wallet: {
+          autoTopupEnabled: true,
+          autoTopupThreshold: 1000,
+          autoTopupAmount: 5000,
+          balanceAmount: 500,
+        },
+        lockAvailable: false,
+      });
+
+      await topupService.maybeAutoTopupAfterDebit(tenantId, actorMemberId);
+
+      expect(nombaApi.chargeTokenizedCard).not.toHaveBeenCalled();
+    });
+
     it('throws when auto-topup charge fails', async () => {
       const { topupService, nombaApi, emailService } = createTopupService({
         wallet: {

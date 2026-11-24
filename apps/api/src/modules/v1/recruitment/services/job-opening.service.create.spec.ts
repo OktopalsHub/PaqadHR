@@ -22,4 +22,22 @@ describe('JobOpeningService.createJob', () => {
     expect(repo.save).toHaveBeenCalledWith(built);
     expect(job.id).toBe('job-1');
   });
+
+  it('rejects a department from another workspace', async () => {
+    const repo = { create: jest.fn(), save: jest.fn() };
+    const departments = { exists: jest.fn().mockResolvedValue(false) };
+    const service = new JobOpeningService(
+      repo as never,
+      departments as never,
+      { queueActivity: jest.fn() } as never,
+      { capture: jest.fn() } as never,
+    );
+    await expect(
+      service.createJob('tenant-1', 'member-1', { title: 'E', departmentId: 'foreign' } as never),
+    ).rejects.toThrow('Department not found');
+    expect(departments.exists).toHaveBeenCalledWith({
+      where: { id: 'foreign', tenantId: 'tenant-1' },
+    });
+    expect(repo.save).not.toHaveBeenCalled();
+  });
 });

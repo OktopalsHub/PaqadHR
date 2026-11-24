@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -24,6 +26,7 @@ import { DepartmentsService } from './departments.service';
 import { AddDepartmentMemberDto } from './dto/add-department-member.dto';
 import { AssignDepartmentManagerDto } from './dto/assign-department-manager.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
+import { DepartmentMemberSummaryMapper } from './dto/department-member-response.dto';
 import { DepartmentResponseDto } from './dto/department-response.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 
@@ -153,7 +156,13 @@ export class DepartmentsController {
     return this.departmentsService.removeMemberFromDepartment(tenantId, id, memberId, member.id);
   }
   @Get(':id/members')
-  async getDepartmentMembers(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.departmentsService.getDepartmentMembers(tenantId, id);
+  async getDepartmentMembers(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
+  ) {
+    const members = await this.departmentsService.getDepartmentMembers(tenantId, id, page, limit);
+    return DepartmentMemberSummaryMapper.toResponseList(members);
   }
 }

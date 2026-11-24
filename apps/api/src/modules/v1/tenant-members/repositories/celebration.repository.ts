@@ -150,6 +150,15 @@ export class CelebrationRepository {
     const members = await this.repo.find({
       where: { tenantId, isActive: true },
       relations: { employments: true },
+      select: {
+        id: true,
+        tenantId: true,
+        isActive: true,
+        firstName: true,
+        lastName: true,
+        preferredName: true,
+        employments: { id: true, status: true, startDate: true },
+      },
     });
     const now = new Date();
 

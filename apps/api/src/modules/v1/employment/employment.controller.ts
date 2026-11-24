@@ -22,9 +22,9 @@ import { ManagerAccessService } from 'src/common/services/manager-access.service
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateCompensationDto } from './dto/create-compensation.dto';
 import { CreateEmploymentDto } from './dto/create-employment.dto';
+import { EmploymentMapper, EmploymentResponseDto } from './dto/employment-response.dto';
 import { UpdateEmploymentDto } from './dto/update-employment.dto';
 import { EmploymentService } from './employment.service';
-import type { Employment } from './entities/employment.entity';
 
 @ApiTags('Employments')
 @Controller('tenants/:tenantId/')
@@ -60,13 +60,14 @@ export class EmploymentController {
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() createCompensationDto: CreateCompensationDto,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Employment> {
-    return this.employmentService.addCompensationRecord(
+  ): Promise<EmploymentResponseDto> {
+    const record = await this.employmentService.addCompensationRecord(
       tenantId,
       memberId,
       member.id,
       createCompensationDto,
     );
+    return EmploymentMapper.toResponse(record);
   }
 
   @Post('members/:memberId/employments')
@@ -78,13 +79,14 @@ export class EmploymentController {
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() createEmploymentDto: CreateEmploymentDto,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Employment> {
-    return this.employmentService.createEmployment(
+  ): Promise<EmploymentResponseDto> {
+    const created = await this.employmentService.createEmployment(
       tenantId,
       memberId,
       member.id,
       createEmploymentDto,
     );
+    return EmploymentMapper.toResponse(created);
   }
 
   @Get('members/:memberId/employments')
@@ -93,9 +95,10 @@ export class EmploymentController {
     @Param('tenantId') tenantId: string,
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Employment[]> {
+  ): Promise<EmploymentResponseDto[]> {
     await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, memberId, tenantId);
-    return this.employmentService.getEmploymentsByMemberId(tenantId, memberId);
+    const employments = await this.employmentService.getEmploymentsByMemberId(tenantId, memberId);
+    return EmploymentMapper.toResponseList(employments);
   }
   @Get('employments/:id')
   @HttpCode(HttpStatus.OK)
@@ -103,14 +106,14 @@ export class EmploymentController {
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Employment> {
+  ): Promise<EmploymentResponseDto> {
     const employment = await this.employmentService.getEmployment(id, tenantId);
     await this.managerAccessService.assertAdminOrSelfOrManagerOf(
       member,
       employment.tenantMemberId,
       tenantId,
     );
-    return employment;
+    return EmploymentMapper.toResponse(employment);
   }
   @Patch('employments/:id')
   @UseGuards(TenantRoleGuard)
@@ -121,8 +124,14 @@ export class EmploymentController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateEmploymentDto: UpdateEmploymentDto,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Employment> {
-    return this.employmentService.updateEmployment(id, updateEmploymentDto, tenantId, member.id);
+  ): Promise<EmploymentResponseDto> {
+    const updated = await this.employmentService.updateEmployment(
+      id,
+      updateEmploymentDto,
+      tenantId,
+      member.id,
+    );
+    return EmploymentMapper.toResponse(updated);
   }
   @Delete('employments/:id')
   @UseGuards(TenantRoleGuard)

@@ -28,6 +28,7 @@ import {
 } from '../../../common/config/cookie-deployment';
 import type { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
+import { LocalLoginDto } from './dto/login.dto';
 import { GoogleConsentDto } from './dto/google-consent.dto';
 import { ResendEmailVerificationDto, VerifyEmailDto } from './dto/otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -119,7 +120,7 @@ export class AuthSessionController {
   async login(
     @Req() req: AuthenticatedRequest,
     @Ip() ipParam: string,
-    @Body() body: { rememberMe?: boolean },
+    @Body() body: LocalLoginDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthUserResponse> {
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);

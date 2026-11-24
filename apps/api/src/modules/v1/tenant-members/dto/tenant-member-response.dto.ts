@@ -94,7 +94,7 @@ export class TenantMemberMapper {
   static toResponse(
     member: TenantMember,
     fileUrlService?: FileUrlService,
-    options?: { includeIdentityStatus?: boolean },
+    options?: { includeIdentityStatus?: boolean; redactPersonal?: boolean },
   ): ITenantMemberResponseDto {
     const currentPosition = member.positionHistory?.find((p) => p.isCurrent);
     const activeDepartmentMembership = member.departmentMemberships?.find((dm) => dm.isActive);
@@ -137,6 +137,11 @@ export class TenantMemberMapper {
           }
         : undefined,
     };
+    if (options?.redactPersonal) {
+      response.phone = undefined;
+      response.dateOfBirth = undefined;
+      response.gender = undefined;
+    }
     if (options?.includeIdentityStatus) {
       response.hasIdentityBvn = Boolean(member.identityBvn?.trim());
       response.hasIdentityNin = Boolean(member.identityNin?.trim());
@@ -153,7 +158,12 @@ export class TenantMemberMapper {
   static toResponseList(
     members: TenantMember[],
     fileUrlService?: FileUrlService,
+    options?: { viewerId?: string; viewerIsAdmin?: boolean },
   ): ITenantMemberResponseDto[] {
-    return members.map((member) => TenantMemberMapper.toResponse(member, fileUrlService));
+    return members.map((member) =>
+      TenantMemberMapper.toResponse(member, fileUrlService, {
+        redactPersonal: !options?.viewerIsAdmin && member.id !== options?.viewerId,
+      }),
+    );
   }
 }

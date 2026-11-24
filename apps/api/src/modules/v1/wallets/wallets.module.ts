@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { BridgeModule } from '../../../common/providers/bridge.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { PaymentMethodModule } from '../payment-method/payment-method.module';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -26,6 +27,7 @@ import { WalletLedgerService } from './services/wallet-ledger.service';
 @Module({
   imports: [
     BridgeModule,
+    AuditLogsModule,
     TenantMembersModule,
     PaymentMethodModule,
     TypeOrmModule.forFeature([

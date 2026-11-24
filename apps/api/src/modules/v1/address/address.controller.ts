@@ -38,10 +38,10 @@ export class AddressController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.addressService.updateAddress(
+      tenantId,
       member.id,
       addressId,
       updateAddressDto,
-      tenantId,
       member.id,
     );
   }
@@ -51,6 +51,6 @@ export class AddressController {
     @Param('addressId') addressId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.deleteAddress(member.id, addressId, tenantId, member.id);
+    return this.addressService.deleteAddress(tenantId, member.id, addressId, member.id);
   }
 }

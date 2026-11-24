@@ -93,6 +93,7 @@ export class AuthSessionService {
     }
     const user = await this.userRepository.findUser(payload.sub);
     if (!user) throw new UnauthorizedException('User not found');
+    if (!user.isActive) throw new UnauthorizedException('User account is inactive');
     if (!user.emailVerified) {
       throw new UnauthorizedException('Verify your email address before signing in');
     }

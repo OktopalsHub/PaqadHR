@@ -37,7 +37,12 @@ describe('SubscriptionsService', () => {
       save: jest.fn(async (s) => s),
       remove: jest.fn(),
       create: jest.fn((value) => value),
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn(() => ({
+        leftJoin: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        getOne: jest.fn(() => subscriptionRepo.findOne()),
+      })),
     };
     tenantRepo = {
       findOne: jest.fn(),

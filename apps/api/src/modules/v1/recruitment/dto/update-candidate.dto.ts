@@ -7,6 +7,9 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUrl,
+  Matches,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -63,6 +66,7 @@ export class UpdateCandidateDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(30)
   phone?: string;
   @ApiPropertyOptional({
     description: 'Location preferences',
@@ -77,6 +81,8 @@ export class UpdateCandidateDto {
   })
   @IsOptional()
   @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(500)
   portfolioUrl?: string;
   @ApiPropertyOptional({
     description: 'LinkedIn profile URL',
@@ -84,6 +90,8 @@ export class UpdateCandidateDto {
   })
   @IsOptional()
   @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(500)
   linkedinUrl?: string;
   @ApiPropertyOptional({
     description: 'GitHub profile URL',
@@ -91,6 +99,8 @@ export class UpdateCandidateDto {
   })
   @IsOptional()
   @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(500)
   githubUrl?: string;
   @ApiPropertyOptional({
     description: 'Technical skills and technologies',
@@ -98,6 +108,7 @@ export class UpdateCandidateDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   skills?: string;
   @ApiPropertyOptional({
     description: 'Work experience details',
@@ -121,6 +132,8 @@ export class UpdateCandidateDto {
     }
     return value;
   })
+  @Matches(/^(?!\.)(?!.*\.\.)[^/\\\p{Cc}]+$/u, { message: 'Invalid file name' })
+  @MaxLength(200)
   resumeFilename?: string;
   @ApiPropertyOptional({
     description: 'Cover letter filename (obtained from file upload)',
@@ -137,5 +150,7 @@ export class UpdateCandidateDto {
     }
     return value;
   })
+  @Matches(/^(?!\.)(?!.*\.\.)[^/\\\p{Cc}]+$/u, { message: 'Invalid file name' })
+  @MaxLength(200)
   coverLetterFilename?: string;
 }

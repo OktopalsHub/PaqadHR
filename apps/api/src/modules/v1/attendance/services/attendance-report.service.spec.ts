@@ -63,7 +63,7 @@ describe('AttendanceReportService', () => {
       }),
     } as unknown as TenantSettingsService;
     const leaveService = {
-      getLeavesByMember: jest.fn().mockResolvedValue({ records: [] }),
+      getApprovedLeavesByMembers: jest.fn().mockResolvedValue(new Map()),
     } as unknown as LeaveService;
     const departmentUtils = {
       getDepartmentsByMemberIds: jest.fn().mockResolvedValue(new Map()),

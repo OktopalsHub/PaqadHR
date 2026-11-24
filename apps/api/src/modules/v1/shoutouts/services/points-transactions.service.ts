@@ -8,6 +8,7 @@ import { TenantMembersService } from '../../tenant-members/tenant-members.servic
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
 import { MemberPointsRepository } from '../repositories/member-points.repository';
+import { addMemberPoints } from '../utils/member-points-delta.util';
 import { PointsCalculationService } from './points-calculation.service';
 
 @Injectable()
@@ -91,17 +92,18 @@ export class PointsTransactionsService {
 
     await this.dataSource.transaction(async (manager) => {
       for (const member of members) {
-        let row = await this.pointsCalculationService.ensureMemberRow(tenantId, member.id, manager);
-        row = await this.pointsCalculationService.ensureMonthlyReset(row, manager, allowancePeriod);
-        row.currentBalance += points;
-        row.totalEarned += points;
-        await manager.save(row);
+        const row = await this.pointsCalculationService.ensureMemberRow(tenantId, member.id, manager);
+        await this.pointsCalculationService.ensureMonthlyReset(row, manager, allowancePeriod);
+        const newBalance = await addMemberPoints(manager, tenantId, member.id, {
+          balance: points,
+          earned: points,
+        });
         await this.memberPointsRepository.insertTransaction(manager, {
           tenantId,
           memberId: member.id,
           type: ShoutoutPointTransactionType.ADMIN_ASSIGN,
           points,
-          runningBalance: row.currentBalance,
+          runningBalance: newBalance,
           description: reason ?? 'Admin points assignment',
           createdBy: actorId,
         });
@@ -150,17 +152,18 @@ export class PointsTransactionsService {
           : memberIds.map((id) => ({ memberId: id, points }));
       for (const { memberId, points: pts } of list) {
         await this.tenantMembersService.getTenantMemberId(tenantId, memberId);
-        let row = await this.pointsCalculationService.ensureMemberRow(tenantId, memberId, manager);
-        row = await this.pointsCalculationService.ensureMonthlyReset(row, manager, allowancePeriod);
-        row.currentBalance += pts;
-        row.totalEarned += pts;
-        await manager.save(row);
+        const row = await this.pointsCalculationService.ensureMemberRow(tenantId, memberId, manager);
+        await this.pointsCalculationService.ensureMonthlyReset(row, manager, allowancePeriod);
+        const newBalance = await addMemberPoints(manager, tenantId, memberId, {
+          balance: pts,
+          earned: pts,
+        });
         await this.memberPointsRepository.insertTransaction(manager, {
           tenantId,
           memberId,
           type: ShoutoutPointTransactionType.ADMIN_ASSIGN,
           points: pts,
-          runningBalance: row.currentBalance,
+          runningBalance: newBalance,
           description: reason ?? 'Direct points assignment by admin',
           createdBy: actorId,
         });

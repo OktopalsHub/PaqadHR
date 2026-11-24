@@ -9,6 +9,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { PasswordService, sha256Hex } from 'src/common/utils';
+import { In } from 'typeorm';
 
 import { UserRole } from '../../../common/enums';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
@@ -36,6 +37,7 @@ describe('AuthService', () => {
     findOne: jest.Mock;
     save: jest.Mock;
     create: jest.Mock;
+    delete: jest.Mock;
   };
   let auditLogsService: jest.Mocked<Pick<AuditLogsService, 'queueAuditLog'>>;
   let zeptomailEmailService: { sendTemplateEmail: jest.Mock };
@@ -72,6 +74,7 @@ describe('AuthService', () => {
       findOne: jest.fn(),
       save: jest.fn().mockImplementation(async (account) => account),
       create: jest.fn().mockImplementation((data) => data),
+      delete: jest.fn(),
     };
     const mockSessionRepository = {
       create: jest.fn(),
@@ -263,7 +266,55 @@ describe('AuthService', () => {
           accountId: 'google-123',
         }),
       );
-      expect(userRepository.update).toHaveBeenCalledWith('user-1', { emailVerified: true });
+      expect(userRepository.update).toHaveBeenCalledWith('user-1', {
+        emailVerified: true,
+        password: null,
+      });
+      expect(accountRepository.delete).toHaveBeenCalledWith({
+        userId: 'user-1',
+        providerId: 'credential',
+      });
+      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    });
+
+    it('clears the squatter password when an existing Google link verifies the email', async () => {
+      const existingUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+        emailVerified: false,
+      } as User;
+      accountRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'user-1', providerId: 'google', accountId: 'google-123' });
+      userRepository.findUserByEmail.mockResolvedValue(existingUser);
+
+      await authService.findOrCreateGoogleUser('google-123', 'test@example.com');
+
+      expect(userRepository.update).toHaveBeenCalledWith('user-1', {
+        emailVerified: true,
+        password: null,
+      });
+      expect(accountRepository.delete).toHaveBeenCalledWith({
+        userId: 'user-1',
+        providerId: 'credential',
+      });
+    });
+
+    it('keeps the stored password when linking Google to an already verified account', async () => {
+      const existingUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+        emailVerified: true,
+      } as User;
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(existingUser);
+
+      await authService.findOrCreateGoogleUser('google-123', 'test@example.com');
+
+      expect(userRepository.update).not.toHaveBeenCalled();
+      expect(accountRepository.delete).not.toHaveBeenCalled();
     });
 
     it('returns user when Google account is already linked', async () => {
@@ -422,6 +473,7 @@ describe('AuthService', () => {
       email: 'test@example.com',
       role: UserRole.BASIC,
       emailVerified: true,
+      isActive: true,
     } as User;
 
     it('rotates session token on refresh', async () => {
@@ -444,6 +496,23 @@ describe('AuthService', () => {
         }),
       );
       expect(jwtService.sign).toHaveBeenCalled();
+    });
+
+    it('rejects refresh for a deactivated user', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'old-session' });
+      userRepository.findUser.mockResolvedValue({ ...mockUser, isActive: false } as User);
+      sessionRepository.findOne.mockResolvedValue({
+        token: 'old-session',
+        userId: 'user-1',
+        createdAt: new Date(Date.now() - 3_600_000),
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      sessionRepository.save.mockImplementation(async (session) => session);
+
+      await expect(authService.refreshToken('valid-refresh')).rejects.toThrow(
+        'User account is inactive',
+      );
+      expect(sessionRepository.save).not.toHaveBeenCalled();
     });
 
     // Refresh-token replay is treated as compromise: if the user still has a live session but
@@ -639,6 +708,24 @@ describe('AuthService', () => {
       });
     });
 
+    it('revokes every existing session after a password reset', async () => {
+      const rawToken = '550e8400-e29b-41d4-a716-446655440000';
+      verificationRepository.findOne.mockResolvedValue({
+        id: 'v1',
+        identifier: 'reset:user-1',
+        token: sha256Hex(rawToken),
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      userRepository.findUser.mockResolvedValue({ id: 'user-1' } as User);
+      userRepository.save.mockResolvedValue({ id: 'user-1' } as User);
+      accountRepository.findOne.mockResolvedValue(null);
+      jest.spyOn(PasswordService, 'hashPassword').mockResolvedValue('new-hash');
+
+      await authService.resetPassword(rawToken, 'NewPassword1!');
+
+      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    });
+
     it('returns generic message when email send fails', async () => {
       const mockUser = { id: 'user-1', email: 'test@example.com' } as User;
       userRepository.findUserByEmail.mockResolvedValue(mockUser);
@@ -678,28 +765,25 @@ describe('AuthService', () => {
       ).rejects.toThrow('Password must be at least 8 characters.');
     });
 
-    it('returns the existing user when email and password match a credential account', async () => {
+    it('overwrites the stored password and purges sessions and tokens when registering over an unverified account', async () => {
       const existingUser = {
         id: 'user-1',
         email: 'test@example.com',
-        password: 'hashedpassword',
+        password: 'attacker-hash',
         isActive: true,
         role: UserRole.BASIC,
         emailVerified: false,
         metadata: { other: 'keep' },
       } as unknown as User;
+      const credential = { userId: 'user-1', providerId: 'credential', password: 'attacker-hash' };
 
       userRepository.findUserByEmail.mockResolvedValue(existingUser);
-      accountRepository.findOne.mockResolvedValue({
-        userId: 'user-1',
-        providerId: 'credential',
-        password: 'hashedpassword',
-      });
-      jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
+      accountRepository.findOne.mockResolvedValue(credential);
+      jest.spyOn(PasswordService, 'hashPassword').mockResolvedValue('owner-hash');
 
       const result = await authService.register(
         'test@example.com',
-        'CorrectPassword1!',
+        'OwnerPassword1!',
         { ip: '127.0.0.1' },
         undefined,
         true,
@@ -707,6 +791,14 @@ describe('AuthService', () => {
 
       expect(result.user).toBe(existingUser);
       expect(userRepository.insertUser).not.toHaveBeenCalled();
+      expect(userRepository.update).toHaveBeenCalledWith('user-1', { password: 'owner-hash' });
+      expect(accountRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ userId: 'user-1', password: 'owner-hash' }),
+      );
+      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+      expect(verificationRepository.delete).toHaveBeenCalledWith({
+        identifier: In(['email-verification:user-1', 'reset:user-1']),
+      });
       expect(userRepository.update).toHaveBeenCalledWith(
         'user-1',
         expect.objectContaining({
@@ -720,31 +812,41 @@ describe('AuthService', () => {
       );
     });
 
-    it('rejects registration when the email exists but the password is wrong', async () => {
+    it('creates a credential account when the unverified user has none', async () => {
       const existingUser = {
         id: 'user-1',
         email: 'test@example.com',
-        password: 'hashedpassword',
         isActive: true,
+        emailVerified: false,
       } as User;
-
       userRepository.findUserByEmail.mockResolvedValue(existingUser);
-      accountRepository.findOne.mockResolvedValue({
-        userId: 'user-1',
-        providerId: 'credential',
-        password: 'hashedpassword',
-      });
-      jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(false);
+      accountRepository.findOne.mockResolvedValue(null);
+      jest.spyOn(PasswordService, 'hashPassword').mockResolvedValue('owner-hash');
+
+      await authService.register('test@example.com', 'Password123!', {}, undefined, true);
+
+      expect(accountRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          providerId: 'credential',
+          password: 'owner-hash',
+        }),
+      );
+    });
+
+    it('rejects registration over an inactive unverified account without touching it', async () => {
+      userRepository.findUserByEmail.mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: false,
+        emailVerified: false,
+      } as User);
 
       await expect(
-        authService.register(
-          'test@example.com',
-          'WrongPassword1!',
-          { ip: '127.0.0.1' },
-          undefined,
-          true,
-        ),
+        authService.register('test@example.com', 'Password123!', {}, undefined, true),
       ).rejects.toThrow(UnauthorizedException);
+      expect(sessionRepository.delete).not.toHaveBeenCalled();
+      expect(userRepository.update).not.toHaveBeenCalled();
     });
 
     it('rejects registration when the email already belongs to a verified Google account', async () => {
@@ -766,27 +868,6 @@ describe('AuthService', () => {
         ),
       ).rejects.toThrow('This email is already registered. Please sign in.');
       expect(userRepository.insertUser).not.toHaveBeenCalled();
-    });
-
-    it('rejects registration when the email exists without a supported sign-in method', async () => {
-      const existingUser = {
-        id: 'user-1',
-        email: 'test@example.com',
-        isActive: true,
-      } as User;
-
-      userRepository.findUserByEmail.mockResolvedValue(existingUser);
-      accountRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
-
-      await expect(
-        authService.register(
-          'test@example.com',
-          'Password123!',
-          { ip: '127.0.0.1' },
-          undefined,
-          true,
-        ),
-      ).rejects.toThrow(UnprocessableEntityException);
     });
   });
 

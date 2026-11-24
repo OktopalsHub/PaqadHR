@@ -8,6 +8,9 @@ import type { PayrollRunRepository } from '../repositories/payroll-run.repositor
 import type { AuditService } from './audit.service';
 import { PayrollRunService } from './payroll-run.service';
 
+const lagosToday = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos' }).format(new Date());
+
 describe('PayrollRunService run lifecycle', () => {
   // createPayrollRun reads the tenant through payrollRunRepository.manager to resolve
   // "today" in the tenant's timezone.
@@ -15,12 +18,23 @@ describe('PayrollRunService run lifecycle', () => {
     findOne: jest.fn().mockResolvedValue({ id: 'tenant-1', timezone: 'Africa/Lagos' }),
   };
 
+  const txSave = jest.fn(async (_entity: unknown, value: unknown) =>
+    Array.isArray(value) ? value : { ...(value as object), id: 'run-1' },
+  );
+  const manager = {
+    getRepository: jest.fn(() => tenantRepository),
+    save: txSave,
+    transaction: jest.fn(async (cb: (m: unknown) => unknown) => cb({ save: txSave })),
+  };
+
+  beforeEach(() => txSave.mockClear());
+
   const createService = () => {
     const payrollRunRepository = {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((input) => input),
       save: jest.fn().mockImplementation(async (input) => ({ ...input, id: 'run-1' })),
-      manager: { getRepository: jest.fn(() => tenantRepository) },
+      manager,
     } as unknown as PayrollRunRepository;
     const payrollItemRepository = {
       create: jest.fn((input) => input),
@@ -65,7 +79,7 @@ describe('PayrollRunService run lifecycle', () => {
     expect(payrollRunRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         payoutMode: 'immediate',
-        paymentDate: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`),
+        paymentDate: new Date(`${lagosToday()}T00:00:00.000Z`),
       }),
     );
   });
@@ -80,7 +94,7 @@ describe('PayrollRunService run lifecycle', () => {
     expect(payrollRunRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         payoutMode: 'immediate',
-        paymentDate: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`),
+        paymentDate: new Date(`${lagosToday()}T00:00:00.000Z`),
       }),
     );
   });
@@ -101,7 +115,7 @@ describe('PayrollRunService run lifecycle', () => {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((input) => input),
       save: jest.fn().mockImplementation(async (input) => ({ ...input, id: 'run-1' })),
-      manager: { getRepository: jest.fn(() => tenantRepository) },
+      manager,
     } as unknown as PayrollRunRepository;
     const payrollItemRepository = {
       create: jest.fn((input) => input),
@@ -133,8 +147,9 @@ describe('PayrollRunService run lifecycle', () => {
     expect(payrollRunRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ payoutMode: 'scheduled' }),
     );
-    expect(payrollItemRepository.save).toHaveBeenCalledTimes(1);
-    expect(payrollItemRepository.save).toHaveBeenCalledWith([
+    const itemSaves = txSave.mock.calls.filter(([, value]) => Array.isArray(value));
+    expect(itemSaves).toHaveLength(1);
+    expect(itemSaves[0][1]).toEqual([
       expect.objectContaining({
         memberId: 'member-1',
         payrollRunId: 'run-1',

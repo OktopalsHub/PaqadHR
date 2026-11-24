@@ -25,7 +25,23 @@ export class EmploymentRepository extends Repository<Employment> {
   async listEmployments(tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.find({
       where: { tenantId },
-      relations: { position: true, reportsTo: true, tenantMember: true },
+      select: {
+        id: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        tenantMemberId: true,
+        positionId: true,
+        tenantId: true,
+        reportsToId: true,
+        payType: true,
+        paySchedule: true,
+        payRate: true,
+        currency: true,
+        comments: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       order: { startDate: 'DESC' },
       withDeleted: false,
     });
@@ -93,18 +109,25 @@ export class EmploymentRepository extends Repository<Employment> {
       throw new NotFoundException(`Employment with ID "${id}" not found or could not be restored`);
     }
   }
-  async endCurrentEmployment(
-    tenantMemberId: string,
-    endDate: Date,
+  async replaceCurrentEmployment(
     tenantId: string,
+    tenantMemberId: string,
+    plan: (current: Employment | null) => { endDate?: Date; next: Partial<Employment> },
   ): Promise<Employment> {
-    const currentEmployment = await this.getCurrentEmployment(tenantMemberId, tenantId);
-    if (!currentEmployment) {
-      throw new NotFoundException(
-        `No active employment found for member with ID "${tenantMemberId}"`,
-      );
-    }
-    currentEmployment.endDate = endDate;
-    return this.employmentRepository.save(currentEmployment);
+    return this.employmentRepository.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [tenantMemberId]);
+      const repository = manager.getRepository(Employment);
+      const current = await repository.findOne({
+        where: { tenantMemberId, tenantId, endDate: IsNull() },
+        withDeleted: false,
+        loadEagerRelations: false,
+      });
+      const { endDate, next } = plan(current);
+      if (current && endDate) {
+        current.endDate = endDate;
+        await repository.save(current);
+      }
+      return repository.save(repository.create(next));
+    });
   }
 }

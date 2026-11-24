@@ -1,7 +1,8 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { TenantMemberRole } from 'src/common/enums';
 import { relationsFromPaths } from 'src/common/utils/find-relations.util';
-import { type FindOneOptions, In, MoreThanOrEqual, Repository } from 'typeorm';
+import { type EntityManager, type FindOneOptions, In, MoreThanOrEqual, Repository } from 'typeorm';
 
 import { TenantMember } from '../entities/tenant-member.entity';
 
@@ -23,7 +24,11 @@ const MEMBER_LIST_SELECT = {
   userId: true,
   avatarKey: true,
   user: { id: true, email: true },
-  positionHistory: { id: true, isCurrent: true, position: { id: true, title: true, color: true } },
+  positionHistory: {
+    id: true,
+    isCurrent: true,
+    position: { id: true, title: true, color: true },
+  },
   departmentMemberships: {
     id: true,
     role: true,
@@ -109,7 +114,13 @@ export class TenantMemberRepository extends Repository<TenantMember> {
   async findByIdsAndTenantId(tenantId: string, memberIds: string[]): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
       where: { tenantId, id: In(memberIds) },
-      select: { id: true, firstName: true, lastName: true, middleName: true, preferredName: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        preferredName: true,
+      },
     });
   }
 
@@ -158,8 +169,51 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         'tenant.slug',
         'tenant.name',
       ])
-      .where('member.userId = :userId AND member.tenantId = :tenantId', { userId, tenantId })
+      .where('member.userId = :userId AND member.tenantId = :tenantId', {
+        userId,
+        tenantId,
+      })
       .getOne();
+  }
+
+  async withTenantLock<T>(
+    tenantId: string,
+    work: (manager: EntityManager) => Promise<T>,
+  ): Promise<T> {
+    return this.tenantMemberRepository.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [tenantId]);
+      return work(manager);
+    });
+  }
+
+  async findLifecycleTarget(
+    memberId: string,
+    tenantId: string,
+    manager?: EntityManager,
+  ): Promise<TenantMember | null> {
+    const repository = manager ? manager.getRepository(TenantMember) : this.tenantMemberRepository;
+    return repository.findOne({
+      where: { id: memberId, tenantId },
+      select: {
+        id: true,
+        userId: true,
+        tenantId: true,
+        role: true,
+        isActive: true,
+        leaveDate: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        preferredName: true,
+      },
+    });
+  }
+
+  async countActiveOwners(tenantId: string, manager?: EntityManager): Promise<number> {
+    const repository = manager ? manager.getRepository(TenantMember) : this.tenantMemberRepository;
+    return repository.count({
+      where: { tenantId, role: TenantMemberRole.OWNER, isActive: true },
+    });
   }
 
   async findByTenantAndMemberId(tenantId: string, memberId: string): Promise<TenantMember> {
@@ -171,7 +225,9 @@ export class TenantMemberRepository extends Repository<TenantMember> {
   }
 
   async countUserInTenant(userId: string, tenantId: string): Promise<boolean> {
-    const count = await this.tenantMemberRepository.count({ where: { userId, tenantId } });
+    const count = await this.tenantMemberRepository.count({
+      where: { userId, tenantId },
+    });
     return count > 0;
   }
 
@@ -190,7 +246,11 @@ export class TenantMemberRepository extends Repository<TenantMember> {
     const cutoffDate = new Date();
     cutoffDate.setMonth(cutoffDate.getMonth() - months);
     return this.tenantMemberRepository.find({
-      where: { tenantId, isActive: true, joinDate: MoreThanOrEqual(cutoffDate) },
+      where: {
+        tenantId,
+        isActive: true,
+        joinDate: MoreThanOrEqual(cutoffDate),
+      },
       relations: {
         positionHistory: { position: true },
         departmentMemberships: { department: true },
@@ -204,8 +264,16 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         joinDate: true,
         avatarKey: true,
         tenantId: true,
-        positionHistory: { id: true, isCurrent: true, position: { id: true, title: true } },
-        departmentMemberships: { id: true, isActive: true, department: { id: true, name: true } },
+        positionHistory: {
+          id: true,
+          isCurrent: true,
+          position: { id: true, title: true },
+        },
+        departmentMemberships: {
+          id: true,
+          isActive: true,
+          department: { id: true, name: true },
+        },
       },
       order: { joinDate: 'DESC' },
     });

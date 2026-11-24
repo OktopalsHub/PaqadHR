@@ -189,31 +189,22 @@ export class AuthCredentialService {
 
   private async resolveExistingUserOnRegister(user: User, password: string): Promise<User> {
     if (!user.isActive) throw new UnauthorizedException('User account is inactive');
+    const newHashedPassword = await PasswordService.hashPassword(password);
     const credentialAccount = await this.accountRepository.findOne({
       where: { userId: user.id, providerId: 'credential' },
     });
-    const hashedPassword = credentialAccount?.password ?? user.password;
-    if (hashedPassword) {
-      if (!(await PasswordService.verifyPassword(hashedPassword, password)))
-        throw new UnauthorizedException('Email or password not correct');
-      return user;
-    }
-    const googleAccount = await this.accountRepository.findOne({
-      where: { userId: user.id, providerId: 'google' },
-    });
-    if (!googleAccount)
-      throw new UnprocessableEntityException(
-        'This email is already registered. Sign in with your existing method.',
-      );
-    const newHashedPassword = await PasswordService.hashPassword(password);
     await this.accountRepository.save(
-      this.accountRepository.create({
-        userId: user.id,
-        providerId: 'credential',
-        password: newHashedPassword,
-      }),
+      credentialAccount
+        ? Object.assign(credentialAccount, { password: newHashedPassword })
+        : this.accountRepository.create({
+            userId: user.id,
+            providerId: 'credential',
+            password: newHashedPassword,
+          }),
     );
     await this.userRepository.update(user.id, { password: newHashedPassword });
+    await this.sessionService.logout(user.id);
+    await this.emailVerificationService.purgeUserVerifications(user.id);
     return user;
   }
 

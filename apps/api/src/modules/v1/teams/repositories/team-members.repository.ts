@@ -14,6 +14,10 @@ export class TeamMembersRepository extends Repository<TeamMember> {
     );
   }
   async createTeamMember(data: Partial<TeamMember>): Promise<TeamMember> {
-    return super.create(data);
+    return this.save(super.create(data));
+  }
+  async createTeamMembers(data: Partial<TeamMember>[]): Promise<TeamMember[]> {
+    if (data.length === 0) return [];
+    return this.save(super.create(data));
   }
 }

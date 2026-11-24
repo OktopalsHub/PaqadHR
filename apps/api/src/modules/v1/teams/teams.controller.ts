@@ -20,7 +20,9 @@ import type { MemberContext } from 'src/common/interfaces';
 
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AddTeamMemberDto } from './dto/add-team-member.dto';
+import { AssignTeamLeaderDto } from './dto/assign-team-leader.dto';
 import { CreateTeamDto } from './dto/create-team.dto';
+import { GetTeamsQueryDto } from './dto/get-teams-query.dto';
 import { UpdateTeamMemberDto } from './dto/update-team-member.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
 import { TeamsService } from './teams.service';
@@ -32,10 +34,7 @@ import { TeamsService } from './teams.service';
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}
   @Get()
-  async getTeams(
-    @Param('tenantId') tenantId: string,
-    @Query() query: { name?: string; departmentId?: string; leadId?: string },
-  ) {
+  async getTeams(@Param('tenantId') tenantId: string, @Query() query: GetTeamsQueryDto) {
     return this.teamsService.getTeams(tenantId, query);
   }
   @Get(':id')
@@ -120,7 +119,7 @@ export class TeamsController {
   async assignTeamLeader(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() dto: { memberId: string },
+    @Body() dto: AssignTeamLeaderDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.teamsService.assignTeamLeader(tenantId, id, dto.memberId, member.id);

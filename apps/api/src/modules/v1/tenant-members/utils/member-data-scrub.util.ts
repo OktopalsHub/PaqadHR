@@ -1,3 +1,4 @@
+import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import type { EntityManager } from 'typeorm';
 import { In } from 'typeorm';
@@ -20,14 +21,16 @@ export async function scrubMemberPersonalData(
   const memberRepo = manager.getRepository(TenantMember);
   const members = await memberRepo.find({
     where: { userId },
-    select: { id: true, avatarKey: true },
+    select: { id: true, tenantId: true, avatarKey: true },
   });
   const memberIds = members.map((member) => member.id);
   const fileKeys: string[] = [];
 
   for (const member of members) {
     if (member.avatarKey) {
-      fileKeys.push(member.avatarKey);
+      fileKeys.push(
+        `tenants/${member.tenantId}/${FileUploadLocation.EMPLOYEES_AVATAR}/${member.avatarKey}`,
+      );
     }
   }
 

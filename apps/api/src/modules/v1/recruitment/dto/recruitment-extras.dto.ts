@@ -10,6 +10,8 @@ import {
   IsString,
   IsUUID,
   Length,
+  Matches,
+  Max,
   MaxLength,
 } from 'class-validator';
 
@@ -30,10 +32,12 @@ export class CreateOfferDto {
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
+  @Max(1_000_000_000)
   amount: number;
 
   @IsString()
   @Length(3, 3)
+  @Matches(/^[A-Za-z]{3}$/)
   currency: string;
 
   @IsOptional()

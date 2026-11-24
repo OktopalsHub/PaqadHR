@@ -4,6 +4,10 @@ import { CurrentTenantMember, TenantId } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+import {
+  InitializeTenantSettingsDto,
+  InitializeTenantWorkspaceDto,
+} from '../dto/initialize-tenant-settings.dto';
 import type { PartialTenantSettingsData } from 'src/common/interfaces/partial-tenant-settings-data.interface';
 import type { TenantSettingsData } from 'src/common/interfaces/tenant-settings-data.interface';
 
@@ -64,16 +68,7 @@ export class SettingsWriteController {
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async initializeTenantSettings(
     @TenantId() tenantId: string,
-    @Body()
-    initData: {
-      companyName?: string;
-      timezone?: string;
-      currency?: string;
-      language?: string;
-      monthlyPointsAllowance?: number;
-      enableNotifications?: boolean;
-      customSettings?: PartialTenantSettingsData;
-    },
+    @Body() initData: InitializeTenantSettingsDto,
   ) {
     const {
       companyName,
@@ -99,7 +94,7 @@ export class SettingsWriteController {
     } else {
       return this.tenantSettingsInitializationService.initializeTenantSettings(
         tenantId,
-        customSettings || {},
+        (customSettings || {}) as PartialTenantSettingsData,
       );
     }
   }
@@ -109,18 +104,7 @@ export class SettingsWriteController {
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async initializeTenantWorkspace(
     @TenantId() tenantId: string,
-    @Body()
-    initData: {
-      companyName?: string;
-      timezone?: string;
-      currency?: string;
-      language?: string;
-      monthlyPointsAllowance?: number;
-      enableNotifications?: boolean;
-      initializeMemberPoints?: boolean;
-      initialPointsOverride?: number;
-      customSettings?: PartialTenantSettingsData;
-    },
+    @Body() initData: InitializeTenantWorkspaceDto,
   ) {
     const {
       companyName,

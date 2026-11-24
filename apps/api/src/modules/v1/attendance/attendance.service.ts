@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AttendanceExceptionStatus, type AttendanceStatus } from 'src/common/enums';
 import { Between, type FindOptionsWhere } from 'typeorm';
 
@@ -10,6 +10,7 @@ import type { CreateAttendancePolicyDto } from './dto/create-attendance-policy.d
 import type { RejectAttendanceExceptionDto } from './dto/reject-attendance-exception.dto';
 import type { UpdateAttendancePolicyDto } from './dto/update-attendance-policy.dto';
 import type { UpdateAttendanceDto } from './dto/update-attendance.dto';
+import { TenantMemberRepository } from '../tenant-members/repositories/tenant-members.repository';
 import { Attendance } from './entities/attendance.entity';
 import { AttendanceRepository } from './repositories/attendance.repository';
 import { AttendanceClockService } from './services/attendance-clock.service';
@@ -29,6 +30,7 @@ export class AttendanceService {
     private readonly exceptionService: AttendanceExceptionService,
     private readonly reportService: AttendanceReportService,
     private readonly departmentUtils: DepartmentUtils,
+    private readonly tenantMemberRepository: TenantMemberRepository,
   ) {}
 
   async createAttendancePolicy(
@@ -235,6 +237,11 @@ export class AttendanceService {
     tenantId: string,
     records: Array<{ memberId: string; date: string; status: string; notes?: string }>,
   ) {
+    const memberIds = [...new Set(records.map((r) => r.memberId))];
+    const members = await this.tenantMemberRepository.findByIdsAndTenantId(tenantId, memberIds);
+    if (members.length !== memberIds.length) {
+      throw new BadRequestException('One or more members do not belong to this workspace');
+    }
     return this.attendanceRepo.insert(
       records.map((r) => ({
         tenantId,

@@ -22,7 +22,11 @@ import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { DocumentUploadService } from './document-upload.service';
 import { DocumentVerificationService } from './document-verification.service';
-import { Document } from './entities/document.entity';
+import { BulkDeleteDocumentsDto } from './dto/bulk-delete-documents.dto';
+import { BulkVerifyDocumentsDto } from './dto/bulk-verify-documents.dto';
+import { DocumentMapper, DocumentResponseDto } from './dto/document-response.dto';
+import { LogDocumentAccessDto } from './dto/log-document-access.dto';
+import { SignDocumentDto } from './dto/sign-document.dto';
 
 @ApiTags('Documents')
 @Controller('tenants/:tenantId/documents')
@@ -57,15 +61,16 @@ export class DocumentVerifyController {
   @ApiOperation({ summary: 'Bulk verify multiple documents' })
   async bulkVerifyDocuments(
     @Param('tenantId') tenantId: string,
-    @Body() body: { documentIds: string[]; isVerified: boolean },
+    @Body() body: BulkVerifyDocumentsDto,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Document[]> {
-    return this.documentVerificationService.bulkVerifyDocuments(
+  ): Promise<DocumentResponseDto[]> {
+    const verified = await this.documentVerificationService.bulkVerifyDocuments(
       tenantId,
       body.documentIds,
       body.isVerified,
       member.id,
     );
+    return DocumentMapper.toResponseList(verified);
   }
 
   @Post('bulk/delete')
@@ -75,7 +80,7 @@ export class DocumentVerifyController {
   @ApiOperation({ summary: 'Bulk soft delete multiple documents' })
   async bulkDeleteDocuments(
     @Param('tenantId') tenantId: string,
-    @Body() body: { documentIds: string[] },
+    @Body() body: BulkDeleteDocumentsDto,
   ): Promise<void> {
     return this.documentVerificationService.bulkDeleteDocuments(tenantId, body.documentIds);
   }
@@ -89,8 +94,14 @@ export class DocumentVerifyController {
     @Param('tenantId') tenantId: string,
     @Query('isVerified', ParseBoolPipe) isVerified: boolean,
     @CurrentTenantMember() member: MemberContext,
-  ): Promise<Document> {
-    return this.documentVerificationService.verifyDocument(id, tenantId, isVerified, member.id);
+  ): Promise<DocumentResponseDto> {
+    const verified = await this.documentVerificationService.verifyDocument(
+      id,
+      tenantId,
+      isVerified,
+      member.id,
+    );
+    return DocumentMapper.toResponse(verified);
   }
 
   @Post(':id/sign')
@@ -99,7 +110,7 @@ export class DocumentVerifyController {
   async initiateDigitalSignature(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('tenantId') tenantId: string,
-    @Body() body: { signerEmails: string[] },
+    @Body() body: SignDocumentDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     const hasAccess = await this.documentUploadService.checkDocumentAccess(
@@ -144,7 +155,7 @@ export class DocumentVerifyController {
   async logDocumentAccess(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('tenantId') tenantId: string,
-    @Body() body: { memberId: string; action: string },
+    @Body() body: LogDocumentAccessDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     const hasAccess = await this.documentUploadService.checkDocumentAccess(
@@ -156,12 +167,7 @@ export class DocumentVerifyController {
     if (!hasAccess) {
       throw new ForbiddenException('Access denied to this document');
     }
-    return this.documentVerificationService.logDocumentAccess(
-      tenantId,
-      id,
-      body.memberId,
-      body.action,
-    );
+    return this.documentVerificationService.logDocumentAccess(tenantId, id, member.id, body.action);
   }
 
   @Get(':id/access-check')

@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Header, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthOnly, CurrentUser, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import { UserRole } from 'src/common/enums';
@@ -6,6 +16,7 @@ import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 
 import { RoleGuard, Roles } from '../../../common/guards';
 import { AcceptPrivacyConsentDto } from './dto/accept-privacy-consent.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
@@ -62,8 +73,8 @@ export class UsersController {
   @Get()
   @UseGuards(RoleGuard)
   @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
-  async listUsers(): Promise<UserResponseDto[]> {
-    const users = await this.usersService.getUsers();
+  async listUsers(@Query() query: ListUsersQueryDto): Promise<UserResponseDto[]> {
+    const users = await this.usersService.getUsers(query.limit, query.offset);
     const userResponse: UserResponseDto[] = UserResponseDto.toResponseList(users);
     return userResponse;
   }

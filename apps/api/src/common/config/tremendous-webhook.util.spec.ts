@@ -26,6 +26,16 @@ describe('tremendous webhook validation', () => {
     expect(verifyTremendousWebhookSignature(rawBody, signature)).toBe(true);
   });
 
+  it('accepts the digest with a sha256= prefix', () => {
+    const secret = 'test-webhook-secret';
+    const rawBody = '{"id":"delivery_123"}';
+    process.env.TREMENDOUS_WEBHOOK_SECRET = secret;
+
+    const signature = createHmac('sha256', secret).update(rawBody).digest('hex');
+
+    expect(verifyTremendousWebhookSignature(rawBody, `sha256=${signature}`)).toBe(true);
+  });
+
   it('rejects an invalid webhook signature', () => {
     process.env.TREMENDOUS_WEBHOOK_SECRET = 'test-webhook-secret';
 

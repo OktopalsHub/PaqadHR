@@ -8,6 +8,19 @@ import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { getTenantSlugFromPath, tenantPath } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
+export const ADMIN_ONLY_SEGMENTS: ReadonlySet<string> = new Set([
+  'payroll',
+  'recruitment',
+  'analytics',
+  'logs',
+]);
+
+/** Admin-only pages stay hidden until the role is known to be owner or admin. */
+export function filterNavItemsByRole(items: NavItem[], role?: string | null): NavItem[] {
+  if (isTenantAdmin(role)) return items;
+  return items.filter((item) => !item.segment || !ADMIN_ONLY_SEGMENTS.has(item.segment));
+}
+
 export function useTenantNavItems(): NavItem[] {
   const { tenant } = useTenant();
   const pathname = usePathname();
@@ -17,16 +30,7 @@ export function useTenantNavItems(): NavItem[] {
     if (!slug) return [];
 
     const items = getNavItems(slug).filter((item) => item.segment !== 'settings');
-    // The URL supplies the current workspace while its membership record loads.
-    // Role-based filtering is applied as soon as the server-provided role arrives.
-    if (!tenant?.member?.role) return items;
-
-    if (isTenantAdmin(tenant.member?.role)) {
-      return items;
-    }
-
-    const memberHidden = new Set(['payroll', 'recruitment', 'analytics', 'logs']);
-    return items.filter((item) => !item.segment || !memberHidden.has(item.segment));
+    return filterNavItemsByRole(items, tenant?.member?.role);
   }, [pathname, tenant?.slug, tenant?.member?.role]);
 }
 

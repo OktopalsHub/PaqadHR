@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
@@ -10,12 +10,14 @@ import type {
   PayrollAdjustmentDto,
   PayrollCalculationPreviewDto,
 } from '../dto/payroll-adjustment.dto';
+import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   collectAdjustmentsForEmployee,
   computePayrollItemAmounts,
 } from '../utils/payroll-adjustment.util';
+import { assertPayrollRunMutable } from '../utils/payroll-mutability.util';
 import { resolvePayrollPayoutConversion } from '../utils/payroll-payout-conversion.util';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 
@@ -53,21 +55,39 @@ export class PayrollCalculationService {
       relations: { items: { employee: true } },
     });
     if (!run) throw new BadRequestException('Payroll run not found');
+    assertPayrollRunMutable(run, 'recalculate');
 
     const items = (run.items ?? []).filter((i) => i.status !== PayrollItemStatus.CANCELLED);
     if (items.length === 0) throw new BadRequestException('No active items');
 
+    // Batch the per-employee reads: the loop below is per-employee in effect, so a
+    // single pass must not issue a query per employee (employment, payout method)
+    // plus a Bridge quote per currency pair.
+    const memberIds = items.map((item) => item.memberId);
+    const salaryInfos = await this.employmentService.getBulkEmploymentSalaryInfo(
+      memberIds,
+      tenantId,
+    );
+    const payoutMethods = await this.paymentMethodService.findPrimaryPayoutMethodsByMemberIds(
+      tenantId,
+      memberIds,
+    );
+    const fxQuotes = new Map<
+      string,
+      Awaited<ReturnType<PayrollCalculationService['getBridgeSellRate']>>
+    >();
+
     const warnings: string[] = [];
+    const updatedItems: PayrollItem[] = [];
     for (const item of items) {
       try {
-        const salaryInfo = await this.employmentService.getEmploymentSalaryInfo(
-          item.memberId,
-          tenantId,
-        );
-        const payoutMethod = await this.paymentMethodService.findPrimaryPayoutMethod(
-          tenantId,
-          item.memberId,
-        );
+        const salaryInfo = salaryInfos.get(item.memberId);
+        if (!salaryInfo) {
+          throw new NotFoundException(
+            `No active employment found for member with ID "${item.memberId}"`,
+          );
+        }
+        const payoutMethod = payoutMethods.get(item.memberId) ?? null;
         if (!payoutMethod?.currency) {
           throw new BadRequestException('Verified primary payout method is required');
         }
@@ -96,7 +116,11 @@ export class PayrollCalculationService {
           payoutCurrency,
           {
             convert: async (amount, fromCurrency, toCurrency) => {
-              const rate = await this.getBridgeSellRate(fromCurrency, toCurrency);
+              const quoteKey = `${fromCurrency}>${toCurrency}`;
+              if (!fxQuotes.has(quoteKey)) {
+                fxQuotes.set(quoteKey, await this.getBridgeSellRate(fromCurrency, toCurrency));
+              }
+              const rate = fxQuotes.get(quoteKey)!;
               bridgeFxQuote = {
                 fromCurrency,
                 toCurrency,
@@ -128,7 +152,7 @@ export class PayrollCalculationService {
           ...(bridgeFxQuote ? { bridgeFxQuote } : {}),
           payoutMethodId: payoutMethod.id,
         };
-        await this.payrollItemRepository.save(item);
+        updatedItems.push(item);
       } catch (error) {
         this.logger.error(`Calculation failed for ${item.memberId}: ${error}`);
         warnings.push(
@@ -137,6 +161,10 @@ export class PayrollCalculationService {
             : `Calculation failed for member ${item.memberId}`,
         );
       }
+    }
+
+    if (updatedItems.length > 0) {
+      await this.payrollItemRepository.save(updatedItems);
     }
 
     if (warnings.length > 0) {

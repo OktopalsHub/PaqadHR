@@ -5,6 +5,7 @@ import { In, IsNull, Repository } from 'typeorm';
 
 import { ActivitiesService } from '../activities/services/activities.service';
 import { PositionMemberService } from '../position/services/position-member.service';
+import { PositionService } from '../position/services/position.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantConfigService } from '../tenant-settings/services/tenant-config.service';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -28,6 +29,7 @@ export class EmploymentService {
     private readonly tenantRepository: Repository<Tenant>,
     private readonly tenantMembersService: TenantMembersService,
     private readonly positionMemberService: PositionMemberService,
+    private readonly positionService: PositionService,
     private readonly activitiesService: ActivitiesService,
     private readonly tenantConfigService: TenantConfigService,
   ) {}
@@ -52,6 +54,21 @@ export class EmploymentService {
     );
   }
 
+  private async assertReferencesInTenant(
+    tenantId: string,
+    refs: { positionId?: string | null; reportsToId?: string | null },
+  ): Promise<void> {
+    if (refs.positionId) {
+      await this.positionService.getPosition(refs.positionId, tenantId);
+    }
+    if (
+      refs.reportsToId &&
+      !(await this.tenantMembersService.memberExistsInTenant(tenantId, refs.reportsToId))
+    ) {
+      throw new NotFoundException('Reporting manager not found in this workspace');
+    }
+  }
+
   async createEmployment(
     tenantId: string,
     tenantMemberId: string,
@@ -59,6 +76,7 @@ export class EmploymentService {
     createEmploymentDto: CreateEmploymentDto,
   ): Promise<Employment> {
     await this.tenantMembersService.getTenantMember(tenantMemberId, tenantId);
+    await this.assertReferencesInTenant(tenantId, createEmploymentDto);
 
     const { positionStartDate: _positionStartDate, ...employmentData } = createEmploymentDto;
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
@@ -114,39 +132,45 @@ export class EmploymentService {
       throw new BadRequestException('Pay rate must be greater than zero');
     }
 
-    const currentEmployment = await this.employmentRepository.getCurrentEmployment(
-      tenantMemberId,
+    const fallbackCurrency =
+      currency ??
+      (await this.resolveWorkspacePayrollCurrency(
+        tenantId,
+        await this.tenantRepository.findOne({ where: { id: tenantId } }),
+      ));
+
+    const newEmployment = await this.employmentRepository.replaceCurrentEmployment(
       tenantId,
+      tenantMemberId,
+      (current) => {
+        let endDate: Date | undefined;
+        if (current) {
+          endDate = subtractOneDay(effectiveDate);
+          if (endDate < current.startDate) {
+            throw new BadRequestException(
+              'Effective date must be after the current salary start date',
+            );
+          }
+        }
+        return {
+          endDate,
+          next: {
+            startDate: effectiveDate,
+            payRate,
+            payType,
+            paySchedule,
+            comments,
+            currency: (currency || current?.currency || fallbackCurrency).toUpperCase(),
+            status: current?.status,
+            positionId: current?.positionId ?? undefined,
+            reportsToId: current?.reportsToId,
+            tenantMemberId,
+            tenantId,
+            createdBy,
+          },
+        };
+      },
     );
-
-    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    const salaryCurrency = (
-      currency ||
-      currentEmployment?.currency ||
-      (await this.resolveWorkspacePayrollCurrency(tenantId, tenant))
-    ).toUpperCase();
-
-    const inheritedPositionId: string | null | undefined = currentEmployment?.positionId ?? null;
-    if (currentEmployment) {
-      const endDate = subtractOneDay(effectiveDate);
-      if (endDate < currentEmployment.startDate) {
-        throw new BadRequestException('Effective date must be after the current salary start date');
-      }
-      await this.employmentRepository.endCurrentEmployment(tenantMemberId, endDate, tenantId);
-    }
-
-    const newEmployment = await this.employmentRepository.createEmployment({
-      startDate: effectiveDate,
-      payRate,
-      payType,
-      paySchedule,
-      comments,
-      currency: salaryCurrency,
-      positionId: inheritedPositionId ?? undefined,
-      tenantMemberId,
-      tenantId,
-      createdBy,
-    });
 
     void this.activitiesService
       .queueActivity({
@@ -185,6 +209,7 @@ export class EmploymentService {
     actorMemberId?: string,
   ): Promise<Employment> {
     await this.getEmployment(id, tenantId);
+    await this.assertReferencesInTenant(tenantId, updateEmploymentDto);
     const updated = await this.employmentRepository.updateEmployment(
       id,
       updateEmploymentDto,

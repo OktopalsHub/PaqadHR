@@ -16,6 +16,9 @@ import { PaymentSuccessHandlers } from './payment-success-handlers';
 import { RenewalProcessor } from './renewal-processor';
 import { WebhookEventResolver } from './webhook-event-resolver';
 
+// A created subscription that the provider reports as incomplete or unpaid must wait for its payment event.
+const ACTIVATING_PROVIDER_STATUSES = new Set(['active', 'paid', 'trialing']);
+
 @Injectable()
 export class WebhookDispatcher {
   private readonly logger = new Logger(WebhookDispatcher.name);
@@ -192,7 +195,9 @@ export class WebhookDispatcher {
     }
     if (event.quantity != null) sub.currentUsers = event.quantity;
     const hasPlan = !!event.planId && !!event.planPriceId;
-    if (hasPlan) {
+    const providerStatus = event.providerStatus?.trim().toLowerCase();
+    const providerSaysPaid = !providerStatus || ACTIVATING_PROVIDER_STATUSES.has(providerStatus);
+    if (hasPlan && providerSaysPaid) {
       sub.status = SubscriptionStatus.ACTIVE;
       sub.trialEndsAt = null;
       sub.cancelAtPeriodEnd = false;
@@ -205,7 +210,7 @@ export class WebhookDispatcher {
       { tenantId: event.tenantId, externalSubscriptionId: event.externalSubscriptionId },
       provider,
     );
-    if (hasPlan && sub.status === SubscriptionStatus.ACTIVE)
+    if (hasPlan && providerSaysPaid && sub.status === SubscriptionStatus.ACTIVE)
       this.productAnalytics.capture('system', 'subscription_activated', {
         tenantId: event.tenantId,
       });

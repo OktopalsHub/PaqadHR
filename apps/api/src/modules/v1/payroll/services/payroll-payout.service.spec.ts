@@ -1,3 +1,4 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import type { NoahApiService } from 'src/common/services/noah-api.service';
@@ -36,6 +37,7 @@ function buildWebhookEventRepository() {
     findOne: jest.fn().mockResolvedValue(null),
     save: jest.fn(),
     update: jest.fn().mockResolvedValue({ affected: 1 }),
+    delete: jest.fn().mockResolvedValue({ affected: 1 }),
   } as unknown as Repository<PayrollWebhookEvent>;
 }
 
@@ -157,6 +159,7 @@ describe('PayrollPayoutService', () => {
 
     return {
       service,
+      webhookEventRepository,
       nombaTransferApi,
       noahApi,
       monnifyApi,
@@ -317,6 +320,7 @@ describe('PayrollPayoutService', () => {
         merchantTxRef: MERCHANT_REF,
         status: 'SUCCESS',
       });
+      (nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue('SUCCESS');
       const applySpy = spyOnReconciliation(service, 'applyTransferStatus').mockResolvedValue(true);
       (payrollItemRepository.findOne as jest.Mock).mockResolvedValue({
         ...baseItem(),
@@ -333,6 +337,66 @@ describe('PayrollPayoutService', () => {
         PaymentProvider.NOMBA,
         'tenant-1',
       );
+    });
+
+    describe('success events are confirmed with Nomba before paying', () => {
+      const successEvent = {
+        merchantTxRef: MERCHANT_REF,
+        reference: 'txn-123',
+        status: 'SUCCESS',
+      };
+      const setup = (providerStatus: string | null) => {
+        const ctx = createService();
+        (ctx.nombaTransferApi.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
+        (ctx.nombaTransferApi.parseTransferWebhook as jest.Mock).mockReturnValue(successEvent);
+        (ctx.nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue(providerStatus);
+        (ctx.payrollItemRepository.findOne as jest.Mock).mockResolvedValue({
+          ...baseItem(),
+          payrollRun: { tenantId: 'tenant-1' },
+        });
+        const applySpy = spyOnReconciliation(ctx.service, 'applyTransferStatus').mockResolvedValue(
+          true,
+        );
+        const rawBody = JSON.stringify({ eventId: 'evt-confirm', ...successEvent });
+        return { ...ctx, applySpy, rawBody };
+      };
+
+      it('queries the status of the item merchant reference, not the event transaction id', async () => {
+        const { service, nombaTransferApi, rawBody } = setup('SUCCESS');
+        await service.handleNombaWebhook(rawBody, 'valid-sig');
+        expect(nombaTransferApi.getTransactionStatus).toHaveBeenCalledWith(MERCHANT_REF);
+      });
+
+      it('does not pay when Nomba reports the item as not successful', async () => {
+        const { service, applySpy, rawBody } = setup('PENDING');
+        await service.handleNombaWebhook(rawBody, 'valid-sig');
+        expect(applySpy).not.toHaveBeenCalledWith(
+          MERCHANT_REF,
+          'SUCCESS',
+          expect.anything(),
+          expect.anything(),
+          expect.anything(),
+        );
+        expect(applySpy).toHaveBeenCalledWith(
+          MERCHANT_REF,
+          'PENDING',
+          'txn-123',
+          PaymentProvider.NOMBA,
+          'tenant-1',
+        );
+      });
+
+      it('returns 503 and releases the event claim when Nomba cannot confirm, so Nomba redelivers', async () => {
+        const { service, applySpy, webhookEventRepository, rawBody } = setup(null);
+        await expect(service.handleNombaWebhook(rawBody, 'valid-sig')).rejects.toBeInstanceOf(
+          ServiceUnavailableException,
+        );
+        expect(applySpy).not.toHaveBeenCalled();
+        expect(webhookEventRepository.delete).toHaveBeenCalledWith({
+          provider: PaymentProvider.NOMBA,
+          eventId: 'evt-confirm',
+        });
+      });
     });
 
     it('rejects malformed JSON', async () => {

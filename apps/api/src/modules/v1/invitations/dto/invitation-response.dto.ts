@@ -65,9 +65,4 @@ export class InvitationResponseDto {
   joinDate?: string;
   @ApiProperty({ description: 'Employee number', example: '0042' })
   employeeNumber?: string;
-  @ApiProperty({
-    description: 'Unique token for the invitation link',
-    example: 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef',
-  })
-  token: string;
 }

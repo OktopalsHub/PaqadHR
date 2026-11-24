@@ -43,12 +43,9 @@ export class TeamsService {
       createdBy: memberId,
     });
     if (members && members.length > 0) {
-      for (const teamMemberId of members) {
-        await this.teamMembersRepository.create({
-          teamId: team.id,
-          memberId: teamMemberId,
-        });
-      }
+      await this.teamMembersRepository.createTeamMembers(
+        members.map((teamMemberId) => ({ teamId: team.id, memberId: teamMemberId })),
+      );
     }
     void this.activitiesService
       .queueActivity({
@@ -112,7 +109,7 @@ export class TeamsService {
     if (!member || member.tenantId !== tenantId) {
       throw new NotFoundException('Member not found');
     }
-    const created = await this.teamMembersRepository.create({
+    const created = await this.teamMembersRepository.createTeamMember({
       teamId,
       memberId: dto.memberId,
       role: dto.role,

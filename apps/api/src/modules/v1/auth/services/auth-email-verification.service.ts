@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { PasswordService, StringUtility, logOtpForLocalDevelopment } from 'src/common/utils';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import type { User } from '../../users/entities/user.entity';
@@ -29,6 +29,12 @@ export class AuthEmailVerificationService {
 
   private emailVerificationIdentifier(userId: string): string {
     return `email-verification:${userId}`;
+  }
+
+  async purgeUserVerifications(userId: string): Promise<void> {
+    await this.verificationRepository.delete({
+      identifier: In([this.emailVerificationIdentifier(userId), `reset:${userId}`]),
+    });
   }
 
   async sendEmailVerificationOtp(user: User, options?: { isSignup?: boolean }): Promise<void> {

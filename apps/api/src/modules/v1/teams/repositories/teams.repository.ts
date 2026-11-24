@@ -10,6 +10,6 @@ export class TeamsRepository extends Repository<Team> {
     super(teamRepository.target, teamRepository.manager, teamRepository.queryRunner);
   }
   async createTeam(data: Partial<Team>): Promise<Team> {
-    return super.create(data);
+    return this.save(super.create(data));
   }
 }

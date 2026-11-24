@@ -3,6 +3,11 @@ import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators';
 import { EmploymentType } from 'src/common/enums';
 
+import {
+  PublicLimitQueryDto,
+  PublicSuggestionQueryDto,
+  PublicTenantQueryDto,
+} from '../dto/public-job-queries.dto';
 import { PublicJobFilterDto } from '../dto/public-job-filter.dto';
 import { JobOpening } from '../entities/job-opening.entity';
 import { JobOpeningService } from '../services/job-opening.service';
@@ -59,8 +64,10 @@ export class PublicJobController {
       },
     },
   })
-  async getDepartmentsWithActiveJobs(): Promise<{ id: string; name: string }[]> {
-    return this.jobOpeningService.getActiveDepartments();
+  async getDepartmentsWithActiveJobs(
+    @Query() query: PublicTenantQueryDto,
+  ): Promise<{ id: string; name: string }[]> {
+    return this.jobOpeningService.getActiveDepartments(query.tenantId);
   }
   @Get('locations/list')
   @Public()
@@ -70,8 +77,8 @@ export class PublicJobController {
     description: 'List of unique locations with active job openings',
     type: [String],
   })
-  async getLocationsWithActiveJobs(): Promise<string[]> {
-    return this.jobOpeningService.getActiveLocations();
+  async getLocationsWithActiveJobs(@Query() query: PublicTenantQueryDto): Promise<string[]> {
+    return this.jobOpeningService.getActiveLocations(query.tenantId);
   }
   @Get('stats')
   @Public()
@@ -90,14 +97,14 @@ export class PublicJobController {
       },
     },
   })
-  async getPublicJobStats(): Promise<{
+  async getPublicJobStats(@Query() query: PublicTenantQueryDto): Promise<{
     totalActiveJobs: number;
     totalDepartments: number;
     totalLocations: number;
     urgentJobs: number;
     recentJobs: number;
   }> {
-    return this.jobOpeningService.getPublicJobStats();
+    return this.jobOpeningService.getPublicJobStats(query.tenantId);
   }
   @Get('recent')
   @Public()
@@ -113,8 +120,8 @@ export class PublicJobController {
     description: 'List of recently published job openings',
     type: [JobOpening],
   })
-  async getRecentJobs(@Query('limit') limit?: number): Promise<JobOpening[]> {
-    return this.jobOpeningService.getRecentJobs(limit || 5);
+  async getRecentJobs(@Query() query: PublicLimitQueryDto): Promise<JobOpening[]> {
+    return this.jobOpeningService.getRecentJobs(query.tenantId, query.limit ?? 5);
   }
   @Get('urgent')
   @Public()
@@ -130,8 +137,8 @@ export class PublicJobController {
     description: 'List of urgent job openings',
     type: [JobOpening],
   })
-  async getUrgentJobs(@Query('limit') limit?: number): Promise<JobOpening[]> {
-    return this.jobOpeningService.getUrgentJobs(limit || 10);
+  async getUrgentJobs(@Query() query: PublicLimitQueryDto): Promise<JobOpening[]> {
+    return this.jobOpeningService.getUrgentJobs(query.tenantId, query.limit ?? 10);
   }
   @Get('search/suggestions')
   @Public()
@@ -156,9 +163,9 @@ export class PublicJobController {
     },
   })
   async getSearchSuggestions(
-    @Query('query') query: string,
+    @Query() query: PublicSuggestionQueryDto,
   ): Promise<{ titles: string[]; positions: string[] }> {
-    return this.jobOpeningService.getSearchSuggestions(query);
+    return this.jobOpeningService.getSearchSuggestions(query.tenantId, query.query);
   }
   @Get(':jobId')
   @ApiOperation({ summary: 'Get a specific active job opening (public)' })

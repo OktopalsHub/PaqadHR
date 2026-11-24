@@ -1,7 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateStatus } from 'src/common/enums';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { CreateOfferDto } from '../dto/recruitment-extras.dto';
 import { RecruitmentOffer } from '../entities/recruitment-offer.entity';
@@ -38,18 +43,28 @@ export class RecruitmentOfferService {
 
   async create(tenantId: string, candidateId: string, memberId: string, dto: CreateOfferDto) {
     await this.candidateService.getCandidate(candidateId, tenantId);
-    const offer = await this.offers.save(
-      this.offers.create({
-        tenantId,
-        candidateId,
-        amount: dto.amount.toFixed(2),
-        currency: dto.currency.toUpperCase(),
-        startDate: dto.startDate ?? null,
-        notes: dto.notes ?? null,
-        status: 'DRAFT',
-        createdByMemberId: memberId,
-      }),
-    );
+    const offer = await this.offers.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `recruitment-offer:${tenantId}:${candidateId}`,
+      ]);
+      const repo = manager.getRepository(RecruitmentOffer);
+      const open = await repo.exists({
+        where: { tenantId, candidateId, status: In(['DRAFT', 'SENT']) },
+      });
+      if (open) throw new ConflictException('This candidate already has an open offer');
+      return repo.save(
+        repo.create({
+          tenantId,
+          candidateId,
+          amount: dto.amount.toFixed(2),
+          currency: dto.currency.toUpperCase(),
+          startDate: dto.startDate ?? null,
+          notes: dto.notes ?? null,
+          status: 'DRAFT',
+          createdByMemberId: memberId,
+        }),
+      );
+    });
     return this.get(tenantId, offer.id);
   }
 
@@ -62,17 +77,29 @@ export class RecruitmentOfferService {
         'Move the candidate to the Offer stage before sending an offer',
       );
     }
+    const claimed = await this.offers.update(
+      { id: offerId, tenantId, status: 'DRAFT' },
+      { status: 'SENT', sentAt: new Date() },
+    );
+    if (!claimed.affected) throw new ConflictException('This offer was already sent');
     if (templateId) {
-      const log = await this.mailer.send({
-        tenantId,
-        candidateId: candidate.id,
-        templateId,
-        actorMemberId: memberId,
-        trigger: 'manual',
-      });
-      if (log.status !== 'sent') throw new BadRequestException('The offer email could not be sent');
+      try {
+        const log = await this.mailer.send({
+          tenantId,
+          candidateId: candidate.id,
+          templateId,
+          actorMemberId: memberId,
+          trigger: 'manual',
+        });
+        if (log.status !== 'sent') throw new BadRequestException('The offer email could not be sent');
+      } catch (error) {
+        await this.offers.update(
+          { id: offerId, tenantId, status: 'SENT' },
+          { status: 'DRAFT', sentAt: null },
+        );
+        throw error;
+      }
     }
-    await this.offers.update({ id: offerId, tenantId }, { status: 'SENT', sentAt: new Date() });
     return this.get(tenantId, offerId);
   }
 
@@ -84,16 +111,25 @@ export class RecruitmentOfferService {
   ) {
     const offer = await this.get(tenantId, offerId);
     if (offer.status !== 'SENT') throw new BadRequestException('Only sent offers can be answered');
-    await this.candidateService.updateCandidateStatus(
-      offer.candidateId,
-      tenantId,
-      { status: outcome === 'ACCEPTED' ? CandidateStatus.HIRED : CandidateStatus.WITHDRAWN },
-      memberId,
-    );
-    await this.offers.update(
-      { id: offerId, tenantId },
+    const claimed = await this.offers.update(
+      { id: offerId, tenantId, status: 'SENT' },
       { status: outcome, respondedAt: new Date() },
     );
+    if (!claimed.affected) throw new ConflictException('This offer was already answered');
+    try {
+      await this.candidateService.updateCandidateStatus(
+        offer.candidateId,
+        tenantId,
+        { status: outcome === 'ACCEPTED' ? CandidateStatus.HIRED : CandidateStatus.WITHDRAWN },
+        memberId,
+      );
+    } catch (error) {
+      await this.offers.update(
+        { id: offerId, tenantId, status: outcome },
+        { status: 'SENT', respondedAt: null },
+      );
+      throw error;
+    }
     return this.get(tenantId, offerId);
   }
 

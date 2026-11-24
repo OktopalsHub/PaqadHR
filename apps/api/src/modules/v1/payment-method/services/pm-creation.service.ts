@@ -67,7 +67,6 @@ export class PmCreationService {
       await this.paymentSecurityService.ensureOrVerifyPasscode(memberId, tenantId, dto.passcode);
       const existingCount = await this.repo.count({ where: { tenantId, memberId } });
       const makePrimary = Boolean(dto.isPrimary) || existingCount === 0;
-      if (makePrimary) await this.unsetPrimaryMethods(tenantId, memberId);
 
       const status = PaymentMethodStatus.DRAFT;
       let accountName = dto.accountName;
@@ -125,7 +124,7 @@ export class PmCreationService {
           ...(dto.walletAddress ? { walletAddress: dto.walletAddress } : {}),
         },
       });
-      const saved = await this.repo.save(pm);
+      const saved = await this.saveSwitchingPrimary(pm, makePrimary);
       void this.auditLogsService
         .queueAuditLog({
           action: AuditAction.CREATE,
@@ -165,7 +164,6 @@ export class PmCreationService {
       tenantId,
       dto.currentPasscode,
     );
-    if (dto.isPrimary && !pm.isPrimary) await this.unsetPrimaryMethods(tenantId, memberId);
 
     const updatedCurrency = pm.currency?.toUpperCase();
     const isNgn = updatedCurrency === 'NGN';
@@ -222,7 +220,7 @@ export class PmCreationService {
       status,
       verifiedAt,
     });
-    return this.repo.save(pm);
+    return this.saveSwitchingPrimary(pm, dto.isPrimary === true);
   }
 
   async deletePaymentMethod(
@@ -272,9 +270,8 @@ export class PmCreationService {
     }
     await this.paymentSecurityService.ensureOrVerifyPasscode(memberId, tenantId, passcode);
     if (pm.isPrimary) return pm;
-    await this.unsetPrimaryMethods(tenantId, memberId);
     pm.isPrimary = true;
-    const saved = await this.repo.save(pm);
+    const saved = await this.saveSwitchingPrimary(pm, true);
     void this.auditLogsService
       .queueAuditLog({
         action: AuditAction.UPDATE,
@@ -303,8 +300,22 @@ export class PmCreationService {
     return this.encryptionService.decrypt(value);
   }
 
-  private async unsetPrimaryMethods(tenantId: string, memberId: string): Promise<void> {
-    await this.repo.update({ tenantId, memberId, isPrimary: true }, { isPrimary: false });
+  /** Demote the other primaries and save this method in one transaction. */
+  private async saveSwitchingPrimary(pm: PaymentMethod, makePrimary: boolean): Promise<PaymentMethod> {
+    if (!makePrimary) return this.repo.save(pm);
+    return this.repo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(PaymentMethod);
+      await repo.update(
+        {
+          tenantId: pm.tenantId,
+          memberId: pm.memberId,
+          isPrimary: true,
+          ...(pm.id ? { id: Not(pm.id) } : {}),
+        },
+        { isPrimary: false },
+      );
+      return repo.save(pm);
+    });
   }
 
   /** Keep a single primary payout method per member (heal legacy per-currency primaries). */
