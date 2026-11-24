@@ -75,7 +75,15 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
       ActivitiesService.testLogs.push(entry);
       return;
     }
-    this.enqueue(entry);
+    // Saved before returning; only a failed write falls back to the in-memory retry queue.
+    try {
+      await this.activityRepository.save(this.toEntity(entry));
+    } catch (error) {
+      this.logger.error(
+        `Failed to persist activity, queued for retry: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.enqueue(entry);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -151,6 +159,22 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private toEntity(entry: CreateActivityPayload): TenantActivity {
+    return this.activityRepository.create({
+      tenantId: entry.tenantId,
+      actorMemberId: entry.actorMemberId || null,
+      action: entry.action,
+      resourceType: entry.resourceType ?? null,
+      resourceId: entry.resourceId ?? null,
+      description: entry.description,
+      status: entry.status ?? 'SUCCESS',
+      severity: entry.severity ?? 'LOW',
+      ipAddress: entry.ipAddress ?? null,
+      userAgent: entry.userAgent ?? null,
+      metadata: entry.metadata ?? null,
+    });
+  }
+
   private enqueue(entry: CreateActivityPayload): void {
     if (this.queue.length >= MAX_QUEUE_SIZE) {
       this.queue.shift();
@@ -166,21 +190,7 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
       while (this.queue.length > 0) {
         const batch = this.queue.splice(0, 25);
         try {
-          const entities = batch.map((entry) =>
-            this.activityRepository.create({
-              tenantId: entry.tenantId,
-              actorMemberId: entry.actorMemberId || null,
-              action: entry.action,
-              resourceType: entry.resourceType ?? null,
-              resourceId: entry.resourceId ?? null,
-              description: entry.description,
-              status: entry.status ?? 'SUCCESS',
-              severity: entry.severity ?? 'LOW',
-              ipAddress: entry.ipAddress ?? null,
-              userAgent: entry.userAgent ?? null,
-              metadata: entry.metadata ?? null,
-            }),
-          );
+          const entities = batch.map((entry) => this.toEntity(entry));
 
           await this.activityRepository.save(entities);
 

@@ -1,6 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type NextFunction, type Request, type Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { DataSource } from 'typeorm';
+
+import { PostgresRateLimitStore } from './postgres-rate-limit-store';
 
 export const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
   .split(',')
@@ -50,6 +53,12 @@ function isWalletMoneyPath(path: string): boolean {
 }
 
 export const configureRateLimiters = (app: NestExpressApplication) => {
+  // Per-IP limiters on sensitive routes share their counts through Postgres. The global limiter
+  // sees every request, so it stays in memory to avoid a database write per request.
+  const sharedStore = (prefix: string) =>
+    process.env.NODE_ENV === 'test'
+      ? undefined
+      : new PostgresRateLimitStore(app.get(DataSource), prefix);
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 1000,
@@ -77,6 +86,7 @@ export const configureRateLimiters = (app: NestExpressApplication) => {
   });
   app.use(limiter);
   const authLimiter = rateLimit({
+    store: sharedStore('auth'),
     windowMs: 15 * 60 * 1000,
     max: AUTH_RATE_LIMIT_MAX,
     standardHeaders: true,
@@ -95,6 +105,7 @@ export const configureRateLimiters = (app: NestExpressApplication) => {
   app.use('/api/v1/auth/forgot-password', authLimiter);
   app.use('/api/v1/auth/reset-password', authLimiter);
   const contactLimiter = rateLimit({
+    store: sharedStore('contact'),
     windowMs: 15 * 60 * 1000,
     max: 10,
     standardHeaders: true,
@@ -108,6 +119,7 @@ export const configureRateLimiters = (app: NestExpressApplication) => {
   });
   app.use('/api/v1/contact', contactLimiter);
   const webhookLimiter = rateLimit({
+    store: sharedStore('webhook'),
     windowMs: 1 * 60 * 1000,
     max: 50,
     standardHeaders: true,
@@ -123,6 +135,7 @@ export const configureRateLimiters = (app: NestExpressApplication) => {
   app.use('/api/v1/subscriptions/webhooks', webhookLimiter);
   app.use('/api/v1/payroll/webhooks', webhookLimiter);
   const walletMoneyLimiter = rateLimit({
+    store: sharedStore('wallet'),
     windowMs: 15 * 60 * 1000,
     max: 30,
     standardHeaders: true,
